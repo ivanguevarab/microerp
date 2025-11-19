@@ -697,41 +697,52 @@
 
       try {
         const userData = getUserData();
-        const timestamp = new Date().toISOString();
         
         if (categoriaId) {
-          // ✅ EDITAR - Agregada auditoría completa
-          const { error } = await supabase
+          // ✅ EDITAR - Solo actualizar nombre (sin timestamps)
+          console.log('🔄 Editando categoría:', categoriaId, 'Nuevo nombre:', nombre);
+          
+          const { data, error } = await supabase
             .from('categorias')
             .update({
-              nombre: nombre,
-              updated_at: timestamp,
-              updated_by: userData?.email || 'Sistema'
+              nombre: nombre
             })
-            .eq('id', categoriaId);
+            .eq('id', categoriaId)
+            .select();
 
-          if (error) throw error;
+          if (error) {
+            console.error('❌ Error de Supabase (EDITAR):', error);
+            throw error;
+          }
+          
+          console.log('✅ Categoría actualizada:', data);
           mostrarToast('✅ Categoría actualizada correctamente', 'success');
         } else {
-          // ✅ CREAR - Agregado campo 'activo' y auditoría
-          const { error } = await supabase
+          // ✅ CREAR - Solo nombre y activo (sin timestamps)
+          console.log('➕ Creando nueva categoría:', nombre);
+          
+          const { data, error } = await supabase
             .from('categorias')
             .insert([{
               nombre: nombre,
-              activo: true,
-              created_at: timestamp,
-              created_by: userData?.email || 'Sistema'
-            }]);
+              activo: true
+            }])
+            .select();
 
-          if (error) throw error;
+          if (error) {
+            console.error('❌ Error de Supabase (CREAR):', error);
+            throw error;
+          }
+          
+          console.log('✅ Categoría creada:', data);
           mostrarToast('✅ Categoría creada correctamente', 'success');
         }
 
         cerrarModal();
         cargarCategorias();
       } catch (error) {
-        console.error('Error al guardar:', error);
-        mostrarToast('❌ Error al guardar la categoría', 'error');
+        console.error('❌ Error completo:', error);
+        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
       }
     }
 
@@ -770,26 +781,28 @@
 
     async function eliminarCategoria(id) {
       try {
-        const userData = getUserData();
-        const timestamp = new Date().toISOString();
-
-        // ✅ Soft delete con auditoría completa
-        const { error } = await supabase
+        console.log('🗑️ Eliminando categoría:', id);
+        
+        // ✅ Soft delete simple
+        const { data, error } = await supabase
           .from('categorias')
           .update({ 
-            activo: false,
-            updated_at: timestamp,
-            updated_by: userData?.email || 'Sistema'
+            activo: false
           })
-          .eq('id', id);
+          .eq('id', id)
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Error de Supabase (ELIMINAR):', error);
+          throw error;
+        }
 
+        console.log('✅ Categoría eliminada:', data);
         mostrarToast('✅ Categoría eliminada correctamente', 'success');
         cargarCategorias();
       } catch (error) {
-        console.error('Error al eliminar:', error);
-        mostrarToast('❌ Error al eliminar la categoría', 'error');
+        console.error('❌ Error completo:', error);
+        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
       }
     }
 
