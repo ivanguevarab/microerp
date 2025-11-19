@@ -482,7 +482,7 @@
   <!-- Main Content -->
   <main class="container">
     <div class="page-header">
-      <h2>📑 Gestión de Categorías</h2>
+      <h2>🏷️ Gestión de Categorías</h2>
       <button class="btn-primary" onclick="abrirModalNuevo()">
         + Nueva Categoría
       </button>
@@ -593,7 +593,7 @@
       if (datos.length === 0) {
         tableContent.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">📑</div>
+            <div class="empty-state-icon">🏷️</div>
             <h3>No hay categorías registradas</h3>
             <p>Comienza agregando tu primera categoría</p>
           </div>
@@ -670,7 +670,7 @@
     }
 
     // ============================================
-    // GUARDAR
+    // GUARDAR (CREAR Y EDITAR) ✅ CORREGIDO
     // ============================================
     async function guardarCategoria(event) {
       event.preventDefault();
@@ -697,24 +697,29 @@
 
       try {
         const userData = getUserData();
+        const timestamp = new Date().toISOString();
         
         if (categoriaId) {
-          // EDITAR
+          // ✅ EDITAR - Agregada auditoría completa
           const { error } = await supabase
             .from('categorias')
             .update({
-              nombre: nombre
+              nombre: nombre,
+              updated_at: timestamp,
+              updated_by: userData?.email || 'Sistema'
             })
             .eq('id', categoriaId);
 
           if (error) throw error;
           mostrarToast('✅ Categoría actualizada correctamente', 'success');
         } else {
-          // CREAR
+          // ✅ CREAR - Agregado campo 'activo' y auditoría
           const { error } = await supabase
             .from('categorias')
             .insert([{
               nombre: nombre,
+              activo: true,
+              created_at: timestamp,
               created_by: userData?.email || 'Sistema'
             }]);
 
@@ -755,7 +760,7 @@
     }
 
     // ============================================
-    // ELIMINAR
+    // ELIMINAR (SOFT DELETE) ✅ CORREGIDO
     // ============================================
     function confirmarEliminar(id, nombre) {
       if (confirm(`¿Estás seguro de eliminar la categoría "${nombre}"?\n\nEsta acción no se puede deshacer.`)) {
@@ -765,10 +770,17 @@
 
     async function eliminarCategoria(id) {
       try {
-        // Soft delete: marcar como inactivo
+        const userData = getUserData();
+        const timestamp = new Date().toISOString();
+
+        // ✅ Soft delete con auditoría completa
         const { error } = await supabase
           .from('categorias')
-          .update({ activo: false })
+          .update({ 
+            activo: false,
+            updated_at: timestamp,
+            updated_by: userData?.email || 'Sistema'
+          })
           .eq('id', id);
 
         if (error) throw error;
@@ -785,6 +797,7 @@
     // UTILIDADES
     // ============================================
     function formatearFecha(fecha) {
+      if (!fecha) return '-';
       const date = new Date(fecha);
       return date.toLocaleDateString('es-PE', {
         day: '2-digit',
