@@ -771,7 +771,7 @@
               👤 Contacto Principal <span class="optional-tag">(opcional)</span>
             </div>
 
-            <div class="form-row triple">
+            <div class="form-row">
               <div class="form-group">
                 <label for="contacto1_nombre">Nombre</label>
                 <input type="text" id="contacto1_nombre" placeholder="Ej: Juan Pérez" maxlength="100">
@@ -781,14 +781,14 @@
                 <label for="contacto1_cargo">Cargo</label>
                 <input type="text" id="contacto1_cargo" placeholder="Ej: Gerente de Ventas" maxlength="100">
               </div>
+            </div>
 
+            <div class="form-row">
               <div class="form-group">
                 <label for="contacto1_celular">Celular</label>
                 <input type="text" id="contacto1_celular" placeholder="987654321" maxlength="20">
               </div>
-            </div>
 
-            <div class="form-row single">
               <div class="form-group">
                 <label for="contacto1_whatsapp">WhatsApp</label>
                 <input type="text" id="contacto1_whatsapp" placeholder="987654321" maxlength="20">
@@ -803,7 +803,7 @@
               👤 Contacto Secundario <span class="optional-tag">(opcional)</span>
             </div>
 
-            <div class="form-row triple">
+            <div class="form-row">
               <div class="form-group">
                 <label for="contacto2_nombre">Nombre</label>
                 <input type="text" id="contacto2_nombre" placeholder="Ej: María López" maxlength="100">
@@ -813,14 +813,14 @@
                 <label for="contacto2_cargo">Cargo</label>
                 <input type="text" id="contacto2_cargo" placeholder="Ej: Asistente" maxlength="100">
               </div>
+            </div>
 
+            <div class="form-row">
               <div class="form-group">
                 <label for="contacto2_celular">Celular</label>
                 <input type="text" id="contacto2_celular" placeholder="987654321" maxlength="20">
               </div>
-            </div>
 
-            <div class="form-row single">
               <div class="form-group">
                 <label for="contacto2_whatsapp">WhatsApp</label>
                 <input type="text" id="contacto2_whatsapp" placeholder="987654321" maxlength="20">
@@ -998,13 +998,10 @@
     // ============================================
     // BÚSQUEDA RUC (API EXTERNA)
     // ============================================
-    // ============================================
-    // BÚSQUEDA RUC (API EXTERNA)
-    // ============================================
     async function consultarRUC() {
       const rucInput = document.getElementById('ruc');
       const ruc = rucInput.value.trim();
-      const btnSearch = document.querySelector('.btn-search-ruc');
+      const btnSearch = document.querySelector('.btn-search-ruc'); // El botón de lupa
 
       if (ruc.length !== 11) {
         mostrarToast('El RUC debe tener 11 dígitos', 'warning');
@@ -1017,28 +1014,41 @@
 
         console.log('Consultando RUC:', ruc);
 
-        // Usamos apis.net.pe (Suele tener CORS habilitado para uso gratuito limitado)
-        const response = await fetch(`https://api.apis.net.pe/v1/ruc?numero=${ruc}`);
+        // Intentamos con api.sunat.cloud a través de AllOrigins (Proxy más estable)
+        const proxyUrl = 'https://api.allorigins.win/get?url=';
+        const targetUrl = encodeURIComponent(`https://api.sunat.cloud/ruc/${ruc}`);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const response = await fetch(proxyUrl + targetUrl);
 
-        const data = await response.json();
+        if (!response.ok) throw new Error('Error de red al consultar proxy');
+
+        const dataProxy = await response.json();
+        const data = JSON.parse(dataProxy.contents); // AllOrigins devuelve el contenido en 'contents'
+
         console.log('Respuesta API:', data);
 
-        if (data && data.nombre) {
-          document.getElementById('razon_social').value = data.nombre;
-          // document.getElementById('nombre_comercial').value = data.nombre_comercial || ''; // A veces viene, a veces no
+        if (data) {
+          const razonSocial = data.razon_social || data.nombre_razon_social || '';
+          const nombreComercial = data.nombre_comercial || '';
 
-          mostrarToast('Datos encontrados en SUNAT', 'success');
+          if (razonSocial) {
+            document.getElementById('razon_social').value = razonSocial;
+            document.getElementById('nombre_comercial').value = nombreComercial;
+            mostrarToast('Datos encontrados en SUNAT', 'success');
+          } else {
+            mostrarToast('No se encontraron datos. Use el botón manual 🌐', 'warning');
+          }
         } else {
-          mostrarToast('No se encontraron datos. Intente con el botón manual 🌐', 'warning');
+          throw new Error('Respuesta vacía');
         }
 
       } catch (error) {
         console.error('Error API RUC:', error);
-        mostrarToast('Error de conexión. Use el botón manual 🌐', 'error');
+        mostrarToast('API no disponible. Use el botón manual 🌐', 'error');
+
+        // Ocultar botón de lupa si falla para no frustrar al usuario
+        btnSearch.style.display = 'none';
+
       } finally {
         btnSearch.disabled = false;
         btnSearch.innerHTML = '🔍';
