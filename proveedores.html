@@ -737,10 +737,6 @@
                 <label for="ruc">RUC *</label>
                 <div class="input-group">
                   <input type="text" id="ruc" required placeholder="Ej: 20123456789" maxlength="11" pattern="[0-9]{11}">
-                  <button type="button" class="btn-search-ruc" onclick="consultarRUC()"
-                    title="Buscar Razón Social automáticamente">
-                    🔍
-                  </button>
                   <a href="https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaWeb.jsp"
                     target="_blank" class="btn-search-ruc" style="text-decoration: none;"
                     title="Consulta Manual en SUNAT">
@@ -992,66 +988,6 @@
         // Cerrar otros
         document.querySelectorAll('.contact-details').forEach(d => d.classList.remove('active'));
         el.classList.add('active');
-      }
-    }
-
-    // ============================================
-    // BÚSQUEDA RUC (API EXTERNA)
-    // ============================================
-    async function consultarRUC() {
-      const rucInput = document.getElementById('ruc');
-      const ruc = rucInput.value.trim();
-      const btnSearch = document.querySelector('.btn-search-ruc'); // El botón de lupa
-
-      if (ruc.length !== 11) {
-        mostrarToast('El RUC debe tener 11 dígitos', 'warning');
-        return;
-      }
-
-      try {
-        btnSearch.disabled = true;
-        btnSearch.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; border-width: 2px; margin: 0;"></div>';
-
-        console.log('Consultando RUC:', ruc);
-
-        // Intentamos con api.sunat.cloud a través de AllOrigins (Proxy más estable)
-        const proxyUrl = 'https://api.allorigins.win/get?url=';
-        const targetUrl = encodeURIComponent(`https://api.sunat.cloud/ruc/${ruc}`);
-
-        const response = await fetch(proxyUrl + targetUrl);
-
-        if (!response.ok) throw new Error('Error de red al consultar proxy');
-
-        const dataProxy = await response.json();
-        const data = JSON.parse(dataProxy.contents); // AllOrigins devuelve el contenido en 'contents'
-
-        console.log('Respuesta API:', data);
-
-        if (data) {
-          const razonSocial = data.razon_social || data.nombre_razon_social || '';
-          const nombreComercial = data.nombre_comercial || '';
-
-          if (razonSocial) {
-            document.getElementById('razon_social').value = razonSocial;
-            document.getElementById('nombre_comercial').value = nombreComercial;
-            mostrarToast('Datos encontrados en SUNAT', 'success');
-          } else {
-            mostrarToast('No se encontraron datos. Use el botón manual 🌐', 'warning');
-          }
-        } else {
-          throw new Error('Respuesta vacía');
-        }
-
-      } catch (error) {
-        console.error('Error API RUC:', error);
-        mostrarToast('API no disponible. Use el botón manual 🌐', 'error');
-
-        // Ocultar botón de lupa si falla para no frustrar al usuario
-        btnSearch.style.display = 'none';
-
-      } finally {
-        btnSearch.disabled = false;
-        btnSearch.innerHTML = '🔍';
       }
     }
 
