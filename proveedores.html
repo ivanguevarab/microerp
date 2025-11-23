@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroERP - Proveedores</title>
+  
+  <!-- Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f6fa;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+      color: white;
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      letter-spacing: 1px;
+    }
+
+    .btn-back {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s;
+    }
+
+    .btn-back:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* Container */
+    .container {
+      padding: 30px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .page-header h2 {
+      color: #2c3e50;
+      font-size: 28px;
+    }
+
+    .btn-primary {
+      background: #0070f2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      background: #0060d8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 112, 242, 0.3);
+    }
+
+    /* Tabla */
+    .table-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .search-box {
+      position: relative;
+      max-width: 400px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 40px 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #0070f2;
+    }
+
+    .search-icon {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #7f8c8d;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: #f8f9fa;
+    }
+
+    th {
+      text-align: left;
+      padding: 15px 20px;
+      font-weight: 600;
+      color: #354a5f;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 15px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #2c3e50;
+    }
+
+    tbody tr {
+      transition: background 0.2s;
+    }
+
+    tbody tr:hover {
+      background: #f8f9fa;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge-active {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .badge-inactive {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      font-size: 16px;
+    }
+
+    .btn-edit {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .btn-edit:hover {
+      background: #1565c0;
+      color: white;
+    }
+
+    .btn-delete {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .btn-delete:hover {
+      background: #c62828;
+      color: white;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 700px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideIn 0.3s;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      color: #2c3e50;
+      font-size: 20px;
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #7f8c8d;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.3s;
+    }
+
+    .btn-close:hover {
+      background: #f0f0f0;
+      color: #2c3e50;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .form-section {
+      margin-bottom: 25px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .form-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .form-section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #354a5f;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .form-row.single {
+      grid-template-columns: 1fr;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #354a5f;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #0070f2;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: #7f8c8d;
+      margin-top: 4px;
+    }
+
+    .optional-tag {
+      font-size: 11px;
+      color: #95a5a6;
+      font-weight: 400;
+      font-style: italic;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .btn-secondary {
+      background: #ecf0f1;
+      color: #7f8c8d;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-secondary:hover {
+      background: #dfe4e6;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: none;
+      align-items: center;
+      gap: 12px;
+      z-index: 2000;
+      animation: slideUp 0.3s;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .toast.active {
+      display: flex;
+    }
+
+    .toast.success {
+      border-left: 4px solid #2e7d32;
+    }
+
+    .toast.error {
+      border-left: 4px solid #c62828;
+    }
+
+    .toast.warning {
+      border-left: 4px solid #f57c00;
+    }
+
+    /* Loading state */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #7f8c8d;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #0070f2;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #7f8c8d;
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    .ruc-tag {
+      display: inline-block;
+      background: #fff3e0;
+      color: #e65100;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .contact-info {
+      font-size: 13px;
+      color: #7f8c8d;
+    }
+
+    .contact-info span {
+      display: inline-block;
+      margin-right: 12px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px 15px;
+      }
+
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+      }
+
+      .table-container {
+        overflow-x: auto;
+      }
+
+      table {
+        min-width: 900px;
+      }
+
+      .modal-content {
+        margin: 20px;
+        max-width: 100%;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <button class="btn-back" onclick="window.location.href='dashboard.html'">
+        ← Volver
+      </button>
+      <h1>MICRO ERP</h1>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    <div class="page-header">
+      <h2>🏢 Gestión de Proveedores</h2>
+      <button class="btn-primary" onclick="abrirModalNuevo()">
+        + Nuevo Proveedor
+      </button>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <div class="search-box">
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Buscar por RUC, razón social o nombre comercial..."
+            onkeyup="buscarProveedores()"
+          >
+          <span class="search-icon">🔍</span>
+        </div>
+      </div>
+
+      <div id="tableContent">
+        <!-- Loading state -->
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Cargando proveedores...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Nuevo Proveedor</h3>
+        <button class="btn-close" onclick="cerrarModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="proveedorForm" onsubmit="guardarProveedor(event)">
+          <input type="hidden" id="proveedorId">
+          
+          <!-- SECCIÓN: DATOS GENERALES -->
+          <div class="form-section">
+            <div class="form-section-title">
+              📋 Datos Generales
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="ruc">RUC *</label>
+                <input 
+                  type="text" 
+                  id="ruc" 
+                  required
+                  placeholder="Ej: 20123456789"
+                  maxlength="11"
+                  pattern="[0-9]{11}"
+                >
+                <div class="form-hint">11 dígitos numéricos</div>
+              </div>
+
+              <div class="form-group">
+                <label for="nombre_comercial">Nombre Comercial <span class="optional-tag">(opcional)</span></label>
+                <input 
+                  type="text" 
+                  id="nombre_comercial" 
+                  placeholder="Ej: Aceros del Norte"
+                  maxlength="200"
+                >
+              </div>
+            </div>
+
+            <div class="form-row single">
+              <div class="form-group">
+                <label for="razon_social">Razón Social *</label>
+                <input 
+                  type="text" 
+                  id="razon_social" 
+                  required
+                  placeholder="Ej: ACEROS DEL NORTE S.A.C."
+                  maxlength="200"
+                >
+                <div class="form-hint">Razón social oficial registrada en SUNAT</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN: CONTACTO -->
+          <div class="form-section">
+            <div class="form-section-title">
+              📞 Información de Contacto
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="celular">Celular <span class="optional-tag">(opcional)</span></label>
+                <input 
+                  type="text" 
+                  id="celular" 
+                  placeholder="Ej: 987654321"
+                  maxlength="20"
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="whatsapp">WhatsApp <span class="optional-tag">(opcional)</span></label>
+                <input 
+                  type="text" 
+                  id="whatsapp" 
+                  placeholder="Ej: 987654321"
+                  maxlength="20"
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN: CONTACTO 1 -->
+          <div class="form-section">
+            <div class="form-section-title">
+              👤 Contacto Principal <span class="optional-tag">(opcional)</span>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="contacto1_nombre">Nombre</label>
+                <input 
+                  type="text" 
+                  id="contacto1_nombre" 
+                  placeholder="Ej: Juan Pérez"
+                  maxlength="100"
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="contacto1_cargo">Cargo</label>
+                <input 
+                  type="text" 
+                  id="contacto1_cargo" 
+                  placeholder="Ej: Gerente de Ventas"
+                  maxlength="100"
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN: CONTACTO 2 -->
+          <div class="form-section">
+            <div class="form-section-title">
+              👤 Contacto Secundario <span class="optional-tag">(opcional)</span>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="contacto2_nombre">Nombre</label>
+                <input 
+                  type="text" 
+                  id="contacto2_nombre" 
+                  placeholder="Ej: María López"
+                  maxlength="100"
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="contacto2_cargo">Cargo</label>
+                <input 
+                  type="text" 
+                  id="contacto2_cargo" 
+                  placeholder="Ej: Asistente Comercial"
+                  maxlength="100"
+                >
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+        <button class="btn-primary" onclick="document.getElementById('proveedorForm').requestSubmit()">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <span id="toastIcon"></span>
+    <span id="toastMessage"></span>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURACIÓN SUPABASE
+    // ============================================
+    const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
+    let proveedoresData = [];
+    let proveedorEditando = null;
+
+    // ============================================
+    // CARGAR DATOS
+    // ============================================
+    async function cargarProveedores() {
+      try {
+        const { data, error } = await supabase
+          .from('proveedores')
+          .select('*')
+          .order('razon_social', { ascending: true });
+
+        if (error) throw error;
+
+        proveedoresData = data;
+        renderizarTabla(proveedoresData);
+      } catch (error) {
+        console.error('Error al cargar proveedores:', error);
+        mostrarToast('Error al cargar proveedores', 'error');
+      }
+    }
+
+    // ============================================
+    // RENDERIZAR TABLA
+    // ============================================
+    function renderizarTabla(datos) {
+      const tableContent = document.getElementById('tableContent');
+
+      if (datos.length === 0) {
+        tableContent.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🏢</div>
+            <h3>No hay proveedores registrados</h3>
+            <p>Comienza agregando tu primer proveedor</p>
+          </div>
+        `;
+        return;
+      }
+
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>RUC</th>
+              <th>Razón Social</th>
+              <th>Nombre Comercial</th>
+              <th>Contacto</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${datos.map(prov => `
+              <tr>
+                <td><span class="ruc-tag">${prov.ruc}</span></td>
+                <td><strong>${prov.razon_social}</strong></td>
+                <td>${prov.nombre_comercial || '<span style="color: #bdc3c7;">-</span>'}</td>
+                <td>
+                  <div class="contact-info">
+                    ${prov.celular ? `<span>📱 ${prov.celular}</span>` : ''}
+                    ${prov.whatsapp ? `<span>💬 ${prov.whatsapp}</span>` : ''}
+                    ${!prov.celular && !prov.whatsapp ? '<span style="color: #bdc3c7;">-</span>' : ''}
+                  </div>
+                </td>
+                <td>
+                  <span class="badge ${prov.activo ? 'badge-active' : 'badge-inactive'}">
+                    ${prov.activo ? 'Activo' : 'Inactivo'}
+                  </span>
+                </td>
+                <td>
+                  <div class="actions">
+                    <button class="btn-icon btn-edit" onclick="editarProveedor('${prov.id}')" title="Editar">
+                      ✏️
+                    </button>
+                    <button class="btn-icon btn-delete" onclick="confirmarEliminar('${prov.id}', '${prov.ruc}', '${prov.razon_social.replace(/'/g, "\\'")}')" title="Eliminar">
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      tableContent.innerHTML = html;
+    }
+
+    // ============================================
+    // BÚSQUEDA
+    // ============================================
+    function buscarProveedores() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      
+      const resultados = proveedoresData.filter(prov =>
+        prov.ruc.toLowerCase().includes(searchTerm) ||
+        prov.razon_social.toLowerCase().includes(searchTerm) ||
+        (prov.nombre_comercial && prov.nombre_comercial.toLowerCase().includes(searchTerm))
+      );
+
+      renderizarTabla(resultados);
+    }
+
+    // ============================================
+    // MODAL
+    // ============================================
+    function abrirModalNuevo() {
+      proveedorEditando = null;
+      document.getElementById('modalTitle').textContent = 'Nuevo Proveedor';
+      document.getElementById('proveedorForm').reset();
+      document.getElementById('proveedorId').value = '';
+      document.getElementById('modal').classList.add('active');
+      document.getElementById('ruc').focus();
+    }
+
+    function cerrarModal() {
+      document.getElementById('modal').classList.remove('active');
+      proveedorEditando = null;
+    }
+
+    // ============================================
+    // GUARDAR (CREAR Y EDITAR)
+    // ============================================
+    async function guardarProveedor(event) {
+      event.preventDefault();
+
+      const proveedorId = document.getElementById('proveedorId').value;
+      const ruc = document.getElementById('ruc').value.trim();
+      const razon_social = document.getElementById('razon_social').value.trim();
+      const nombre_comercial = document.getElementById('nombre_comercial').value.trim();
+      const celular = document.getElementById('celular').value.trim();
+      const whatsapp = document.getElementById('whatsapp').value.trim();
+      const contacto1_nombre = document.getElementById('contacto1_nombre').value.trim();
+      const contacto1_cargo = document.getElementById('contacto1_cargo').value.trim();
+      const contacto2_nombre = document.getElementById('contacto2_nombre').value.trim();
+      const contacto2_cargo = document.getElementById('contacto2_cargo').value.trim();
+
+      // Validar campos obligatorios
+      if (!ruc || !razon_social) {
+        mostrarToast('El RUC y la Razón Social son obligatorios', 'warning');
+        return;
+      }
+
+      // Validar formato RUC (11 dígitos numéricos)
+      if (!/^\d{11}$/.test(ruc)) {
+        mostrarToast('⚠️ El RUC debe tener exactamente 11 dígitos numéricos', 'warning');
+        return;
+      }
+
+      // Validar longitudes máximas
+      if (razon_social.length > 200) {
+        mostrarToast('La Razón Social no puede exceder 200 caracteres', 'warning');
+        return;
+      }
+
+      if (nombre_comercial && nombre_comercial.length > 200) {
+        mostrarToast('El Nombre Comercial no puede exceder 200 caracteres', 'warning');
+        return;
+      }
+
+      // Validar RUC duplicado
+      const rucDuplicado = proveedoresData.find(p => 
+        p.ruc === ruc && p.id !== proveedorId
+      );
+
+      if (rucDuplicado) {
+        mostrarToast(`⚠️ El RUC "${ruc}" ya está registrado`, 'warning');
+        return;
+      }
+
+      // Validar Razón Social duplicada
+      const razonDuplicada = proveedoresData.find(p => 
+        p.razon_social.toLowerCase() === razon_social.toLowerCase() && 
+        p.id !== proveedorId
+      );
+
+      if (razonDuplicada) {
+        mostrarToast('⚠️ Esta Razón Social ya está registrada', 'warning');
+        return;
+      }
+
+      try {
+        const datosProveedor = {
+          ruc: ruc,
+          razon_social: razon_social,
+          nombre_comercial: nombre_comercial || null,
+          celular: celular || null,
+          whatsapp: whatsapp || null,
+          contacto1_nombre: contacto1_nombre || null,
+          contacto1_cargo: contacto1_cargo || null,
+          contacto2_nombre: contacto2_nombre || null,
+          contacto2_cargo: contacto2_cargo || null
+        };
+
+        if (proveedorId) {
+          // EDITAR
+          console.log('📝 Editando proveedor:', proveedorId);
+          
+          const { data, error } = await supabase
+            .from('proveedores')
+            .update(datosProveedor)
+            .eq('id', proveedorId)
+            .select();
+
+          if (error) {
+            console.error('❌ Error de Supabase (EDITAR):', error);
+            throw error;
+          }
+          
+          console.log('✅ Proveedor actualizado:', data);
+          mostrarToast('✅ Proveedor actualizado correctamente', 'success');
+        } else {
+          // CREAR
+          console.log('➕ Creando nuevo proveedor:', ruc, razon_social);
+          
+          datosProveedor.activo = true;
+          
+          const { data, error } = await supabase
+            .from('proveedores')
+            .insert([datosProveedor])
+            .select();
+
+          if (error) {
+            console.error('❌ Error de Supabase (CREAR):', error);
+            throw error;
+          }
+          
+          console.log('✅ Proveedor creado:', data);
+          mostrarToast('✅ Proveedor creado correctamente', 'success');
+        }
+
+        cerrarModal();
+        cargarProveedores();
+      } catch (error) {
+        console.error('❌ Error completo:', error);
+        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
+      }
+    }
+
+    // ============================================
+    // EDITAR
+    // ============================================
+    async function editarProveedor(id) {
+      try {
+        const { data, error } = await supabase
+          .from('proveedores')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+
+        proveedorEditando = data;
+        document.getElementById('modalTitle').textContent = 'Editar Proveedor';
+        document.getElementById('proveedorId').value = data.id;
+        document.getElementById('ruc').value = data.ruc;
+        document.getElementById('razon_social').value = data.razon_social;
+        document.getElementById('nombre_comercial').value = data.nombre_comercial || '';
+        document.getElementById('celular').value = data.celular || '';
+        document.getElementById('whatsapp').value = data.whatsapp || '';
+        document.getElementById('contacto1_nombre').value = data.contacto1_nombre || '';
+        document.getElementById('contacto1_cargo').value = data.contacto1_cargo || '';
+        document.getElementById('contacto2_nombre').value = data.contacto2_nombre || '';
+        document.getElementById('contacto2_cargo').value = data.contacto2_cargo || '';
+        document.getElementById('modal').classList.add('active');
+        document.getElementById('ruc').focus();
+      } catch (error) {
+        console.error('Error al cargar proveedor:', error);
+        mostrarToast('Error al cargar el proveedor', 'error');
+      }
+    }
+
+    // ============================================
+    // ELIMINAR (DELETE FÍSICO CON VALIDACIÓN)
+    // ============================================
+    function confirmarEliminar(id, ruc, razon_social) {
+      if (confirm(`¿Estás seguro de eliminar el proveedor "${ruc} - ${razon_social}"?\n\n⚠️ Esta acción es PERMANENTE y no se puede deshacer.`)) {
+        eliminarProveedor(id, ruc, razon_social);
+      }
+    }
+
+    async function eliminarProveedor(id, ruc, razon_social) {
+      try {
+        console.log('🔍 Verificando relaciones para proveedor:', id);
+        
+        // 1. Verificar si hay ingresos asociados
+        const { data: ingresosRelacionados, error: errorCheck } = await supabase
+          .from('ingresos')
+          .select('id, numero_ingreso, fecha_ingreso')
+          .eq('proveedor_id', id)
+          .order('fecha_ingreso', { ascending: false })
+          .limit(5);
+
+        if (errorCheck) {
+          console.error('❌ Error al verificar relaciones:', errorCheck);
+          throw errorCheck;
+        }
+
+        // 2. Si tiene ingresos asociados, NO permitir eliminar
+        if (ingresosRelacionados && ingresosRelacionados.length > 0) {
+          const cantidad = ingresosRelacionados.length;
+          const ejemplos = ingresosRelacionados
+            .slice(0, 3)
+            .map(i => `  • ${i.numero_ingreso} (${formatearFecha(i.fecha_ingreso)})`)
+            .join('\n');
+          
+          alert(
+            `❌ NO SE PUEDE ELIMINAR\n\n` +
+            `El proveedor "${ruc}" tiene ${cantidad >= 5 ? 'al menos 5' : cantidad} ingreso(s) registrado(s):\n\n` +
+            `${ejemplos}\n` +
+            `${cantidad >= 5 ? '  ...\n' : ''}` +
+            `\nNo se puede eliminar un proveedor con ingresos registrados para mantener el historial de compras.`
+          );
+          
+          console.warn('⚠️ Eliminación bloqueada: Hay ingresos asociados');
+          return;
+        }
+
+        console.log('✅ No hay ingresos asociados. Procediendo con DELETE físico...');
+
+        // 3. DELETE FÍSICO
+        const { data, error } = await supabase
+          .from('proveedores')
+          .delete()
+          .eq('id', id)
+          .select();
+
+        if (error) {
+          console.error('❌ Error de Supabase (DELETE):', error);
+          throw error;
+        }
+
+        console.log('✅ Proveedor eliminado permanentemente:', data);
+        mostrarToast('✅ Proveedor eliminado permanentemente', 'success');
+        cargarProveedores();
+      } catch (error) {
+        console.error('❌ Error completo:', error);
+        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
+      }
+    }
+
+    // ============================================
+    // UTILIDADES
+    // ============================================
+    function formatearFecha(fecha) {
+      if (!fecha) return '-';
+      const date = new Date(fecha);
+      return date.toLocaleDateString('es-PE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
+    function getUserData() {
+      const data = localStorage.getItem('microerp_session');
+      return data ? JSON.parse(data) : null;
+    }
+
+    function mostrarToast(mensaje, tipo = 'success') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toastIcon');
+      const message = document.getElementById('toastMessage');
+
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️'
+      };
+
+      toast.className = `toast ${tipo} active`;
+      icon.textContent = icons[tipo];
+      message.textContent = mensaje;
+
+      setTimeout(() => {
+        toast.classList.remove('active');
+      }, 3000);
+    }
+
+    // ============================================
+    // PROTECCIÓN DE PÁGINA
+    // ============================================
+    function protectPage() {
+      const userData = getUserData();
+      if (!userData) {
+        alert('Debes iniciar sesión primero');
+        window.location.href = 'index.html';
+        return false;
+      }
+      return true;
+    }
+
+    // ============================================
+    // INICIALIZACIÓN
+    // ============================================
+    window.addEventListener('load', () => {
+      if (protectPage()) {
+        cargarProveedores();
+      }
+    });
+
+    // Cerrar modal con ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cerrarModal();
+      }
+    });
+
+    // Validación en tiempo real de RUC (solo números)
+    document.addEventListener('DOMContentLoaded', () => {
+      const rucInput = document.getElementById('ruc');
+      if (rucInput) {
+        rucInput.addEventListener('input', (e) => {
+          // Solo permitir números
+          e.target.value = e.target.value.replace(/\D/g, '');
+        });
+      }
+    });
+  </script>
+</body>
+</html>
