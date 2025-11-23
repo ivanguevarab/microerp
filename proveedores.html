@@ -741,8 +741,9 @@
                     title="Buscar Razón Social automáticamente">
                     🔍
                   </button>
-                  <a href="https://www.universidadperu.com/empresas/busqueda/" target="_blank" class="btn-search-ruc"
-                    style="text-decoration: none;" title="Buscar manualmente en Universidad Perú">
+                  <a href="https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaWeb.jsp"
+                    target="_blank" class="btn-search-ruc" style="text-decoration: none;"
+                    title="Consulta Manual en SUNAT">
                     🌐
                   </a>
                 </div>
@@ -1016,12 +1017,8 @@
 
         console.log('Consultando RUC:', ruc);
 
-        // Intentamos con api.sunat.cloud a través de un proxy CORS
-        // Esta API suele ser gratuita y abierta
-        const proxyUrl = 'https://corsproxy.io/?';
-        const targetUrl = `https://api.sunat.cloud/ruc/${ruc}`;
-
-        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+        // Usamos apis.net.pe (Suele tener CORS habilitado para uso gratuito limitado)
+        const response = await fetch(`https://api.apis.net.pe/v1/ruc?numero=${ruc}`);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -1030,38 +1027,18 @@
         const data = await response.json();
         console.log('Respuesta API:', data);
 
-        // Mapeo de campos según la respuesta de api.sunat.cloud
-        // La estructura suele ser: { ruc, razon_social, nombre_comercial, ... }
-        if (data) {
-          const razonSocial = data.razon_social || data.nombre_razon_social || '';
-          const nombreComercial = data.nombre_comercial || '';
+        if (data && data.nombre) {
+          document.getElementById('razon_social').value = data.nombre;
+          // document.getElementById('nombre_comercial').value = data.nombre_comercial || ''; // A veces viene, a veces no
 
-          if (razonSocial) {
-            document.getElementById('razon_social').value = razonSocial;
-            document.getElementById('nombre_comercial').value = nombreComercial;
-
-            // Si hay dirección, podríamos usarla en el futuro
-            // if (data.domicilio_fiscal) ...
-
-            mostrarToast('Datos encontrados en SUNAT', 'success');
-          } else {
-            mostrarToast('No se encontraron datos para este RUC', 'warning');
-          }
+          mostrarToast('Datos encontrados en SUNAT', 'success');
         } else {
-          mostrarToast('Respuesta vacía de SUNAT', 'warning');
+          mostrarToast('No se encontraron datos. Intente con el botón manual 🌐', 'warning');
         }
 
       } catch (error) {
         console.error('Error API RUC:', error);
-
-        // Mensaje más descriptivo para el usuario
-        let mensajeError = 'Error al consultar SUNAT. Ingrese manualmente.';
-        if (error.message.includes('Failed to fetch')) {
-          mensajeError = 'Error de conexión (posible bloqueo CORS). Ingrese manualmente.';
-        }
-
-        mostrarToast(mensajeError, 'error');
-        alert(`Detalle del error: ${error.message}\n\nPor favor ingrese los datos manualmente.`);
+        mostrarToast('Error de conexión. Use el botón manual 🌐', 'error');
       } finally {
         btnSearch.disabled = false;
         btnSearch.innerHTML = '🔍';
