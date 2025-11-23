@@ -800,8 +800,8 @@
                 if (estadoGuardado) {
                     const estado = JSON.parse(estadoGuardado);
 
-                    // 2. Abrir modal
-                    abrirModalNuevo();
+                    // 2. Abrir modal (sin generar código automáticamente para evitar sobrescritura)
+                    abrirModalNuevo(false);
 
                     // 3. Restaurar datos
                     document.getElementById('codigo').value = estado.codigo || '';
@@ -839,6 +839,11 @@
                             document.getElementById('proveedorId').value = newProviderId;
                             mostrarToast('Proveedor creado y seleccionado', 'success');
                         }, 100);
+                    }
+
+                    // Si no había código guardado, generarlo ahora
+                    if (!estado.codigo) {
+                        generarCodigo();
                     }
 
                     // 5. Limpiar URL y Storage
@@ -968,14 +973,16 @@
         // ============================================
         // MODAL
         // ============================================
-        function abrirModalNuevo() {
+        function abrirModalNuevo(generarCodigoAuto = true) {
             itemEditando = null;
             document.getElementById('modalTitle').textContent = 'Nuevo Item';
             document.getElementById('itemForm').reset();
             document.getElementById('itemId').value = '';
 
             // Generar código sugerido automáticamente
-            generarCodigo();
+            if (generarCodigoAuto) {
+                generarCodigo();
+            }
 
             document.getElementById('modal').classList.add('active');
         }
