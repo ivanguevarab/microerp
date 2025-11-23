@@ -871,11 +871,16 @@
                 return;
             }
 
+            // Obtener el código de la unidad de medida para el campo legacy
+            const unidadObj = unidadesData.find(u => u.id === unidadMedidaId);
+            const unidadMedidaLegacy = unidadObj ? unidadObj.codigo : 'NIU';
+
             const payload = {
                 codigo,
                 descripcion,
                 categoria_id: categoriaId,
                 unidad_medida_id: unidadMedidaId,
+                unidad_medida: unidadMedidaLegacy, // Campo legacy requerido por la BD
                 proveedor_id: proveedorId,
                 stock_minimo: stockMinimo,
                 activo: true
