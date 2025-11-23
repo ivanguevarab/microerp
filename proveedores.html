@@ -167,6 +167,7 @@
       padding: 15px 20px;
       border-bottom: 1px solid #f0f0f0;
       color: #2c3e50;
+      vertical-align: top;
     }
 
     tbody tr {
@@ -256,7 +257,7 @@
       background: white;
       border-radius: 12px;
       width: 100%;
-      max-width: 700px;
+      max-width: 800px; /* Más ancho para acomodar nuevos campos */
       max-height: 90vh;
       overflow-y: auto;
       animation: slideIn 0.3s;
@@ -341,9 +342,14 @@
     .form-row.single {
       grid-template-columns: 1fr;
     }
+    
+    .form-row.triple {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
 
     .form-group {
       margin-bottom: 15px;
+      position: relative;
     }
 
     .form-group label {
@@ -493,14 +499,134 @@
       font-size: 13px;
     }
 
-    .contact-info {
-      font-size: 13px;
-      color: #7f8c8d;
+    /* Nuevos estilos para botón de búsqueda RUC */
+    .input-group {
+      display: flex;
+      gap: 8px;
     }
 
-    .contact-info span {
-      display: inline-block;
-      margin-right: 12px;
+    .btn-search-ruc {
+      background: #e3f2fd;
+      color: #1565c0;
+      border: 1px solid #bbdefb;
+      border-radius: 8px;
+      padding: 0 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-search-ruc:hover {
+      background: #bbdefb;
+    }
+
+    .btn-search-ruc:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Estilos para contactos desplegables */
+    .contact-toggle {
+      background: none;
+      border: 1px solid #e0e0e0;
+      padding: 4px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+      color: #354a5f;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+
+    .contact-toggle:hover {
+      background: #f5f6fa;
+      border-color: #b0bec5;
+    }
+
+    .contact-details {
+      display: none;
+      margin-top: 10px;
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      font-size: 13px;
+    }
+
+    .contact-details.active {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .contact-card {
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .contact-card:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .contact-name {
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 4px;
+    }
+
+    .contact-cargo {
+      color: #7f8c8d;
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .contact-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-contact-action {
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .btn-whatsapp {
+      background: #dcf8c6;
+      color: #075e54;
+      border: 1px solid #25d366;
+    }
+
+    .btn-whatsapp:hover {
+      background: #25d366;
+      color: white;
+    }
+
+    .btn-call {
+      background: #e3f2fd;
+      color: #1565c0;
+      border: 1px solid #2196f3;
+    }
+
+    .btn-call:hover {
+      background: #2196f3;
+      color: white;
     }
 
     /* Responsive */
@@ -528,7 +654,7 @@
         max-width: 100%;
       }
 
-      .form-row {
+      .form-row, .form-row.triple {
         grid-template-columns: 1fr;
       }
     }
@@ -597,14 +723,19 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="ruc">RUC *</label>
-                <input 
-                  type="text" 
-                  id="ruc" 
-                  required
-                  placeholder="Ej: 20123456789"
-                  maxlength="11"
-                  pattern="[0-9]{11}"
-                >
+                <div class="input-group">
+                  <input 
+                    type="text" 
+                    id="ruc" 
+                    required
+                    placeholder="Ej: 20123456789"
+                    maxlength="11"
+                    pattern="[0-9]{11}"
+                  >
+                  <button type="button" class="btn-search-ruc" onclick="consultarRUC()" title="Buscar Razón Social en SUNAT">
+                    🔍
+                  </button>
+                </div>
                 <div class="form-hint">11 dígitos numéricos</div>
               </div>
 
@@ -634,42 +765,13 @@
             </div>
           </div>
 
-          <!-- SECCIÓN: CONTACTO -->
-          <div class="form-section">
-            <div class="form-section-title">
-              📞 Información de Contacto
-            </div>
-            
-            <div class="form-row">
-              <div class="form-group">
-                <label for="celular">Celular <span class="optional-tag">(opcional)</span></label>
-                <input 
-                  type="text" 
-                  id="celular" 
-                  placeholder="Ej: 987654321"
-                  maxlength="20"
-                >
-              </div>
-
-              <div class="form-group">
-                <label for="whatsapp">WhatsApp <span class="optional-tag">(opcional)</span></label>
-                <input 
-                  type="text" 
-                  id="whatsapp" 
-                  placeholder="Ej: 987654321"
-                  maxlength="20"
-                >
-              </div>
-            </div>
-          </div>
-
           <!-- SECCIÓN: CONTACTO 1 -->
           <div class="form-section">
             <div class="form-section-title">
               👤 Contacto Principal <span class="optional-tag">(opcional)</span>
             </div>
             
-            <div class="form-row">
+            <div class="form-row triple">
               <div class="form-group">
                 <label for="contacto1_nombre">Nombre</label>
                 <input 
@@ -689,6 +791,29 @@
                   maxlength="100"
                 >
               </div>
+
+              <div class="form-group">
+                <label for="contacto1_celular">Celular</label>
+                <input 
+                  type="text" 
+                  id="contacto1_celular" 
+                  placeholder="987654321"
+                  maxlength="20"
+                >
+              </div>
+            </div>
+            
+            <div class="form-row single">
+              <div class="form-group">
+                <label for="contacto1_whatsapp">WhatsApp</label>
+                <input 
+                  type="text" 
+                  id="contacto1_whatsapp" 
+                  placeholder="987654321"
+                  maxlength="20"
+                >
+                <div class="form-hint">Número para enlace directo a WhatsApp</div>
+              </div>
             </div>
           </div>
 
@@ -698,7 +823,7 @@
               👤 Contacto Secundario <span class="optional-tag">(opcional)</span>
             </div>
             
-            <div class="form-row">
+            <div class="form-row triple">
               <div class="form-group">
                 <label for="contacto2_nombre">Nombre</label>
                 <input 
@@ -714,8 +839,30 @@
                 <input 
                   type="text" 
                   id="contacto2_cargo" 
-                  placeholder="Ej: Asistente Comercial"
+                  placeholder="Ej: Asistente"
                   maxlength="100"
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="contacto2_celular">Celular</label>
+                <input 
+                  type="text" 
+                  id="contacto2_celular" 
+                  placeholder="987654321"
+                  maxlength="20"
+                >
+              </div>
+            </div>
+
+            <div class="form-row single">
+              <div class="form-group">
+                <label for="contacto2_whatsapp">WhatsApp</label>
+                <input 
+                  type="text" 
+                  id="contacto2_whatsapp" 
+                  placeholder="987654321"
+                  maxlength="20"
                 >
               </div>
             </div>
@@ -751,6 +898,7 @@
     // ============================================
     let proveedoresData = [];
     let proveedorEditando = null;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     // ============================================
     // CARGAR DATOS
@@ -796,41 +944,51 @@
               <th>RUC</th>
               <th>Razón Social</th>
               <th>Nombre Comercial</th>
-              <th>Contacto</th>
+              <th>Contactos</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            ${datos.map(prov => `
-              <tr>
-                <td><span class="ruc-tag">${prov.ruc}</span></td>
-                <td><strong>${prov.razon_social}</strong></td>
-                <td>${prov.nombre_comercial || '<span style="color: #bdc3c7;">-</span>'}</td>
-                <td>
-                  <div class="contact-info">
-                    ${prov.celular ? `<span>📱 ${prov.celular}</span>` : ''}
-                    ${prov.whatsapp ? `<span>💬 ${prov.whatsapp}</span>` : ''}
-                    ${!prov.celular && !prov.whatsapp ? '<span style="color: #bdc3c7;">-</span>' : ''}
-                  </div>
-                </td>
-                <td>
-                  <span class="badge ${prov.activo ? 'badge-active' : 'badge-inactive'}">
-                    ${prov.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td>
-                  <div class="actions">
-                    <button class="btn-icon btn-edit" onclick="editarProveedor('${prov.id}')" title="Editar">
-                      ✏️
-                    </button>
-                    <button class="btn-icon btn-delete" onclick="confirmarEliminar('${prov.id}', '${prov.ruc}', '${prov.razon_social.replace(/'/g, "\\'")}')" title="Eliminar">
-                      🗑️
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            `).join('')}
+            ${datos.map(p => {
+              const tieneContacto1 = p.contacto1_nombre || p.contacto1_celular || p.contacto1_whatsapp;
+              const tieneContacto2 = p.contacto2_nombre || p.contacto2_celular || p.contacto2_whatsapp;
+              const totalContactos = (tieneContacto1 ? 1 : 0) + (tieneContacto2 ? 1 : 0);
+
+              return `
+                <tr>
+                  <td><span class="ruc-tag">${p.ruc}</span></td>
+                  <td><strong>${p.razon_social}</strong></td>
+                  <td>${p.nombre_comercial || '<span style="color: #bdc3c7;">-</span>'}</td>
+                  <td>
+                    ${totalContactos > 0 ? `
+                      <button class="contact-toggle" onclick="toggleContactos('${p.id}')">
+                        👥 Ver Contactos (${totalContactos}) ⬇️
+                      </button>
+                      <div id="contactos-${p.id}" class="contact-details">
+                        ${renderizarDetalleContacto(p, 1)}
+                        ${renderizarDetalleContacto(p, 2)}
+                      </div>
+                    ` : '<span style="color: #bdc3c7;">Sin contactos</span>'}
+                  </td>
+                  <td>
+                    <span class="badge ${p.activo ? 'badge-active' : 'badge-inactive'}">
+                      ${p.activo ? 'ACTIVO' : 'INACTIVO'}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="actions">
+                      <button class="btn-icon btn-edit" onclick="editarProveedor('${p.id}')" title="Editar">
+                        ✏️
+                      </button>
+                      <button class="btn-icon btn-delete" onclick="eliminarProveedor('${p.id}', '${p.razon_social}')" title="Eliminar">
+                        🗑️
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       `;
@@ -838,336 +996,285 @@
       tableContent.innerHTML = html;
     }
 
-    // ============================================
-    // BÚSQUEDA
-    // ============================================
-    function buscarProveedores() {
-      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-      
-      const resultados = proveedoresData.filter(prov =>
-        prov.ruc.toLowerCase().includes(searchTerm) ||
-        prov.razon_social.toLowerCase().includes(searchTerm) ||
-        (prov.nombre_comercial && prov.nombre_comercial.toLowerCase().includes(searchTerm))
-      );
+    function renderizarDetalleContacto(p, num) {
+      const nombre = p[`contacto${num}_nombre`];
+      const cargo = p[`contacto${num}_cargo`];
+      const cel = p[`contacto${num}_celular`];
+      const wsp = p[`contacto${num}_whatsapp`];
 
-      renderizarTabla(resultados);
+      if (!nombre && !cel && !wsp) return '';
+
+      return `
+        <div class="contact-card">
+          <div class="contact-name">${nombre || `Contacto ${num}`}</div>
+          ${cargo ? `<div class="contact-cargo">${cargo}</div>` : ''}
+          <div class="contact-actions">
+            ${isMobile && cel ? `
+              <a href="tel:${cel}" class="btn-contact-action btn-call">
+                📞 Llamar
+              </a>
+            ` : ''}
+            ${wsp ? `
+              <a href="https://wa.me/${wsp.replace(/\D/g,'')}" target="_blank" class="btn-contact-action btn-whatsapp">
+                💬 WhatsApp
+              </a>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleContactos(id) {
+      const el = document.getElementById(`contactos-${id}`);
+      if (el.classList.contains('active')) {
+        el.classList.remove('active');
+      } else {
+        // Cerrar otros
+        document.querySelectorAll('.contact-details').forEach(d => d.classList.remove('active'));
+        el.classList.add('active');
+      }
     }
 
     // ============================================
-    // MODAL
+    // BÚSQUEDA RUC (API EXTERNA)
+    // ============================================
+    async function consultarRUC() {
+      const rucInput = document.getElementById('ruc');
+      const ruc = rucInput.value.trim();
+      const btnSearch = document.querySelector('.btn-search-ruc');
+
+      if (ruc.length !== 11) {
+        mostrarToast('El RUC debe tener 11 dígitos', 'warning');
+        return;
+      }
+
+      try {
+        btnSearch.disabled = true;
+        btnSearch.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; border-width: 2px; margin: 0;"></div>';
+
+        // Usamos una API pública gratuita (apis.net.pe)
+        // NOTA: Si esta API deja de funcionar, se puede cambiar por otra como api.peruonline.com
+        const response = await fetch(`https://api.apis.net.pe/v1/ruc?numero=${ruc}`);
+        const data = await response.json();
+
+        if (data && data.nombre) {
+          document.getElementById('razon_social').value = data.nombre;
+          
+          // Intentar llenar otros campos si vienen en la data
+          if (data.direccion) {
+            // Si tuviéramos campo dirección
+          }
+          
+          mostrarToast('Datos encontrados en SUNAT', 'success');
+        } else {
+          mostrarToast('No se encontraron datos para este RUC', 'warning');
+        }
+
+      } catch (error) {
+        console.error('Error API RUC:', error);
+        mostrarToast('Error al consultar SUNAT. Ingrese manualmente.', 'error');
+      } finally {
+        btnSearch.disabled = false;
+        btnSearch.innerHTML = '🔍';
+      }
+    }
+
+    // ============================================
+    // CRUD
     // ============================================
     function abrirModalNuevo() {
       proveedorEditando = null;
-      document.getElementById('modalTitle').textContent = 'Nuevo Proveedor';
       document.getElementById('proveedorForm').reset();
       document.getElementById('proveedorId').value = '';
+      document.getElementById('modalTitle').innerText = 'Nuevo Proveedor';
       document.getElementById('modal').classList.add('active');
-      document.getElementById('ruc').focus();
+      
+      // Focus en RUC
+      setTimeout(() => document.getElementById('ruc').focus(), 100);
     }
 
     function cerrarModal() {
       document.getElementById('modal').classList.remove('active');
-      proveedorEditando = null;
     }
 
-    // ============================================
-    // GUARDAR (CREAR Y EDITAR)
-    // ============================================
-    async function guardarProveedor(event) {
-      event.preventDefault();
-
-      const proveedorId = document.getElementById('proveedorId').value;
+    async function guardarProveedor(e) {
+      e.preventDefault();
+      
+      const id = document.getElementById('proveedorId').value;
       const ruc = document.getElementById('ruc').value.trim();
       const razon_social = document.getElementById('razon_social').value.trim();
-      const nombre_comercial = document.getElementById('nombre_comercial').value.trim();
-      const celular = document.getElementById('celular').value.trim();
-      const whatsapp = document.getElementById('whatsapp').value.trim();
-      const contacto1_nombre = document.getElementById('contacto1_nombre').value.trim();
-      const contacto1_cargo = document.getElementById('contacto1_cargo').value.trim();
-      const contacto2_nombre = document.getElementById('contacto2_nombre').value.trim();
-      const contacto2_cargo = document.getElementById('contacto2_cargo').value.trim();
-
-      // Validar campos obligatorios
-      if (!ruc || !razon_social) {
-        mostrarToast('El RUC y la Razón Social son obligatorios', 'warning');
-        return;
-      }
-
-      // Validar formato RUC (11 dígitos numéricos)
+      
+      // Validaciones
       if (!/^\d{11}$/.test(ruc)) {
-        mostrarToast('⚠️ El RUC debe tener exactamente 11 dígitos numéricos', 'warning');
+        mostrarToast('El RUC debe tener 11 dígitos numéricos', 'warning');
         return;
       }
 
-      // Validar longitudes máximas
-      if (razon_social.length > 200) {
-        mostrarToast('La Razón Social no puede exceder 200 caracteres', 'warning');
-        return;
-      }
-
-      if (nombre_comercial && nombre_comercial.length > 200) {
-        mostrarToast('El Nombre Comercial no puede exceder 200 caracteres', 'warning');
-        return;
-      }
-
-      // Validar RUC duplicado
-      const rucDuplicado = proveedoresData.find(p => 
-        p.ruc === ruc && p.id !== proveedorId
-      );
-
-      if (rucDuplicado) {
-        mostrarToast(`⚠️ El RUC "${ruc}" ya está registrado`, 'warning');
-        return;
-      }
-
-      // Validar Razón Social duplicada
-      const razonDuplicada = proveedoresData.find(p => 
-        p.razon_social.toLowerCase() === razon_social.toLowerCase() && 
-        p.id !== proveedorId
-      );
-
-      if (razonDuplicada) {
-        mostrarToast('⚠️ Esta Razón Social ya está registrada', 'warning');
-        return;
-      }
-
-      try {
-        const datosProveedor = {
-          ruc: ruc,
-          razon_social: razon_social,
-          nombre_comercial: nombre_comercial || null,
-          celular: celular || null,
-          whatsapp: whatsapp || null,
-          contacto1_nombre: contacto1_nombre || null,
-          contacto1_cargo: contacto1_cargo || null,
-          contacto2_nombre: contacto2_nombre || null,
-          contacto2_cargo: contacto2_cargo || null
-        };
-
-        if (proveedorId) {
-          // EDITAR
-          console.log('📝 Editando proveedor:', proveedorId);
-          
-          const { data, error } = await supabase
-            .from('proveedores')
-            .update(datosProveedor)
-            .eq('id', proveedorId)
-            .select();
-
-          if (error) {
-            console.error('❌ Error de Supabase (EDITAR):', error);
-            throw error;
-          }
-          
-          console.log('✅ Proveedor actualizado:', data);
-          mostrarToast('✅ Proveedor actualizado correctamente', 'success');
-        } else {
-          // CREAR
-          console.log('➕ Creando nuevo proveedor:', ruc, razon_social);
-          
-          datosProveedor.activo = true;
-          
-          const { data, error } = await supabase
-            .from('proveedores')
-            .insert([datosProveedor])
-            .select();
-
-          if (error) {
-            console.error('❌ Error de Supabase (CREAR):', error);
-            throw error;
-          }
-          
-          console.log('✅ Proveedor creado:', data);
-          mostrarToast('✅ Proveedor creado correctamente', 'success');
-        }
-
-        cerrarModal();
-        cargarProveedores();
-      } catch (error) {
-        console.error('❌ Error completo:', error);
-        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
-      }
-    }
-
-    // ============================================
-    // EDITAR
-    // ============================================
-    async function editarProveedor(id) {
-      try {
-        const { data, error } = await supabase
-          .from('proveedores')
-          .select('*')
-          .eq('id', id)
-          .single();
-
-        if (error) throw error;
-
-        proveedorEditando = data;
-        document.getElementById('modalTitle').textContent = 'Editar Proveedor';
-        document.getElementById('proveedorId').value = data.id;
-        document.getElementById('ruc').value = data.ruc;
-        document.getElementById('razon_social').value = data.razon_social;
-        document.getElementById('nombre_comercial').value = data.nombre_comercial || '';
-        document.getElementById('celular').value = data.celular || '';
-        document.getElementById('whatsapp').value = data.whatsapp || '';
-        document.getElementById('contacto1_nombre').value = data.contacto1_nombre || '';
-        document.getElementById('contacto1_cargo').value = data.contacto1_cargo || '';
-        document.getElementById('contacto2_nombre').value = data.contacto2_nombre || '';
-        document.getElementById('contacto2_cargo').value = data.contacto2_cargo || '';
-        document.getElementById('modal').classList.add('active');
-        document.getElementById('ruc').focus();
-      } catch (error) {
-        console.error('Error al cargar proveedor:', error);
-        mostrarToast('Error al cargar el proveedor', 'error');
-      }
-    }
-
-    // ============================================
-    // ELIMINAR (DELETE FÍSICO CON VALIDACIÓN)
-    // ============================================
-    function confirmarEliminar(id, ruc, razon_social) {
-      if (confirm(`¿Estás seguro de eliminar el proveedor "${ruc} - ${razon_social}"?\n\n⚠️ Esta acción es PERMANENTE y no se puede deshacer.`)) {
-        eliminarProveedor(id, ruc, razon_social);
-      }
-    }
-
-    async function eliminarProveedor(id, ruc, razon_social) {
-      try {
-        console.log('🔍 Verificando relaciones para proveedor:', id);
+      // Datos del formulario
+      const datos = {
+        ruc,
+        razon_social,
+        nombre_comercial: document.getElementById('nombre_comercial').value.trim() || null,
         
-        // 1. Verificar si hay ingresos asociados
-        const { data: ingresosRelacionados, error: errorCheck } = await supabase
-          .from('ingresos')
-          .select('id, numero_ingreso, fecha_ingreso')
-          .eq('proveedor_id', id)
-          .order('fecha_ingreso', { ascending: false })
-          .limit(5);
+        // Contacto 1
+        contacto1_nombre: document.getElementById('contacto1_nombre').value.trim() || null,
+        contacto1_cargo: document.getElementById('contacto1_cargo').value.trim() || null,
+        contacto1_celular: document.getElementById('contacto1_celular').value.trim() || null,
+        contacto1_whatsapp: document.getElementById('contacto1_whatsapp').value.trim() || null,
+        
+        // Contacto 2
+        contacto2_nombre: document.getElementById('contacto2_nombre').value.trim() || null,
+        contacto2_cargo: document.getElementById('contacto2_cargo').value.trim() || null,
+        contacto2_celular: document.getElementById('contacto2_celular').value.trim() || null,
+        contacto2_whatsapp: document.getElementById('contacto2_whatsapp').value.trim() || null,
+        
+        activo: true
+      };
 
-        if (errorCheck) {
-          console.error('❌ Error al verificar relaciones:', errorCheck);
-          throw errorCheck;
-        }
+      try {
+        // Verificar duplicados
+        const { data: existentes } = await supabase
+          .from('proveedores')
+          .select('id, ruc, razon_social')
+          .or(`ruc.eq.${ruc},razon_social.ilike.${razon_social}`);
 
-        // 2. Si tiene ingresos asociados, NO permitir eliminar
-        if (ingresosRelacionados && ingresosRelacionados.length > 0) {
-          const cantidad = ingresosRelacionados.length;
-          const ejemplos = ingresosRelacionados
-            .slice(0, 3)
-            .map(i => `  • ${i.numero_ingreso} (${formatearFecha(i.fecha_ingreso)})`)
-            .join('\n');
-          
-          alert(
-            `❌ NO SE PUEDE ELIMINAR\n\n` +
-            `El proveedor "${ruc}" tiene ${cantidad >= 5 ? 'al menos 5' : cantidad} ingreso(s) registrado(s):\n\n` +
-            `${ejemplos}\n` +
-            `${cantidad >= 5 ? '  ...\n' : ''}` +
-            `\nNo se puede eliminar un proveedor con ingresos registrados para mantener el historial de compras.`
-          );
-          
-          console.warn('⚠️ Eliminación bloqueada: Hay ingresos asociados');
+        const duplicado = existentes?.find(p => p.id !== id);
+        if (duplicado) {
+          if (duplicado.ruc === ruc) {
+            mostrarToast('Ya existe un proveedor con este RUC', 'warning');
+          } else {
+            mostrarToast('Ya existe un proveedor con esta Razón Social', 'warning');
+          }
           return;
         }
 
-        console.log('✅ No hay ingresos asociados. Procediendo con DELETE físico...');
-
-        // 3. DELETE FÍSICO
-        const { data, error } = await supabase
-          .from('proveedores')
-          .delete()
-          .eq('id', id)
-          .select();
-
-        if (error) {
-          console.error('❌ Error de Supabase (DELETE):', error);
-          throw error;
+        let error;
+        if (id) {
+          // Update
+          const { error: updateError } = await supabase
+            .from('proveedores')
+            .update(datos)
+            .eq('id', id);
+          error = updateError;
+        } else {
+          // Insert
+          const { error: insertError } = await supabase
+            .from('proveedores')
+            .insert([datos]);
+          error = insertError;
         }
 
-        console.log('✅ Proveedor eliminado permanentemente:', data);
-        mostrarToast('✅ Proveedor eliminado permanentemente', 'success');
+        if (error) throw error;
+
+        mostrarToast('Proveedor guardado exitosamente', 'success');
+        cerrarModal();
         cargarProveedores();
+
       } catch (error) {
-        console.error('❌ Error completo:', error);
-        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
+        console.error('Error al guardar:', error);
+        mostrarToast('Error al guardar proveedor', 'error');
+      }
+    }
+
+    function editarProveedor(id) {
+      const proveedor = proveedoresData.find(p => p.id === id);
+      if (!proveedor) return;
+
+      proveedorEditando = proveedor;
+      document.getElementById('proveedorId').value = proveedor.id;
+      document.getElementById('modalTitle').innerText = 'Editar Proveedor';
+
+      // Llenar campos
+      document.getElementById('ruc').value = proveedor.ruc;
+      document.getElementById('razon_social').value = proveedor.razon_social;
+      document.getElementById('nombre_comercial').value = proveedor.nombre_comercial || '';
+      
+      // Contacto 1
+      document.getElementById('contacto1_nombre').value = proveedor.contacto1_nombre || '';
+      document.getElementById('contacto1_cargo').value = proveedor.contacto1_cargo || '';
+      document.getElementById('contacto1_celular').value = proveedor.contacto1_celular || '';
+      document.getElementById('contacto1_whatsapp').value = proveedor.contacto1_whatsapp || '';
+      
+      // Contacto 2
+      document.getElementById('contacto2_nombre').value = proveedor.contacto2_nombre || '';
+      document.getElementById('contacto2_cargo').value = proveedor.contacto2_cargo || '';
+      document.getElementById('contacto2_celular').value = proveedor.contacto2_celular || '';
+      document.getElementById('contacto2_whatsapp').value = proveedor.contacto2_whatsapp || '';
+
+      document.getElementById('modal').classList.add('active');
+    }
+
+    async function eliminarProveedor(id, nombre) {
+      if (!confirm(`¿Estás seguro de eliminar al proveedor "${nombre}"?\n\nEsta acción no se puede deshacer.`)) {
+        return;
+      }
+
+      try {
+        // Verificar relaciones (Ingresos)
+        const { data: ingresos } = await supabase
+          .from('ingresos')
+          .select('id, numero_ingreso')
+          .eq('proveedor_id', id)
+          .limit(1);
+
+        if (ingresos && ingresos.length > 0) {
+          alert(`No se puede eliminar el proveedor "${nombre}" porque tiene ingresos registrados.\n\nPara mantener el historial, te sugerimos desactivarlo en lugar de eliminarlo.`);
+          return;
+        }
+
+        const { error } = await supabase
+          .from('proveedores')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        mostrarToast('Proveedor eliminado', 'success');
+        cargarProveedores();
+
+      } catch (error) {
+        console.error('Error al eliminar:', error);
+        mostrarToast('Error al eliminar proveedor', 'error');
       }
     }
 
     // ============================================
     // UTILIDADES
     // ============================================
-    function formatearFecha(fecha) {
-      if (!fecha) return '-';
-      const date = new Date(fecha);
-      return date.toLocaleDateString('es-PE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
+    function buscarProveedores() {
+      const texto = document.getElementById('searchInput').value.toLowerCase();
+      const filas = document.querySelectorAll('tbody tr');
 
-    function getUserData() {
-      const data = localStorage.getItem('microerp_session');
-      return data ? JSON.parse(data) : null;
+      filas.forEach(fila => {
+        const contenido = fila.innerText.toLowerCase();
+        fila.style.display = contenido.includes(texto) ? '' : 'none';
+      });
     }
 
     function mostrarToast(mensaje, tipo = 'success') {
       const toast = document.getElementById('toast');
       const icon = document.getElementById('toastIcon');
-      const message = document.getElementById('toastMessage');
-
-      const icons = {
-        success: '✅',
-        error: '❌',
-        warning: '⚠️'
-      };
+      const msg = document.getElementById('toastMessage');
 
       toast.className = `toast ${tipo} active`;
-      icon.textContent = icons[tipo];
-      message.textContent = mensaje;
+      msg.innerText = mensaje;
+      
+      if (tipo === 'success') icon.innerText = '✅';
+      else if (tipo === 'error') icon.innerText = '❌';
+      else icon.innerText = '⚠️';
 
       setTimeout(() => {
-        toast.classList.remove('active');
+        toast.className = 'toast';
       }, 3000);
     }
 
-    // ============================================
-    // PROTECCIÓN DE PÁGINA
-    // ============================================
-    function protectPage() {
-      const userData = getUserData();
-      if (!userData) {
-        alert('Debes iniciar sesión primero');
-        window.location.href = 'index.html';
-        return false;
-      }
-      return true;
-    }
-
-    // ============================================
-    // INICIALIZACIÓN
-    // ============================================
-    window.addEventListener('load', () => {
-      if (protectPage()) {
-        cargarProveedores();
-      }
+    // Validación RUC solo números
+    document.getElementById('ruc').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '');
     });
 
-    // Cerrar modal con ESC
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        cerrarModal();
-      }
-    });
-
-    // Validación en tiempo real de RUC (solo números)
-    document.addEventListener('DOMContentLoaded', () => {
-      const rucInput = document.getElementById('ruc');
-      if (rucInput) {
-        rucInput.addEventListener('input', (e) => {
-          // Solo permitir números
-          e.target.value = e.target.value.replace(/\D/g, '');
-        });
-      }
-    });
+    // Inicializar
+    cargarProveedores();
   </script>
 </body>
 </html>
