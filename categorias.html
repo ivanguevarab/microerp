@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroERP - Categorías</title>
+
+  <!-- Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f6fa;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+      color: white;
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      letter-spacing: 1px;
+    }
+
+    .btn-back {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s;
+    }
+
+    .btn-back:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Container */
+    .container {
+      padding: 30px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .page-header h2 {
+      color: #2c3e50;
+      font-size: 28px;
+    }
+
+    .btn-primary {
+      background: #0070f2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      background: #0060d8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 112, 242, 0.3);
+    }
+
+    /* Tabla */
+    .table-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .search-box {
+      position: relative;
+      max-width: 400px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 40px 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #0070f2;
+    }
+
+    .search-icon {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #7f8c8d;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: #f8f9fa;
+    }
+
+    th {
+      text-align: left;
+      padding: 15px 20px;
+      font-weight: 600;
+      color: #354a5f;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 15px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #2c3e50;
+    }
+
+    tbody tr {
+      transition: background 0.2s;
+    }
+
+    tbody tr:hover {
+      background: #f8f9fa;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge-active {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .badge-inactive {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      font-size: 16px;
+    }
+
+    .btn-edit {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .btn-edit:hover {
+      background: #1565c0;
+      color: white;
+    }
+
+    .btn-delete {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .btn-delete:hover {
+      background: #c62828;
+      color: white;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideIn 0.3s;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      color: #2c3e50;
+      font-size: 20px;
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #7f8c8d;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.3s;
+    }
+
+    .btn-close:hover {
+      background: #f0f0f0;
+      color: #2c3e50;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #354a5f;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #0070f2;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .btn-secondary {
+      background: #ecf0f1;
+      color: #7f8c8d;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-secondary:hover {
+      background: #dfe4e6;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: none;
+      align-items: center;
+      gap: 12px;
+      z-index: 2000;
+      animation: slideUp 0.3s;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .toast.active {
+      display: flex;
+    }
+
+    .toast.success {
+      border-left: 4px solid #2e7d32;
+    }
+
+    .toast.error {
+      border-left: 4px solid #c62828;
+    }
+
+    .toast.warning {
+      border-left: 4px solid #f57c00;
+    }
+
+    /* Loading state */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #7f8c8d;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #0070f2;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #7f8c8d;
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px 15px;
+      }
+
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+      }
+
+      .table-container {
+        overflow-x: auto;
+      }
+
+      table {
+        min-width: 600px;
+      }
+
+      .modal-content {
+        margin: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <button class="btn-back" onclick="handleBack()">
+        ← Volver
+      </button>
+      <h1>MICRO ERP</h1>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    <div class="page-header">
+      <h2>🏷️ Gestión de Categorías</h2>
+      <button class="btn-primary" onclick="abrirModalNuevo()">
+        + Nueva Categoría
+      </button>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Buscar categoría..." onkeyup="buscarCategorias()">
+          <span class="search-icon">🔍</span>
+        </div>
+      </div>
+
+      <div id="tableContent">
+        <!-- Loading state -->
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Cargando categorías...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Nueva Categoría</h3>
+        <button class="btn-close" onclick="cerrarModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="categoriaForm" onsubmit="guardarCategoria(event)">
+          <input type="hidden" id="categoriaId">
+
+          <div class="form-group">
+            <label for="nombre">Nombre de la Categoría *</label>
+            <input type="text" id="nombre" required placeholder="Ej: Materia Prima" maxlength="100">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+        <button class="btn-primary" onclick="document.getElementById('categoriaForm').requestSubmit()">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <span id="toastIcon"></span>
+    <span id="toastMessage"></span>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURACIÓN SUPABASE
+    // ============================================
+    const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
+    let categoriasData = [];
+    let categoriaEditando = null;
+
+    // ============================================
+    // CARGAR DATOS
+    // ============================================
+    async function cargarCategorias() {
+      try {
+        const { data, error } = await supabase
+          .from('categorias')
+          .select('*')
+          .order('nombre', { ascending: true });
+
+        if (error) throw error;
+
+        categoriasData = data;
+        renderizarTabla(categoriasData);
+      } catch (error) {
+        console.error('Error al cargar categorías:', error);
+        mostrarToast('Error al cargar categorías', 'error');
+      }
+    }
+
+    // ============================================
+    // RENDERIZAR TABLA
+    // ============================================
+    function renderizarTabla(datos) {
+      const tableContent = document.getElementById('tableContent');
+
+      if (datos.length === 0) {
+        tableContent.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🏷️</div>
+            <h3>No hay categorías registradas</h3>
+            <p>Comienza agregando tu primera categoría</p>
+          </div>
+        `;
+        return;
+      }
+
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Fecha de Creación</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${datos.map(cat => `
+              <tr>
+                <td><strong>${cat.nombre}</strong></td>
+                <td>${formatearFecha(cat.created_at)}</td>
+                <td>
+                  <span class="badge ${cat.activo ? 'badge-active' : 'badge-inactive'}">
+                    ${cat.activo ? 'Activo' : 'Inactivo'}
+                  </span>
+                </td>
+                <td>
+                  <div class="actions">
+                    <button class="btn-icon btn-edit" onclick="editarCategoria('${cat.id}')" title="Editar">
+                      ✏️
+                    </button>
+                    <button class="btn-icon btn-delete" onclick="confirmarEliminar('${cat.id}', '${cat.nombre}')" title="Eliminar">
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      tableContent.innerHTML = html;
+    }
+
+    // ============================================
+    // BÚSQUEDA
+    // ============================================
+    function buscarCategorias() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+      const resultados = categoriasData.filter(cat =>
+        cat.nombre.toLowerCase().includes(searchTerm)
+      );
+
+      renderizarTabla(resultados);
+    }
+
+    // ============================================
+    // MODAL
+    // ============================================
+    function abrirModalNuevo() {
+      categoriaEditando = null;
+      document.getElementById('modalTitle').textContent = 'Nueva Categoría';
+      document.getElementById('categoriaForm').reset();
+      document.getElementById('categoriaId').value = '';
+      document.getElementById('modal').classList.add('active');
+    }
+
+    function cerrarModal() {
+      document.getElementById('modal').classList.remove('active');
+      categoriaEditando = null;
+    }
+
+    // ============================================
+    // GUARDAR (CREAR Y EDITAR) ✅ CORREGIDO
+    // ============================================
+    async function guardarCategoria(event) {
+      event.preventDefault();
+
+      const nombre = document.getElementById('nombre').value.trim();
+      const categoriaId = document.getElementById('categoriaId').value;
+
+      // Validar que no esté vacío
+      if (!nombre) {
+        mostrarToast('El nombre es obligatorio', 'warning');
+        return;
+      }
+
+      // Validar duplicados (excepto si estamos editando)
+      const duplicado = categoriasData.find(cat =>
+        cat.nombre.toLowerCase() === nombre.toLowerCase() &&
+        cat.id !== categoriaId
+      );
+
+      if (duplicado) {
+        mostrarToast('⚠️ Esta categoría ya existe', 'warning');
+        return;
+      }
+
+      try {
+        const userData = getUserData();
+
+        let newItemId = null;
+
+        if (categoriaId) {
+          // ✅ EDITAR - Solo actualizar nombre (sin timestamps)
+          console.log('🔄 Editando categoría:', categoriaId, 'Nuevo nombre:', nombre);
+
+          const { data, error } = await supabase
+            .from('categorias')
+            .update({
+              nombre: nombre
+            })
+            .eq('id', categoriaId)
+            .select();
+
+          if (error) {
+            console.error('❌ Error de Supabase (EDITAR):', error);
+            throw error;
+          }
+
+          console.log('✅ Categoría actualizada:', data);
+          mostrarToast('✅ Categoría actualizada correctamente', 'success');
+        } else {
+          // ✅ CREAR - Solo nombre y activo (sin timestamps)
+          console.log('➕ Creando nueva categoría:', nombre);
+
+          const { data, error } = await supabase
+            .from('categorias')
+            .insert([{
+              nombre: nombre,
+              activo: true
+            }])
+            .select();
+
+          if (error) {
+            console.error('❌ Error de Supabase (CREAR):', error);
+            throw error;
+          }
+
+          if (data && data.length > 0) {
+            newItemId = data[0].id;
+          }
+
+          console.log('✅ Categoría creada:', data);
+          mostrarToast('✅ Categoría creada correctamente', 'success');
+        }
+
+        cerrarModal();
+        cargarCategorias();
+
+        // Verificar si hay retorno pendiente
+        if (!categoriaId) { // Solo si es creación nueva
+          const urlParams = new URLSearchParams(window.location.search);
+          const returnUrl = urlParams.get('returnUrl');
+          if (returnUrl && newItemId) {
+            window.location.href = `${returnUrl}?newCategoryId=${newItemId}`;
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error completo:', error);
+        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
+      }
+    }
+
+    // ============================================
+    // EDITAR
+    // ============================================
+    async function editarCategoria(id) {
+      try {
+        const { data, error } = await supabase
+          .from('categorias')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+
+        categoriaEditando = data;
+        document.getElementById('modalTitle').textContent = 'Editar Categoría';
+        document.getElementById('categoriaId').value = data.id;
+        document.getElementById('nombre').value = data.nombre;
+        document.getElementById('modal').classList.add('active');
+      } catch (error) {
+        console.error('Error al cargar categoría:', error);
+        mostrarToast('Error al cargar la categoría', 'error');
+      }
+    }
+
+    // ============================================
+    // ELIMINAR (DELETE FÍSICO CON VALIDACIÓN) ✅ ACTUALIZADO
+    // ============================================
+    function confirmarEliminar(id, nombre) {
+      if (confirm(`¿Estás seguro de eliminar la categoría "${nombre}"?\n\n⚠️ Esta acción es PERMANENTE y no se puede deshacer.`)) {
+        eliminarCategoria(id, nombre);
+      }
+    }
+
+    async function eliminarCategoria(id, nombre) {
+      try {
+        console.log('🔍 Verificando relaciones para categoría:', id);
+
+        // 1. Verificar si hay items asociados
+        const { data: itemsRelacionados, error: errorCheck } = await supabase
+          .from('items')
+          .select('id, codigo, descripcion')
+          .eq('categoria_id', id)
+          .limit(5); // Solo traemos los primeros 5 para mostrar
+
+        if (errorCheck) {
+          console.error('❌ Error al verificar relaciones:', errorCheck);
+          throw errorCheck;
+        }
+
+        // 2. Si tiene items asociados, NO permitir eliminar
+        if (itemsRelacionados && itemsRelacionados.length > 0) {
+          const cantidad = itemsRelacionados.length;
+
+          const mensaje = `⛔ No se puede eliminar la categoría:\n\nTiene ${cantidad} item(s) asociado(s).`;
+          alert(mensaje);
+          return;
+        }
+        console.log('✅ No hay productos asociados. Procediendo con DELETE físico...');
+
+        // 3. DELETE FÍSICO (no soft delete)
+        const { data, error } = await supabase
+          .from('categorias')
+          .delete()
+          .eq('id', id)
+          .select();
+
+        if (error) {
+          console.error('❌ Error de Supabase (DELETE):', error);
+          throw error;
+        }
+
+        console.log('✅ Categoría eliminada permanentemente:', data);
+        mostrarToast('✅ Categoría eliminada permanentemente', 'success');
+        cargarCategorias();
+      } catch (error) {
+        console.error('❌ Error completo:', error);
+        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
+      }
+    }
+
+    // ============================================
+    // UTILIDADES
+    // ============================================
+    function formatearFecha(fecha) {
+      if (!fecha) return '-';
+      const date = new Date(fecha);
+      return date.toLocaleDateString('es-PE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
+    function getUserData() {
+      const data = localStorage.getItem('microerp_session');
+      return data ? JSON.parse(data) : null;
+    }
+
+    function mostrarToast(mensaje, tipo = 'success') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toastIcon');
+      const message = document.getElementById('toastMessage');
+
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️'
+      };
+
+      toast.className = `toast ${tipo} active`;
+      icon.textContent = icons[tipo];
+      message.textContent = mensaje;
+
+      setTimeout(() => {
+        toast.classList.remove('active');
+      }, 3000);
+    }
+
+    // ============================================
+    // PROTECCIÓN DE PÁGINA
+    // ============================================
+    function protectPage() {
+      const token = localStorage.getItem('microerp_session');
+      if (!token) {
+        window.location.href = 'index.html';
+      }
+    }
+
+    // ============================================
+    // NAVEGACIÓN CONTEXTUAL
+    // ============================================
+    function handleBack() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const returnUrl = urlParams.get('returnUrl');
+      if (returnUrl) {
+        window.location.href = `${returnUrl}?restoreState=true`;
+      } else {
+        window.location.href = 'dashboard.html';
+      }
+    }
+
+    // ============================================
+    // INICIALIZACIÓN
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+      protectPage();
+      cargarCategorias();
+
+      // Verificar modo selección
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('mode') === 'select') {
+        abrirModalNuevo();
+      }
+    });
+
+    // ============================================
+    // UTILS
+    // ============================================Cerrar modal con ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cerrarModal();
+      }
+    });
+  </script>
+</body>
+
+</html>

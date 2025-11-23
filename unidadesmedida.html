@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroERP - Unidades de Medida</title>
+
+  <!-- Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f6fa;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+      color: white;
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      letter-spacing: 1px;
+    }
+
+    .btn-back {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s;
+    }
+
+    .btn-back:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Container */
+    .container {
+      padding: 30px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .page-header h2 {
+      color: #2c3e50;
+      font-size: 28px;
+    }
+
+    .btn-primary {
+      background: #0070f2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      background: #0060d8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 112, 242, 0.3);
+    }
+
+    /* Tabla */
+    .table-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .search-box {
+      position: relative;
+      max-width: 400px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 40px 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #0070f2;
+    }
+
+    .search-icon {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #7f8c8d;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: #f8f9fa;
+    }
+
+    th {
+      text-align: left;
+      padding: 15px 20px;
+      font-weight: 600;
+      color: #354a5f;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 15px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #2c3e50;
+    }
+
+    tbody tr {
+      transition: background 0.2s;
+    }
+
+    tbody tr:hover {
+      background: #f8f9fa;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge-active {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .badge-inactive {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      font-size: 16px;
+    }
+
+    .btn-edit {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .btn-edit:hover {
+      background: #1565c0;
+      color: white;
+    }
+
+    .btn-delete {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .btn-delete:hover {
+      background: #c62828;
+      color: white;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideIn 0.3s;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      color: #2c3e50;
+      font-size: 20px;
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #7f8c8d;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.3s;
+    }
+
+    .btn-close:hover {
+      background: #f0f0f0;
+      color: #2c3e50;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #354a5f;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #0070f2;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: #7f8c8d;
+      margin-top: 4px;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .btn-secondary {
+      background: #ecf0f1;
+      color: #7f8c8d;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-secondary:hover {
+      background: #dfe4e6;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: none;
+      align-items: center;
+      gap: 12px;
+      z-index: 2000;
+      animation: slideUp 0.3s;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .toast.active {
+      display: flex;
+    }
+
+    .toast.success {
+      border-left: 4px solid #2e7d32;
+    }
+
+    .toast.error {
+      border-left: 4px solid #c62828;
+    }
+
+    .toast.warning {
+      border-left: 4px solid #f57c00;
+    }
+
+    /* Loading state */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #7f8c8d;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #0070f2;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #7f8c8d;
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    .codigo-tag {
+      display: inline-block;
+      background: #e3f2fd;
+      color: #1565c0;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px 15px;
+      }
+
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+      }
+
+      .table-container {
+        overflow-x: auto;
+      }
+
+      table {
+        min-width: 600px;
+      }
+
+      .modal-content {
+        margin: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <button class="btn-back" onclick="handleBack()">
+        ← Volver
+      </button>
+      <h1>MICRO ERP</h1>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    <div class="page-header">
+      <h2>📏 Gestión de Unidades de Medida</h2>
+      <button class="btn-primary" onclick="abrirModalNuevo()">
+        + Nueva Unidad
+      </button>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Buscar por código o nombre..." onkeyup="buscarUnidades()">
+          <span class="search-icon">🔍</span>
+        </div>
+      </div>
+
+      <div id="tableContent">
+        <!-- Loading state -->
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Cargando unidades de medida...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Nueva Unidad de Medida</h3>
+        <button class="btn-close" onclick="cerrarModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="unidadForm" onsubmit="guardarUnidad(event)">
+          <input type="hidden" id="unidadId">
+
+          <div class="form-group">
+            <label for="codigo">Código *</label>
+            <input type="text" id="codigo" required placeholder="Ej: KG, LT, UND, M3" maxlength="10"
+              style="text-transform: uppercase;">
+            <div class="form-hint">Máximo 10 caracteres. Ejemplo: KG, LT, UND, M2, M3</div>
+          </div>
+
+          <div class="form-group">
+            <label for="nombre">Nombre Completo *</label>
+            <input type="text" id="nombre" required placeholder="Ej: Kilogramo, Litro, Unidad" maxlength="50">
+            <div class="form-hint">Nombre descriptivo de la unidad de medida</div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+        <button class="btn-primary" onclick="document.getElementById('unidadForm').requestSubmit()">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <span id="toastIcon"></span>
+    <span id="toastMessage"></span>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURACIÓN SUPABASE
+    // ============================================
+    const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
+    let unidadesData = [];
+    let unidadEditando = null;
+
+    // ============================================
+    // CARGAR DATOS
+    // ============================================
+    async function cargarUnidades() {
+      try {
+        const { data, error } = await supabase
+          .from('unidades_medida')
+          .select('*')
+          .order('codigo', { ascending: true });
+
+        if (error) throw error;
+
+        unidadesData = data;
+        renderizarTabla(unidadesData);
+      } catch (error) {
+        console.error('Error al cargar unidades de medida:', error);
+        mostrarToast('Error al cargar unidades de medida', 'error');
+      }
+    }
+
+    // ============================================
+    // RENDERIZAR TABLA
+    // ============================================
+    function renderizarTabla(datos) {
+      const tableContent = document.getElementById('tableContent');
+
+      if (datos.length === 0) {
+        tableContent.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📏</div>
+            <h3>No hay unidades de medida registradas</h3>
+            <p>Comienza agregando tu primera unidad de medida</p>
+          </div>
+        `;
+        return;
+      }
+
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Fecha de Creación</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${datos.map(unidad => `
+              <tr>
+                <td><span class="codigo-tag">${unidad.codigo}</span></td>
+                <td><strong>${unidad.nombre}</strong></td>
+                <td>${formatearFecha(unidad.created_at)}</td>
+                <td>
+                  <span class="badge ${unidad.activo ? 'badge-active' : 'badge-inactive'}">
+                    ${unidad.activo ? 'Activo' : 'Inactivo'}
+                  </span>
+                </td>
+                <td>
+                  <div class="actions">
+                    <button class="btn-icon btn-edit" onclick="editarUnidad('${unidad.id}')" title="Editar">
+                      ✏️
+                    </button>
+                    <button class="btn-icon btn-delete" onclick="confirmarEliminar('${unidad.id}', '${unidad.codigo}', '${unidad.nombre}')" title="Eliminar">
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      tableContent.innerHTML = html;
+    }
+
+    // ============================================
+    // BÚSQUEDA
+    // ============================================
+    function buscarUnidades() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+      const resultados = unidadesData.filter(unidad =>
+        unidad.codigo.toLowerCase().includes(searchTerm) ||
+        unidad.nombre.toLowerCase().includes(searchTerm)
+      );
+
+      renderizarTabla(resultados);
+    }
+
+    // ============================================
+    // MODAL
+    // ============================================
+    function abrirModalNuevo() {
+      unidadEditando = null;
+      document.getElementById('modalTitle').textContent = 'Nueva Unidad de Medida';
+      document.getElementById('unidadForm').reset();
+      document.getElementById('unidadId').value = '';
+      document.getElementById('modal').classList.add('active');
+      document.getElementById('codigo').focus();
+    }
+
+    function cerrarModal() {
+      document.getElementById('modal').classList.remove('active');
+      unidadEditando = null;
+    }
+
+    // ============================================
+    // GUARDAR (CREAR Y EDITAR)
+    // ============================================
+    async function guardarUnidad(event) {
+      event.preventDefault();
+
+      const codigo = document.getElementById('codigo').value.trim().toUpperCase();
+      const nombre = document.getElementById('nombre').value.trim();
+      const unidadId = document.getElementById('unidadId').value;
+
+      // Validar campos vacíos
+      if (!codigo || !nombre) {
+        mostrarToast('Todos los campos son obligatorios', 'warning');
+        return;
+      }
+
+      // Validar longitud máxima
+      if (codigo.length > 10) {
+        mostrarToast('El código no puede exceder 10 caracteres', 'warning');
+        return;
+      }
+
+      if (nombre.length > 50) {
+        mostrarToast('El nombre no puede exceder 50 caracteres', 'warning');
+        return;
+      }
+
+      // Validar código duplicado
+      const codigoDuplicado = unidadesData.find(u =>
+        u.codigo.toLowerCase() === codigo.toLowerCase() &&
+        u.id !== unidadId
+      );
+
+      if (codigoDuplicado) {
+        mostrarToast(`⚠️ El código "${codigo}" ya existe`, 'warning');
+        return;
+      }
+
+      // Validar nombre duplicado
+      const nombreDuplicado = unidadesData.find(u =>
+        u.nombre.toLowerCase() === nombre.toLowerCase() &&
+        u.id !== unidadId
+      );
+
+      if (nombreDuplicado) {
+        mostrarToast('⚠️ Este nombre ya existe', 'warning');
+        return;
+      }
+
+      try {
+        let newItemId = null;
+
+        if (unidadId) {
+          // EDITAR
+          console.log('📝 Editando unidad:', unidadId);
+
+          const { data, error } = await supabase
+            .from('unidades_medida')
+            .update({
+              codigo: codigo,
+              nombre: nombre
+            })
+            .eq('id', unidadId)
+            .select();
+
+          if (error) {
+            console.error('❌ Error de Supabase (EDITAR):', error);
+            throw error;
+          }
+
+          console.log('✅ Unidad actualizada:', data);
+          mostrarToast('✅ Unidad de medida actualizada correctamente', 'success');
+        } else {
+          // CREAR
+          console.log('➕ Creando nueva unidad:', codigo, nombre);
+
+          const { data, error } = await supabase
+            .from('unidades_medida')
+            .insert([{
+              codigo: codigo,
+              nombre: nombre,
+              activo: true
+            }])
+            .select();
+
+          if (error) {
+            console.error('❌ Error de Supabase (CREAR):', error);
+            throw error;
+          }
+
+          if (data && data.length > 0) {
+            newItemId = data[0].id;
+          }
+
+          console.log('✅ Unidad creada:', data);
+          mostrarToast('✅ Unidad de medida creada correctamente', 'success');
+        }
+
+        cerrarModal();
+        cargarUnidades();
+
+        // Verificar si hay retorno pendiente
+        const urlParams = new URLSearchParams(window.location.search);
+        const returnUrl = urlParams.get('returnUrl');
+        if (returnUrl && newItemId) {
+          window.location.href = `${returnUrl}?newUnitId=${newItemId}`;
+        }
+      } catch (error) {
+        console.error('❌ Error completo:', error);
+        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
+      }
+    }
+
+    // ============================================
+    // EDITAR
+    // ============================================
+    async function editarUnidad(id) {
+      try {
+        const { data, error } = await supabase
+          .from('unidades_medida')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+
+        unidadEditando = data;
+        document.getElementById('modalTitle').textContent = 'Editar Unidad de Medida';
+        document.getElementById('unidadId').value = data.id;
+        document.getElementById('codigo').value = data.codigo;
+        document.getElementById('nombre').value = data.nombre;
+        document.getElementById('modal').classList.add('active');
+        document.getElementById('codigo').focus();
+      } catch (error) {
+        console.error('Error al cargar unidad de medida:', error);
+        mostrarToast('Error al cargar la unidad de medida', 'error');
+      }
+    }
+
+    // ============================================
+    // ELIMINAR (DELETE FÍSICO CON VALIDACIÓN)
+    // ============================================
+    function confirmarEliminar(id, codigo, nombre) {
+      if (confirm(`¿Estás seguro de eliminar la unidad "${codigo} - ${nombre}"?\n\n⚠️ Esta acción es PERMANENTE y no se puede deshacer.`)) {
+        eliminarUnidad(id, codigo, nombre);
+      }
+    }
+
+    async function eliminarUnidad(id, codigo, nombre) {
+      try {
+        console.log('🔍 Verificando relaciones para unidad:', id);
+
+        // 1. Verificar si hay items asociados
+        const { data: itemsRelacionados, error: errorCheck } = await supabase
+          .from('items')
+          .select('id, codigo, descripcion')
+          .eq('unidad_medida_id', id)
+          .limit(5);
+
+        if (errorCheck) {
+          console.error('❌ Error al verificar relaciones:', errorCheck);
+          throw errorCheck;
+        }
+
+        // 2. Si tiene items asociados, NO permitir eliminar
+        if (itemsRelacionados && itemsRelacionados.length > 0) {
+          const cantidad = itemsRelacionados.length;
+          const ejemplos = itemsRelacionados
+            .map(p => `• ${p.codigo} - ${p.descripcion}`)
+            .join('\n');
+
+          const mensaje = `⛔ No se puede eliminar la unidad de medida:\n\nTiene ${cantidad} item(s) asociado(s):\n${ejemplos}\n\nPrimero debes reasignar estos items a otra unidad de medida.`;
+
+          alert(mensaje);
+          console.warn('⚠️ Eliminación bloqueada: Hay items asociados');
+          return;
+        }
+
+        console.log('✅ No hay items asociados. Procediendo con DELETE físico...');
+
+        // 3. DELETE FÍSICO
+        const { data, error } = await supabase
+          .from('unidades_medida')
+          .delete()
+          .eq('id', id)
+          .select();
+
+        if (error) {
+          console.error('❌ Error de Supabase (DELETE):', error);
+          throw error;
+        }
+
+        console.log('✅ Unidad eliminada permanentemente:', data);
+        mostrarToast('✅ Unidad de medida eliminada permanentemente', 'success');
+        cargarUnidades();
+      } catch (error) {
+        console.error('❌ Error completo:', error);
+        mostrarToast(`❌ Error: ${error.message || 'Error desconocido'}`, 'error');
+      }
+    }
+
+    // ============================================
+    // UTILIDADES
+    // ============================================
+    function formatearFecha(fecha) {
+      if (!fecha) return '-';
+      const date = new Date(fecha);
+      return date.toLocaleDateString('es-PE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
+    function getUserData() {
+      const data = localStorage.getItem('microerp_session');
+      return data ? JSON.parse(data) : null;
+    }
+
+    function mostrarToast(mensaje, tipo = 'success') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toastIcon');
+      const message = document.getElementById('toastMessage');
+
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️'
+      };
+
+      toast.className = `toast ${tipo} active`;
+      icon.textContent = icons[tipo];
+      message.textContent = mensaje;
+
+      setTimeout(() => {
+        toast.classList.remove('active');
+      }, 3000);
+    }
+
+    // ============================================
+    // PROTECCIÓN DE PÁGINA
+    // ============================================
+    function protectPage() {
+      const token = localStorage.getItem('microerp_session');
+      if (!token) {
+        window.location.href = 'index.html';
+      }
+    }
+
+    // ============================================
+    // NAVEGACIÓN CONTEXTUAL
+    // ============================================
+    function handleBack() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const returnUrl = urlParams.get('returnUrl');
+      if (returnUrl) {
+        window.location.href = `${returnUrl}?restoreState=true`;
+      } else {
+        window.location.href = 'dashboard.html';
+      }
+    }
+
+    // ============================================
+    // INICIALIZACIÓN
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+      protectPage();
+      cargarUnidades();
+
+      // Verificar modo selección
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('mode') === 'select') {
+        abrirModalNuevo();
+      }
+    });
+
+    // ============================================
+    // UTILS
+    // ============================================Cerrar modal con ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cerrarModal();
+      }
+    });
+
+    // Auto-mayúsculas en código mientras se escribe
+    document.addEventListener('DOMContentLoaded', () => {
+      const codigoInput = document.getElementById('codigo');
+      if (codigoInput) {
+        codigoInput.addEventListener('input', (e) => {
+          e.target.value = e.target.value.toUpperCase();
+        });
+      }
+    });
+  </script>
+</body>
+
+</html>
