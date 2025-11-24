@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Egresos - MiniERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* Estilos para el Buscador Google-Style */
+        .search-container {
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 24px;
+            padding-left: 50px;
+            border-radius: 24px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #3b82f6;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 1.2rem;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 16px;
+            margin-top: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            z-index: 50;
+            display: none;
+            /* Oculto por defecto */
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+        }
+
+        .result-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.2s;
+        }
+
+        .result-item:hover {
+            background-color: #f9fafb;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .batch-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background-color: #dbeafe;
+            color: #1e40af;
+            margin-left: 8px;
+        }
+
+        /* Animaciones */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+
+<body class="text-gray-800">
+
+    <!-- Navbar (Simplificado para consistencia) -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center gap-4">
+                    <button onclick="window.location.href='index.html'"
+                        class="text-gray-500 hover:text-gray-700 transition-colors">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                    <div class="flex flex-col">
+                        <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            <i class="fas fa-dolly-flatbed text-blue-600"></i>
+                            Gestión de Egresos
+                        </h1>
+                        <span class="text-xs text-gray-500">Salida de inventario (FIFO)</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden sm:block">
+                        <p id="userDisplay" class="text-sm font-medium text-gray-900">Cargando...</p>
+                        <p id="roleDisplay" class="text-xs text-gray-500">...</p>
+                    </div>
+                    <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold"
+                        id="userAvatar">
+                        U
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- 1. Cabecera del Egreso -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Datos Generales</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Almacén Origen (CRÍTICO) -->
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Almacén de Origen <span class="text-red-500">*</span>
+                    </label>
+                    <select id="almacenOrigen"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                        <option value="">Seleccione un almacén...</option>
+                        <!-- Se llenará dinámicamente -->
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">⚠️ Debe seleccionar esto primero para ver el stock real.</p>
+                </div>
+
+                <!-- Tipo de Egreso -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo de Egreso <span class="text-red-500">*</span>
+                    </label>
+                    <select id="tipoEgreso"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                        <option value="">Seleccione...</option>
+                        <!-- Se llenará dinámicamente -->
+                    </select>
+                </div>
+
+                <!-- Fecha -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Fecha de Salida
+                    </label>
+                    <input type="date" id="fechaEgreso"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Buscador Inteligente (Google Style) -->
+        <div class="mb-8 relative z-30">
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="buscadorProducto" class="search-input"
+                    placeholder="Buscar producto para agregar (Escriba nombre o código)..." autocomplete="off" disabled>
+                <!-- Disabled hasta seleccionar almacén -->
+
+                <!-- Resultados Predictivos -->
+                <div id="resultadosBusqueda" class="search-results">
+                    <!-- Ejemplo de resultado -->
+                    <!--
+                    <div class="result-item">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-medium text-gray-900">Acero Inoxidable 304</span>
+                                <span class="text-sm text-gray-500 ml-2">COD-001</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-sm font-bold text-green-600">Stock: 150 KG</span>
+                                <span class="text-xs text-gray-400">3 Lotes disponibles</span>
+                            </div>
+                        </div>
+                    </div>
+                    -->
+                </div>
+            </div>
+            <p id="mensajeBloqueo" class="text-center text-sm text-red-500 mt-2 hidden">
+                🔒 Seleccione un almacén de origen para habilitar la búsqueda.
+            </p>
+        </div>
+
+        <!-- 3. Tabla de Items (Detalle FIFO) -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 class="font-semibold text-gray-800">Items a Egresar</h3>
+                <button id="btnTogglePromedio"
+                    class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 hidden">
+                    <i class="fas fa-eye"></i> Ver Costo Promedio Referencial
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Item</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Lote (Origen)</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Cantidad</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Costo Unit.</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Total</th>
+                            <th
+                                class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaItems" class="bg-white divide-y divide-gray-200">
+                        <!-- Filas dinámicas -->
+                        <tr id="filaVacia" class="text-center text-gray-500">
+                            <td colspan="6" class="py-8">
+                                <i class="fas fa-box-open text-3xl mb-2 text-gray-300"></i>
+                                <p>No hay items agregados. Use el buscador para comenzar.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-gray-50 font-semibold">
+                        <tr>
+                            <td colspan="4" class="px-6 py-4 text-right text-gray-900">Total Egreso:</td>
+                            <td class="px-6 py-4 text-right text-gray-900" id="totalEgreso">S/ 0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. Footer de Acciones -->
+        <div class="flex justify-end gap-4 mt-8">
+            <button onclick="window.history.back()"
+                class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
+                Cancelar
+            </button>
+            <button id="btnGuardar"
+                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-save"></i> Guardar Egreso
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Configuración de Supabase
+        const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MMJJDKK49fnQdMlHxjlQ';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Estado Global
+        let itemsEgreso = [];
+        let usuarioActual = null;
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', async () => {
+            await verificarSesion();
+            await cargarCatalogos();
+            configurarEventos();
+
+            // Fecha por defecto: Hoy
+            document.getElementById('fechaEgreso').valueAsDate = new Date();
+        });
+
+        // --- Lógica de Sesión (Reutilizada) ---
+        async function verificarSesion() {
+            const sessionStr = localStorage.getItem('microerp_session');
+            if (!sessionStr) {
+                window.location.href = 'index.html';
+                return;
+            }
+            usuarioActual = JSON.parse(sessionStr);
+            document.getElementById('userDisplay').textContent = usuarioActual.name || usuarioActual.email;
+            document.getElementById('roleDisplay').textContent = usuarioActual.role || 'Usuario';
+            document.getElementById('userAvatar').textContent = (usuarioActual.name || usuarioActual.email).charAt(0).toUpperCase();
+        }
+
+        // --- Carga de Datos ---
+        async function cargarCatalogos() {
+            console.log('Iniciando cargarCatalogos...');
+
+            // Cargar Almacenes
+            const { data: almacenes, error: errorAlmacenes } = await supabase.from('almacenes').select('*').eq('activo', true);
+            console.log('Almacenes cargados:', almacenes, 'Error:', errorAlmacenes);
+
+            const selectAlmacen = document.getElementById('almacenOrigen');
+            if (almacenes) {
+                almacenes.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = a.nombre;
+                    selectAlmacen.appendChild(opt);
+                });
+            }
+
+            // Cargar Tipos de Egreso
+            const { data: tipos, error: errorTipos } = await supabase.from('tipos_egresos').select('*').eq('activo', true);
+            console.log('Tipos de Egreso cargados:', tipos, 'Error:', errorTipos);
+
+            const selectTipo = document.getElementById('tipoEgreso');
+            if (tipos) {
+                tipos.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.nombre;
+                    selectTipo.appendChild(opt);
+                });
+            }
+        }
+
+        // --- Eventos ---
+        function configurarEventos() {
+            const buscador = document.getElementById('buscadorProducto');
+            const almacenSelect = document.getElementById('almacenOrigen');
+            const mensajeBloqueo = document.getElementById('mensajeBloqueo');
+
+            // Habilitar buscador solo si hay almacén
+            almacenSelect.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    buscador.disabled = false;
+                    mensajeBloqueo.classList.add('hidden');
+                    buscador.focus();
+                } else {
+                    buscador.disabled = true;
+                    mensajeBloqueo.classList.remove('hidden');
+                    buscador.value = '';
+                }
+            });
+
+            // Lógica del Buscador (Placeholder)
+            buscador.addEventListener('input', debounce(async (e) => {
+                const termino = e.target.value;
+                if (termino.length < 2) return;
+
+                const almacenId = almacenSelect.value;
+                await buscarProductos(termino, almacenId);
+            }, 300));
+        }
+
+        // Utilidad Debounce
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // --- Lógica de Búsqueda y Selección de Lotes ---
+
+        // 1. Buscar Productos con Stock Disponible
+        async function buscarProductos(termino, almacenId) {
+            const resultadosDiv = document.getElementById('resultadosBusqueda');
+            resultadosDiv.innerHTML = '<div class="p-4 text-center text-gray-500"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>';
+            resultadosDiv.style.display = 'block';
+
+            try {
+                // Paso 1: Buscar en la tabla de items (productos)
+                // Nota: Idealmente esto sería una vista o una función RPC para eficiencia
+                // Por ahora simulamos un join lógico en cliente por simplicidad del prototipo
+
+                const { data: productos, error } = await supabase
+                    .from('items')
+                    .select('id, codigo, descripcion, unidad_medida')
+                    .ilike('descripcion', `%${termino}%`)
+                    .limit(10);
+
+                if (error) throw error;
+
+                if (!productos || productos.length === 0) {
+                    resultadosDiv.innerHTML = '<div class="p-4 text-center text-gray-500">No se encontraron productos.</div>';
+                    return;
+                }
+
+                // Paso 2: Para cada producto, consultar su stock disponible en el almacén seleccionado
+                // Usamos ingresos_detalle con cantidad_disponible > 0
+                const resultadosConStock = [];
+
+                for (const prod of productos) {
+                    // Consultar lotes disponibles para este producto en este almacén
+                    // Necesitamos hacer join con ingresos para filtrar por almacén
+                    const { data: lotes, error: errorLotes } = await supabase
+                        .from('ingresos_detalle')
+                        .select(`
+                            cantidad_disponible,
+                            ingresos!inner (
+                                almacen_destino_id,
+                                fecha_ingreso
+                            )
+                        `)
+                        .eq('item_id', prod.id)
+                        .eq('ingresos.almacen_destino_id', almacenId)
+                        .gt('cantidad_disponible', 0);
+
+                    if (errorLotes) {
+                        console.error('Error buscando lotes:', errorLotes);
+                        continue;
+                    }
+
+                    // Calcular stock total disponible
+                    const stockTotal = lotes.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0);
+
+                    if (stockTotal > 0) {
+                        resultadosConStock.push({
+                            producto: prod,
+                            stock: stockTotal,
+                            lotesCount: lotes.length
+                        });
+                    }
+                }
+
+                renderizarResultados(resultadosConStock);
+
+            } catch (err) {
+                console.error('Error en búsqueda:', err);
+                resultadosDiv.innerHTML = '<div class="p-4 text-center text-red-500">Error al buscar. Intente de nuevo.</div>';
+            }
+        }
+
+        // 2. Renderizar Resultados
+        function renderizarResultados(resultados) {
+            const div = document.getElementById('resultadosBusqueda');
+            div.innerHTML = '';
+
+            if (resultados.length === 0) {
+                div.innerHTML = '<div class="p-4 text-center text-gray-500">No hay stock disponible para esta búsqueda en este almacén.</div>';
+                return;
+            }
+
+            resultados.forEach(res => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'result-item';
+                itemDiv.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="font-medium text-gray-900">${res.producto.descripcion}</span>
+                            <span class="text-sm text-gray-500 ml-2">${res.producto.codigo}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="block text-sm font-bold text-green-600">Stock: ${res.stock} ${res.producto.unidad_medida}</span>
+                            <span class="text-xs text-gray-400">${res.lotesCount} Lotes disponibles</span>
+                        </div>
+                    </div>
+                `;
+                itemDiv.onclick = () => seleccionarProducto(res.producto);
+                div.appendChild(itemDiv);
+            });
+        }
+
+        // 3. Seleccionar Producto y Pedir Cantidad
+        async function seleccionarProducto(producto) {
+            // Ocultar buscador
+            document.getElementById('resultadosBusqueda').style.display = 'none';
+            document.getElementById('buscadorProducto').value = '';
+
+            // Pedir cantidad (Simple prompt por ahora, luego modal mejorado)
+            const cantidadStr = prompt(`Ingrese cantidad a retirar de: ${producto.descripcion}\n(Unidad: ${producto.unidad_medida})`);
+            if (!cantidadStr) return;
+
+            const cantidad = parseFloat(cantidadStr);
+            if (isNaN(cantidad) || cantidad <= 0) {
+                alert('Cantidad inválida');
+                return;
+            }
+
+            await procesarEgresoFIFO(producto, cantidad);
+        }
+
+        // 4. Procesar Egreso FIFO (Core Logic)
+        async function procesarEgresoFIFO(producto, cantidadSolicitada) {
+            const almacenId = document.getElementById('almacenOrigen').value;
+
+            try {
+                // Consultar lotes ordenados por fecha (FIFO)
+                const { data: lotes, error } = await supabase
+                    .from('ingresos_detalle')
+                    .select(`
+                        id,
+                        cantidad_disponible,
+                        costo_adquisicion_unitario,
+                        ingresos!inner (
+                            id,
+                            fecha_ingreso,
+                            numero_ingreso,
+                            almacen_destino_id
+                        )
+                    `)
+                    .eq('item_id', producto.id)
+                    .eq('ingresos.almacen_destino_id', almacenId)
+                    .gt('cantidad_disponible', 0)
+                    .order('ingresos(fecha_ingreso)', { ascending: true }); // FIFO: Más antiguo primero
+
+                if (error) throw error;
+
+                // Validar stock total
+                const stockTotal = lotes.reduce((sum, l) => sum + Number(l.cantidad_disponible), 0);
+                if (cantidadSolicitada > stockTotal) {
+                    alert(`Stock insuficiente. Solo hay ${stockTotal} ${producto.unidad_medida} disponibles.`);
+                    return;
+                }
+
+                // Algoritmo de Distribución FIFO
+                let pendiente = cantidadSolicitada;
+                const itemsParaTabla = [];
+                let costoTotalAcumulado = 0;
+
+                for (const lote of lotes) {
+                    if (pendiente <= 0) break;
+
+                    const disponible = Number(lote.cantidad_disponible);
+                    const aTomar = Math.min(pendiente, disponible);
+
+                    const costoUnitario = Number(lote.costo_adquisicion_unitario);
+                    const costoTotalLinea = aTomar * costoUnitario;
+
+                    itemsParaTabla.push({
+                        producto: producto,
+                        loteId: lote.id,
+                        numeroIngreso: lote.ingresos.numero_ingreso,
+                        fechaIngreso: lote.ingresos.fecha_ingreso,
+                        cantidad: aTomar,
+                        costoUnitario: costoUnitario,
+                        costoTotal: costoTotalLinea
+                    });
+
+                    costoTotalAcumulado += costoTotalLinea;
+                    pendiente -= aTomar;
+                }
+
+                // Agregar a la tabla UI
+                agregarItemsATabla(itemsParaTabla);
+
+                // Calcular Costo Promedio para Referencia
+                const costoPromedio = costoTotalAcumulado / cantidadSolicitada;
+                console.log('Costo Promedio Referencial:', costoPromedio);
+
+                // Actualizar estado global
+                itemsEgreso.push(...itemsParaTabla);
+                actualizarTotales();
+
+            } catch (err) {
+                console.error('Error procesando FIFO:', err);
+                alert('Error al procesar los lotes. Ver consola.');
+            }
+        }
+
+        // 5. Agregar Items a la Tabla Visual
+        function agregarItemsATabla(items) {
+            const tbody = document.getElementById('tablaItems');
+            const filaVacia = document.getElementById('filaVacia');
+            if (filaVacia) filaVacia.remove();
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${item.producto.descripcion}</div>
+                        <div class="text-xs text-gray-500">${item.producto.codigo}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            ${item.numeroIngreso}
+                        </span>
+                        <div class="text-xs text-gray-500 mt-1">${new Date(item.fechaIngreso).toLocaleDateString()}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                        ${item.cantidad} ${item.producto.unidad_medida}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                        S/ ${item.costoUnitario.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
+                        S/ ${item.costoTotal.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <button onclick="eliminarItem(this)" class="text-red-600 hover:text-red-900">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 6. Actualizar Totales
+        function actualizarTotales() {
+            const total = itemsEgreso.reduce((sum, item) => sum + item.costoTotal, 0);
+            document.getElementById('totalEgreso').textContent = `S/ ${total.toFixed(2)}`;
+
+            // Habilitar/Deshabilitar botón guardar
+            const btnGuardar = document.getElementById('btnGuardar');
+            btnGuardar.disabled = itemsEgreso.length === 0;
+
+            // Mostrar botón de promedio si hay items
+            const btnPromedio = document.getElementById('btnTogglePromedio');
+            if (itemsEgreso.length > 0) {
+                btnPromedio.classList.remove('hidden');
+                // Actualizar tooltip o data attribute con el promedio global si se desea
+            } else {
+                btnPromedio.classList.add('hidden');
+            }
+        }
+
+        // 7. Eliminar Item (Simplificado: Recarga toda la tabla)
+        function eliminarItem(btn) {
+            // En una implementación real, deberíamos identificar qué índice borrar.
+            // Por ahora, borramos la fila visual y el array (esto es básico, mejorar luego)
+            const row = btn.closest('tr');
+            const index = Array.from(row.parentNode.children).indexOf(row);
+
+            itemsEgreso.splice(index, 1);
+            row.remove();
+
+            if (itemsEgreso.length === 0) {
+                const tbody = document.getElementById('tablaItems');
+                tbody.innerHTML = `
+                    <tr id="filaVacia" class="text-center text-gray-500">
+                        <td colspan="6" class="py-8">
+                            <i class="fas fa-box-open text-3xl mb-2 text-gray-300"></i>
+                            <p>No hay items agregados. Use el buscador para comenzar.</p>
+                        </td>
+                    `;
+            }
+            actualizarTotales();
+        }
+
+        // 8. Guardar Egreso (Transaccional)
+        document.getElementById('btnGuardar').addEventListener('click', async () => {
+            const btn = document.getElementById('btnGuardar');
+            const almacenOrigenId = document.getElementById('almacenOrigen').value;
+            const tipoEgresoId = document.getElementById('tipoEgreso').value;
+            const fechaEgreso = document.getElementById('fechaEgreso').value;
+
+            if (!almacenOrigenId || !tipoEgresoId || !fechaEgreso) {
+                alert('Por favor complete todos los campos obligatorios (Almacén, Tipo, Fecha).');
+                return;
+            }
+
+            if (itemsEgreso.length === 0) {
+                alert('No hay items para egresar.');
+                return;
+            }
+
+            if (!confirm('¿Está seguro de registrar este egreso? Esta acción descontará stock y no se puede deshacer fácilmente.')) {
+                return;
+            }
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+                // 1. Crear Cabecera de Egreso
+                const { data: egreso, error: errorEgreso } = await supabase
+                    .from('egresos')
+                    .insert({
+                        almacen_origen_id: almacenOrigenId,
+                        tipo_egreso_id: tipoEgresoId,
+                        fecha_egreso: fechaEgreso,
+                        estado: 'CONFIRMADO',
+                        usuario_id: usuarioActual?.id, // Si tenemos auth
+                        observaciones: 'Egreso registrado desde módulo web'
+                    })
+                    .select()
+                    .single();
+
+                if (errorEgreso) throw errorEgreso;
+
+                // 2. Procesar Detalles (Secuencial para evitar race conditions en updates)
+                for (const item of itemsEgreso) {
+                    // a. Insertar detalle de egreso
+                    const { error: errorDetalle } = await supabase
+                        .from('egresos_detalle')
+                        .insert({
+                            egreso_id: egreso.id,
+                            item_id: item.producto.id,
+                            cantidad: item.cantidad,
+                            costo_unitario: item.costoUnitario,
+                            costo_total: item.costoTotal
+                        });
+
+                    if (errorDetalle) throw errorDetalle;
+
+                    // b. Actualizar Stock del Lote (ingresos_detalle)
+                    // Necesitamos leer el valor actual para restar (o usar rpc si existiera)
+                    // Aquí confiamos en que nadie más modificó el lote en estos milisegundos (Optimistic Lock simple)
+
+                    // Primero obtenemos el lote actual para asegurar consistencia
+                    const { data: loteActual, error: errorLote } = await supabase
+                        .from('ingresos_detalle')
+                        .select('cantidad_disponible')
+                        .eq('id', item.loteId)
+                        .single();
+
+                    if (errorLote) throw errorLote;
+
+                    const nuevoSaldo = Number(loteActual.cantidad_disponible) - Number(item.cantidad);
+
+                    const { error: errorUpdate } = await supabase
+                        .from('ingresos_detalle')
+                        .update({ cantidad_disponible: nuevoSaldo })
+                        .eq('id', item.loteId);
+
+                    if (errorUpdate) throw errorUpdate;
+
+                    // c. Registrar Kardex (Salida)
+                    await supabase.from('kardex').insert({
+                        item_id: item.producto.id,
+                        almacen_id: almacenOrigenId,
+                        tipo_movimiento: 'EGRESO',
+                        documento_tipo: 'EGRESO',
+                        documento_referencia: egreso.numero_egreso || egreso.id, // Si hay trigger de numero
+                        fecha_movimiento: fechaEgreso,
+                        cantidad: item.cantidad,
+                        costo_unitario: item.costoUnitario,
+                        costo_total: item.costoTotal,
+                        saldo_cantidad: 0, // Se actualizará con trigger o cálculo posterior si existiera
+                        saldo_costo: 0,
+                        created_by: usuarioActual?.email
+                    });
+                }
+
+                alert('✅ Egreso registrado correctamente.');
+                window.location.reload();
+
+            } catch (err) {
+                console.error('Error al guardar:', err);
+                alert('Error crítico al guardar. Revise la consola.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Guardar Egreso';
+            }
+        });
+
+        // 9. Toggle Costo Promedio
+        document.getElementById('btnTogglePromedio').addEventListener('click', () => {
+            // Calcular promedio global ponderado de todos los items en tabla
+            const totalCosto = itemsEgreso.reduce((sum, i) => sum + i.costoTotal, 0);
+            const totalCantidad = itemsEgreso.reduce((sum, i) => sum + i.cantidad, 0);
+
+            if (totalCantidad === 0) return;
+
+            const promedio = totalCosto / totalCantidad;
+
+            alert(`ℹ️ Costo Promedio Referencial Global: \n\nS / ${promedio.toFixed(4)} por unidad\n\n(Calculado sobre ${totalCantidad} unidades totales en este egreso)`);
+        });
+
+    </script>
+</body>
+
+</html>

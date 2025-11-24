@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Ingreso - MicroERP</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --background-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-color: #0f172a;
+            --border-color: #e2e8f0;
+            --success-color: #22c55e;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        /* Header */
+        .header {
+            background-color: var(--surface-color);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .btn-back {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-back:hover {
+            background-color: #e2e8f0;
+            color: var(--text-color);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-color);
+            letter-spacing: -0.025em;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            gap: 2rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface-color);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid var(--border-color);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Form Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--secondary-color);
+        }
+
+        input,
+        select,
+        textarea {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        .col-action {
+            width: 50px;
+            text-align: center;
+        }
+
+        .col-number {
+            text-align: right;
+            width: 120px;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+            transition: background 0.2s;
+        }
+
+        .btn-delete {
+            color: var(--danger-color);
+        }
+
+        .btn-delete:hover {
+            background-color: #fee2e2;
+        }
+
+        /* Footer Actions */
+        .actions-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: var(--secondary-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* Totals Section */
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+
+        .totals-card {
+            background: #f8fafc;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: auto;
+            min-width: 450px;
+            max-width: 600px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+            color: var(--secondary-color);
+        }
+
+        .total-row span:last-child {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .total-row.final {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 2px solid var(--border-color);
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: var(--primary-color);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateY(150%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+        }
+
+        .toast.active {
+            transform: translateY(0);
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success-color);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning-color);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="btn-back" onclick="window.location.href='dashboard.html'">
+                ← Volver
+            </button>
+            <h1>Registrar Ingreso</h1>
+        </div>
+        <div class="header-right">
+            <span id="fechaActual" style="color: var(--secondary-color); font-weight: 500;"></span>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- 1. Datos Generales -->
+        <section class="card">
+            <div class="card-header">
+                <h2 class="card-title">📄 Datos Generales</h2>
+            </div>
+            <form id="formIngreso" class="form-grid">
+                <!-- Tipo de Ingreso -->
+                <div class="form-group">
+                    <label for="tipoIngreso">Tipo de Ingreso *</label>
+                    <select id="tipoIngreso" required>
+                        <option value="">Cargando...</option>
+                    </select>
+                </div>
+
+                <!-- Proveedor -->
+                <div class="form-group">
+                    <label for="proveedor">Proveedor *</label>
+                    <select id="proveedor" required>
+                        <option value="">Cargando...</option>
+                    </select>
+                </div>
+
+                <!-- Almacén Destino -->
+                <div class="form-group">
+                    <label for="almacen">Almacén Destino *</label>
+                    <select id="almacen" required>
+                        <option value="">Cargando...</option>
+                    </select>
+                </div>
+
+                <!-- Fecha Ingreso -->
+                <div class="form-group">
+                    <label for="fechaEmision">Fecha de Ingreso *</label>
+                    <input type="date" id="fechaEmision" required>
+                </div>
+
+                <!-- Forma de Pago -->
+                <div class="form-group">
+                    <label for="formaPago">Forma de Pago *</label>
+                    <select id="formaPago" onchange="toggleFormaPago()">
+                        <option value="CONTADO">CONTADO</option>
+                        <option value="CREDITO">CRÉDITO</option>
+                    </select>
+                </div>
+
+                <!-- Campos Crédito (Condicionales) -->
+                <div class="form-group-row" id="containerCredito"
+                    style="display: none; background: #fff7ed; padding: 1rem; border-radius: 8px; border: 1px solid #ffedd5; grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div class="form-group">
+                        <label for="montoInicial">Pago Inicial (S/)</label>
+                        <input type="number" id="montoInicial" min="0" step="0.01" value="0.00"
+                            oninput="calcularSaldo()">
+                    </div>
+                    <div class="form-group">
+                        <label for="saldoPendiente">Saldo Pendiente (S/)</label>
+                        <input type="number" id="saldoPendiente" readonly
+                            style="background-color: #f1f5f9; font-weight: bold;">
+                    </div>
+                    <div class="form-group">
+                        <label for="fechaVencimiento">Fecha Vencimiento *</label>
+                        <input type="date" id="fechaVencimiento">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tipoDocumento">Tipo de Documento</label>
+                    <select id="tipoDocumento">
+                        <option value="FACTURA">FACTURA</option>
+                        <option value="BOLETA">BOLETA</option>
+                        <option value="OTRO">OTRO</option>
+                    </select>
+                </div>
+
+                <!-- Contenedor para ocultar/mostrar -->
+                <div class="form-group-row" id="containerSerieNumero" style="display: contents;">
+                    <div class="form-group">
+                        <label for="serieDocumento">Serie</label>
+                        <input type="text" id="serieDocumento" placeholder="F001" style="text-transform: uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label for="numeroDocumento">Número</label>
+                        <input type="text" id="numeroDocumento" placeholder="0000001">
+                    </div>
+                    <div class="form-group">
+                        <label for="fechaDocumento">Fecha Emisión Doc.</label>
+                        <input type="date" id="fechaDocumento">
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- 2. Detalle de Items -->
+        <section class="card">
+            <div class="card-header">
+                <h2 class="card-title">📦 Detalle de Items</h2>
+            </div>
+
+            <div class="form-grid" style="margin-bottom: 1.5rem; align-items: end;">
+                <div class="form-group" style="flex: 2;">
+                    <label for="productoBusqueda">Buscar Item</label>
+                    <select id="productoBusqueda" onchange="verificarProveedorItem()">
+                        <option value="">Cargando items...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cantidadInput">Cantidad <span id="unidadMedidaDisplay"
+                            style="font-weight: normal; color: var(--secondary-color); font-size: 0.9em;"></span></label>
+                    <input type="number" id="cantidadInput" min="0.01" step="0.01" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="precioInput">Precio Unitario</label>
+                    <input type="number" id="precioInput" min="0" step="0.0001" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary" onclick="agregarProducto()">
+                        + Agregar Item
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="tablaDetalle">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Unidad</th>
+                            <th class="col-number">Cant.</th>
+                            <th class="col-number">Precio Unit.</th>
+                            <th class="col-number">Valor Venta</th>
+                            <th class="col-number">IGV</th>
+                            <th class="col-number">Total</th>
+                            <th class="col-action"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 3. Otros Egresos Asociados -->
+        <section class="card">
+            <div class="card-header">
+                <h2 class="card-title">🚛 Otros Egresos Asociados (Fletes, Seguros, etc.)</h2>
+            </div>
+
+            <!-- Fila 1: Descripción y Monto -->
+            <div class="form-grid" style="margin-bottom: 1rem;">
+                <div class="form-group" style="flex: 2;">
+                    <label for="gastoDescripcion">Descripción del Gasto</label>
+                    <input type="text" id="gastoDescripcion" list="listaGastos" placeholder="Seleccione o escriba..."
+                        autocomplete="off">
+                    <datalist id="listaGastos">
+                        <option value="Flete Interprovincial">
+                        <option value="Flete Local">
+                        <option value="Seguro de Carga">
+                        <option value="Estiba/Desestiba">
+                    </datalist>
+                </div>
+                <div class="form-group">
+                    <label for="gastoMonto">Monto Total</label>
+                    <input type="number" id="gastoMonto" min="0" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="gastoConFactura">¿Con Factura?</label>
+                    <select id="gastoConFactura" onchange="toggleCamposGasto()">
+                        <option value="false">NO (Sin IGV)</option>
+                        <option value="true">SÍ (Tiene IGV)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary" onclick="agregarGasto()">
+                        + Agregar Gasto
+                    </button>
+                </div>
+            </div>
+
+            <!-- Fila 2: Datos de Factura (Oculto por defecto) -->
+            <div class="form-grid" id="gastoDatosFactura"
+                style="display: none; margin-bottom: 1rem; background: #f8fafc; padding: 1rem; border-radius: 8px;">
+                <div class="form-group" style="flex: 2;">
+                    <label for="gastoProveedor">Proveedor del Servicio</label>
+                    <select id="gastoProveedor">
+                        <option value="">Seleccionar proveedor...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="gastoSerie">Serie</label>
+                    <input type="text" id="gastoSerie" placeholder="F001">
+                </div>
+                <div class="form-group">
+                    <label for="gastoNumero">Número</label>
+                    <input type="text" id="gastoNumero" placeholder="000123">
+                </div>
+                <div class="form-group">
+                    <label for="gastoFecha">Fecha Emisión</label>
+                    <input type="date" id="gastoFecha">
+                </div>
+            </div>
+
+            <div class="table-container" style="margin-top: 1rem;">
+                <table id="tablaGastos">
+                    <thead>
+                        <tr>
+                            <th>Descripción</th>
+                            <th>Proveedor / Doc</th>
+                            <th>¿Factura?</th>
+                            <th class="col-number">Monto</th>
+                            <th class="col-number">Valor Gasto</th>
+                            <th class="col-number">IGV Gasto</th>
+                            <th class="col-action"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 4. Totales -->
+        <div class="totals-section">
+            <div class="totals-card">
+                <div class="total-row">
+                    <span>Subtotal Items (Valor Venta):</span>
+                    <span id="lblSubtotalItems">S/ 0.00</span>
+                </div>
+                <div class="total-row">
+                    <span>Subtotal Gasto (Valor Venta):</span>
+                    <span id="lblSubtotalGastos">S/ 0.00</span>
+                </div>
+                <div class="total-row">
+                    <span>IGV Items (18%):</span>
+                    <span id="lblIGVItems">S/ 0.00</span>
+                </div>
+                <div class="total-row">
+                    <span>IGV Gasto (18%):</span>
+                    <span id="lblIGVGastos">S/ 0.00</span>
+                </div>
+                <hr>
+                <div class="total-row">
+                    <span>Total Items:</span>
+                    <span id="lblTotalItems">S/ 0.00</span>
+                </div>
+                <div class="total-row">
+                    <span>Total Gasto:</span>
+                    <span id="lblTotalGastos">S/ 0.00</span>
+                </div>
+                <div class="total-row final" style="white-space: nowrap; align-items: center;">
+                    <span>Costo de Adquisición Total:</span>
+                    <span id="lblCostoTotal" style="margin-left: 1rem;">S/ 0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="actions-footer">
+            <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">Cancelar</button>
+            <button class="btn btn-primary" onclick="solicitarConfirmacion()">Guardar Ingreso</button>
+        </div>
+    </main>
+
+    <!-- Modal de Confirmación de Costos -->
+    <div id="modalCostos" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💰 Confirmación de Costos de Adquisición</h3>
+                <button class="btn-icon" onclick="cerrarModalCostos()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: var(--secondary-color);">
+                    Por favor, revise los <strong>Costos de Adquisición Unitarios</strong> antes de guardar.
+                    Este valor será el nuevo costo promedio en Kardex.
+                </p>
+
+                <div class="table-container">
+                    <table id="tablaResumenCostos">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th class="col-number">Precio Compra<br><small>(Base)</small></th>
+                                <th class="col-number">+ Gasto Asig.<br><small>(Prorrateo)</small></th>
+                                <th class="col-number highlight">= Costo Unit.<br><small>(Final)</small></th>
+                                <th class="col-number">Costo Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Llenado dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="totals-summary"
+                    style="margin-top: 1.5rem; text-align: right; font-weight: bold; white-space: nowrap;">
+                    <p>Total Documento: <span id="resumenTotalDoc">S/ 0.00</span></p>
+                    <p>Total Gastos: <span id="resumenTotalGastos">S/ 0.00</span></p>
+                    <p
+                        style="color: var(--primary-color); font-size: 1.1rem; margin-top: 0.5rem; display: flex; justify-content: flex-end; gap: 1rem; align-items: center;">
+                        Costo de Adquisición Total: <span id="resumenCostoTotal">S/ 0.00</span>
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModalCostos()">Corregir</button>
+                <button class="btn btn-primary" onclick="confirmarGuardado()">✅ Aprobar y Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span id="toastIcon"></span>
+        <span id="toastMessage"></span>
+    </div>
+
+    <style>
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .modal-header h3 {
+            font-size: 1.25rem;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Highlight column in summary */
+        .col-number.highlight {
+            background-color: #eff6ff;
+            color: var(--primary-color);
+            font-weight: 700;
+            border-left: 1px solid #dbeafe;
+            border-right: 1px solid #dbeafe;
+        }
+    </style>
+
+    <script>
+        // ============================================
+        // CONFIGURACIÓN SUPABASE
+        // ============================================
+        const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ============================================
+        // ESTADO GLOBAL
+        // ============================================
+        let detalleIngreso = [];
+        let gastosIngreso = []; // Nuevo estado para gastos
+        let productosCache = [];
+        let proveedoresCache = []; // Cache para proveedores
+
+        // ============================================
+        // INICIALIZACIÓN
+        // ============================================
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+            document.getElementById('fechaEmision').valueAsDate = new Date();
+            document.getElementById('fechaDocumento').valueAsDate = new Date();
+            document.getElementById('gastoFecha').valueAsDate = new Date();
+
+            // Listener para cambio de documento (recalcular IGV)
+            document.getElementById('tipoDocumento').addEventListener('change', (e) => {
+                toggleSerieNumero();
+                recalcularTodo();
+            });
+
+            await cargarDatosIniciales();
+            toggleSerieNumero(); // Estado inicial
+            toggleFormaPago(); // Estado inicial
+        });
+
+        function toggleSerieNumero() {
+            const tipo = document.getElementById('tipoDocumento').value;
+            const container = document.getElementById('containerSerieNumero');
+
+            if (tipo === 'OTRO') {
+                container.style.display = 'none';
+            } else {
+                container.style.display = 'contents'; // Mantiene el layout grid
+            }
+        }
+
+        function toggleFormaPago() {
+            const formaPago = document.getElementById('formaPago').value;
+            const container = document.getElementById('containerCredito');
+
+            if (formaPago === 'CREDITO') {
+                container.style.display = 'grid';
+                calcularSaldo();
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function calcularSaldo() {
+            const totalItems = detalleIngreso.reduce((sum, i) => sum + i.total, 0);
+            const pagoInicial = parseFloat(document.getElementById('montoInicial').value) || 0;
+            const saldo = Math.max(0, totalItems - pagoInicial);
+
+            document.getElementById('saldoPendiente').value = saldo.toFixed(2);
+        }
+
+        async function cargarDatosIniciales() {
+            try {
+                // 1. Cargar Tipos de Ingreso
+                const { data: tipos } = await supabase
+                    .from('tipos_ingresos')
+                    .select('id, nombre')
+                    .eq('activo', true);
+
+                llenarSelect('tipoIngreso', tipos, 'nombre');
+
+                // 2. Cargar Proveedores
+                const { data: proveedores } = await supabase
+                    .from('proveedores')
+                    .select('id, razon_social')
+                    .eq('activo', true);
+
+                proveedoresCache = proveedores || [];
+                llenarSelect('proveedor', proveedores, 'razon_social');
+                llenarSelect('gastoProveedor', proveedores, 'razon_social'); // Llenar también en gastos
+
+                // 3. Cargar Almacenes
+                const { data: almacenes } = await supabase
+                    .from('almacenes')
+                    .select('id, nombre')
+                    .eq('activo', true);
+
+                llenarSelect('almacen', almacenes, 'nombre');
+
+                // 4. Cargar Items (Cache simple) - INCLUYENDO PROVEEDOR
+                const { data: productos } = await supabase
+                    .from('items')
+                    .select('id, codigo, descripcion, proveedor_id, unidad_medida:unidades_medida(codigo)')
+                    .eq('activo', true);
+
+                productosCache = productos || [];
+                llenarSelectProductos(productosCache);
+
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                mostrarToast('Error al cargar datos iniciales', 'error');
+            }
+        }
+
+        function llenarSelect(id, data, labelField) {
+            const select = document.getElementById(id);
+            select.innerHTML = '<option value="">Seleccionar...</option>';
+            data?.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item[labelField];
+                select.appendChild(option);
+            });
+        }
+
+        function llenarSelectProductos(productos) {
+            const select = document.getElementById('productoBusqueda');
+            select.innerHTML = '<option value="">Seleccionar item...</option>';
+            productos.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = `${p.codigo} - ${p.descripcion}`;
+                select.appendChild(option);
+            });
+        }
+
+        // ============================================
+        // LÓGICA DEL DETALLE
+        // ============================================
+        function esConFactura() {
+            const doc = document.getElementById('tipoDocumento').value;
+            return doc === 'FACTURA';
+        }
+
+        function verificarProveedorItem() {
+            const itemId = document.getElementById('productoBusqueda').value;
+            const uomDisplay = document.getElementById('unidadMedidaDisplay');
+
+            if (!itemId) {
+                uomDisplay.textContent = '';
+                return;
+            }
+
+            const item = productosCache.find(p => p.id === itemId);
+            const proveedorSelect = document.getElementById('proveedor');
+
+            // Mostrar Unidad de Medida
+            if (item && item.unidad_medida) {
+                uomDisplay.textContent = `(${item.unidad_medida.codigo})`;
+            } else {
+                uomDisplay.textContent = '';
+            }
+
+            // Si el item tiene proveedor y el select de proveedor está vacío
+            if (item && item.proveedor_id && proveedorSelect.value === "") {
+                proveedorSelect.value = item.proveedor_id;
+                mostrarToast('✅ Proveedor asignado automáticamente', 'info');
+            }
+        }
+
+        function agregarProducto() {
+            // Validar Serie/Número antes de agregar (si aplica)
+            const tipoDocumento = document.getElementById('tipoDocumento').value;
+            const serie = document.getElementById('serieDocumento').value;
+            const numero = document.getElementById('numeroDocumento').value;
+
+            if (tipoDocumento !== 'OTRO' && (!serie || !numero)) {
+                mostrarToast('Ingrese Serie y Número del documento principal antes de agregar items', 'warning');
+                document.getElementById('serieDocumento').focus();
+                return;
+            }
+
+            const productoId = document.getElementById('productoBusqueda').value;
+            const cantidad = parseFloat(document.getElementById('cantidadInput').value);
+            const precioUnitario = parseFloat(document.getElementById('precioInput').value); // PRECIO COMPRA (Inc. IGV si aplica)
+
+            if (!productoId || !cantidad || isNaN(precioUnitario)) {
+                mostrarToast('Complete todos los campos del item', 'warning');
+                return;
+            }
+
+            const producto = productosCache.find(p => p.id === productoId);
+
+            // Agregar al estado (los cálculos se hacen en recalcularTodo)
+            detalleIngreso.push({
+                productoId,
+                codigo: producto.codigo,
+                descripcion: producto.descripcion,
+                unidad: producto.unidad_medida?.codigo || 'UND',
+                cantidad,
+                precioUnitario, // Guardamos el input original
+                // Valores calculados:
+                valorUnitario: 0,
+                igvUnitario: 0,
+                subtotal: 0,
+                igvTotal: 0,
+                total: 0,
+                // Costos distribuidos
+                gastoAsignado: 0,
+                costoAdquisicionTotal: 0,
+                costoAdquisicionUnitario: 0
+            });
+
+            recalcularTodo();
+            limpiarInputsProducto();
+        }
+
+        // ============================================
+        // LÓGICA DE GASTOS ASOCIADOS
+        // ============================================
+        function toggleCamposGasto() {
+            const conFactura = document.getElementById('gastoConFactura').value === 'true';
+            const divDatos = document.getElementById('gastoDatosFactura');
+
+            if (conFactura) {
+                divDatos.style.display = 'grid';
+                // Llenar proveedor si ya está cargado
+                const proveedorSelect = document.getElementById('gastoProveedor');
+                if (proveedorSelect.options.length <= 1 && proveedoresCache.length > 0) {
+                    llenarSelect('gastoProveedor', proveedoresCache, 'razon_social');
+                }
+            } else {
+                divDatos.style.display = 'none';
+            }
+        }
+
+        function agregarGasto() {
+            const descripcion = document.getElementById('gastoDescripcion').value;
+            const monto = parseFloat(document.getElementById('gastoMonto').value);
+            const conFactura = document.getElementById('gastoConFactura').value === 'true';
+
+            if (!descripcion || isNaN(monto) || monto <= 0) {
+                mostrarToast('Ingrese descripción y monto válido', 'warning');
+                return;
+            }
+
+            // Datos adicionales si es con factura
+            let proveedorId = null;
+            let proveedorNombre = '';
+            let serie = '';
+            let numero = '';
+            let fecha = '';
+
+            if (conFactura) {
+                proveedorId = document.getElementById('gastoProveedor').value;
+                serie = document.getElementById('gastoSerie').value;
+                numero = document.getElementById('gastoNumero').value;
+                fecha = document.getElementById('gastoFecha').value;
+
+                if (!proveedorId || !serie || !numero) {
+                    mostrarToast('Complete los datos de la factura del gasto', 'warning');
+                    return;
+                }
+
+                const prov = proveedoresCache.find(p => p.id === proveedorId);
+                proveedorNombre = prov ? prov.razon_social : '';
+            }
+
+            gastosIngreso.push({
+                descripcion,
+                monto,
+                conFactura,
+                proveedorId,
+                proveedorNombre,
+                serie,
+                numero,
+                fecha,
+                valor: conFactura ? monto / 1.18 : monto,
+                igv: conFactura ? monto - (monto / 1.18) : 0
+            });
+
+            recalcularTodo();
+            limpiarInputsGasto();
+        }
+
+        function eliminarGasto(index) {
+            gastosIngreso.splice(index, 1);
+            recalcularTodo();
+        }
+
+        function limpiarInputsGasto() {
+            document.getElementById('gastoDescripcion').value = '';
+            document.getElementById('gastoMonto').value = '';
+            document.getElementById('gastoConFactura').value = 'false';
+            document.getElementById('gastoProveedor').value = '';
+            document.getElementById('gastoSerie').value = '';
+            document.getElementById('gastoNumero').value = '';
+            document.getElementById('gastoFecha').valueAsDate = new Date();
+            toggleCamposGasto();
+            document.getElementById('gastoDescripcion').focus();
+        }
+
+        function renderizarGastos() {
+            const tbody = document.querySelector('#tablaGastos tbody');
+            tbody.innerHTML = '';
+
+            gastosIngreso.forEach((gasto, index) => {
+                let detalleDoc = '-';
+                if (gasto.conFactura) {
+                    detalleDoc = `<small>${gasto.proveedorNombre}<br>${gasto.serie}-${gasto.numero}</small>`;
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${gasto.descripcion}</td>
+                    <td>${detalleDoc}</td>
+                    <td>${gasto.conFactura ? 'SÍ' : 'NO'}</td>
+                    <td class="col-number">${gasto.monto.toFixed(2)}</td>
+                    <td class="col-number">${gasto.valor.toFixed(2)}</td>
+                    <td class="col-number">${gasto.igv.toFixed(2)}</td>
+                    <td class="col-action">
+                        <button class="btn-icon" onclick="editarGasto(${index})" title="Editar">✏️</button>
+                        <button class="btn-icon btn-delete" onclick="eliminarGasto(${index})" title="Eliminar">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function editarGasto(index) {
+            const gasto = gastosIngreso[index];
+
+            // Cargar datos en inputs
+            document.getElementById('gastoDescripcion').value = gasto.descripcion;
+            document.getElementById('gastoMonto').value = gasto.monto;
+            document.getElementById('gastoConFactura').value = gasto.conFactura.toString();
+
+            toggleCamposGasto(); // Mostrar/ocultar campos de factura
+
+            if (gasto.conFactura) {
+                document.getElementById('gastoProveedor').value = gasto.proveedorId;
+                document.getElementById('gastoSerie').value = gasto.serie;
+                document.getElementById('gastoNumero').value = gasto.numero;
+                document.getElementById('gastoFecha').value = gasto.fecha;
+            }
+
+            // Eliminar de la lista
+            eliminarGasto(index);
+
+            // Foco
+            document.getElementById('gastoDescripcion').focus();
+            mostrarToast('Gasto cargado para edición', 'info');
+        }
+
+        // ============================================
+        // CÁLCULOS CENTRALIZADOS
+        // ============================================
+        function recalcularTodo() {
+            const conFactura = esConFactura();
+
+            // 1. Calcular valores base de items
+            let sumaPrecioCompraTotal = 0; // Suma de los "total" de cada item, para prorrateo
+
+            detalleIngreso.forEach(item => {
+                // Algoritmo oficial:
+                // Si conFactura: Valor = Precio / 1.18
+                // Si sinFactura: Valor = Precio
+
+                if (conFactura) {
+                    item.valorUnitario = item.precioUnitario / 1.18;
+                    item.igvUnitario = item.precioUnitario - item.valorUnitario;
+                } else {
+                    item.valorUnitario = item.precioUnitario;
+                    item.igvUnitario = 0;
+                }
+
+                item.subtotal = item.valorUnitario * item.cantidad; // Valor Venta Total
+                item.igvTotal = item.igvUnitario * item.cantidad;
+                item.total = item.precioUnitario * item.cantidad; // Precio Total (Base para prorrateo)
+
+                sumaPrecioCompraTotal += item.total;
+            });
+
+            // 2. Calcular totales de gastos
+            const totalGastos = gastosIngreso.reduce((sum, g) => sum + g.monto, 0);
+            const subtotalGastos = gastosIngreso.reduce((sum, g) => sum + g.valor, 0);
+            const igvGastos = gastosIngreso.reduce((sum, g) => sum + g.igv, 0);
+
+            // 3. Distribuir gastos (Prorrateo por Precio Total)
+            detalleIngreso.forEach(item => {
+                let proporcion = 0;
+                if (sumaPrecioCompraTotal > 0) {
+                    proporcion = item.total / sumaPrecioCompraTotal;
+                }
+
+                item.gastoAsignado = totalGastos * proporcion;
+                item.costoAdquisicionTotal = item.total + item.gastoAsignado;
+                item.costoAdquisicionUnitario = item.costoAdquisicionTotal / item.cantidad;
+            });
+
+            renderizarTabla();
+            renderizarGastos();
+            actualizarTotalesGenerales(subtotalGastos, igvGastos, totalGastos);
+            calcularSaldo(); // Recalcular saldo si cambia el total
+        }
+
+        function actualizarTotalesGenerales(subtotalGastos, igvGastos, totalGastos) {
+            const subtotalItems = detalleIngreso.reduce((sum, i) => sum + i.subtotal, 0);
+            const igvItems = detalleIngreso.reduce((sum, i) => sum + i.igvTotal, 0);
+            const totalItems = detalleIngreso.reduce((sum, i) => sum + i.total, 0);
+
+            const costoTotalAdquisicion = totalItems + totalGastos;
+
+            document.getElementById('lblSubtotalItems').textContent = `S/ ${subtotalItems.toFixed(2)}`;
+            document.getElementById('lblSubtotalGastos').textContent = `S/ ${subtotalGastos.toFixed(2)}`;
+
+            document.getElementById('lblIGVItems').textContent = `S/ ${igvItems.toFixed(2)}`;
+            document.getElementById('lblIGVGastos').textContent = `S/ ${igvGastos.toFixed(2)}`;
+
+            document.getElementById('lblTotalItems').textContent = `S/ ${totalItems.toFixed(2)}`;
+            document.getElementById('lblTotalGastos').textContent = `S/ ${totalGastos.toFixed(2)}`;
+
+            document.getElementById('lblCostoTotal').textContent = `S/ ${costoTotalAdquisicion.toFixed(2)}`;
+        }
+
+        function renderizarTabla() {
+            const tbody = document.querySelector('#tablaDetalle tbody');
+            tbody.innerHTML = '';
+
+            detalleIngreso.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.codigo}</td>
+                    <td>${item.descripcion}</td>
+                    <td>${item.unidad}</td>
+                    <td class="col-number">${item.cantidad.toFixed(2)}</td>
+                    <td class="col-number">${item.precioUnitario.toFixed(4)}</td>
+                    <td class="col-number">${item.subtotal.toFixed(2)}</td>
+                    <td class="col-number">${item.igvTotal.toFixed(2)}</td>
+                    <td class="col-number">${item.total.toFixed(2)}</td>
+                    <td class="col-action">
+                        <button class="btn-icon" onclick="editarFila(${index})" title="Editar">✏️</button>
+                        <button class="btn-icon btn-delete" onclick="eliminarFila(${index})" title="Eliminar">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function editarFila(index) {
+            const item = detalleIngreso[index];
+
+            // Cargar datos en inputs
+            document.getElementById('productoBusqueda').value = item.productoId;
+            document.getElementById('cantidadInput').value = item.cantidad;
+            document.getElementById('precioInput').value = item.precioUnitario;
+
+            // Actualizar display de UoM
+            verificarProveedorItem();
+
+            // Eliminar de la lista (para que al agregar no se duplique, sino que "actualice")
+            eliminarFila(index);
+
+            // Foco en cantidad para edición rápida
+            document.getElementById('cantidadInput').focus();
+            mostrarToast('Item cargado para edición', 'info');
+        }
+
+        function eliminarFila(index) {
+            detalleIngreso.splice(index, 1);
+            recalcularTodo(); // Recalcular totales
+        }
+
+        function limpiarInputsProducto() {
+            document.getElementById('productoBusqueda').value = '';
+            document.getElementById('cantidadInput').value = '1';
+            document.getElementById('precioInput').value = '';
+            document.getElementById('productoBusqueda').focus();
+        }
+
+        // ============================================
+        // MODAL Y CONFIRMACIÓN
+        // ============================================
+        function solicitarConfirmacion() {
+            // Validaciones básicas
+            const tipoIngreso = document.getElementById('tipoIngreso').value;
+            const proveedor = document.getElementById('proveedor').value;
+            const almacen = document.getElementById('almacen').value;
+            const fecha = document.getElementById('fechaEmision').value;
+            const tipoDocumento = document.getElementById('tipoDocumento').value;
+            const serie = document.getElementById('serieDocumento').value;
+            const numero = document.getElementById('numeroDocumento').value;
+            const fechaDocumento = document.getElementById('fechaDocumento').value;
+            const formaPago = document.getElementById('formaPago').value;
+            const fechaVencimiento = document.getElementById('fechaVencimiento').value;
+
+            if (!tipoIngreso || !proveedor || !almacen || !fecha) {
+                mostrarToast('Complete los datos generales obligatorios', 'warning');
+                return;
+            }
+
+            if (tipoDocumento !== 'OTRO' && (!serie || !numero || !fechaDocumento)) {
+                mostrarToast('Complete la serie, número y fecha del documento principal', 'warning');
+                return;
+            }
+
+            if (detalleIngreso.length === 0) {
+                mostrarToast('Agregue al menos un item al detalle', 'warning');
+                return;
+            }
+
+            if (formaPago === 'CREDITO' && !fechaVencimiento) {
+                mostrarToast('Debe indicar la fecha de vencimiento para compras a crédito', 'warning');
+                return;
+            }
+
+            // Si pasa validaciones, mostrar modal
+            renderizarResumenCostos();
+            document.getElementById('modalCostos').style.display = 'flex';
+        }
+
+        function cerrarModalCostos() {
+            document.getElementById('modalCostos').style.display = 'none';
+        }
+
+        function renderizarResumenCostos() {
+            const tbody = document.getElementById('tablaResumenCostos').querySelector('tbody');
+            tbody.innerHTML = '';
+
+            let totalDoc = 0;
+            let totalGastos = 0;
+            let totalCosto = 0;
+
+            detalleIngreso.forEach(item => {
+                const gastoUnitario = item.gastoAsignado / item.cantidad;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <strong>${item.codigo}</strong><br>
+                        ${item.descripcion}
+                    </td>
+                    <td class="col-number">S/ ${item.precioUnitario.toFixed(4)}</td>
+                    <td class="col-number" style="color: var(--danger-color);">+ S/ ${gastoUnitario.toFixed(4)}</td>
+                    <td class="col-number highlight">S/ ${item.costoAdquisicionUnitario.toFixed(4)}</td>
+                    <td class="col-number">S/ ${item.costoAdquisicionTotal.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+
+                totalDoc += item.total;
+                totalCosto += item.costoAdquisicionTotal;
+            });
+
+            totalGastos = gastosIngreso.reduce((sum, g) => sum + g.monto, 0);
+
+            document.getElementById('resumenTotalDoc').textContent = `S/ ${totalDoc.toFixed(2)}`;
+            document.getElementById('resumenTotalGastos').textContent = `S/ ${totalGastos.toFixed(2)}`;
+            document.getElementById('resumenCostoTotal').textContent = `S/ ${totalCosto.toFixed(2)}`;
+        }
+
+        // ============================================
+        // GUARDADO FINAL (BD)
+        // ============================================
+        async function confirmarGuardado() {
+            try {
+                mostrarToast('Guardando ingreso...', 'info');
+                cerrarModalCostos(); // Cerrar modal
+
+                // Recopilar datos (ya validados en solicitarConfirmacion)
+                const tipoIngreso = document.getElementById('tipoIngreso').value;
+                const proveedor = document.getElementById('proveedor').value;
+                const almacen = document.getElementById('almacen').value;
+                const fecha = document.getElementById('fechaEmision').value;
+                const tipoDocumento = document.getElementById('tipoDocumento').value;
+                const serie = document.getElementById('serieDocumento').value;
+                const numero = document.getElementById('numeroDocumento').value;
+                const fechaDocumento = document.getElementById('fechaDocumento').value;
+                const conFactura = esConFactura();
+
+                // Totales globales
+                const subtotalGlobal = detalleIngreso.reduce((sum, i) => sum + i.subtotal, 0);
+                const igvGlobal = detalleIngreso.reduce((sum, i) => sum + i.igvTotal, 0);
+                const totalItems = detalleIngreso.reduce((sum, i) => sum + i.total, 0);
+                const totalGastos = gastosIngreso.reduce((sum, g) => sum + g.monto, 0);
+                const costoTotal = totalItems + totalGastos;
+
+                // Cálculos de Pago
+                let egresoReal = 0;
+                let saldoCredito = 0;
+                const formaPago = document.getElementById('formaPago').value;
+                const montoInicial = parseFloat(document.getElementById('montoInicial').value) || 0;
+                const fechaVencimiento = document.getElementById('fechaVencimiento').value;
+
+                if (formaPago === 'CONTADO') {
+                    egresoReal = totalItems;
+                    saldoCredito = 0;
+                } else {
+                    egresoReal = montoInicial;
+                    saldoCredito = totalItems - montoInicial;
+                }
+
+                // 1. Cabecera
+                const { data: ingresoData, error: errorIngreso } = await supabase
+                    .from('ingresos')
+                    .insert([{
+                        tipo_ingreso_id: tipoIngreso,
+                        proveedor_id: proveedor,
+                        almacen_destino_id: almacen,
+                        fecha_ingreso: fecha,
+                        numero_ingreso: `ING-${Date.now()}`, // Temporal
+                        estado: 'REGISTRADO',
+                        con_factura: conFactura,
+                        serie_factura: tipoDocumento === 'OTRO' ? null : serie,
+                        numero_factura: tipoDocumento === 'OTRO' ? null : numero,
+                        fecha_documento: tipoDocumento === 'OTRO' ? null : fechaDocumento,
+                        subtotal: subtotalGlobal,
+                        igv_credito_fiscal_total: igvGlobal,
+                        costo_adquisicion_total: costoTotal, // INCLUYE GASTOS
+                        otros_egresos_total: totalGastos,
+                        monto_segun_documentos: totalItems, // Solo lo que se paga al proveedor principal
+
+                        // Campos de Pago
+                        forma_pago: formaPago,
+                        pago_inicial: montoInicial,
+                        saldo_credito: saldoCredito,
+                        egreso_real_pagado: egresoReal,
+                        egreso_real_pagado: egresoReal,
+                        fecha_vencimiento: formaPago === 'CREDITO' ? fechaVencimiento : null,
+                        fecha_documento: fechaDocumento // Nueva columna
+                    }])
+                    .select()
+                    .single();
+
+                if (errorIngreso) throw errorIngreso;
+
+                const ingresoId = ingresoData.id;
+
+                // 2. Detalle Items
+                const detalleParaInsertar = detalleIngreso.map(item => ({
+                    ingreso_id: ingresoId,
+                    item_id: item.productoId,
+                    cantidad: item.cantidad,
+
+                    // Precios de Compra (Input original)
+                    precio_compra_unitario: item.precioUnitario,
+                    precio_compra_total: item.total,
+
+                    // Valores (Sin IGV)
+                    valor_compra_unitario: item.valorUnitario,
+                    valor_compra_total: item.subtotal,
+
+                    // IGV
+                    igv_credito_fiscal_unitario: item.igvUnitario,
+                    igv_credito_fiscal_producto: item.igvTotal,
+                    con_factura_producto: conFactura,
+
+                    // Costos Finales (CON GASTOS DISTRIBUIDOS)
+                    costo_adquisicion_unitario: item.costoAdquisicionUnitario,
+                    costo_adquisicion_total: item.costoAdquisicionTotal,
+
+                    // Otros egresos asignados
+                    otros_egresos_unitario: item.gastoAsignado / item.cantidad,
+                    otros_egresos_total: item.gastoAsignado
+                }));
+
+                const { error: errorDetalle } = await supabase
+                    .from('ingresos_detalle')
+                    .insert(detalleParaInsertar);
+
+                if (errorDetalle) throw errorDetalle;
+
+                // 3. Insertar Gastos Asociados
+                if (gastosIngreso.length > 0) {
+                    const gastosParaInsertar = gastosIngreso.map(gasto => ({
+                        ingreso_id: ingresoId,
+                        tipo_gasto: 'OTROS', // O el tipo que corresponda
+                        descripcion: gasto.descripcion,
+                        precio_gasto: gasto.monto,
+                        con_factura_gasto: gasto.conFactura,
+                        valor_gasto: gasto.valor,
+                        igv_credito_fiscal_gasto: gasto.igv,
+
+                        // Nuevas columnas para trazabilidad completa
+                        proveedor_id: gasto.proveedorId || null,
+                        serie_factura: gasto.serie || null,
+                        numero_factura: gasto.numero || null,
+                        fecha_emision: gasto.fecha || null
+                    }));
+
+                    const { error: errorGastos } = await supabase
+                        .from('gastos_ingreso')
+                        .insert(gastosParaInsertar);
+
+                    if (errorGastos) throw errorGastos;
+                }
+
+                // 4. Actualizar Stock (Items) y Kardex
+                // Esto debería ser un RPC o Trigger, pero lo haremos manual por ahora
+                for (const item of detalleIngreso) {
+                    // a) Obtener stock actual
+                    const { data: itemActual } = await supabase
+                        .from('items')
+                        .select('stock_total')
+                        .eq('id', item.productoId)
+                        .single();
+
+                    const nuevoStock = (itemActual.stock_total || 0) + item.cantidad;
+
+                    // b) Actualizar item
+                    await supabase
+                        .from('items')
+                        .update({ stock_total: nuevoStock })
+                        .eq('id', item.productoId);
+
+                    // c) Insertar Kardex
+                    await supabase
+                        .from('kardex')
+                        .insert([{
+                            producto_id: item.productoId,
+                            almacen_id: almacen,
+                            tipo_movimiento: 'INGRESO',
+                            motivo: 'COMPRA',
+                            documento_tipo: 'ING',
+                            documento_referencia: ingresoData.numero_ingreso,
+                            cantidad: item.cantidad,
+                            stock_anterior: itemActual.stock_total || 0,
+                            stock_resultante: nuevoStock,
+
+                            // Costos en Kardex (USAR COSTO REAL CON GASTOS)
+                            precio_compra_unitario: item.precioUnitario,
+                            precio_compra_total: item.total,
+                            costo_unitario: item.costoAdquisicionUnitario, // Costo REAL
+                            costo_total: item.costoAdquisicionTotal, // Costo REAL
+
+                            // Datos de Pago en Kardex (Trazabilidad)
+                            forma_pago: formaPago,
+                            egreso_real_caja: egresoReal, // Solo lo que salió de caja
+
+                            fecha_movimiento: new Date().toISOString(),
+                            created_by: 'Sistema'
+                        }]);
+                }
+
+                mostrarToast('✅ Ingreso registrado correctamente', 'success');
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error al guardar:', error);
+                mostrarToast(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // ============================================
+        // UTILIDADES
+        // ============================================
+        function mostrarToast(mensaje, tipo = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+
+            toast.className = `toast ${tipo} active`;
+            icon.textContent = tipo === 'success' ? '✅' : (tipo === 'error' ? '❌' : '⚠️');
+            msg.textContent = mensaje;
+
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>
