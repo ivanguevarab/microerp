@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MicroERP - Tipos de Egresos</title>
-  
+
   <!-- Supabase Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
+
   <style>
     * {
       margin: 0;
@@ -29,7 +30,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       position: sticky;
       top: 0;
       z-index: 100;
@@ -52,7 +53,7 @@
     }
 
     .btn-back {
-      background: rgba(255,255,255,0.2);
+      background: rgba(255, 255, 255, 0.2);
       color: white;
       border: none;
       padding: 8px 16px;
@@ -66,7 +67,7 @@
     }
 
     .btn-back:hover {
-      background: rgba(255,255,255,0.3);
+      background: rgba(255, 255, 255, 0.3);
     }
 
     /* Container */
@@ -113,7 +114,7 @@
     .table-container {
       background: white;
       border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       overflow: hidden;
     }
 
@@ -246,7 +247,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0, 0, 0, 0.5);
       z-index: 1000;
       align-items: center;
       justify-content: center;
@@ -272,6 +273,7 @@
         opacity: 0;
         transform: translateY(-20px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -373,7 +375,7 @@
       background: white;
       padding: 16px 20px;
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       display: none;
       align-items: center;
       gap: 12px;
@@ -386,6 +388,7 @@
         opacity: 0;
         transform: translateY(20px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -426,8 +429,13 @@
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     .empty-state {
@@ -468,11 +476,12 @@
     }
   </style>
 </head>
+
 <body>
   <!-- Header -->
   <header class="header">
     <div class="header-left">
-      <button class="btn-back" onclick="window.location.href='dashboard.html'">
+      <button class="btn-back" onclick="window.location.href='gestion_inventarios.html'">
         ← Volver
       </button>
       <h1>MICRO ERP</h1>
@@ -491,12 +500,7 @@
     <div class="table-container">
       <div class="table-header">
         <div class="search-box">
-          <input 
-            type="text" 
-            id="searchInput" 
-            placeholder="Buscar tipo de egreso..."
-            onkeyup="buscarTiposEgresos()"
-          >
+          <input type="text" id="searchInput" placeholder="Buscar tipo de egreso..." onkeyup="buscarTiposEgresos()">
           <span class="search-icon">🔍</span>
         </div>
       </div>
@@ -521,16 +525,10 @@
       <div class="modal-body">
         <form id="tipoEgresoForm" onsubmit="guardarTipoEgreso(event)">
           <input type="hidden" id="tipoEgresoId">
-          
+
           <div class="form-group">
             <label for="nombre">Nombre del Tipo de Egreso *</label>
-            <input 
-              type="text" 
-              id="nombre" 
-              required
-              placeholder="Ej: Venta, Fabricación, Merma"
-              maxlength="100"
-            >
+            <input type="text" id="nombre" required placeholder="Ej: Venta, Fabricación, Merma" maxlength="100">
           </div>
         </form>
       </div>
@@ -555,7 +553,7 @@
     // ============================================
     const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
-    
+
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ============================================
@@ -645,7 +643,7 @@
     // ============================================
     function buscarTiposEgresos() {
       const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-      
+
       const resultados = tiposEgresosData.filter(tipo =>
         tipo.nombre.toLowerCase().includes(searchTerm)
       );
@@ -685,8 +683,8 @@
       }
 
       // Validar duplicados (excepto si estamos editando)
-      const duplicado = tiposEgresosData.find(tipo => 
-        tipo.nombre.toLowerCase() === nombre.toLowerCase() && 
+      const duplicado = tiposEgresosData.find(tipo =>
+        tipo.nombre.toLowerCase() === nombre.toLowerCase() &&
         tipo.id !== tipoEgresoId
       );
 
@@ -699,7 +697,7 @@
         if (tipoEgresoId) {
           // EDITAR
           console.log('📝 Editando tipo de egreso:', tipoEgresoId, 'Nuevo nombre:', nombre);
-          
+
           const { data, error } = await supabase
             .from('tipos_egresos')
             .update({
@@ -712,13 +710,13 @@
             console.error('❌ Error de Supabase (EDITAR):', error);
             throw error;
           }
-          
+
           console.log('✅ Tipo de egreso actualizado:', data);
           mostrarToast('✅ Tipo de egreso actualizado correctamente', 'success');
         } else {
           // CREAR
           console.log('➕ Creando nuevo tipo de egreso:', nombre);
-          
+
           const { data, error } = await supabase
             .from('tipos_egresos')
             .insert([{
@@ -731,7 +729,7 @@
             console.error('❌ Error de Supabase (CREAR):', error);
             throw error;
           }
-          
+
           console.log('✅ Tipo de egreso creado:', data);
           mostrarToast('✅ Tipo de egreso creado correctamente', 'success');
         }
@@ -780,7 +778,7 @@
     async function eliminarTipoEgreso(id, nombre) {
       try {
         console.log('🔍 Verificando relaciones para tipo de egreso:', id);
-        
+
         // 1. Verificar si hay egresos asociados
         const { data: egresosRelacionados, error: errorCheck } = await supabase
           .from('egresos')
@@ -800,7 +798,7 @@
             .slice(0, 3)
             .map(e => `  • ${e.numero_egreso} - ${formatearFecha(e.fecha_egreso)}`)
             .join('\n');
-          
+
           alert(
             `❌ NO SE PUEDE ELIMINAR\n\n` +
             `El tipo de egreso "${nombre}" tiene ${cantidad >= 5 ? 'al menos 5' : cantidad} egreso(s) asociado(s):\n\n` +
@@ -808,7 +806,7 @@
             `${cantidad >= 5 ? '  ...\n' : ''}` +
             `\nPrimero debes reasignar estos egresos a otro tipo.`
           );
-          
+
           console.warn('⚠️ Eliminación bloqueada: Hay egresos asociados');
           return;
         }
@@ -904,4 +902,5 @@
     });
   </script>
 </body>
+
 </html>
