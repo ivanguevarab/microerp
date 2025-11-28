@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MicroERP - Almacenes</title>
-  
+
   <!-- Supabase Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
+
   <style>
     * {
       margin: 0;
@@ -29,7 +30,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       position: sticky;
       top: 0;
       z-index: 100;
@@ -52,7 +53,7 @@
     }
 
     .btn-back {
-      background: rgba(255,255,255,0.2);
+      background: rgba(255, 255, 255, 0.2);
       color: white;
       border: none;
       padding: 8px 16px;
@@ -66,7 +67,7 @@
     }
 
     .btn-back:hover {
-      background: rgba(255,255,255,0.3);
+      background: rgba(255, 255, 255, 0.3);
     }
 
     /* Container */
@@ -113,7 +114,7 @@
     .table-container {
       background: white;
       border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       overflow: hidden;
     }
 
@@ -246,7 +247,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0, 0, 0, 0.5);
       z-index: 1000;
       align-items: center;
       justify-content: center;
@@ -272,6 +273,7 @@
         opacity: 0;
         transform: translateY(-20px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -387,7 +389,7 @@
       background: white;
       padding: 16px 20px;
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       display: none;
       align-items: center;
       gap: 12px;
@@ -400,6 +402,7 @@
         opacity: 0;
         transform: translateY(20px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -440,8 +443,13 @@
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     .empty-state {
@@ -502,11 +510,12 @@
     }
   </style>
 </head>
+
 <body>
   <!-- Header -->
   <header class="header">
     <div class="header-left">
-      <button class="btn-back" onclick="window.location.href='dashboard.html'">
+      <button class="btn-back" onclick="window.location.href='gestion_inventarios.html'">
         ← Volver
       </button>
       <h1>MICRO ERP</h1>
@@ -525,12 +534,8 @@
     <div class="table-container">
       <div class="table-header">
         <div class="search-box">
-          <input 
-            type="text" 
-            id="searchInput" 
-            placeholder="Buscar por código, nombre o descripción..."
-            onkeyup="buscarAlmacenes()"
-          >
+          <input type="text" id="searchInput" placeholder="Buscar por código, nombre o descripción..."
+            onkeyup="buscarAlmacenes()">
           <span class="search-icon">🔍</span>
         </div>
       </div>
@@ -555,40 +560,26 @@
       <div class="modal-body">
         <form id="almacenForm" onsubmit="guardarAlmacen(event)">
           <input type="hidden" id="almacenId">
-          
+
           <div class="form-group">
             <label for="codigo">Código *</label>
-            <input 
-              type="text" 
-              id="codigo" 
-              required
-              placeholder="Ej: FAB, PVT, ALM01"
-              maxlength="20"
-              style="text-transform: uppercase;"
-            >
+            <input type="text" id="codigo" required placeholder="Ej: FAB, PVT, ALM01" maxlength="20"
+              style="text-transform: uppercase;">
             <div class="form-hint">Máximo 20 caracteres. Ejemplo: FAB (Fábrica), PVT (Punto de Venta)</div>
           </div>
 
           <div class="form-group">
             <label for="nombre">Nombre *</label>
-            <input 
-              type="text" 
-              id="nombre" 
-              required
-              placeholder="Ej: Almacén de Fábrica"
-              maxlength="100"
-            >
+            <input type="text" id="nombre" required placeholder="Ej: Almacén de Fábrica" maxlength="100">
             <div class="form-hint">Nombre descriptivo del almacén (máximo 100 caracteres)</div>
           </div>
 
           <div class="form-group">
             <label for="descripcion">Descripción</label>
-            <textarea 
-              id="descripcion" 
-              placeholder="Ej: Almacén principal ubicado en la planta de producción..."
-              rows="3"
-            ></textarea>
-            <div class="form-hint">Información adicional sobre la ubicación o características del almacén (opcional)</div>
+            <textarea id="descripcion" placeholder="Ej: Almacén principal ubicado en la planta de producción..."
+              rows="3"></textarea>
+            <div class="form-hint">Información adicional sobre la ubicación o características del almacén (opcional)
+            </div>
           </div>
         </form>
       </div>
@@ -613,7 +604,7 @@
     // ============================================
     const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
-    
+
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ============================================
@@ -677,10 +668,10 @@
                 <td><span class="codigo-tag">${almacen.codigo}</span></td>
                 <td><strong>${almacen.nombre}</strong></td>
                 <td>
-                  ${almacen.descripcion ? 
-                    `<div class="descripcion-preview" title="${almacen.descripcion}">${almacen.descripcion}</div>` : 
-                    '<span style="color: #bdc3c7;">-</span>'
-                  }
+                  ${almacen.descripcion ?
+          `<div class="descripcion-preview" title="${almacen.descripcion}">${almacen.descripcion}</div>` :
+          '<span style="color: #bdc3c7;">-</span>'
+        }
                 </td>
                 <td>${formatearFecha(almacen.created_at)}</td>
                 <td>
@@ -712,7 +703,7 @@
     // ============================================
     function buscarAlmacenes() {
       const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-      
+
       const resultados = almacenesData.filter(almacen =>
         almacen.codigo.toLowerCase().includes(searchTerm) ||
         almacen.nombre.toLowerCase().includes(searchTerm) ||
@@ -768,8 +759,8 @@
       }
 
       // Validar código duplicado
-      const codigoDuplicado = almacenesData.find(a => 
-        a.codigo.toLowerCase() === codigo.toLowerCase() && 
+      const codigoDuplicado = almacenesData.find(a =>
+        a.codigo.toLowerCase() === codigo.toLowerCase() &&
         a.id !== almacenId
       );
 
@@ -779,8 +770,8 @@
       }
 
       // Validar nombre duplicado
-      const nombreDuplicado = almacenesData.find(a => 
-        a.nombre.toLowerCase() === nombre.toLowerCase() && 
+      const nombreDuplicado = almacenesData.find(a =>
+        a.nombre.toLowerCase() === nombre.toLowerCase() &&
         a.id !== almacenId
       );
 
@@ -799,7 +790,7 @@
         if (almacenId) {
           // EDITAR
           console.log('📝 Editando almacén:', almacenId);
-          
+
           const { data, error } = await supabase
             .from('almacenes')
             .update(datosAlmacen)
@@ -810,15 +801,15 @@
             console.error('❌ Error de Supabase (EDITAR):', error);
             throw error;
           }
-          
+
           console.log('✅ Almacén actualizado:', data);
           mostrarToast('✅ Almacén actualizado correctamente', 'success');
         } else {
           // CREAR
           console.log('➕ Creando nuevo almacén:', codigo, nombre);
-          
+
           datosAlmacen.activo = true;
-          
+
           const { data, error } = await supabase
             .from('almacenes')
             .insert([datosAlmacen])
@@ -828,7 +819,7 @@
             console.error('❌ Error de Supabase (CREAR):', error);
             throw error;
           }
-          
+
           console.log('✅ Almacén creado:', data);
           mostrarToast('✅ Almacén creado correctamente', 'success');
         }
@@ -880,7 +871,7 @@
     async function eliminarAlmacen(id, codigo, nombre) {
       try {
         console.log('🔍 Verificando relaciones para almacén:', id);
-        
+
         // 1. Verificar si hay movimientos en kardex
         const { data: kardexRelacionados, error: errorCheck } = await supabase
           .from('kardex')
@@ -901,7 +892,7 @@
             .slice(0, 3)
             .map(k => `  • ${k.documento_referencia} (${formatearFecha(k.fecha_movimiento)})`)
             .join('\n');
-          
+
           alert(
             `❌ NO SE PUEDE ELIMINAR\n\n` +
             `El almacén "${codigo}" tiene ${cantidad >= 5 ? 'al menos 5' : cantidad} movimiento(s) registrado(s) en el Kardex:\n\n` +
@@ -909,7 +900,7 @@
             `${cantidad >= 5 ? '  ...\n' : ''}` +
             `\nNo se puede eliminar un almacén con historial de movimientos para mantener la integridad del Kardex.`
           );
-          
+
           console.warn('⚠️ Eliminación bloqueada: Hay movimientos en kardex');
           return;
         }
@@ -1015,4 +1006,5 @@
     });
   </script>
 </body>
+
 </html>
