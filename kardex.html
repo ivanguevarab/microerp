@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kardex - MiniERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Table Styles */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-ingreso {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-egreso {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Action Buttons */
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .btn-view {
+            background: #f3e8ff;
+            color: #7e22ce;
+        }
+
+        .btn-view:hover {
+            background: #7e22ce;
+            color: white;
+        }
+
+        .btn-edit {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .btn-edit:hover {
+            background: #1565c0;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .btn-delete:hover {
+            background: #c62828;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="btn-back" onclick="window.location.href='gestion_inventarios.html'">
+                ← Volver
+            </button>
+            <h1>MICRO ERP</h1>
+        </div>
+        <div class="header-right">
+            <span id="fechaActual" style="color: white; font-weight: 500;"></span>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Page Title -->
+        <div class="mb-8 flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Kardex Físico y Valorado</h2>
+                <p class="text-sm text-gray-500 mt-1">Historial completo de movimientos de inventario</p>
+            </div>
+            <button onclick="exportarExcel()"
+                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                <i class="fas fa-file-excel"></i> Exportar
+            </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Rango Fechas -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+                    <input type="date" id="fechaDesde"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+                    <input type="date" id="fechaHasta"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <!-- Producto -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                    <input type="text" id="busquedaProducto" placeholder="Buscar por Item, Código o Documento..."
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <!-- Tipo Movimiento -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Movimiento</label>
+                    <select id="tipoMovimiento"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Todos</option>
+                        <option value="INGRESO">Ingresos</option>
+                        <option value="EGRESO">Egresos</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button onclick="cargarKardex()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
+                    Filtrar Resultados
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="table-container">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr>
+                            <th class="p-4 border-b border-gray-200">Fecha</th>
+                            <th class="p-4 border-b border-gray-200">Documento</th>
+                            <th class="p-4 border-b border-gray-200">Item</th>
+                            <th class="p-4 border-b border-gray-200">Movimiento</th>
+                            <th class="p-4 border-b border-gray-200 text-right">Cantidad</th>
+                            <th class="p-4 border-b border-gray-200 text-right">Costo Unit.</th>
+                            <th class="p-4 border-b border-gray-200 text-right">TOTAL</th>
+                            <th class="p-4 border-b border-gray-200 text-right">SALDO</th>
+                            <th class="p-4 border-b border-gray-200 text-right">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaKardex" class="text-sm text-gray-700">
+                        <!-- Rows will be populated by JS -->
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-gray-500">Cargando movimientos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination -->
+            <div class="p-4 border-t border-gray-200 flex justify-between items-center">
+                <span class="text-sm text-gray-500" id="infoPaginacion">Mostrando 0 de 0 registros</span>
+                <div class="flex gap-2">
+                    <button id="btnPrev"
+                        class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                        disabled>Anterior</button>
+                    <button id="btnNext"
+                        class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                        disabled>Siguiente</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Modal Ver Detalles Avanzado -->
+        <div id="modalDetalles"
+            class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+            <div
+                class="relative mx-auto p-0 border w-11/12 md:w-4/5 lg:w-3/4 shadow-2xl rounded-xl bg-white max-h-[90vh] flex flex-col">
+                <!-- Header -->
+                <div class="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-800" id="modalTitle">Detalles del Movimiento</h3>
+                        <p class="text-sm text-gray-500 mt-1" id="modalSubtitle">Información completa de la transacción
+                        </p>
+                    </div>
+                    <button onclick="cerrarModal('modalDetalles')"
+                        class="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-200">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Content (Scrollable) -->
+                <div class="p-6 overflow-y-auto flex-1" id="modalContent">
+                    <div class="flex justify-center py-10">
+                        <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-end">
+                    <button onclick="cerrarModal('modalDetalles')"
+                        class="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Editar -->
+        <div id="modalEditar" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Editar Movimiento</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <input type="hidden" id="editId">
+
+                        <label class="block text-left text-sm font-medium text-gray-700 mt-2">Fecha</label>
+                        <input type="datetime-local" id="editFecha" class="w-full rounded border-gray-300 shadow-sm">
+
+                        <label class="block text-left text-sm font-medium text-gray-700 mt-2">Documento</label>
+                        <input type="text" id="editDoc" class="w-full rounded border-gray-300 shadow-sm">
+
+                        <label class="block text-left text-sm font-medium text-gray-700 mt-2">Cantidad</label>
+                        <input type="number" id="editCant" step="0.01" class="w-full rounded border-gray-300 shadow-sm">
+
+                        <label class="block text-left text-sm font-medium text-gray-700 mt-2">Costo Unitario</label>
+                        <input type="number" id="editCosto" step="0.01"
+                            class="w-full rounded border-gray-300 shadow-sm">
+
+                        <label class="block text-left text-sm font-medium text-gray-700 mt-2">Motivo</label>
+                        <input type="text" id="editMotivo" class="w-full rounded border-gray-300 shadow-sm">
+
+                        <div class="mt-4 p-3 bg-yellow-50 rounded border border-yellow-200">
+                            <p class="text-xs text-yellow-800 mb-2">⚠️ <strong>ACCIÓN PERMANENTE</strong></p>
+                            <p class="text-xs text-gray-600 mb-2">Esta edición modificará el historial y recalculará
+                                todos los saldos posteriores. No se puede deshacer.</p>
+                            <label class="block text-left text-xs font-bold text-gray-700">Escribe "EDITAR" para
+                                confirmar:</label>
+                            <input type="text" id="confirmEdit"
+                                class="w-full rounded border-gray-300 shadow-sm mt-1 text-sm uppercase"
+                                onkeyup="checkEditConfirm()" placeholder="EDITAR">
+                        </div>
+                    </div>
+                    <div class="items-center px-4 py-3">
+                        <button id="btnConfirmEdit" onclick="guardarEdicion()" disabled
+                            class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Confirmar Edición
+                        </button>
+                        <button onclick="cerrarModal('modalEditar')"
+                            class="mt-3 px-4 py-2 bg-gray-100 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Eliminar -->
+        <div id="modalEliminar"
+            class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <i class="fas fa-exclamation-triangle text-red-600"></i>
+                    </div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4">¿Eliminar Movimiento?</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p class="text-sm text-gray-500 mb-2">
+                            Esta acción es <strong>IRREVERSIBLE</strong>.
+                        </p>
+                        <p class="text-xs text-gray-500 mb-4">
+                            Se eliminará el registro permanentemente y se recalculará todo el stock histórico del
+                            producto.
+                        </p>
+                        <div class="mt-4">
+                            <label class="block text-left text-xs font-bold text-gray-700">Escribe "ELIMINAR" para
+                                confirmar:</label>
+                            <input type="text" id="confirmDelete"
+                                class="w-full rounded border-gray-300 shadow-sm mt-1 text-sm uppercase"
+                                onkeyup="checkDeleteConfirm()" placeholder="ELIMINAR">
+                        </div>
+                    </div>
+                    <div class="items-center px-4 py-3">
+                        <button id="btnConfirmDelete" onclick="ejecutarEliminacion()" disabled
+                            class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Eliminar Definitivamente
+                        </button>
+                        <button onclick="cerrarModal('modalEliminar')"
+                            class="mt-3 px-4 py-2 bg-gray-100 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Configuración Supabase
+            const supabaseUrl = 'https://snyfzenjapyybbfqrnku.supabase.co';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ'; // Reemplazar con la key real si cambia
+            const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+            const pageSize = 10;
+            let currentPage = 1;
+
+            // ==========================================
+            // CARGA INICIAL Y FILTROS
+            // ==========================================
+
+            document.addEventListener('DOMContentLoaded', () => {
+                // Set default dates (current month)
+                const date = new Date();
+                const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+                const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+                document.getElementById('fechaDesde').valueAsDate = firstDay;
+                document.getElementById('fechaHasta').valueAsDate = lastDay;
+                document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+                cargarKardex();
+
+                // Event Listeners for Pagination
+                document.getElementById('btnPrev').addEventListener('click', () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        cargarKardex();
+                    }
+                });
+
+                document.getElementById('btnNext').addEventListener('click', () => {
+                    currentPage++;
+                    cargarKardex();
+                });
+            });
+
+            async function cargarKardex() {
+                const tbody = document.getElementById('tablaKardex');
+                tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando movimientos...</td></tr>';
+
+                const fechaDesde = document.getElementById('fechaDesde').value;
+                const fechaHasta = document.getElementById('fechaHasta').value;
+                const productoBusqueda = document.getElementById('busquedaProducto').value.toLowerCase();
+                const tipoMovimiento = document.getElementById('tipoMovimiento').value;
+
+                try {
+                    // 1. Pre-búsqueda de Items (si hay término de búsqueda)
+                    let itemIds = [];
+                    let busquedaActiva = false;
+
+                    if (productoBusqueda) {
+                        busquedaActiva = true;
+                        const { data: itemsFound, error: errorItems } = await supabaseClient
+                            .from('items')
+                            .select('id')
+                            .or(`codigo.ilike.%${productoBusqueda}%,descripcion.ilike.%${productoBusqueda}%`)
+                            .limit(50); // Limitamos para evitar queries gigantes
+
+                        if (errorItems) throw errorItems;
+                        if (itemsFound) itemIds = itemsFound.map(i => i.id);
+                    }
+
+                    // 2. Construir query principal Kardex
+                    let query = supabaseClient
+                        .from('kardex')
+                        .select(`
+                        *,
+                        items:item_id!inner (codigo, descripcion, unidad_medida)
+                    `, { count: 'exact' })
+                        .gte('fecha_movimiento', fechaDesde + ' 00:00:00')
+                        .lte('fecha_movimiento', fechaHasta + ' 23:59:59')
+                        .order('fecha_movimiento', { ascending: false });
+
+                    // Filtro por Tipo de Movimiento
+                    if (tipoMovimiento) {
+                        query = query.eq('tipo_movimiento', tipoMovimiento);
+                    }
+
+                    // Filtro Híbrido: (Item ID IN [...]) OR (Documento ILIKE %...%)
+                    if (busquedaActiva) {
+                        let orConditions = [];
+
+                        // Condición A: Coincidencia por documento (lote)
+                        orConditions.push(`documento_referencia.ilike.%${productoBusqueda}%`);
+
+                        // Condición B: Coincidencia por Item (si encontramos alguno)
+                        if (itemIds.length > 0) {
+                            // Supabase requiere formato: col.in.(val1,val2)
+                            orConditions.push(`item_id.in.(${itemIds.join(',')})`);
+                        }
+
+                        // Aplicar OR
+                        query = query.or(orConditions.join(','));
+                    }
+
+                    // Paginación (siempre al final)
+                    query = query.range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
+
+                    console.log("Ejecutando query Kardex...");
+                    const { data, error, count } = await query;
+
+                    if (error) {
+                        console.error("Error Supabase:", error);
+                        throw error;
+                    }
+
+                    console.log("Datos recibidos:", data);
+                    console.log("Total registros:", count);
+
+                    renderTabla(data);
+                    updatePagination(count, data.length);
+
+                } catch (error) {
+                    console.error('Error cargando Kardex:', error);
+                    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-red-500">Error al cargar datos: ${error.message}</td></tr>`;
+                }
+            }
+
+            function renderTabla(data) {
+                const tbody = document.getElementById('tablaKardex');
+                tbody.innerHTML = '';
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500">No se encontraron movimientos en este periodo.</td></tr>';
+                    return;
+                }
+
+                data.forEach((mov, index) => {
+                    const isIngreso = mov.tipo_movimiento === 'INGRESO';
+                    const badgeClass = isIngreso ? 'badge-ingreso' : 'badge-egreso';
+                    const signo = isIngreso ? '+' : '-';
+
+                    // Prepare data for edit (escape quotes)
+                    const movData = JSON.stringify(mov).replace(/"/g, '&quot;');
+
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-100 hover:bg-gray-50 transition-colors group';
+
+                    // Formato de fecha UTC-5
+                    // Fix Timezone: Ensure date is treated as UTC if no offset provided
+                    let fechaStr = mov.fecha_movimiento;
+                    if (fechaStr && !fechaStr.includes('Z') && !fechaStr.includes('+') && !fechaStr.includes('-')) {
+                        fechaStr += 'Z';
+                    } else if (fechaStr && !fechaStr.includes('Z') && !fechaStr.includes('+') && fechaStr.includes('T')) {
+                        // Check for negative offset? No, ISO uses - for date separators too.
+                        // Safer: If it looks like YYYY-MM-DDTHH:MM:SS and no Z/+, assume UTC.
+                        // Actually, Supabase usually sends '2025-11-26T06:34:49'.
+                        // If we just append Z, it works for UTC timestamps.
+                        if (fechaStr.split('-').length === 3 && fechaStr.includes('T') && !fechaStr.slice(10).includes('-')) {
+                            fechaStr += 'Z';
+                        }
+                    }
+
+                    // Simplification: Just append Z if it doesn't end in Z and doesn't have a timezone offset (checking for + or - after the time part is hard with regex, but usually Supabase sends simple strings).
+                    // Let's try the simple approach:
+                    const dateObj = new Date(fechaStr);
+
+                    const fecha = dateObj.toLocaleString('es-PE', {
+                        timeZone: 'America/Lima',
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit',
+                        hour12: true
+                    });
+
+                    // Formatter for currency
+                    const formatMoney = (amount) => {
+                        return parseFloat(amount || 0).toLocaleString('es-PE', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        });
+                    };
+
+                    row.innerHTML = `
+                    <td class="p-4 text-gray-600">${fecha}</td>
+                    <td class="p-4 font-medium text-gray-900">${mov.items?.codigo || '-'}</td>
+                    <td class="p-4">
+                        <div class="font-medium text-gray-900">${mov.items?.descripcion || 'Producto desconocido'}</div>
+                        <div class="text-xs text-gray-500">${mov.documento_referencia || ''}</div>
+                    </td>
+                    <td class="p-4">
+                        <span class="badge ${badgeClass}">${mov.tipo_movimiento}</span>
+                    </td>
+                    <td class="p-4 text-right font-mono font-medium ${isIngreso ? 'text-green-600' : 'text-red-600'}">
+                        ${signo}${parseFloat(mov.cantidad).toFixed(2)} ${mov.items?.unidad_medida || ''}
+                    </td>
+                    <td class="p-4 text-right font-mono text-gray-600">
+                        S/ ${formatMoney(mov.costo_unitario)}
+                    </td>
+                    <td class="p-4 text-right font-mono font-medium text-gray-900">
+                        S/ ${formatMoney(mov.costo_total)}
+                    </td>
+                    <td class="p-4 text-right font-mono font-bold text-blue-600">
+                        ${parseFloat(mov.stock_resultante || 0).toFixed(2)}
+                    </td>
+                    <td class="p-4 text-right">
+                        <div class="flex justify-end gap-2">
+                            <button onclick="abrirModalDetalles('${movData}')" class="btn-icon btn-view" title="Ver Detalles">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            function updatePagination(totalItems, currentItemsCount) {
+                const totalPages = Math.ceil(totalItems / pageSize);
+                document.getElementById('infoPaginacion').textContent = `Página ${currentPage} de ${totalPages || 1} (${totalItems} registros)`;
+
+                document.getElementById('btnPrev').disabled = currentPage === 1;
+                document.getElementById('btnNext').disabled = currentPage >= totalPages;
+            }
+
+            function exportarExcel() {
+                alert('Funcionalidad de exportación en desarrollo.');
+            }
+
+            // ==========================================
+            // LÓGICA DE DETALLES AVANZADOS
+            // ==========================================
+            async function abrirModalDetalles(movData) {
+                const mov = JSON.parse(movData.replace(/&quot;/g, '"'));
+                const modal = document.getElementById('modalDetalles');
+                const content = document.getElementById('modalContent');
+                const title = document.getElementById('modalTitle');
+                const subtitle = document.getElementById('modalSubtitle');
+
+                modal.classList.remove('hidden');
+                content.innerHTML = '<div class="flex justify-center py-10"><i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i></div>';
+
+                try {
+                    if (mov.tipo_movimiento === 'INGRESO') {
+                        title.textContent = `Detalles del Ingreso: ${mov.documento_referencia}`;
+                        subtitle.textContent = 'Información completa de la compra y recepción';
+                        await fetchDetallesIngreso(mov.documento_referencia, content);
+                    } else if (mov.tipo_movimiento === 'EGRESO') {
+                        title.textContent = `Detalles del Egreso: ${mov.documento_referencia}`;
+                        subtitle.textContent = 'Información de la salida de inventario';
+                        await fetchDetallesEgreso(mov.documento_referencia, content);
+                    } else {
+                        content.innerHTML = '<p class="text-center text-gray-500">No hay detalles adicionales disponibles para este tipo de movimiento.</p>';
+                    }
+                } catch (error) {
+                    console.error(error);
+                    content.innerHTML = `<div class="bg-red-50 p-4 rounded-lg text-red-700">Error al cargar detalles: ${error.message}</div>`;
+                }
+            }
+
+            async function fetchDetallesIngreso(numeroIngreso, container) {
+                // 1. Fetch Ingreso Data
+                const { data: ingreso, error: errIngreso } = await supabaseClient
+                    .from('ingresos')
+                    .select(`
+                    *,
+                    proveedores (razon_social),
+                    almacenes!almacen_destino_id (nombre),
+                    tipo_ingreso:tipos_ingresos!fk_ingresos_tipo_ingreso (nombre)
+                `)
+                    .eq('numero_ingreso', numeroIngreso)
+                    .single();
+
+                if (errIngreso) throw errIngreso;
+                console.log('Ingreso Data:', ingreso); // DEBUG
+                if (!ingreso) throw new Error('Ingreso no encontrado');
+
+                // 2. Fetch Items
+                const { data: items, error: errItems } = await supabaseClient
+                    .from('ingresos_detalle')
+                    .select(`
+                    *,
+                    items (codigo, descripcion, unidad_medida)
+                `)
+                    .eq('ingreso_id', ingreso.id);
+
+                if (errItems) throw errItems;
+
+                // 3. Fetch Gastos
+                const { data: gastos, error: errGastos } = await supabaseClient
+                    .from('gastos_ingreso')
+                    .select('*')
+                    .eq('ingreso_id', ingreso.id);
+
+                if (errGastos) throw errGastos;
+
+                // Render HTML
+                // Helper para formatear fecha YYYY-MM-DD a DD/MM/YYYY sin timezone shift
+                const formatDateSafe = (dateStr) => {
+                    if (!dateStr) return '-';
+                    const [y, m, d] = dateStr.split('-');
+                    return `${d}/${m}/${y}`;
+                };
+
+                // Helper para formatear moneda
+                const formatMoney = (amount) => {
+                    return parseFloat(amount || 0).toLocaleString('es-PE', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                };
+
+                const fechaIngreso = formatDateSafe(ingreso.fecha_ingreso);
+                const fechaEmision = formatDateSafe(ingreso.fecha_documento);
+                const fechaVenc = formatDateSafe(ingreso.fecha_vencimiento);
+
+                let html = `
+                <div class="space-y-8">
+                    <!-- Datos Generales -->
+                    <section>
+                        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-info-circle text-blue-600"></i> Datos Generales
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                            <div><p class="text-xs text-gray-500 uppercase">Tipo de Ingreso</p><p class="font-medium">${ingreso.tipo_ingreso?.nombre || ingreso.tipos_ingresos?.nombre || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Proveedor</p><p class="font-medium">${ingreso.proveedores?.razon_social || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Almacén Destino</p><p class="font-medium">${ingreso.almacenes?.nombre || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Fecha Ingreso</p><p class="font-medium">${fechaIngreso}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Forma de Pago</p><p class="font-medium">${ingreso.forma_pago || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Documento</p><p class="font-medium">${ingreso.tipo_documento || (ingreso.con_factura ? 'Factura/Boleta' : 'Guía/Nota')}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Serie - Número</p><p class="font-medium">${ingreso.serie_factura || ''} - ${ingreso.numero_factura || ''}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Fecha Emisión Doc.</p><p class="font-medium">${fechaEmision}</p></div>
+                        </div>
+                    </section>
+
+                    ${ingreso.forma_pago === 'CREDITO' ? `
+                    <!-- Información de Crédito -->
+                    <section>
+                        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-credit-card text-orange-600"></i> Información de Crédito
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-orange-50 p-5 rounded-xl border border-orange-200">
+                            <div><p class="text-xs text-gray-500 uppercase">Pago Inicial</p><p class="font-bold text-gray-800">S/ ${formatMoney(ingreso.pago_inicial)}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Saldo Pendiente</p><p class="font-bold text-red-600">S/ ${formatMoney(ingreso.saldo_credito)}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Fecha Vencimiento</p><p class="font-medium">${fechaVenc}</p></div>
+                        </div>
+                    </section>
+                    ` : ''}
+
+                    <!-- Detalle de Items -->
+                    <section>
+                        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-boxes text-green-600"></i> Detalle de Items
+                        </h4>
+                        <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-100 text-gray-600 uppercase text-xs">
+                                    <tr>
+                                        <th class="px-4 py-3">Código</th>
+                                        <th class="px-4 py-3">Descripción</th>
+                                        <th class="px-4 py-3">Unidad</th>
+                                        <th class="px-4 py-3 text-right">Cant.</th>
+                                        <th class="px-4 py-3 text-right">Precio Unit.</th>
+                                        <th class="px-4 py-3 text-right">Valor Compra</th>
+                                        <th class="px-4 py-3 text-right">IGV</th>
+                                        <th class="px-4 py-3 text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    ${items.map(item => `
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 font-mono text-gray-500">${item.items?.codigo || '-'}</td>
+                                        <td class="px-4 py-3 font-medium text-gray-900">${item.items?.descripcion || '-'}</td>
+                                        <td class="px-4 py-3 text-gray-500">${item.items?.unidad_medida || '-'}</td>
+                                        <td class="px-4 py-3 text-right font-bold">${parseFloat(item.cantidad).toFixed(2)}</td>
+                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(item.precio_compra_unitario)}</td>
+                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(item.valor_compra_unitario)}</td>
+                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(item.igv_credito_fiscal_unitario)}</td>
+                                        <td class="px-4 py-3 text-right font-bold text-blue-600">S/ ${formatMoney(item.precio_compra_total || (item.cantidad * item.precio_compra_unitario))}</td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Otros Egresos Asociados -->
+                    ${gastos.length > 0 ? `
+                    <section>
+                        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-receipt text-purple-600"></i> Otros Egresos Asociados
+                        </h4>
+                        <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-100 text-gray-600 uppercase text-xs">
+                                    <tr>
+                                        <th class="px-4 py-3">Descripción</th>
+                                        <th class="px-4 py-3">Factura?</th>
+                                        <th class="px-4 py-3">Doc. Ref.</th>
+                                        <th class="px-4 py-3 text-right">Monto</th>
+                                        <th class="px-4 py-3 text-right">Valor Gasto</th>
+                                        <th class="px-4 py-3 text-right">IGV Gasto</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    ${gastos.map(gasto => `
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 font-medium">${gasto.descripcion || '-'}</td>
+                                        <td class="px-4 py-3">${gasto.con_factura_gasto ? '<span class="text-green-600 font-bold">SÍ</span>' : 'NO'}</td>
+                                        <td class="px-4 py-3 text-xs text-gray-500">
+                                            ${gasto.con_factura_gasto ?
+                        `<div>${gasto.serie_factura || ''}-${gasto.numero_factura || ''}</div>
+                                                 <div>${gasto.fecha_emision ? new Date(gasto.fecha_emision).toLocaleDateString() : ''}</div>`
+                        : '-'}
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-bold">S/ ${formatMoney(gasto.precio_gasto)}</td>
+                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(gasto.valor_gasto)}</td>
+                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(gasto.igv_credito_fiscal_gasto)}</td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                    ` : ''}
+                </div>
+            `;
+                container.innerHTML = html;
+            }
+
+            async function fetchDetallesEgreso(numeroEgreso, container) {
+                // 1. Fetch Egreso Data
+                const { data: egreso, error: errEgreso } = await supabaseClient
+                    .from('egresos')
+                    .select(`
+                    *,
+                    almacenes!almacen_origen_id (nombre),
+                    tipos_egresos (nombre)
+                `)
+                    .eq('numero_egreso', numeroEgreso)
+                    .single();
+
+                if (errEgreso) throw errEgreso;
+                if (!egreso) throw new Error('Egreso no encontrado');
+
+                // 2. Fetch Items
+                const { data: items, error: errItems } = await supabaseClient
+                    .from('egresos_detalle')
+                    .select(`
+                    *,
+                    items (codigo, descripcion, unidad_medida)
+                `)
+                    .eq('egreso_id', egreso.id);
+
+                if (errItems) throw errItems;
+
+                // Helper para formatear fecha YYYY-MM-DD a DD/MM/YYYY sin timezone shift
+                const formatDateSafe = (dateStr) => {
+                    if (!dateStr) return '-';
+                    const [y, m, d] = dateStr.split('-');
+                    return `${d}/${m}/${y}`;
+                };
+
+                const fechaSalida = formatDateSafe(egreso.fecha_egreso);
+
+                let html = `
+                <div class="space-y-8">
+                    <!-- Datos Generales -->
+                    <section>
+                        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-info-circle text-blue-600"></i> Datos Generales
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                            <div><p class="text-xs text-gray-500 uppercase">Almacén de Origen</p><p class="font-medium">${egreso.almacenes?.nombre || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Tipo de Egreso</p><p class="font-medium">${egreso.tipos_egresos?.nombre || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Fecha de Salida</p><p class="font-medium">${fechaSalida}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Código Venta</p><p class="font-medium">${egreso.codigo_venta || '-'}</p></div>
+                        </div>
+                    </section>
+
+                    <!-- Detalle de Items a Retirar -->
+                    <section>
+                        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-dolly text-red-600"></i> Items Retirados
+                        </h4>
+                        <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-100 text-gray-600 uppercase text-xs">
+                                    <tr>
+                                        <th class="px-4 py-3">Código</th>
+                                        <th class="px-4 py-3">Descripción</th>
+                                        <th class="px-4 py-3">Unidad</th>
+                                        <th class="px-4 py-3 text-right">Cantidad a Retirar</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    ${items.map(item => `
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 font-mono text-gray-500">${item.items?.codigo || '-'}</td>
+                                        <td class="px-4 py-3 font-medium text-gray-900">${item.items?.descripcion || '-'}</td>
+                                        <td class="px-4 py-3 text-gray-500">${item.items?.unidad_medida || '-'}</td>
+                                        <td class="px-4 py-3 text-right font-bold text-red-600">-${parseFloat(item.cantidad).toFixed(2)}</td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            `;
+                container.innerHTML = html;
+            }
+
+
+
+            // ==========================================
+            // LÓGICA DE EDICIÓN Y ELIMINACIÓN
+            // ==========================================
+            // Funciones retiradas por simplificación (Solo Lectura)
+
+            function cerrarModal(modalId) {
+                document.getElementById(modalId).classList.add('hidden');
+            }
+        </script>
+</body>
+
+</html>
