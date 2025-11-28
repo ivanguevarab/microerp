@@ -18,6 +18,50 @@
             background-color: #f3f4f6;
         }
 
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
         /* Estilos para el Buscador Google-Style */
         .search-container {
             position: relative;
@@ -114,35 +158,18 @@
 <body class="text-gray-800">
 
     <!-- Navbar (Simplificado para consistencia) -->
-    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center gap-4">
-                    <button onclick="window.location.href='index.html'"
-                        class="text-gray-500 hover:text-gray-700 transition-colors">
-                        <i class="fas fa-arrow-left text-xl"></i>
-                    </button>
-                    <div class="flex flex-col">
-                        <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
-                            <i class="fas fa-dolly-flatbed text-blue-600"></i>
-                            Gestión de Egresos
-                        </h1>
-                        <span class="text-xs text-gray-500">Salida de inventario (FIFO)</span>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <div class="text-right hidden sm:block">
-                        <p id="userDisplay" class="text-sm font-medium text-gray-900">Cargando...</p>
-                        <p id="roleDisplay" class="text-xs text-gray-500">...</p>
-                    </div>
-                    <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold"
-                        id="userAvatar">
-                        U
-                    </div>
-                </div>
-            </div>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="btn-back" onclick="window.location.href='gestion_inventarios.html'">
+                ← Volver
+            </button>
+            <h1>MICRO ERP</h1>
         </div>
-    </nav>
+        <div class="header-right">
+            <span id="fechaActual" style="color: white; font-weight: 500;"></span>
+        </div>
+    </header>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -269,7 +296,7 @@
 
         <!-- 4. Footer de Acciones -->
         <div class="flex justify-end gap-4 mt-8">
-            <button onclick="window.history.back()"
+            <button onclick="window.location.href='gestion_inventarios.html'"
                 class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
                 Cancelar
             </button>
@@ -285,8 +312,8 @@
     <script>
         // Configuración de Supabase
         const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MMJJDKK49fnQdMlHxjlQ';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // Estado Global
         let itemsEgreso = [];
@@ -298,8 +325,9 @@
             await cargarCatalogos();
             configurarEventos();
 
-            // Fecha por defecto: Hoy
-            document.getElementById('fechaEgreso').valueAsDate = new Date();
+            // Fecha por defecto: Hoy (Zona Horaria Perú)
+            const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' }); // YYYY-MM-DD
+            document.getElementById('fechaEgreso').value = hoy;
         });
 
         // --- Lógica de Sesión (Reutilizada) ---
@@ -310,9 +338,16 @@
                 return;
             }
             usuarioActual = JSON.parse(sessionStr);
-            document.getElementById('userDisplay').textContent = usuarioActual.name || usuarioActual.email;
-            document.getElementById('roleDisplay').textContent = usuarioActual.role || 'Usuario';
-            document.getElementById('userAvatar').textContent = (usuarioActual.name || usuarioActual.email).charAt(0).toUpperCase();
+
+            // Update UI only if elements exist
+            const userDisplay = document.getElementById('userDisplay');
+            if (userDisplay) userDisplay.textContent = usuarioActual.name || usuarioActual.email;
+
+            const roleDisplay = document.getElementById('roleDisplay');
+            if (roleDisplay) roleDisplay.textContent = usuarioActual.role || 'Usuario';
+
+            const userAvatar = document.getElementById('userAvatar');
+            if (userAvatar) userAvatar.textContent = (usuarioActual.name || usuarioActual.email).charAt(0).toUpperCase();
         }
 
         // --- Carga de Datos ---
@@ -320,7 +355,7 @@
             console.log('Iniciando cargarCatalogos...');
 
             // Cargar Almacenes
-            const { data: almacenes, error: errorAlmacenes } = await supabase.from('almacenes').select('*').eq('activo', true);
+            const { data: almacenes, error: errorAlmacenes } = await supabaseClient.from('almacenes').select('*').eq('activo', true);
             console.log('Almacenes cargados:', almacenes, 'Error:', errorAlmacenes);
 
             const selectAlmacen = document.getElementById('almacenOrigen');
@@ -334,7 +369,7 @@
             }
 
             // Cargar Tipos de Egreso
-            const { data: tipos, error: errorTipos } = await supabase.from('tipos_egresos').select('*').eq('activo', true);
+            const { data: tipos, error: errorTipos } = await supabaseClient.from('tipos_egresos').select('*').eq('activo', true);
             console.log('Tipos de Egreso cargados:', tipos, 'Error:', errorTipos);
 
             const selectTipo = document.getElementById('tipoEgreso');
@@ -399,10 +434,10 @@
                 // Nota: Idealmente esto sería una vista o una función RPC para eficiencia
                 // Por ahora simulamos un join lógico en cliente por simplicidad del prototipo
 
-                const { data: productos, error } = await supabase
+                const { data: productos, error } = await supabaseClient
                     .from('items')
                     .select('id, codigo, descripcion, unidad_medida')
-                    .ilike('descripcion', `%${termino}%`)
+                    .or(`descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
                     .limit(10);
 
                 if (error) throw error;
@@ -419,7 +454,7 @@
                 for (const prod of productos) {
                     // Consultar lotes disponibles para este producto en este almacén
                     // Necesitamos hacer join con ingresos para filtrar por almacén
-                    const { data: lotes, error: errorLotes } = await supabase
+                    const { data: lotes, error: errorLotes } = await supabaseClient
                         .from('ingresos_detalle')
                         .select(`
                             cantidad_disponible,
@@ -512,7 +547,7 @@
 
             try {
                 // Consultar lotes ordenados por fecha (FIFO)
-                const { data: lotes, error } = await supabase
+                const { data: lotes, error } = await supabaseClient
                     .from('ingresos_detalle')
                     .select(`
                         id,
@@ -584,6 +619,14 @@
             }
         }
 
+        // Helper para formato de moneda (Miles con coma)
+        const formatMoney = (amount) => {
+            return parseFloat(amount || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        };
+
         // 5. Agregar Items a la Tabla Visual
         function agregarItemsATabla(items) {
             const tbody = document.getElementById('tablaItems');
@@ -607,10 +650,10 @@
                         ${item.cantidad} ${item.producto.unidad_medida}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                        S/ ${item.costoUnitario.toFixed(2)}
+                        S/ ${formatMoney(item.costoUnitario)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                        S/ ${item.costoTotal.toFixed(2)}
+                        S/ ${formatMoney(item.costoTotal)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <button onclick="eliminarItem(this)" class="text-red-600 hover:text-red-900">
@@ -625,7 +668,7 @@
         // 6. Actualizar Totales
         function actualizarTotales() {
             const total = itemsEgreso.reduce((sum, item) => sum + item.costoTotal, 0);
-            document.getElementById('totalEgreso').textContent = `S/ ${total.toFixed(2)}`;
+            document.getElementById('totalEgreso').textContent = `S/ ${formatMoney(total)}`;
 
             // Habilitar/Deshabilitar botón guardar
             const btnGuardar = document.getElementById('btnGuardar');
@@ -690,12 +733,13 @@
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
 
                 // 1. Crear Cabecera de Egreso
-                const { data: egreso, error: errorEgreso } = await supabase
+                const { data: egreso, error: errorEgreso } = await supabaseClient
                     .from('egresos')
                     .insert({
                         almacen_origen_id: almacenOrigenId,
                         tipo_egreso_id: tipoEgresoId,
                         fecha_egreso: fechaEgreso,
+                        numero_egreso: `EGR-${Date.now()}`, // Generación temporal
                         estado: 'CONFIRMADO',
                         usuario_id: usuarioActual?.id, // Si tenemos auth
                         observaciones: 'Egreso registrado desde módulo web'
@@ -708,7 +752,7 @@
                 // 2. Procesar Detalles (Secuencial para evitar race conditions en updates)
                 for (const item of itemsEgreso) {
                     // a. Insertar detalle de egreso
-                    const { error: errorDetalle } = await supabase
+                    const { error: errorDetalle } = await supabaseClient
                         .from('egresos_detalle')
                         .insert({
                             egreso_id: egreso.id,
@@ -725,7 +769,7 @@
                     // Aquí confiamos en que nadie más modificó el lote en estos milisegundos (Optimistic Lock simple)
 
                     // Primero obtenemos el lote actual para asegurar consistencia
-                    const { data: loteActual, error: errorLote } = await supabase
+                    const { data: loteActual, error: errorLote } = await supabaseClient
                         .from('ingresos_detalle')
                         .select('cantidad_disponible')
                         .eq('id', item.loteId)
@@ -735,28 +779,19 @@
 
                     const nuevoSaldo = Number(loteActual.cantidad_disponible) - Number(item.cantidad);
 
-                    const { error: errorUpdate } = await supabase
+                    const { error: errorUpdate } = await supabaseClient
                         .from('ingresos_detalle')
                         .update({ cantidad_disponible: nuevoSaldo })
                         .eq('id', item.loteId);
 
                     if (errorUpdate) throw errorUpdate;
 
-                    // c. Registrar Kardex (Salida)
-                    await supabase.from('kardex').insert({
-                        item_id: item.producto.id,
-                        almacen_id: almacenOrigenId,
-                        tipo_movimiento: 'EGRESO',
-                        documento_tipo: 'EGRESO',
-                        documento_referencia: egreso.numero_egreso || egreso.id, // Si hay trigger de numero
-                        fecha_movimiento: fechaEgreso,
-                        cantidad: item.cantidad,
-                        costo_unitario: item.costoUnitario,
-                        costo_total: item.costoTotal,
-                        saldo_cantidad: 0, // Se actualizará con trigger o cálculo posterior si existiera
-                        saldo_costo: 0,
-                        created_by: usuarioActual?.email
-                    });
+                    // c. Actualizar Stock Global y Kardex
+                    // SE ELIMINÓ LA LÓGICA MANUAL DE FRONTEND.
+                    // El trigger 'tr_egreso_kardex' en la base de datos se encarga de:
+                    // 1. Crear el registro en Kardex
+                    // 2. Descontar el stock en la tabla 'items'
+                    // Esto evita la duplicidad de movimientos.
                 }
 
                 alert('✅ Egreso registrado correctamente.');
