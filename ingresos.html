@@ -33,49 +33,145 @@
 
         /* Header */
         .header {
-            background-color: var(--surface-color);
-            padding: 1.5rem 2rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+            color: white;
+            padding: 20px 30px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            border-bottom: 1px solid var(--border-color);
-        }
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
+            /* Responsive */
+            @media (max-width: 768px) {
+                .container {
+                    padding: 20px 15px;
+                }
+
+                .page-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 15px;
+                }
+
+                .table-container {
+                    overflow-x: auto;
+                }
+
+                table {
+                    min-width: 600px;
+                }
+
+                .modal-content {
+                    margin: 20px;
+                }
+            }
+
+            /* Estilos para el Buscador Google-Style (Adaptado de Egresos) */
+            .search-container {
+                position: relative;
+                width: 100%;
+            }
+
+            .search-input {
+                width: 100%;
+                padding: 12px 20px;
+                padding-left: 45px;
+                border-radius: 8px;
+                border: 2px solid #e0e0e0;
+                font-size: 14px;
+                transition: all 0.3s ease;
+                background: #fff;
+            }
+
+            .search-input:focus {
+                outline: none;
+                border-color: #0070f2;
+                box-shadow: 0 4px 12px rgba(0, 112, 242, 0.1);
+            }
+
+            .search-input:disabled {
+                background-color: #f5f5f5;
+                cursor: not-allowed;
+            }
+
+            .search-icon-input {
+                position: absolute;
+                left: 15px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #7f8c8d;
+                font-size: 16px;
+            }
+
+            .search-results {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: white;
+                border-radius: 8px;
+                margin-top: 8px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+                z-index: 1000;
+                display: none;
+                max-height: 300px;
+                overflow-y: auto;
+                border: 1px solid #e0e0e0;
+            }
+
+            .result-item {
+                padding: 12px 20px;
+                cursor: pointer;
+                border-bottom: 1px solid #f0f0f0;
+                transition: background 0.2s;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .result-item:hover {
+                background-color: #f8f9fa;
+            }
+
+            .result-item:last-child {
+                border-bottom: none;
+            }
+
+            .item-code {
+                font-size: 12px;
+                color: #7f8c8d;
+                background: #f0f2f5;
+                padding: 2px 6px;
+                border-radius: 4px;
+                margin-left: 8px;
+            }
+
+            .item-stock {
+                font-size: 12px;
+                font-weight: 600;
+                color: #2e7d32;
+            }
+
+            color: white;
         }
 
         .btn-back {
-            background: #f1f5f9;
-            border: 1px solid var(--border-color);
-            color: var(--secondary-color);
-            font-size: 0.9rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 14px;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            transition: all 0.2s;
-            font-weight: 500;
+            gap: 8px;
+            transition: all 0.3s;
         }
 
         .btn-back:hover {
-            background-color: #e2e8f0;
-            color: var(--text-color);
-        }
-
-        h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-color);
-            letter-spacing: -0.025em;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
         }
 
         /* Main Container */
@@ -115,6 +211,76 @@
         }
 
         /* Form Grid */
+        /* Estilos para el Buscador Google-Style */
+        .search-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 24px;
+            padding-left: 50px;
+            border-radius: 24px;
+            border: 1px solid #e5e7eb;
+            background-color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            cursor: text;
+            /* El input es para escribir */
+        }
+
+        .search-input:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #3b82f6;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 1.2rem;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 16px;
+            margin-top: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            z-index: 50;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+        }
+
+        .result-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            /* Manito en los resultados */
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.2s;
+        }
+
+        .result-item:hover {
+            background-color: #f9fafb;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -313,6 +479,92 @@
         .toast.warning {
             border-left: 4px solid var(--warning-color);
         }
+
+        /* Estilos para el Buscador Google-Style (Adaptado de Egresos) */
+        .search-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 20px;
+            padding-left: 45px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: #fff;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #0070f2;
+            box-shadow: 0 4px 12px rgba(0, 112, 242, 0.1);
+        }
+
+        .search-input:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .search-icon-input {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            margin-top: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            z-index: 1000;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+        }
+
+        .result-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-code {
+            font-size: 12px;
+            color: #7f8c8d;
+            background: #f0f2f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        .item-stock {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2e7d32;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -321,13 +573,13 @@
     <!-- Header -->
     <header class="header">
         <div class="header-left">
-            <button class="btn-back" onclick="window.location.href='dashboard.html'">
+            <button class="btn-back" onclick="window.location.href='gestion_inventarios.html'">
                 ← Volver
             </button>
-            <h1>Registrar Ingreso</h1>
+            <h1>MICRO ERP</h1>
         </div>
         <div class="header-right">
-            <span id="fechaActual" style="color: var(--secondary-color); font-weight: 500;"></span>
+            <span id="fechaActual" style="color: white; font-weight: 500;"></span>
         </div>
     </header>
 
@@ -346,6 +598,7 @@
                     </select>
                 </div>
 
+                <!-- Proveedor -->
                 <!-- Proveedor -->
                 <div class="form-group">
                     <label for="proveedor">Proveedor *</label>
@@ -430,12 +683,20 @@
             </div>
 
             <div class="form-grid" style="margin-bottom: 1.5rem; align-items: end;">
-                <div class="form-group" style="flex: 2;">
-                    <label for="productoBusqueda">Buscar Item</label>
-                    <select id="productoBusqueda" onchange="verificarProveedorItem()">
-                        <option value="">Cargando items...</option>
-                    </select>
+                <!-- Buscador Simple (Dropdown) -->
+                <!-- Buscador Google-Style -->
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Buscar Item (Nombre o Código)</label>
+                    <div class="search-container">
+                        <span class="search-icon-input">🔍</span>
+                        <input type="text" id="productoBusqueda" class="search-input"
+                            placeholder="Escriba para buscar producto..." autocomplete="off">
+                        <div id="resultadosBusqueda" class="search-results">
+                            <!-- Resultados dinámicos -->
+                        </div>
+                    </div>
                 </div>
+
                 <div class="form-group">
                     <label for="cantidadInput">Cantidad <span id="unidadMedidaDisplay"
                             style="font-weight: normal; color: var(--secondary-color); font-size: 0.9em;"></span></label>
@@ -461,7 +722,7 @@
                             <th>Unidad</th>
                             <th class="col-number">Cant.</th>
                             <th class="col-number">Precio Unit.</th>
-                            <th class="col-number">Valor Venta</th>
+                            <th class="col-number">Valor Compra</th>
                             <th class="col-number">IGV</th>
                             <th class="col-number">Total</th>
                             <th class="col-action"></th>
@@ -591,8 +852,9 @@
 
         <!-- Botones de Acción -->
         <div class="actions-footer">
-            <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">Cancelar</button>
-            <button class="btn btn-primary" onclick="solicitarConfirmacion()">Guardar Ingreso</button>
+            <button type="button" class="btn btn-secondary"
+                onclick="window.location.href='gestion_inventarios.html'">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="solicitarConfirmacion()">Guardar Ingreso</button>
         </div>
     </main>
 
@@ -733,8 +995,10 @@
             document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', {
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
             });
-            document.getElementById('fechaEmision').valueAsDate = new Date();
-            document.getElementById('fechaDocumento').valueAsDate = new Date();
+            // Fecha por defecto: Hoy (Zona Horaria Perú)
+            const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' }); // YYYY-MM-DD
+            document.getElementById('fechaDocumento').value = hoy;
+            document.getElementById('fechaEmision').value = hoy;
             document.getElementById('gastoFecha').valueAsDate = new Date();
 
             // Listener para cambio de documento (recalcular IGV)
@@ -814,7 +1078,7 @@
                     .eq('activo', true);
 
                 productosCache = productos || [];
-                llenarSelectProductos(productosCache);
+                // llenarSelectProductos(productosCache); // REMOVED: No longer using dropdown for products
 
             } catch (error) {
                 console.error('Error cargando datos:', error);
@@ -833,49 +1097,110 @@
             });
         }
 
-        function llenarSelectProductos(productos) {
-            const select = document.getElementById('productoBusqueda');
-            select.innerHTML = '<option value="">Seleccionar item...</option>';
-            productos.forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.id;
-                option.textContent = `${p.codigo} - ${p.descripcion}`;
-                select.appendChild(option);
+        // ============================================
+        // LÓGICA DE SELECCIÓN DE PRODUCTOS (DROPDOWN)
+        // ============================================
+
+        // ============================================
+        // LÓGICA DE BÚSQUEDA Y SELECCIÓN (GOOGLE STYLE)
+        // ============================================
+
+        // Inicializar Buscador
+        document.addEventListener('DOMContentLoaded', () => {
+            const buscador = document.getElementById('productoBusqueda');
+
+            // Evento Input con Debounce
+            buscador.addEventListener('input', debounce(async (e) => {
+                // Limpiar selección previa al escribir para evitar inconsistencias
+                e.target.dataset.id = '';
+                itemSeleccionadoActual = null;
+
+                const termino = e.target.value;
+                if (termino.length < 2) {
+                    document.getElementById('resultadosBusqueda').style.display = 'none';
+                    return;
+                }
+                await buscarProductos(termino);
+            }, 300));
+
+            // Cerrar resultados al hacer clic fuera
+            document.addEventListener('click', (e) => {
+                if (!buscador.contains(e.target) && !document.getElementById('resultadosBusqueda').contains(e.target)) {
+                    document.getElementById('resultadosBusqueda').style.display = 'none';
+                }
             });
+        });
+
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
         }
 
-        // ============================================
-        // LÓGICA DEL DETALLE
-        // ============================================
-        function esConFactura() {
-            const doc = document.getElementById('tipoDocumento').value;
-            return doc === 'FACTURA';
+        async function buscarProductos(termino) {
+            const resultadosDiv = document.getElementById('resultadosBusqueda');
+            resultadosDiv.style.display = 'block';
+            resultadosDiv.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">Buscando...</div>';
+
+            try {
+                const { data: productos, error } = await supabase
+                    .from('items')
+                    .select('id, codigo, descripcion, unidad_medida:unidades_medida(codigo), proveedor_id')
+                    .or(`descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
+                    .eq('activo', true)
+                    .limit(10);
+
+                if (error) throw error;
+
+                renderizarResultados(productos);
+            } catch (error) {
+                console.error('Error buscando:', error);
+                resultadosDiv.innerHTML = '<div style="padding:10px; text-align:center; color:red;">Error al buscar</div>';
+            }
         }
 
-        function verificarProveedorItem() {
-            const itemId = document.getElementById('productoBusqueda').value;
-            const uomDisplay = document.getElementById('unidadMedidaDisplay');
+        function renderizarResultados(productos) {
+            const resultadosDiv = document.getElementById('resultadosBusqueda');
+            resultadosDiv.innerHTML = '';
 
-            if (!itemId) {
-                uomDisplay.textContent = '';
+            if (!productos || productos.length === 0) {
+                resultadosDiv.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">No se encontraron productos</div>';
                 return;
             }
 
-            const item = productosCache.find(p => p.id === itemId);
-            const proveedorSelect = document.getElementById('proveedor');
+            productos.forEach(prod => {
+                const div = document.createElement('div');
+                div.className = 'result-item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${prod.descripcion}</strong>
+                        <span class="item-code">${prod.codigo}</span>
+                    </div>
+                `;
+                div.onclick = () => seleccionarProducto(prod);
+                resultadosDiv.appendChild(div);
+            });
+        }
 
-            // Mostrar Unidad de Medida
-            if (item && item.unidad_medida) {
-                uomDisplay.textContent = `(${item.unidad_medida.codigo})`;
-            } else {
-                uomDisplay.textContent = '';
-            }
+        let itemSeleccionadoActual = null;
 
-            // Si el item tiene proveedor y el select de proveedor está vacío
-            if (item && item.proveedor_id && proveedorSelect.value === "") {
-                proveedorSelect.value = item.proveedor_id;
-                mostrarToast('✅ Proveedor asignado automáticamente', 'info');
-            }
+        function seleccionarProducto(producto) {
+            const input = document.getElementById('productoBusqueda');
+            input.value = producto.codigo + ' - ' + producto.descripcion;
+            input.dataset.id = producto.id; // Guardar ID oculto
+
+            // Guardar el objeto completo para usarlo al agregar
+            itemSeleccionadoActual = producto;
+
+            document.getElementById('resultadosBusqueda').style.display = 'none';
+
+            // Lógica existente de verificación
+            verificarProveedorItem(producto);
+
+            // Foco a cantidad
+            document.getElementById('cantidadInput').focus();
         }
 
         function agregarProducto() {
@@ -890,7 +1215,7 @@
                 return;
             }
 
-            const productoId = document.getElementById('productoBusqueda').value;
+            const productoId = document.getElementById('productoBusqueda').dataset.id;
             const cantidad = parseFloat(document.getElementById('cantidadInput').value);
             const precioUnitario = parseFloat(document.getElementById('precioInput').value); // PRECIO COMPRA (Inc. IGV si aplica)
 
@@ -899,7 +1224,13 @@
                 return;
             }
 
-            const producto = productosCache.find(p => p.id === productoId);
+            // Usar el item seleccionado guardado globalmente
+            const producto = itemSeleccionadoActual;
+
+            if (!producto || String(producto.id) !== String(productoId)) {
+                mostrarToast('Error: Vuelva a buscar y seleccionar el producto', 'error');
+                return;
+            }
 
             // Agregar al estado (los cálculos se hacen en recalcularTodo)
             detalleIngreso.push({
@@ -925,6 +1256,18 @@
             limpiarInputsProducto();
         }
 
+        // ...
+
+        function limpiarInputsProducto() {
+            document.getElementById('productoBusqueda').value = '';
+            document.getElementById('productoBusqueda').dataset.id = '';
+            itemSeleccionadoActual = null; // Limpiar selección
+            document.getElementById('unidadMedidaDisplay').textContent = '';
+            document.getElementById('cantidadInput').value = '1';
+            document.getElementById('precioInput').value = '';
+            document.getElementById('productoBusqueda').focus();
+        }
+
         // ============================================
         // LÓGICA DE GASTOS ASOCIADOS
         // ============================================
@@ -941,6 +1284,35 @@
                 }
             } else {
                 divDatos.style.display = 'none';
+            }
+        }
+
+        function verificarProveedorItem(item) {
+            const uomDisplay = document.getElementById('unidadMedidaDisplay');
+            const proveedorSelect = document.getElementById('proveedor');
+
+            if (!item) {
+                uomDisplay.textContent = '';
+                return;
+            }
+
+            // Mostrar Unidad de Medida
+            if (item.unidad_medida) {
+                uomDisplay.textContent = `(${item.unidad_medida.codigo})`;
+            } else {
+                uomDisplay.textContent = '';
+            }
+
+            // Asignar Proveedor Automáticamente
+            if (item.proveedor_id) {
+                // Si ya hay un proveedor seleccionado y es diferente, avisar del cambio
+                if (proveedorSelect.value !== "" && proveedorSelect.value != item.proveedor_id) {
+                    mostrarToast('⚠️ Se actualizó el proveedor según el item seleccionado', 'warning');
+                } else { // Simplificado: siempre asigna si hay proveedor_id
+                    mostrarToast('✅ Proveedor asignado automáticamente', 'info');
+                }
+
+                proveedorSelect.value = item.proveedor_id;
             }
         }
 
@@ -1010,6 +1382,82 @@
             document.getElementById('gastoDescripcion').focus();
         }
 
+        // Helper for currency formatting (Force en-US to guarantee comma separators as requested)
+        const formatMoney = (amount) => {
+            return parseFloat(amount || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        };
+
+        const formatMoney4 = (amount) => {
+            return parseFloat(amount || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 4,
+                maximumFractionDigits: 4
+            });
+        };
+
+        function renderizarTabla() {
+            const tbody = document.querySelector('#tablaDetalle tbody');
+            tbody.innerHTML = '';
+
+            detalleIngreso.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.codigo}</td>
+                    <td>${item.descripcion}</td>
+                    <td>${item.unidad}</td>
+                    <td class="col-number">${item.cantidad.toFixed(2)}</td>
+                    <td class="col-number">${formatMoney4(item.precioUnitario)}</td>
+                    <td class="col-number">${formatMoney(item.subtotal)}</td>
+                    <td class="col-number">${formatMoney(item.igvTotal)}</td>
+                    <td class="col-number">${formatMoney(item.total)}</td>
+                    <td class="col-action">
+                        <button class="btn-icon" onclick="editarFila(${index})" title="Editar">✏️</button>
+                        <button class="btn-icon btn-delete" onclick="eliminarFila(${index})" title="Eliminar">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ... existing code ...
+
+        function renderizarResumenCostos() {
+            const tbody = document.getElementById('tablaResumenCostos').querySelector('tbody');
+            tbody.innerHTML = '';
+
+            let totalDoc = 0;
+            let totalGastos = 0;
+            let totalCosto = 0;
+
+            detalleIngreso.forEach(item => {
+                const gastoUnitario = item.gastoAsignado / item.cantidad;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <strong>${item.codigo}</strong><br>
+                        ${item.descripcion}
+                    </td>
+                    <td class="col-number">S/ ${formatMoney4(item.precioUnitario)}</td>
+                    <td class="col-number" style="color: var(--danger-color);">+ S/ ${formatMoney4(gastoUnitario)}</td>
+                    <td class="col-number highlight">S/ ${formatMoney4(item.costoAdquisicionUnitario)}</td>
+                    <td class="col-number">S/ ${formatMoney(item.costoAdquisicionTotal)}</td>
+                `;
+                tbody.appendChild(tr);
+
+                totalDoc += item.total;
+                totalCosto += item.costoAdquisicionTotal;
+            });
+
+            totalGastos = gastosIngreso.reduce((sum, g) => sum + g.monto, 0);
+
+            document.getElementById('resumenTotalDoc').textContent = `S/ ${formatMoney(totalDoc)}`;
+            document.getElementById('resumenTotalGastos').textContent = `S/ ${formatMoney(totalGastos)}`;
+            document.getElementById('resumenCostoTotal').textContent = `S/ ${formatMoney(totalCosto)}`;
+        }
+
         function renderizarGastos() {
             const tbody = document.querySelector('#tablaGastos tbody');
             tbody.innerHTML = '';
@@ -1025,9 +1473,9 @@
                     <td>${gasto.descripcion}</td>
                     <td>${detalleDoc}</td>
                     <td>${gasto.conFactura ? 'SÍ' : 'NO'}</td>
-                    <td class="col-number">${gasto.monto.toFixed(2)}</td>
-                    <td class="col-number">${gasto.valor.toFixed(2)}</td>
-                    <td class="col-number">${gasto.igv.toFixed(2)}</td>
+                    <td class="col-number">${formatMoney(gasto.monto)}</td>
+                    <td class="col-number">${formatMoney(gasto.valor)}</td>
+                    <td class="col-number">${formatMoney(gasto.igv)}</td>
                     <td class="col-action">
                         <button class="btn-icon" onclick="editarGasto(${index})" title="Editar">✏️</button>
                         <button class="btn-icon btn-delete" onclick="eliminarGasto(${index})" title="Eliminar">🗑️</button>
@@ -1065,6 +1513,11 @@
         // ============================================
         // CÁLCULOS CENTRALIZADOS
         // ============================================
+        function esConFactura() {
+            const tipoDoc = document.getElementById('tipoDocumento');
+            return tipoDoc && tipoDoc.value === 'FACTURA';
+        }
+
         function recalcularTodo() {
             const conFactura = esConFactura();
 
@@ -1121,57 +1574,56 @@
 
             const costoTotalAdquisicion = totalItems + totalGastos;
 
-            document.getElementById('lblSubtotalItems').textContent = `S/ ${subtotalItems.toFixed(2)}`;
-            document.getElementById('lblSubtotalGastos').textContent = `S/ ${subtotalGastos.toFixed(2)}`;
+            document.getElementById('lblSubtotalItems').textContent = `S/ ${formatMoney(subtotalItems)}`;
+            document.getElementById('lblSubtotalGastos').textContent = `S/ ${formatMoney(subtotalGastos)}`;
 
-            document.getElementById('lblIGVItems').textContent = `S/ ${igvItems.toFixed(2)}`;
-            document.getElementById('lblIGVGastos').textContent = `S/ ${igvGastos.toFixed(2)}`;
+            document.getElementById('lblIGVItems').textContent = `S/ ${formatMoney(igvItems)}`;
+            document.getElementById('lblIGVGastos').textContent = `S/ ${formatMoney(igvGastos)}`;
 
-            document.getElementById('lblTotalItems').textContent = `S/ ${totalItems.toFixed(2)}`;
-            document.getElementById('lblTotalGastos').textContent = `S/ ${totalGastos.toFixed(2)}`;
+            document.getElementById('lblTotalItems').textContent = `S/ ${formatMoney(totalItems)}`;
+            document.getElementById('lblTotalGastos').textContent = `S/ ${formatMoney(totalGastos)}`;
 
-            document.getElementById('lblCostoTotal').textContent = `S/ ${costoTotalAdquisicion.toFixed(2)}`;
+            document.getElementById('lblCostoTotal').textContent = `S/ ${formatMoney(costoTotalAdquisicion)}`;
         }
 
-        function renderizarTabla() {
-            const tbody = document.querySelector('#tablaDetalle tbody');
-            tbody.innerHTML = '';
 
-            detalleIngreso.forEach((item, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${item.codigo}</td>
-                    <td>${item.descripcion}</td>
-                    <td>${item.unidad}</td>
-                    <td class="col-number">${item.cantidad.toFixed(2)}</td>
-                    <td class="col-number">${item.precioUnitario.toFixed(4)}</td>
-                    <td class="col-number">${item.subtotal.toFixed(2)}</td>
-                    <td class="col-number">${item.igvTotal.toFixed(2)}</td>
-                    <td class="col-number">${item.total.toFixed(2)}</td>
-                    <td class="col-action">
-                        <button class="btn-icon" onclick="editarFila(${index})" title="Editar">✏️</button>
-                        <button class="btn-icon btn-delete" onclick="eliminarFila(${index})" title="Eliminar">🗑️</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
 
         function editarFila(index) {
             const item = detalleIngreso[index];
 
             // Cargar datos en inputs
-            document.getElementById('productoBusqueda').value = item.productoId;
+            const inputBusqueda = document.getElementById('productoBusqueda');
+            inputBusqueda.value = `${item.codigo} - ${item.descripcion}`;
+            inputBusqueda.dataset.id = item.productoId;
+
+            // Restaurar itemSeleccionadoActual
+            // Intentamos buscar en caché primero
+            let producto = productosCache.find(p => p.id === item.productoId);
+
+            if (!producto) {
+                // Si no está en caché, reconstruimos lo mínimo necesario para que agregarProducto funcione
+                producto = {
+                    id: item.productoId,
+                    codigo: item.codigo,
+                    descripcion: item.descripcion,
+                    unidad_medida: { codigo: item.unidad }
+                };
+            }
+
+            itemSeleccionadoActual = producto;
+
+            // Verificar proveedor y unidad (solo si tenemos el objeto completo con proveedor_id)
+            if (producto.proveedor_id) {
+                verificarProveedorItem(producto);
+            }
+
             document.getElementById('cantidadInput').value = item.cantidad;
             document.getElementById('precioInput').value = item.precioUnitario;
 
-            // Actualizar display de UoM
-            verificarProveedorItem();
-
-            // Eliminar de la lista (para que al agregar no se duplique, sino que "actualice")
+            // Eliminar de la lista
             eliminarFila(index);
 
-            // Foco en cantidad para edición rápida
+            // Foco
             document.getElementById('cantidadInput').focus();
             mostrarToast('Item cargado para edición', 'info');
         }
@@ -1183,6 +1635,8 @@
 
         function limpiarInputsProducto() {
             document.getElementById('productoBusqueda').value = '';
+            document.getElementById('productoBusqueda').dataset.id = '';
+            document.getElementById('unidadMedidaDisplay').textContent = '';
             document.getElementById('cantidadInput').value = '1';
             document.getElementById('precioInput').value = '';
             document.getElementById('productoBusqueda').focus();
@@ -1233,40 +1687,7 @@
             document.getElementById('modalCostos').style.display = 'none';
         }
 
-        function renderizarResumenCostos() {
-            const tbody = document.getElementById('tablaResumenCostos').querySelector('tbody');
-            tbody.innerHTML = '';
 
-            let totalDoc = 0;
-            let totalGastos = 0;
-            let totalCosto = 0;
-
-            detalleIngreso.forEach(item => {
-                const gastoUnitario = item.gastoAsignado / item.cantidad;
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>
-                        <strong>${item.codigo}</strong><br>
-                        ${item.descripcion}
-                    </td>
-                    <td class="col-number">S/ ${item.precioUnitario.toFixed(4)}</td>
-                    <td class="col-number" style="color: var(--danger-color);">+ S/ ${gastoUnitario.toFixed(4)}</td>
-                    <td class="col-number highlight">S/ ${item.costoAdquisicionUnitario.toFixed(4)}</td>
-                    <td class="col-number">S/ ${item.costoAdquisicionTotal.toFixed(2)}</td>
-                `;
-                tbody.appendChild(tr);
-
-                totalDoc += item.total;
-                totalCosto += item.costoAdquisicionTotal;
-            });
-
-            totalGastos = gastosIngreso.reduce((sum, g) => sum + g.monto, 0);
-
-            document.getElementById('resumenTotalDoc').textContent = `S/ ${totalDoc.toFixed(2)}`;
-            document.getElementById('resumenTotalGastos').textContent = `S/ ${totalGastos.toFixed(2)}`;
-            document.getElementById('resumenCostoTotal').textContent = `S/ ${totalCosto.toFixed(2)}`;
-        }
 
         // ============================================
         // GUARDADO FINAL (BD)
@@ -1309,6 +1730,12 @@
                     saldoCredito = totalItems - montoInicial;
                 }
 
+                // 0. Generar Número Correlativo
+                const { data: numeroIngresoGenerado, error: errorNum } = await supabase
+                    .rpc('generar_numero_ingreso');
+
+                if (errorNum) throw new Error("Error generando número de ingreso: " + errorNum.message);
+
                 // 1. Cabecera
                 const { data: ingresoData, error: errorIngreso } = await supabase
                     .from('ingresos')
@@ -1317,9 +1744,10 @@
                         proveedor_id: proveedor,
                         almacen_destino_id: almacen,
                         fecha_ingreso: fecha,
-                        numero_ingreso: `ING-${Date.now()}`, // Temporal
+                        numero_ingreso: numeroIngresoGenerado,
                         estado: 'REGISTRADO',
                         con_factura: conFactura,
+                        tipo_documento: tipoDocumento, // Nuevo campo específico
                         serie_factura: tipoDocumento === 'OTRO' ? null : serie,
                         numero_factura: tipoDocumento === 'OTRO' ? null : numero,
                         fecha_documento: tipoDocumento === 'OTRO' ? null : fechaDocumento,
@@ -1350,6 +1778,7 @@
                     ingreso_id: ingresoId,
                     item_id: item.productoId,
                     cantidad: item.cantidad,
+                    cantidad_disponible: item.cantidad, // Inicializar stock disponible
 
                     // Precios de Compra (Input original)
                     precio_compra_unitario: item.precioUnitario,
@@ -1404,56 +1833,17 @@
                     if (errorGastos) throw errorGastos;
                 }
 
-                // 4. Actualizar Stock (Items) y Kardex
-                // Esto debería ser un RPC o Trigger, pero lo haremos manual por ahora
-                for (const item of detalleIngreso) {
-                    // a) Obtener stock actual
-                    const { data: itemActual } = await supabase
-                        .from('items')
-                        .select('stock_total')
-                        .eq('id', item.productoId)
-                        .single();
+                // 4. Actualizar Stock y Kardex
+                // SE ELIMINÓ LA LÓGICA MANUAL DE FRONTEND.
+                // Ahora el trigger 'tr_ingreso_kardex' en la base de datos se encarga de:
+                // a) Crear el registro en la tabla 'kardex'
+                // b) Actualizar el 'stock_total' en la tabla 'items'
+                // Esto evita la duplicidad de stock que ocurría al hacerlo en ambos lados.
 
-                    const nuevoStock = (itemActual.stock_total || 0) + item.cantidad;
-
-                    // b) Actualizar item
-                    await supabase
-                        .from('items')
-                        .update({ stock_total: nuevoStock })
-                        .eq('id', item.productoId);
-
-                    // c) Insertar Kardex
-                    await supabase
-                        .from('kardex')
-                        .insert([{
-                            producto_id: item.productoId,
-                            almacen_id: almacen,
-                            tipo_movimiento: 'INGRESO',
-                            motivo: 'COMPRA',
-                            documento_tipo: 'ING',
-                            documento_referencia: ingresoData.numero_ingreso,
-                            cantidad: item.cantidad,
-                            stock_anterior: itemActual.stock_total || 0,
-                            stock_resultante: nuevoStock,
-
-                            // Costos en Kardex (USAR COSTO REAL CON GASTOS)
-                            precio_compra_unitario: item.precioUnitario,
-                            precio_compra_total: item.total,
-                            costo_unitario: item.costoAdquisicionUnitario, // Costo REAL
-                            costo_total: item.costoAdquisicionTotal, // Costo REAL
-
-                            // Datos de Pago en Kardex (Trazabilidad)
-                            forma_pago: formaPago,
-                            egreso_real_caja: egresoReal, // Solo lo que salió de caja
-
-                            fecha_movimiento: new Date().toISOString(),
-                            created_by: 'Sistema'
-                        }]);
-                }
 
                 mostrarToast('✅ Ingreso registrado correctamente', 'success');
                 setTimeout(() => {
-                    window.location.href = 'dashboard.html';
+                    window.location.href = 'gestion_inventarios.html';
                 }, 2000);
 
             } catch (error) {
@@ -1479,6 +1869,7 @@
             }, 3000);
         }
     </script>
+
 </body>
 
 </html>
