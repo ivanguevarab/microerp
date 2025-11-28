@@ -13,7 +13,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background: #f5f6fa;
       min-height: 100vh;
     }
@@ -27,6 +27,25 @@
       justify-content: space-between;
       align-items: center;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+    }
+
+    .logo svg {
+      width: 100%;
+      height: 100%;
     }
 
     .header h1 {
@@ -34,175 +53,660 @@
       letter-spacing: 1px;
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
     .user-info {
       display: flex;
       align-items: center;
       gap: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px 20px;
+      border-radius: 50px;
+      backdrop-filter: blur(10px);
     }
 
     .user-avatar {
-      width: 35px;
-      height: 35px;
-      background: rgba(255, 255, 255, 0.2);
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
+      border: 2px solid white;
+      /* Fallback si no hay imagen */
+      background: #bdc3c7;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: bold;
+      color: #2c3e50;
+      object-fit: cover;
+    }
+
+    .user-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .user-role {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .btn-logout {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .btn-logout:hover {
+      background: #c0392b;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
     }
 
     /* Container */
     .container {
-      padding: 40px;
-      max-width: 1200px;
+      padding: 40px 30px;
+      max-width: 1400px;
       margin: 0 auto;
     }
 
-    .section-title {
-      color: #2c3e50;
-      margin-bottom: 25px;
-      font-size: 20px;
-      border-bottom: 2px solid #e0e0e0;
-      padding-bottom: 10px;
-    }
-
-    /* Grid */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 25px;
+    .welcome-section {
       margin-bottom: 40px;
     }
 
-    /* Cards */
-    .card {
+    .welcome-section h2 {
+      color: #2c3e50;
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .welcome-section p {
+      color: #7f8c8d;
+      font-size: 16px;
+    }
+
+    /* Módulos Grid */
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .module-card {
       background: white;
+      padding: 30px;
       border-radius: 12px;
-      padding: 25px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      transition: all 0.3s;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       cursor: pointer;
-      border: 1px solid transparent;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
+      transition: all 0.3s;
+      border-left: 4px solid #0070f2;
+      position: relative;
+      overflow: hidden;
     }
 
-    .card:hover {
+    .module-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #0070f2, #00a8ff);
+      transform: scaleX(0);
+      transition: transform 0.3s;
+    }
+
+    .module-card:hover::before {
+      transform: scaleX(1);
+    }
+
+    .module-card:hover {
       transform: translateY(-5px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-      border-color: #0070f2;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     }
 
-    .card-icon {
-      font-size: 40px;
+    .module-card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      border-left-color: #bdc3c7;
+    }
+
+    .module-card.disabled:hover {
+      transform: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .module-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
       margin-bottom: 15px;
     }
 
-    .card h3 {
-      color: #354a5f;
-      margin-bottom: 10px;
-      font-size: 18px;
+    .module-icon {
+      font-size: 48px;
+      line-height: 1;
     }
 
-    .card p {
+    .module-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #354a5f;
+    }
+
+    .module-description {
+      color: #7f8c8d;
+      line-height: 1.6;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+
+    .permissions-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .permission-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .permission-badge.can-view {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .permission-badge.can-edit {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .permission-badge.can-delete {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .permission-badge.no-access {
+      background: #fce4ec;
+      color: #c2185b;
+    }
+
+    /* Stats Cards */
+    .stats-section {
+      margin-bottom: 40px;
+    }
+
+    .stats-section h3 {
+      color: #2c3e50;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .stat-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    .stat-icon.blue {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .stat-icon.green {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .stat-icon.orange {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stat-icon.purple {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .stat-content h4 {
       color: #7f8c8d;
       font-size: 14px;
-      line-height: 1.4;
+      font-weight: 500;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      color: #2c3e50;
+      font-size: 28px;
+      font-weight: 700;
     }
 
     /* Responsive */
-    @media (max-width: 768px) {
-      .container {
+    @media (max-width: 968px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
         padding: 20px;
       }
 
-      .grid {
+      .header-left,
+      .header-right {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .user-info {
+        flex: 1;
+      }
+
+      .container {
+        padding: 30px 20px;
+      }
+
+      .welcome-section h2 {
+        font-size: 24px;
+      }
+
+      .modules-grid {
         grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header h1 {
+        font-size: 18px;
+      }
+
+      .user-details {
+        display: none;
+      }
+
+      .btn-logout {
+        padding: 8px 16px;
+        font-size: 13px;
+      }
+    }
+
+    /* Loading State */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #0070f2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
       }
     }
   </style>
 </head>
 
 <body>
+  <!-- Header -->
   <header class="header">
-    <h1>MICRO ERP</h1>
-    <div class="user-info">
-      <span>Admin</span>
-      <div class="user-avatar">A</div>
+    <div class="header-left">
+      <div class="logo">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="cubeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0070f2;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#00a8ff;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <path d="M50 30 L80 45 L80 70 L50 85 L20 70 L20 45 Z" fill="url(#cubeGradient)" opacity="0.9" />
+          <path d="M50 10 L80 25 L80 45 L50 30 L20 45 L20 25 Z" fill="url(#cubeGradient)" opacity="1" />
+          <path d="M50 30 L50 85 L80 70 L80 45 Z" fill="#ffffff" opacity="0.3" />
+        </svg>
+      </div>
+      <h1>MICRO ERP</h1>
+    </div>
+    <div class="header-right">
+      <div class="user-info">
+        <!-- Se usará img o div según disponibilidad de avatar -->
+        <img id="userAvatarImg" class="user-avatar" src="" alt="User" style="display: none;">
+        <div id="userAvatarDiv" class="user-avatar">U</div>
+
+        <div class="user-details">
+          <div class="user-name" id="userName"></div>
+          <div class="user-role" id="userRole"></div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
     </div>
   </header>
 
+  <!-- Main Content -->
   <main class="container">
+    <!-- Welcome Section -->
+    <section class="welcome-section">
+      <h2 id="welcomeMessage">Bienvenido al Dashboard</h2>
+      <p>Accede a los módulos según tus permisos de usuario</p>
+    </section>
 
-    <h2 class="section-title">📦 Gestión de Inventarios</h2>
-    <div class="grid">
-      <div class="card" onclick="window.location.href='items.html'">
-        <div class="card-icon">📦</div>
-        <h3>Items</h3>
-        <p>Gestionar catálogo maestro de items (productos, insumos, etc.)</p>
+    <!-- Stats Section -->
+    <section class="stats-section">
+      <h3>Resumen General</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon blue">📦</div>
+          <div class="stat-content">
+            <h4>Productos en Stock</h4>
+            <div class="stat-value">1,234</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">💰</div>
+          <div class="stat-content">
+            <h4>Ventas del Mes</h4>
+            <div class="stat-value">S/ 45,780</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange">🏭</div>
+          <div class="stat-content">
+            <h4>Órdenes de Producción</h4>
+            <div class="stat-value">23</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple">👥</div>
+          <div class="stat-content">
+            <h4>Clientes Activos</h4>
+            <div class="stat-value">156</div>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <div class="card" onclick="window.location.href='ingresos.html'">
-        <div class="card-icon">📥</div>
-        <h3>Ingresos</h3>
-        <p>Registrar entradas de mercancía</p>
+    <!-- Modules Section -->
+    <section>
+      <h3 style="color: #2c3e50; font-size: 24px; margin-bottom: 20px;">Módulos del Sistema</h3>
+      <div class="modules-grid" id="modulesGrid">
+        <!-- Los módulos se cargarán dinámicamente aquí -->
       </div>
-
-      <div class="card" onclick="alert('Próximamente: Egresos')">
-        <div class="card-icon">📤</div>
-        <h3>Egresos</h3>
-        <p>Registrar salidas y despachos</p>
-      </div>
-
-      <div class="card" onclick="alert('Próximamente: Kardex')">
-        <div class="card-icon">📊</div>
-        <h3>Kardex</h3>
-        <p>Consultar movimientos y stock histórico</p>
-      </div>
-    </div>
-
-    <h2 class="section-title">⚙️ Maestros y Configuración</h2>
-    <div class="grid">
-      <div class="card" onclick="window.location.href='categorias.html'">
-        <div class="card-icon">🏷️</div>
-        <h3>Categorías</h3>
-        <p>Clasificación de items</p>
-      </div>
-
-      <div class="card" onclick="window.location.href='unidadesmedida.html'">
-        <div class="card-icon">📏</div>
-        <h3>Unidades de Medida</h3>
-        <p>Unidades para control de stock</p>
-      </div>
-
-      <div class="card" onclick="window.location.href='proveedores.html'">
-        <div class="card-icon">🚛</div>
-        <h3>Proveedores</h3>
-        <p>Directorio de proveedores</p>
-      </div>
-
-      <div class="card" onclick="window.location.href='almacenes.html'">
-        <div class="card-icon">🏭</div>
-        <h3>Almacenes</h3>
-        <p>Gestión de ubicaciones físicas</p>
-      </div>
-
-      <div class="card" onclick="window.location.href='tiposdeingresos.html'">
-        <div class="card-icon">📈</div>
-        <h3>Tipos de Ingreso</h3>
-        <p>Motivos de entrada de stock</p>
-      </div>
-
-      <div class="card" onclick="window.location.href='tiposdeegresos.html'">
-        <div class="card-icon">📉</div>
-        <h3>Tipos de Egreso</h3>
-        <p>Motivos de salida de stock</p>
-      </div>
-    </div>
-
+    </section>
   </main>
+
+  <script>
+    // ============================================
+    // DEFINICIÓN DE MÓDULOS Y PERMISOS
+    // ============================================
+
+    const MODULES = [
+      {
+        id: 'inventarios',
+        icon: '📦',
+        title: 'Control de Inventarios',
+        description: 'Gestiona tu stock en tiempo real con alertas automáticas y control de lotes',
+        url: 'gestion_inventarios.html', // LINK ACTUALIZADO
+        permissions: {
+          'Administrador': ['ver', 'editar', 'eliminar'],
+          'Vendedor': ['ver'],
+          'Operativo': ['ver'],
+          'Socio': ['ver']
+        }
+      },
+      {
+        id: 'produccion',
+        icon: '🏭',
+        title: 'Gestión de Producción',
+        description: 'Optimiza procesos de fabricación y seguimiento de órdenes de producción',
+        url: 'produccion.html',
+        permissions: {
+          'Administrador': ['ver', 'editar', 'eliminar'],
+          'Operativo': ['ver', 'editar'],
+          'Socio': ['ver']
+        }
+      },
+      {
+        id: 'ventas',
+        icon: '💰',
+        title: 'Ventas y CRM',
+        description: 'Administra clientes, cotizaciones y ventas integradas con seguimiento completo',
+        url: 'ventas.html',
+        permissions: {
+          'Administrador': ['ver', 'editar', 'eliminar'],
+          'Vendedor': ['ver', 'editar'],
+          'Socio': ['ver']
+        }
+      },
+      {
+        id: 'compras',
+        icon: '🛒',
+        title: 'Gestión de Compras',
+        description: 'Control de proveedores, órdenes de compra y recepción de mercancías',
+        url: 'compras.html',
+        permissions: {
+          'Administrador': ['ver', 'editar', 'eliminar'],
+          'Socio': ['ver']
+        }
+      },
+      {
+        id: 'finanzas',
+        icon: '📊',
+        title: 'Análisis Financiero',
+        description: 'Reportes detallados, control total de finanzas y análisis de rentabilidad',
+        url: 'finanzas.html',
+        permissions: {
+          'Administrador': ['ver', 'editar'],
+          'Socio': ['ver']
+        }
+      }
+    ];
+
+    // ============================================
+    // PROTECCIÓN DE PÁGINA
+    // ============================================
+
+    function getUserData() {
+      const data = localStorage.getItem('microerp_session');
+      return data ? JSON.parse(data) : null;
+    }
+
+    function isSessionValid(userData) {
+      if (!userData || !userData.email || !userData.loginTime) {
+        return false;
+      }
+
+      // Verificar expiración (24 horas)
+      const loginTime = new Date(userData.loginTime);
+      const now = new Date();
+      const hoursDiff = (now - loginTime) / (1000 * 60 * 60);
+
+      return hoursDiff <= 24;
+    }
+
+    function protectPage() {
+      const userData = getUserData();
+
+      if (!userData || !isSessionValid(userData)) {
+        alert('Tu sesión ha expirado o no has iniciado sesión. Redirigiendo al login...');
+        window.location.href = 'index.html';
+        return null;
+      }
+
+      return userData;
+    }
+
+    // ============================================
+    // RENDERIZADO DE MÓDULOS
+    // ============================================
+
+    function getUserPermissions(module, userRole) {
+      // Default a permisos vacíos si el rol no existe
+      return module.permissions[userRole] || [];
+    }
+
+    function renderModules(userData) {
+      const modulesGrid = document.getElementById('modulesGrid');
+      modulesGrid.innerHTML = '';
+
+      MODULES.forEach(module => {
+        // Usar rol del usuario o 'Administrador' por defecto si no tiene rol definido (para pruebas)
+        const userRole = userData.role || 'Administrador';
+        const permissions = getUserPermissions(module, userRole);
+
+        // Si es admin, dar acceso total siempre (fallback)
+        const hasAccess = userRole === 'Administrador' || permissions.length > 0;
+
+        const moduleCard = document.createElement('div');
+        moduleCard.className = `module-card ${!hasAccess ? 'disabled' : ''}`;
+
+        if (hasAccess) {
+          moduleCard.onclick = () => navigateToModule(module.url);
+        }
+
+        let permissionBadges = '';
+        if (hasAccess) {
+          if (permissions.includes('ver')) {
+            permissionBadges += '<span class="permission-badge can-view">👁️ Ver</span>';
+          }
+          if (permissions.includes('editar')) {
+            permissionBadges += '<span class="permission-badge can-edit">✏️ Editar</span>';
+          }
+          if (permissions.includes('eliminar')) {
+            permissionBadges += '<span class="permission-badge can-delete">🗑️ Eliminar</span>';
+          }
+        } else {
+          permissionBadges = '<span class="permission-badge no-access">🔒 Sin acceso</span>';
+        }
+
+        moduleCard.innerHTML = `
+          <div class="module-header">
+            <div class="module-icon">${module.icon}</div>
+            <div class="module-title">${module.title}</div>
+          </div>
+          <div class="module-description">${module.description}</div>
+          <div class="permissions-badges">
+            ${permissionBadges}
+          </div>
+        `;
+
+        modulesGrid.appendChild(moduleCard);
+      });
+    }
+
+    // ============================================
+    // NAVEGACIÓN
+    // ============================================
+
+    function navigateToModule(url) {
+      if (url === 'gestion_inventarios.html') {
+        window.location.href = url;
+      } else {
+        // Por ahora, mostrar alerta para módulos no implementados
+        alert(`Módulo en desarrollo. Próximamente se cargará: ${url}`);
+      }
+    }
+
+    function logout() {
+      if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+        localStorage.removeItem('microerp_session');
+        localStorage.removeItem('microerp_last_activity');
+        window.location.href = 'index.html';
+      }
+    }
+
+    // ============================================
+    // INICIALIZACIÓN
+    // ============================================
+
+    window.addEventListener('load', () => {
+      // Proteger página
+      const userData = protectPage();
+      if (!userData) return;
+
+      // Cargar datos del usuario en el header
+      const avatarImg = document.getElementById('userAvatarImg');
+      const avatarDiv = document.getElementById('userAvatarDiv');
+
+      if (userData.picture) {
+        avatarImg.src = userData.picture;
+        avatarImg.style.display = 'block';
+        avatarDiv.style.display = 'none';
+      } else {
+        avatarImg.style.display = 'none';
+        avatarDiv.style.display = 'flex';
+        avatarDiv.textContent = (userData.name || 'U').charAt(0).toUpperCase();
+      }
+
+      document.getElementById('userName').textContent = userData.name;
+      document.getElementById('userRole').textContent = userData.role || 'Administrador';
+      document.getElementById('welcomeMessage').textContent = `Bienvenido, ${userData.name}`;
+
+      // Renderizar módulos según permisos
+      renderModules(userData);
+
+      console.log('✅ Dashboard cargado para:', userData.email, '| Rol:', userData.role);
+    });
+
+    // Actualizar última actividad
+    setInterval(() => {
+      const userData = getUserData();
+      if (userData) {
+        localStorage.setItem('microerp_last_activity', new Date().toISOString());
+      }
+    }, 60000); // Cada minuto
+  </script>
 </body>
 
 </html>
