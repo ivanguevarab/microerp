@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroERP - Gestión de Inventarios</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f6fa;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* Container */
+        .container {
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            border-color: #0070f2;
+        }
+
+        .card-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+
+        .card h3 {
+            color: #354a5f;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .card p {
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-left">
+            <button class="btn-back" onclick="window.location.href='dashboard.html'">
+                ← Volver al Dashboard
+            </button>
+            <h1>Gestión de Inventarios</h1>
+        </div>
+        <div class="user-info">
+            <span id="userDisplay">Usuario</span>
+            <div class="user-avatar" id="userAvatar">U</div>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <h2 class="section-title">📦 Operaciones</h2>
+        <div class="grid">
+            <div class="card" onclick="window.location.href='items.html'">
+                <div class="card-icon">📦</div>
+                <h3>Items</h3>
+                <p>Gestionar catálogo maestro de items (productos, insumos, etc.)</p>
+            </div>
+
+            <div class="card" onclick="window.location.href='ingresos.html'">
+                <div class="card-icon">📥</div>
+                <h3>Ingresos</h3>
+                <p>Registrar entradas de mercancía</p>
+            </div>
+
+            <div class="card" onclick="window.location.href='egresos.html'">
+                <div class="card-icon">📤</div>
+                <h3>Egresos</h3>
+                <p>Registrar salidas y despachos</p>
+            </div>
+
+            <div class="card" onclick="window.location.href='kardex.html'">
+                <div class="card-icon">📊</div>
+                <h3>Kardex</h3>
+                <p>Consultar movimientos y stock histórico</p>
+            </div>
+        </div>
+
+        <h2 class="section-title">⚙️ Maestros y Configuración</h2>
+        <div class="grid">
+            <div class="card" onclick="window.location.href='categorias.html'">
+                <div class="card-icon">🏷️</div>
+                <h3>Categorías</h3>
+                <p>Clasificación de items</p>
+            </div>
+
+            <div class="card" onclick="window.location.href='unidadesmedida.html'">
+                <div class="card-icon">📏</div>
+                <h3>Unidades de Medida</h3>
+                <p>Unidades para control de stock</p>
+            </div>
+
+            <div class="card" onclick="window.location.href='proveedores.html'">
+                <div class="card-icon">🚛</div>
+                <h3>Proveedores</h3>
+                <p>Directorio de proveedores</p>
+            </div>
+
+            <div class="card" onclick="window.location.href='almacenes.html'">
+                <div class="card-icon">🏭</div>
+                <h3>Almacenes</h3>
+                <p>Gestión de ubicaciones físicas</p>
+            </div>
+
+            <div class="card" onclick="window.location.href='tiposdeingresos.html'">
+                <div class="card-icon">📈</div>
+                <h3>Tipos de Ingreso</h3>
+                <p>Motivos de entrada de stock</p>
+            </div>
+
+            <div class="card" onclick="window.location.href='tiposdeegresos.html'">
+                <div class="card-icon">📉</div>
+                <h3>Tipos de Egreso</h3>
+                <p>Motivos de salida de stock</p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Recuperar info de usuario si existe
+        const sessionStr = localStorage.getItem('microerp_session');
+        if (sessionStr) {
+            const user = JSON.parse(sessionStr);
+            document.getElementById('userDisplay').textContent = user.name || user.email;
+            document.getElementById('userAvatar').textContent = (user.name || user.email).charAt(0).toUpperCase();
+        }
+    </script>
+</body>
+
+</html>
