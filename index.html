@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MicroERP - Inicio de Sesión</title>
-  
+
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  
+
   <style>
     * {
       margin: 0;
@@ -59,8 +60,15 @@
     }
 
     @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
+
+      0%,
+      100% {
+        transform: translateY(0px);
+      }
+
+      50% {
+        transform: translateY(-10px);
+      }
     }
 
     .logo svg {
@@ -93,16 +101,28 @@
       animation: fadeInUp 0.6s forwards;
     }
 
-    .feature:nth-child(1) { animation-delay: 0.2s; }
-    .feature:nth-child(2) { animation-delay: 0.4s; }
-    .feature:nth-child(3) { animation-delay: 0.6s; }
-    .feature:nth-child(4) { animation-delay: 0.8s; }
+    .feature:nth-child(1) {
+      animation-delay: 0.2s;
+    }
+
+    .feature:nth-child(2) {
+      animation-delay: 0.4s;
+    }
+
+    .feature:nth-child(3) {
+      animation-delay: 0.6s;
+    }
+
+    .feature:nth-child(4) {
+      animation-delay: 0.8s;
+    }
 
     @keyframes fadeInUp {
       from {
         opacity: 0;
         transform: translateY(20px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -321,8 +341,13 @@
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     /* Responsive */
@@ -365,9 +390,19 @@
       .action-buttons {
         flex-direction: column;
       }
+
+      .logo-container {
+        text-align: center;
+      }
+
+      .logo {
+        margin-left: auto;
+        margin-right: auto;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <!-- Sección de Información -->
@@ -382,9 +417,9 @@
                   <stop offset="100%" style="stop-color:#00a8ff;stop-opacity:1" />
                 </linearGradient>
               </defs>
-              <path d="M50 30 L80 45 L80 70 L50 85 L20 70 L20 45 Z" fill="url(#cubeGradient)" opacity="0.9"/>
-              <path d="M50 10 L80 25 L80 45 L50 30 L20 45 L20 25 Z" fill="url(#cubeGradient)" opacity="1"/>
-              <path d="M50 30 L50 85 L80 70 L80 45 Z" fill="#ffffff" opacity="0.3"/>
+              <path d="M50 30 L80 45 L80 70 L50 85 L20 70 L20 45 Z" fill="url(#cubeGradient)" opacity="0.9" />
+              <path d="M50 10 L80 25 L80 45 L50 30 L20 45 L20 25 Z" fill="url(#cubeGradient)" opacity="1" />
+              <path d="M50 30 L50 85 L80 70 L80 45 Z" fill="#ffffff" opacity="0.3" />
             </svg>
           </div>
           <div class="brand-name">MICRO ERP</div>
@@ -442,7 +477,8 @@
 
         <div class="info-box">
           <h4>🔒 Seguridad Garantizada</h4>
-          <p>Tu información está protegida con OAuth 2.0. No almacenamos contraseñas y tu sesión está cifrada de extremo a extremo.</p>
+          <p>Tu información está protegida con OAuth 2.0. No almacenamos contraseñas y tu sesión está cifrada de extremo
+            a extremo.</p>
         </div>
 
         <div class="footer-info">
@@ -456,7 +492,7 @@
         <div class="user-name" id="userName"></div>
         <div class="user-email" id="userEmail"></div>
         <div class="user-role" id="userRole">Rol: Socio</div>
-        
+
         <div class="info-box">
           <h4>✅ Sesión Iniciada</h4>
           <p>Tu información ha sido verificada correctamente. Puedes acceder al dashboard o cerrar sesión.</p>
@@ -487,7 +523,8 @@
 
         <div class="info-box error">
           <h4>⛔ Acceso Restringido</h4>
-          <p>El correo electrónico <strong id="deniedEmail"></strong> no está en la lista de usuarios autorizados. Contacta al administrador del sistema para solicitar acceso.</p>
+          <p>El correo electrónico <strong id="deniedEmail"></strong> no está en la lista de usuarios autorizados.
+            Contacta al administrador del sistema para solicitar acceso.</p>
         </div>
 
         <button class="btn btn-secondary" onclick="resetLogin()" style="margin-top: 20px; width: 100%;">
@@ -501,18 +538,18 @@
     // ============================================
     // CONFIGURACIÓN
     // ============================================
-    
+
     const CONFIG = {
       // ⚠️ REEMPLAZA ESTO CON TU CLIENT ID REAL DE GOOGLE
       googleClientId: '906286679746-lu4lpsg07b7ctaujvmfo042ofae1lqc5.apps.googleusercontent.com',
-      
+
       // Lista de correos autorizados
       // NOTA: En producción, esto debería estar en un backend seguro
       authorizedEmails: [
         'ivan.guevara.b@gmail.com' // Agrega tus correos aquí
         // Agrega más correos autorizados
       ],
-      
+
       // Roles por email
       emailRoles: {
         'ivan.guevara.b@gmail.com': 'Administrador'
@@ -522,7 +559,7 @@
     // ============================================
     // INICIALIZACIÓN DE GOOGLE SIGN-IN
     // ============================================
-    
+
     function initializeGoogleSignIn() {
       google.accounts.id.initialize({
         client_id: CONFIG.googleClientId,
@@ -551,17 +588,17 @@
     // ============================================
     // MANEJO DE RESPUESTA DE GOOGLE
     // ============================================
-    
+
     function handleCredentialResponse(response) {
       const loading = document.getElementById('loading');
       const loginForm = document.getElementById('loginForm');
-      
+
       loginForm.style.display = 'none';
       loading.classList.add('active');
 
       // Decodificar el JWT de Google
       const userData = parseJwt(response.credential);
-      
+
       console.log('Usuario autenticado:', userData);
 
       // Verificar si el email está autorizado
@@ -584,7 +621,7 @@
         saveUserData(user);
         loading.classList.remove('active');
         showUserProfile(user);
-        
+
         console.log('✅ Acceso autorizado:', user.email, '| Rol:', user.role);
       }, 1000);
     }
@@ -593,7 +630,7 @@
     function parseJwt(token) {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
       return JSON.parse(jsonPayload);
@@ -602,7 +639,7 @@
     // ============================================
     // VERIFICACIÓN DE AUTORIZACIÓN
     // ============================================
-    
+
     function isEmailAuthorized(email) {
       return CONFIG.authorizedEmails.includes(email.toLowerCase());
     }
@@ -614,7 +651,7 @@
     // ============================================
     // GESTIÓN DE SESIÓN
     // ============================================
-    
+
     function saveUserData(userData) {
       localStorage.setItem('microerp_session', JSON.stringify(userData));
       localStorage.setItem('microerp_last_activity', new Date().toISOString());
@@ -644,7 +681,7 @@
       const loginTime = new Date(userData.loginTime);
       const now = new Date();
       const hoursDiff = (now - loginTime) / (1000 * 60 * 60);
-      
+
       if (hoursDiff > 24) {
         return false;
       }
@@ -655,18 +692,18 @@
     // ============================================
     // UI - MOSTRAR/OCULTAR
     // ============================================
-    
+
     function showUserProfile(userData) {
       document.getElementById('loginForm').style.display = 'none';
       document.getElementById('loading').classList.remove('active');
       document.getElementById('accessDenied').style.display = 'none';
-      
+
       const profile = document.getElementById('userProfile');
       document.getElementById('userAvatar').src = userData.picture;
       document.getElementById('userName').textContent = userData.name;
       document.getElementById('userEmail').textContent = userData.email;
       document.getElementById('userRole').textContent = 'Rol: ' + userData.role;
-      
+
       profile.classList.add('active');
     }
 
@@ -675,7 +712,7 @@
       document.getElementById('loginForm').style.display = 'none';
       document.getElementById('accessDenied').style.display = 'flex';
       document.getElementById('deniedEmail').textContent = email;
-      
+
       console.warn('⛔ Acceso denegado:', email);
     }
 
@@ -684,7 +721,7 @@
       document.getElementById('loading').classList.remove('active');
       document.getElementById('accessDenied').style.display = 'none';
       document.getElementById('userProfile').classList.remove('active');
-      
+
       // Cerrar sesión de Google también
       google.accounts.id.disableAutoSelect();
     }
@@ -700,10 +737,10 @@
     // ============================================
     // NAVEGACIÓN
     // ============================================
-    
+
     function goToDashboard() {
       const userData = getUserData();
-      
+
       if (!userData || !isSessionValid(userData)) {
         alert('Tu sesión no es válida. Por favor, inicia sesión nuevamente.');
         logout();
@@ -717,11 +754,11 @@
     // ============================================
     // INICIALIZACIÓN
     // ============================================
-    
+
     window.addEventListener('load', () => {
       // Verificar si ya hay sesión activa
       const userData = getUserData();
-      
+
       if (userData && isSessionValid(userData)) {
         showUserProfile(userData);
       } else if (userData) {
@@ -759,4 +796,5 @@
     }
   </script>
 </body>
+
 </html>
