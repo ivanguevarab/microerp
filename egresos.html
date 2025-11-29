@@ -152,6 +152,19 @@
         .fade-in {
             animation: fadeIn 0.3s ease-out forwards;
         }
+
+        /* Mobile Optimization */
+        @media (max-width: 480px) {
+            .header {
+                position: relative;
+                /* Scrollable header */
+            }
+
+            .header-right {
+                display: none;
+                /* Hide date on mobile */
+            }
+        }
     </style>
 </head>
 
