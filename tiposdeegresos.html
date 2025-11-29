@@ -474,6 +474,12 @@
         margin: 20px;
       }
     }
+
+    @media (max-width: 480px) {
+      .header {
+        position: relative;
+      }
+    }
   </style>
 </head>
 
@@ -491,7 +497,7 @@
   <!-- Main Content -->
   <main class="container">
     <div class="page-header">
-      <h2>📤 Gestión de Tipos de Egresos</h2>
+      <h2>➡️ Gestión de Tipos de Egresos</h2>
       <button class="btn-primary" onclick="abrirModalNuevo()">
         + Nuevo Tipo de Egreso
       </button>
@@ -591,7 +597,7 @@
       if (datos.length === 0) {
         tableContent.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">📤</div>
+            <div class="empty-state-icon">➡️</div>
             <h3>No hay tipos de egresos registrados</h3>
             <p>Comienza agregando tu primer tipo de egreso</p>
           </div>
