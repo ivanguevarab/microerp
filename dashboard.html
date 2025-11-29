@@ -351,12 +351,26 @@
     }
 
     @media (max-width: 480px) {
+      .header {
+        position: relative;
+      }
+
       .header h1 {
         font-size: 18px;
       }
 
       .user-details {
-        display: none;
+        display: flex;
+        text-align: left;
+      }
+
+      .user-name {
+        font-size: 13px;
+        line-height: 1.2;
+      }
+
+      .user-role {
+        font-size: 11px;
       }
 
       .btn-logout {
@@ -449,8 +463,8 @@
         <div class="stat-card">
           <div class="stat-icon blue">📦</div>
           <div class="stat-content">
-            <h4>Productos en Stock</h4>
-            <div class="stat-value">1,234</div>
+            <h4>Valorización del Inventario</h4>
+            <div class="stat-value">S/ 98,756</div>
           </div>
         </div>
         <div class="stat-card">
@@ -617,14 +631,15 @@
 
         let permissionBadges = '';
         if (hasAccess) {
+          if (userRole === 'Administrador') {
+            permissionBadges += '<span style="font-size: 13px; color: #7f8c8d; margin-right: 6px;">Usted puede:</span>';
+          }
+
           if (permissions.includes('ver')) {
             permissionBadges += '<span class="permission-badge can-view">👁️ Ver</span>';
           }
           if (permissions.includes('editar')) {
             permissionBadges += '<span class="permission-badge can-edit">✏️ Editar</span>';
-          }
-          if (permissions.includes('eliminar')) {
-            permissionBadges += '<span class="permission-badge can-delete">🗑️ Eliminar</span>';
           }
         } else {
           permissionBadges = '<span class="permission-badge no-access">🔒 Sin acceso</span>';
