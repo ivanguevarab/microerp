@@ -660,17 +660,22 @@
       }
 
       table {
-        min-width: 900px;
+        min-width: 600px;
       }
 
       .modal-content {
         margin: 20px;
-        max-width: 100%;
       }
 
       .form-row,
       .form-row.triple {
         grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header {
+        position: relative;
       }
     }
   </style>
@@ -690,7 +695,7 @@
   <!-- Main Content -->
   <main class="container">
     <div class="page-header">
-      <h2>🏢 Gestión de Proveedores</h2>
+      <h2>🚛 Gestión de Proveedores</h2>
       <button class="btn-primary" onclick="abrirModalNuevo()">
         + Nuevo Proveedor
       </button>
@@ -922,7 +927,7 @@
       if (datos.length === 0) {
         tableContent.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">🏢</div>
+            <div class="empty-state-icon">🚛</div>
             <h3>No hay proveedores registrados</h3>
             <p>Comienza agregando tu primer proveedor</p>
           </div>
