@@ -146,6 +146,46 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        @media (max-width: 480px) {
+            .header {
+                position: relative;
+                padding: 15px;
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .header-left {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .header h1 {
+                font-size: 18px;
+            }
+
+            .btn-back {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+
+            /* Ocultar texto largo del botón en móvil */
+            .btn-text-desktop {
+                display: none;
+            }
+
+            .btn-text-mobile {
+                display: inline;
+            }
+
+            .user-info {
+                display: none;
+                /* Ocultar usuario en móvil para ahorrar espacio si se desea, o ajustar */
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
     </style>
 </head>
 
@@ -153,7 +193,8 @@
     <header class="header">
         <div class="header-left">
             <button class="btn-back" onclick="window.location.href='dashboard.html'">
-                ← Volver al Dashboard
+                ← <span class="btn-text-desktop">Volver al Dashboard</span><span class="btn-text-mobile"
+                    style="display:none">Volver</span>
             </button>
             <h1>Gestión de Inventarios</h1>
         </div>
@@ -213,19 +254,19 @@
             </div>
 
             <div class="card" onclick="window.location.href='almacenes.html'">
-                <div class="card-icon">🏭</div>
+                <div class="card-icon">🏢</div>
                 <h3>Almacenes</h3>
                 <p>Gestión de ubicaciones físicas</p>
             </div>
 
             <div class="card" onclick="window.location.href='tiposdeingresos.html'">
-                <div class="card-icon">📈</div>
+                <div class="card-icon">⬅️</div>
                 <h3>Tipos de Ingreso</h3>
                 <p>Motivos de entrada de stock</p>
             </div>
 
             <div class="card" onclick="window.location.href='tiposdeegresos.html'">
-                <div class="card-icon">📉</div>
+                <div class="card-icon">➡️</div>
                 <h3>Tipos de Egreso</h3>
                 <p>Motivos de salida de stock</p>
             </div>
