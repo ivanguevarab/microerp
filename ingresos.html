@@ -589,6 +589,74 @@
                 /* Hide date on mobile */
             }
         }
+
+        /* Custom Grid for Items Section */
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            align-items: end;
+        }
+
+        .search-group {
+            grid-column: span 2;
+        }
+
+        .cantidad-group {
+            grid-column: span 1;
+        }
+
+        .modo-group {
+            grid-column: span 1;
+        }
+
+        .monto-group {
+            grid-column: span 1;
+        }
+
+        .button-group {
+            grid-column: span 1;
+        }
+
+        @media (max-width: 900px) {
+            .items-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .search-group {
+                grid-column: span 2;
+            }
+
+            .cantidad-group {
+                grid-column: span 1;
+            }
+
+            .modo-group {
+                grid-column: span 1;
+            }
+
+            .monto-group {
+                grid-column: span 1;
+            }
+
+            .button-group {
+                grid-column: span 1;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .items-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-group,
+            .cantidad-group,
+            .modo-group,
+            .monto-group,
+            .button-group {
+                grid-column: span 1;
+            }
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -645,13 +713,30 @@
                     <input type="date" id="fechaEmision" required>
                 </div>
 
-                <!-- Forma de Pago -->
+                <!-- Condición de Pago (Antes Forma de Pago) -->
                 <div class="form-group">
-                    <label for="formaPago">Forma de Pago *</label>
-                    <select id="formaPago" onchange="toggleFormaPago()">
+                    <label for="formaPago">Condición de Pago *</label>
+                    <select id="formaPago" onchange="toggleCondicionPago()">
                         <option value="CONTADO">CONTADO</option>
                         <option value="CREDITO">CRÉDITO</option>
                     </select>
+                </div>
+
+                <!-- Medio de Pago (Nuevo) -->
+                <div class="form-group" id="containerMedioPago">
+                    <label for="medioPago">Medio de Pago *</label>
+                    <select id="medioPago" onchange="toggleMedioPago()">
+                        <option value="EFECTIVO">EFECTIVO</option>
+                        <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                        <option value="BILLETERA_DIGITAL">BILLETERA DIGITAL</option>
+                        <option value="NOTA_CREDITO">NOTA DE CRÉDITO</option>
+                    </select>
+                </div>
+
+                <!-- Referencia de Pago (Nuevo) -->
+                <div class="form-group" id="containerReferencia" style="display: none;">
+                    <label for="referenciaPago">Referencia / Nro. Operación *</label>
+                    <input type="text" id="referenciaPago" placeholder="Ingrese número de referencia">
                 </div>
 
                 <!-- Campos Crédito (Condicionales) -->
@@ -673,28 +758,33 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="tipoDocumento">Tipo de Documento</label>
-                    <select id="tipoDocumento">
-                        <option value="FACTURA">FACTURA</option>
-                        <option value="BOLETA">BOLETA</option>
-                        <option value="OTRO">OTRO</option>
-                    </select>
-                </div>
+                <!-- Sección Documento (Full Width al final) -->
+                <div
+                    style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 1rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
+                    <div class="form-group">
+                        <label for="tipoDocumento">Tipo de Documento</label>
+                        <select id="tipoDocumento">
+                            <option value="FACTURA">FACTURA</option>
+                            <option value="BOLETA">BOLETA</option>
+                            <option value="SIN_COMPROBANTE">SIN COMPROBANTE</option>
+                        </select>
+                    </div>
 
-                <!-- Contenedor para ocultar/mostrar -->
-                <div class="form-group-row" id="containerSerieNumero" style="display: contents;">
-                    <div class="form-group">
-                        <label for="serieDocumento">Serie</label>
-                        <input type="text" id="serieDocumento" placeholder="F001" style="text-transform: uppercase;">
-                    </div>
-                    <div class="form-group">
-                        <label for="numeroDocumento">Número</label>
-                        <input type="text" id="numeroDocumento" placeholder="0000001">
-                    </div>
-                    <div class="form-group">
-                        <label for="fechaDocumento">Fecha Emisión Doc.</label>
-                        <input type="date" id="fechaDocumento">
+                    <!-- Contenedor para ocultar/mostrar -->
+                    <div id="containerSerieNumero" style="display: contents;">
+                        <div class="form-group">
+                            <label for="serieDocumento">Serie</label>
+                            <input type="text" id="serieDocumento" placeholder="F001"
+                                style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label for="numeroDocumento">Número</label>
+                            <input type="text" id="numeroDocumento" placeholder="0000001">
+                        </div>
+                        <div class="form-group">
+                            <label for="fechaDocumento">Fecha Emisión Doc.</label>
+                            <input type="date" id="fechaDocumento">
+                        </div>
                     </div>
                 </div>
             </form>
@@ -706,10 +796,9 @@
                 <h2 class="card-title">📦 Detalle de Items</h2>
             </div>
 
-            <div class="form-grid" style="margin-bottom: 1.5rem; align-items: end;">
-                <!-- Buscador Simple (Dropdown) -->
-                <!-- Buscador Google-Style -->
-                <div class="form-group" style="grid-column: span 2;">
+            <div class="items-grid" style="margin-bottom: 1.5rem;">
+                <!-- 1. Buscador (Span 2) -->
+                <div class="form-group search-group">
                     <label>Buscar Item (Nombre o Código)</label>
                     <div class="search-container">
                         <span class="search-icon-input">🔍</span>
@@ -721,17 +810,37 @@
                     </div>
                 </div>
 
-                <div class="form-group">
+                <!-- 2. Cantidad (Span 1) -->
+                <div class="form-group cantidad-group">
                     <label for="cantidadInput">Cantidad <span id="unidadMedidaDisplay"
                             style="font-weight: normal; color: var(--secondary-color); font-size: 0.9em;"></span></label>
                     <input type="number" id="cantidadInput" min="0.01" step="0.01" value="1">
                 </div>
-                <div class="form-group">
-                    <label for="precioInput">Precio Unitario</label>
-                    <input type="number" id="precioInput" min="0" step="0.0001" placeholder="0.00">
+
+                <!-- 3. Modo de Ingreso (Span 1) - Row 2 -->
+                <div class="form-group modo-group">
+                    <label for="modoPrecio">Modo de Ingreso</label>
+                    <select id="modoPrecio" onchange="recalcularPrecioUnitarioVisual()">
+                        <option value="PRECIO_UNITARIO" selected>Precio Unitario</option>
+                        <option value="VALOR_UNITARIO">Valor Unitario (Sin IGV)</option>
+                        <option value="PRECIO_TOTAL">Precio Total</option>
+                        <option value="VALOR_TOTAL">Valor Total (Sin IGV)</option>
+                    </select>
                 </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-secondary" onclick="agregarProducto()">
+
+                <!-- 4. Monto (Span 1) - Row 2 -->
+                <div class="form-group monto-group">
+                    <label for="montoInput">Monto</label>
+                    <input type="number" id="montoInput" min="0" step="0.0001" placeholder="0.00"
+                        oninput="recalcularPrecioUnitarioVisual()">
+                    <!-- Input Oculto que usa el sistema (Precio Unitario Final) -->
+                    <input type="hidden" id="precioInput">
+                </div>
+
+                <!-- 5. Botón Agregar (Span 1) - Row 2 -->
+                <div class="form-group button-group">
+                    <button type="button" class="btn btn-secondary" onclick="agregarProducto()"
+                        style="width: 100%; justify-content: center;">
                         + Agregar Item
                     </button>
                 </div>
@@ -1033,37 +1142,82 @@
 
             await cargarDatosIniciales();
             toggleSerieNumero(); // Estado inicial
-            toggleFormaPago(); // Estado inicial
+            toggleCondicionPago(); // Estado inicial
         });
 
+        // --- Lógica de Documento ---
         function toggleSerieNumero() {
             const tipo = document.getElementById('tipoDocumento').value;
             const container = document.getElementById('containerSerieNumero');
 
-            if (tipo === 'OTRO') {
+            if (tipo === 'SIN_COMPROBANTE') {
                 container.style.display = 'none';
             } else {
                 container.style.display = 'contents'; // Mantiene el layout grid
             }
         }
 
-        function toggleFormaPago() {
-            const formaPago = document.getElementById('formaPago').value;
-            const container = document.getElementById('containerCredito');
+        // --- Lógica de Forma de Pago y Crédito ---
+        function toggleCondicionPago() {
+            const forma = document.getElementById('formaPago').value;
+            const containerCredito = document.getElementById('containerCredito');
+            const containerMedioPago = document.getElementById('containerMedioPago');
+            const containerReferencia = document.getElementById('containerReferencia');
 
-            if (formaPago === 'CREDITO') {
-                container.style.display = 'grid';
-                calcularSaldo();
+            // Resetear valores al cambiar
+            if (forma === 'CONTADO') {
+                containerCredito.style.display = 'none';
+                containerMedioPago.style.display = 'flex'; // Mostrar Medio de Pago
+                toggleMedioPago(); // Re-evaluar visibilidad de referencia
+
+                // Limpiar campos crédito
+                document.getElementById('montoInicial').value = '0.00';
+                document.getElementById('saldoPendiente').value = '0.00';
+                document.getElementById('fechaVencimiento').value = '';
+                document.getElementById('fechaVencimiento').required = false;
             } else {
-                container.style.display = 'none';
+                // CRÉDITO
+                containerCredito.style.display = 'grid'; // Usar grid del estilo inline
+                containerMedioPago.style.display = 'none'; // Ocultar Medio de Pago
+                containerReferencia.style.display = 'none'; // Ocultar Referencia
+
+                document.getElementById('fechaVencimiento').required = true;
+                calcularSaldo();
+            }
+        }
+
+        function toggleMedioPago() {
+            const medio = document.getElementById('medioPago').value;
+            const containerReferencia = document.getElementById('containerReferencia');
+            const inputReferencia = document.getElementById('referenciaPago');
+            const labelReferencia = document.querySelector("label[for='referenciaPago']");
+
+            // Mostrar referencia para Transferencia, Billetera Digital y Nota de Crédito
+            if (['TRANSFERENCIA', 'BILLETERA_DIGITAL', 'NOTA_CREDITO'].includes(medio)) {
+                containerReferencia.style.display = 'flex';
+                inputReferencia.required = true;
+
+                if (medio === 'NOTA_CREDITO') {
+                    labelReferencia.textContent = 'Serie - Nro. de la NC *';
+                    inputReferencia.placeholder = 'Ej: E001-2';
+                } else if (medio === 'TRANSFERENCIA') {
+                    labelReferencia.textContent = 'Banco de Origen / Nro. Operación *';
+                    inputReferencia.placeholder = 'Ej: BCP / Nro. Op:12345';
+                } else if (medio === 'BILLETERA_DIGITAL') {
+                    labelReferencia.textContent = 'Aplicativo / Nro. Operación *';
+                    inputReferencia.placeholder = 'Ej: YAPE / Nro. Op:12345';
+                }
+            } else {
+                containerReferencia.style.display = 'none';
+                inputReferencia.required = false;
+                inputReferencia.value = '';
             }
         }
 
         function calcularSaldo() {
-            const totalItems = detalleIngreso.reduce((sum, i) => sum + i.total, 0);
-            const pagoInicial = parseFloat(document.getElementById('montoInicial').value) || 0;
-            const saldo = Math.max(0, totalItems - pagoInicial);
-
+            const total = parseFloat(document.getElementById('totalPagar').textContent.replace('S/ ', '').replace(',', '')) || 0;
+            const inicial = parseFloat(document.getElementById('montoInicial').value) || 0;
+            const saldo = total - inicial;
             document.getElementById('saldoPendiente').value = saldo.toFixed(2);
         }
 
@@ -1153,6 +1307,10 @@
                     document.getElementById('resultadosBusqueda').style.display = 'none';
                 }
             });
+
+            // Listeners adicionales para el recálculo de precios
+            document.getElementById('cantidadInput').addEventListener('input', recalcularPrecioUnitarioVisual);
+            document.getElementById('tipoDocumento').addEventListener('change', recalcularPrecioUnitarioVisual);
         });
 
         function debounce(func, wait) {
@@ -1233,7 +1391,7 @@
             const serie = document.getElementById('serieDocumento').value;
             const numero = document.getElementById('numeroDocumento').value;
 
-            if (tipoDocumento !== 'OTRO' && (!serie || !numero)) {
+            if (tipoDocumento !== 'SIN_COMPROBANTE' && (!serie || !numero)) {
                 mostrarToast('Ingrese Serie y Número del documento principal antes de agregar items', 'warning');
                 document.getElementById('serieDocumento').focus();
                 return;
@@ -1289,6 +1447,7 @@
             document.getElementById('unidadMedidaDisplay').textContent = '';
             document.getElementById('cantidadInput').value = '1';
             document.getElementById('precioInput').value = '';
+            document.getElementById('montoInput').value = ''; // Limpiar nuevo input
             document.getElementById('productoBusqueda').focus();
         }
 
@@ -1711,6 +1870,40 @@
             document.getElementById('modalCostos').style.display = 'none';
         }
 
+        function recalcularPrecioUnitarioVisual() {
+            const modo = document.getElementById('modoPrecio').value;
+            const monto = parseFloat(document.getElementById('montoInput').value) || 0;
+            const cantidad = parseFloat(document.getElementById('cantidadInput').value) || 1;
+            const tipoDoc = document.getElementById('tipoDocumento').value;
+            const conFactura = (tipoDoc === 'FACTURA'); // Asumimos lógica estándar
+
+            let precioUnitarioFinal = 0;
+
+            // 1. Calcular Precio Unitario Base (Con IGV si aplica)
+            switch (modo) {
+                case 'PRECIO_UNITARIO':
+                    precioUnitarioFinal = monto;
+                    break;
+                case 'VALOR_UNITARIO':
+                    // Si es valor, y hay factura, agregamos IGV. Si no, es igual.
+                    precioUnitarioFinal = conFactura ? (monto * 1.18) : monto;
+                    break;
+                case 'PRECIO_TOTAL':
+                    precioUnitarioFinal = (cantidad > 0) ? (monto / cantidad) : 0;
+                    break;
+                case 'VALOR_TOTAL':
+                    const valorUnitario = (cantidad > 0) ? (monto / cantidad) : 0;
+                    precioUnitarioFinal = conFactura ? (valorUnitario * 1.18) : valorUnitario;
+                    break;
+            }
+
+            // 2. Actualizar Input Oculto (El que usa el sistema)
+            document.getElementById('precioInput').value = precioUnitarioFinal.toFixed(4);
+
+            // 3. Feedback visual en consola (opcional)
+            // console.log(`Modo: ${modo}, Monto: ${monto}, Cant: ${cantidad} => PU: ${precioUnitarioFinal}`);
+        }
+
 
 
         // ============================================
@@ -1743,6 +1936,8 @@
                 let egresoReal = 0;
                 let saldoCredito = 0;
                 const formaPago = document.getElementById('formaPago').value;
+                const medioPago = document.getElementById('medioPago').value;
+                const referenciaPago = document.getElementById('referenciaPago').value;
                 const montoInicial = parseFloat(document.getElementById('montoInicial').value) || 0;
                 const fechaVencimiento = document.getElementById('fechaVencimiento').value;
 
@@ -1772,9 +1967,9 @@
                         estado: 'REGISTRADO',
                         con_factura: conFactura,
                         tipo_documento: tipoDocumento, // Nuevo campo específico
-                        serie_factura: tipoDocumento === 'OTRO' ? null : serie,
-                        numero_factura: tipoDocumento === 'OTRO' ? null : numero,
-                        fecha_documento: tipoDocumento === 'OTRO' ? null : fechaDocumento,
+                        serie_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : serie,
+                        numero_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : numero,
+                        fecha_documento: tipoDocumento === 'SIN_COMPROBANTE' ? null : fechaDocumento,
                         subtotal: subtotalGlobal,
                         igv_credito_fiscal_total: igvGlobal,
                         costo_adquisicion_total: costoTotal, // INCLUYE GASTOS
@@ -1783,12 +1978,12 @@
 
                         // Campos de Pago
                         forma_pago: formaPago,
+                        medio_pago: formaPago === 'CONTADO' ? medioPago : null, // Solo si es contado tiene medio de pago inmediato
+                        referencia_pago: (formaPago === 'CONTADO' && ['TRANSFERENCIA', 'BILLETERA_DIGITAL', 'NOTA_CREDITO'].includes(medioPago)) ? referenciaPago : null,
                         pago_inicial: montoInicial,
                         saldo_credito: saldoCredito,
                         egreso_real_pagado: egresoReal,
-                        egreso_real_pagado: egresoReal,
-                        fecha_vencimiento: formaPago === 'CREDITO' ? fechaVencimiento : null,
-                        fecha_documento: fechaDocumento // Nueva columna
+                        fecha_vencimiento: formaPago === 'CREDITO' ? fechaVencimiento : null
                     }])
                     .select()
                     .single();
