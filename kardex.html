@@ -223,7 +223,7 @@
                 </div>
             </div>
             <div class="mt-4 flex justify-end">
-                <button onclick="cargarKardex()"
+                <button onclick="currentPage=1; cargarKardex()"
                     class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
                     Filtrar Resultados
                 </button>
@@ -505,7 +505,68 @@
                     console.log("Datos recibidos:", data);
                     console.log("Total registros:", count);
 
-                    renderTabla(data);
+                    console.log("Datos recibidos:", data);
+                    console.log("Total registros:", count);
+
+                    // ==========================================
+                    // LÓGICA DE CORRECCIÓN VISUAL UNIVERSAL (MULTI-ITEM)
+                    // ==========================================
+                    let saldosInicialesMap = {}; // Map: itemId -> saldoInicial (para la primera fila de ese item en la tabla)
+
+                    if (data.length > 0) {
+                        try {
+                            // 1. Identificar Items Únicos en esta página
+                            const uniqueItemIds = [...new Set(data.map(m => m.item_id))];
+
+                            // 2. Obtener Stock Total Real Actual de TODOS esos items
+                            const { data: itemsData, error: errItems } = await supabaseClient
+                                .from('items')
+                                .select('id, stock_total')
+                                .in('id', uniqueItemIds);
+
+                            if (!errItems && itemsData) {
+                                // Crear mapa de stocks actuales
+                                const currentStocks = {};
+                                itemsData.forEach(i => currentStocks[i.id] = i.stock_total);
+
+                                // 3. Calcular ajuste por movimientos posteriores (más nuevos que la página actual)
+                                // Para ser precisos, necesitamos sumar los movimientos > fecha_mas_reciente_de_la_tabla
+                                // OJO: Si hay items mezclados, la "fecha más reciente" es la del primer registro de la tabla (orden DESC).
+                                const fechaCorte = data[0].fecha_movimiento;
+
+                                const { data: movimientosPosteriores, error: errPost } = await supabaseClient
+                                    .from('kardex')
+                                    .select('item_id, tipo_movimiento, cantidad')
+                                    .in('item_id', uniqueItemIds)
+                                    .gt('fecha_movimiento', fechaCorte);
+
+                                // Mapa de ajustes por item
+                                const ajustesPorItem = {};
+                                uniqueItemIds.forEach(id => ajustesPorItem[id] = 0);
+
+                                if (!errPost && movimientosPosteriores) {
+                                    movimientosPosteriores.forEach(m => {
+                                        const signo = m.tipo_movimiento === 'INGRESO' ? 1 : -1;
+                                        ajustesPorItem[m.item_id] += (m.cantidad * signo);
+                                    });
+                                }
+
+                                // 4. Calcular Saldo Inicial para cada item (al momento del primer registro visible)
+                                uniqueItemIds.forEach(id => {
+                                    const stockActual = currentStocks[id] || 0;
+                                    const ajuste = ajustesPorItem[id] || 0;
+                                    // SaldoVisual = StockActual - AjustePosterior
+                                    saldosInicialesMap[id] = stockActual - ajuste;
+                                });
+
+                                console.log('Saldos Iniciales Calculados:', saldosInicialesMap);
+                            }
+                        } catch (errCalc) {
+                            console.warn('Error en cálculo multi-item:', errCalc);
+                        }
+                    }
+
+                    renderTabla(data, saldosInicialesMap);
                     updatePagination(count, data.length);
 
                 } catch (error) {
@@ -514,9 +575,13 @@
                 }
             }
 
-            function renderTabla(data) {
+            function renderTabla(data, saldosInicialesMap = {}) {
                 const tbody = document.getElementById('tablaKardex');
                 tbody.innerHTML = '';
+
+                // Copia local de los saldos para ir modificándolos mientras iteramos
+                // Usamos Spread para no mutar el original por si acaso, aunque aquí no importa tanto
+                let saldosCorrientes = { ...saldosInicialesMap };
 
                 if (data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500">No se encontraron movimientos en este periodo.</td></tr>';
@@ -568,6 +633,36 @@
                         });
                     };
 
+                    // Lógica de Saldo Visual Multi-Item
+                    let saldoVisual = mov.stock_resultante; // Fallback: valor de BD
+                    let esDiferente = false;
+
+                    // Verificamos si tenemos un saldo calculado para este item
+                    if (saldosCorrientes.hasOwnProperty(mov.item_id)) {
+                        const saldoCalculado = saldosCorrientes[mov.item_id];
+
+                        // El saldoCalculado actual corresponde al estado DESPUÉS de este movimiento
+                        // (porque vamos del futuro al pasado).
+                        // Así que este es el valor que debemos mostrar.
+                        saldoVisual = saldoCalculado;
+
+                        // Comparación Inteligente (Smart Asterisk)
+                        // Usamos una pequeña tolerancia para evitar diferencias por punto flotante (0.0001)
+                        const diferencia = Math.abs(saldoVisual - mov.stock_resultante);
+                        if (diferencia > 0.001) {
+                            esDiferente = true;
+                        }
+
+                        // Preparar el saldo para la SIGUIENTE fila (más antigua)
+                        // Invertimos la operación actual
+                        const cantidad = parseFloat(mov.cantidad);
+                        if (isIngreso) {
+                            saldosCorrientes[mov.item_id] -= cantidad;
+                        } else {
+                            saldosCorrientes[mov.item_id] += cantidad;
+                        }
+                    }
+
                     row.innerHTML = `
                     <td class="p-4 text-gray-600">${fecha}</td>
                     <td class="p-4 font-medium text-gray-900">${mov.items?.codigo || '-'}</td>
@@ -587,8 +682,11 @@
                     <td class="p-4 text-right font-mono font-medium text-gray-900">
                         S/ ${formatMoney(mov.costo_total)}
                     </td>
-                    <td class="p-4 text-right font-mono font-bold text-blue-600">
-                        ${parseFloat(mov.stock_resultante || 0).toFixed(2)}
+                    <td class="p-4 text-right font-mono font-bold text-blue-600" title="${esDiferente ? 'Saldo corregido cronológicamente (Difiere de BD)' : 'Saldo verificado'}">
+                        <span class="relative inline-block">
+                            ${parseFloat(saldoVisual || 0).toFixed(2)}
+                            ${esDiferente ? '<span class="absolute -right-3 -top-1 text-orange-500 text-xs" title="Dato corregido">*</span>' : ''}
+                        </span>
                     </td>
                     <td class="p-4 text-right">
                         <div class="flex justify-end gap-2">
@@ -712,10 +810,15 @@
                             <div><p class="text-xs text-gray-500 uppercase">Tipo de Ingreso</p><p class="font-medium">${ingreso.tipo_ingreso?.nombre || ingreso.tipos_ingresos?.nombre || '-'}</p></div>
                             <div><p class="text-xs text-gray-500 uppercase">Proveedor</p><p class="font-medium">${ingreso.proveedores?.razon_social || '-'}</p></div>
                             <div><p class="text-xs text-gray-500 uppercase">Almacén Destino</p><p class="font-medium">${ingreso.almacenes?.nombre || '-'}</p></div>
+                            
                             <div><p class="text-xs text-gray-500 uppercase">Fecha Ingreso</p><p class="font-medium">${fechaIngreso}</p></div>
-                            <div><p class="text-xs text-gray-500 uppercase">Forma de Pago</p><p class="font-medium">${ingreso.forma_pago || '-'}</p></div>
-                            <div><p class="text-xs text-gray-500 uppercase">Documento</p><p class="font-medium">${ingreso.tipo_documento || (ingreso.con_factura ? 'Factura/Boleta' : 'Guía/Nota')}</p></div>
-                            <div><p class="text-xs text-gray-500 uppercase">Serie - Número</p><p class="font-medium">${ingreso.serie_factura || ''} - ${ingreso.numero_factura || ''}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Condición de Pago</p><p class="font-medium">${ingreso.forma_pago || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Medio de Pago</p><p class="font-medium">${ingreso.medio_pago ? ingreso.medio_pago.replace('_', ' ') : '-'}</p></div>
+                            
+                            <div><p class="text-xs text-gray-500 uppercase">Referencia Pago</p><p class="font-medium">${ingreso.referencia_pago || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Tipo Documento</p><p class="font-medium">${ingreso.tipo_documento || (ingreso.con_factura ? 'Factura/Boleta' : 'SIN COMPROBANTE')}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Serie - Número</p><p class="font-medium">${(ingreso.serie_factura || ingreso.numero_factura) ? (ingreso.serie_factura || '') + ' - ' + (ingreso.numero_factura || '') : '-'}</p></div>
+                            
                             <div><p class="text-xs text-gray-500 uppercase">Fecha Emisión Doc.</p><p class="font-medium">${fechaEmision}</p></div>
                         </div>
                     </section>
