@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traslados entre Almacenes - MiniERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Estilos para el Buscador Google-Style */
+        .search-container {
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 24px;
+            padding-left: 50px;
+            border-radius: 24px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #3b82f6;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 1.2rem;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 16px;
+            margin-top: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            z-index: 50;
+            display: none;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+        }
+
+        .result-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.2s;
+        }
+
+        .result-item:hover {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+
+<body class="text-gray-800">
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="btn-back" onclick="window.location.href='gestion_inventarios.html'">
+                ← Volver
+            </button>
+            <h1>Traslado entre Almacenes</h1>
+        </div>
+        <div class="header-right">
+            <span id="fechaActual" style="color: white; font-weight: 500;"></span>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- 1. Cabecera del Traslado -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Datos del Traslado</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Almacén Origen -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Almacén de Origen <span class="text-red-500">*</span>
+                    </label>
+                    <select id="almacenOrigen" onchange="validarAlmacenes()"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                        <option value="">Seleccione...</option>
+                    </select>
+                </div>
+
+                <!-- Almacén Destino -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Almacén de Destino <span class="text-red-500">*</span>
+                    </label>
+                    <select id="almacenDestino" onchange="validarAlmacenes()"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                        <option value="">Seleccione...</option>
+                    </select>
+                </div>
+
+                <!-- Fecha -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Fecha de Traslado
+                    </label>
+                    <input type="date" id="fechaTraslado"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                </div>
+            </div>
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                <input type="text" id="observaciones" placeholder="Motivo del traslado..."
+                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+            </div>
+        </div>
+
+        <!-- 2. Buscador de Items (Lógica FIFO de Egresos) -->
+        <div class="mb-8 relative z-30">
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="buscadorProducto" class="search-input"
+                    placeholder="Buscar producto para trasladar (Escriba nombre o código)..." autocomplete="off"
+                    disabled>
+
+                <div id="resultadosBusqueda" class="search-results"></div>
+            </div>
+            <p id="mensajeBloqueo" class="text-center text-sm text-red-500 mt-2 hidden">
+                🔒 Seleccione un almacén de origen válido para habilitar la búsqueda.
+            </p>
+        </div>
+
+        <!-- 3. Tabla de Items a Trasladar -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <div class="p-4 border-b border-gray-200 bg-gray-50">
+                <h3 class="font-semibold text-gray-800">Items a Trasladar</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Item</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Cantidad</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Costo Salida<br><small>(Total)</small></th>
+                            <th
+                                class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaItems" class="bg-white divide-y divide-gray-200">
+                        <tr id="filaVacia" class="text-center text-gray-500">
+                            <td colspan="4" class="py-8">
+                                <i class="fas fa-box-open text-3xl mb-2 text-gray-300"></i>
+                                <p>No hay items agregados.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-gray-50 font-semibold">
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 text-right text-gray-900">Total Valor Salida:</td>
+                            <td class="px-6 py-4 text-right text-gray-900" id="totalValorSalida">S/ 0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. Otros Egresos Asociados (Lógica de Ingresos) -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">🚛 Otros Egresos Asociados (Fletes,
+                Carga, etc.)</h2>
+
+            <!-- Formulario de Gasto -->
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 items-end">
+                <div class="md:col-span-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                    <input type="text" id="gastoDescripcion" list="listaGastos" placeholder="Ej: Flete"
+                        class="w-full rounded-lg border-gray-300 shadow-sm h-10">
+                    <datalist id="listaGastos">
+                        <option value="Flete Interprovincial">
+                        <option value="Flete Local">
+                        <option value="Estiba/Desestiba">
+                    </datalist>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto Total</label>
+                    <input type="number" id="gastoMonto" min="0" step="0.01" placeholder="0.00"
+                        class="w-full rounded-lg border-gray-300 shadow-sm h-10">
+                </div>
+                <div class="md:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">¿Con Factura?</label>
+                    <select id="gastoConFactura" onchange="toggleCamposGasto()"
+                        class="w-full rounded-lg border-gray-300 shadow-sm h-10">
+                        <option value="false">NO (Sin IGV)</option>
+                        <option value="true">SÍ (Tiene IGV)</option>
+                    </select>
+                </div>
+                <div class="md:col-span-3">
+                    <button type="button" onclick="agregarGasto()"
+                        class="w-full bg-gray-600 text-white rounded-lg hover:bg-gray-700 h-10 font-medium">
+                        + Agregar Gasto
+                    </button>
+                </div>
+            </div>
+
+            <!-- Datos de Factura (Oculto) -->
+            <div id="gastoDatosFactura"
+                class="hidden bg-gray-50 p-4 rounded-lg mb-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
+                    <select id="gastoProveedor" class="w-full rounded-lg border-gray-300 shadow-sm h-10">
+                        <option value="">Seleccionar...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Serie</label>
+                    <input type="text" id="gastoSerie" placeholder="F001"
+                        class="w-full rounded-lg border-gray-300 shadow-sm h-10">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Número</label>
+                    <input type="text" id="gastoNumero" placeholder="123456"
+                        class="w-full rounded-lg border-gray-300 shadow-sm h-10">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Emisión</label>
+                    <input type="date" id="gastoFecha" class="w-full rounded-lg border-gray-300 shadow-sm h-10">
+                </div>
+            </div>
+
+            <!-- Tabla de Gastos -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor
+                                Gasto<br><small>(Al Costo)</small></th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaGastos" class="bg-white divide-y divide-gray-200"></tbody>
+                    <tfoot class="bg-gray-50 font-semibold">
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 text-right text-gray-900">Total Gastos Asignables:</td>
+                            <td class="px-6 py-4 text-right text-gray-900" id="totalGastosAsignables">S/ 0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. Resumen y Confirmación -->
+        <div class="bg-blue-50 rounded-xl border border-blue-200 p-6 mb-8">
+            <h3 class="text-lg font-semibold text-blue-900 mb-4">Resumen de Costos de Entrada (Destino)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                <div>
+                    <p class="text-sm text-blue-700">Valor Salida (Origen)</p>
+                    <p class="text-xl font-bold text-blue-900" id="resumenValorSalida">S/ 0.00</p>
+                </div>
+                <div>
+                    <p class="text-sm text-blue-700">+ Gastos Asignados</p>
+                    <p class="text-xl font-bold text-blue-900" id="resumenGastos">S/ 0.00</p>
+                </div>
+                <div>
+                    <p class="text-sm text-blue-700">= Valor Entrada Total</p>
+                    <p class="text-2xl font-bold text-green-700" id="resumenValorEntrada">S/ 0.00</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="flex justify-end gap-4">
+            <button onclick="window.location.href='gestion_inventarios.html'"
+                class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
+                Cancelar
+            </button>
+            <button id="btnGuardar" onclick="solicitarConfirmacion()"
+                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-save"></i> Confirmar Traslado
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Modal de Confirmación de Costos -->
+    <div id="modalCostos" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💰 Confirmación de Costos de Traslado</h3>
+                <button class="btn-icon" onclick="cerrarModalCostos()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: #4b5563;">
+                    Por favor, revise los <strong>Nuevos Costos de Ingreso</strong> en el almacén de destino.
+                    Estos valores incluyen el prorrateo de los gastos asociados (Fletes, etc.).
+                </p>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Costo
+                                    Salida<br><small>(Total)</small></th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">+ Gasto
+                                    Asig.<br><small>(Prorrateo)</small></th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-blue-600 uppercase bg-blue-50">
+                                    = Costo Entrada<br><small>(Total)</small></th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Nuevo Costo
+                                    Unit.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaResumenCostos" class="bg-white divide-y divide-gray-200">
+                            <!-- Llenado dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-6 text-right space-y-2">
+                    <p class="text-sm text-gray-600">Total Valor Salida: <span id="modalTotalSalida"
+                            class="font-bold text-gray-900">S/ 0.00</span></p>
+                    <p class="text-sm text-gray-600">Total Gastos: <span id="modalTotalGastos"
+                            class="font-bold text-gray-900">S/ 0.00</span></p>
+                    <div class="flex justify-end items-center gap-4 pt-2 border-t mt-2">
+                        <span class="text-lg font-semibold text-blue-900">Valor Total Entrada:</span>
+                        <span id="modalTotalEntrada" class="text-xl font-bold text-green-600">S/ 0.00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    onclick="cerrarModalCostos()">Corregir</button>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm"
+                    onclick="confirmarGuardadoReal()">✅ Aprobar y Transferir</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 1rem;
+        }
+
+        .modal-header h3 {
+            font-size: 1.25rem;
+            color: #1e3a8a;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+    </style>
+
+    <script>
+        // ============================================
+        // CONFIGURACIÓN SUPABASE
+        // ============================================
+        const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ============================================
+        // ESTADO GLOBAL
+        // ============================================
+        let itemsTraslado = []; // { producto, cantidad, costoSalidaTotal, lotes: [] }
+        let gastosTraslado = []; // { descripcion, monto, valor, ... }
+        let proveedoresCache = [];
+        let usuarioActual = null;
+
+        // ============================================
+        // INICIALIZACIÓN
+        // ============================================
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+
+            const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+            document.getElementById('fechaTraslado').value = hoy;
+            document.getElementById('gastoFecha').valueAsDate = new Date();
+
+            await verificarSesion();
+            await cargarDatosIniciales();
+            configurarBuscador();
+        });
+
+        async function verificarSesion() {
+            const sessionStr = localStorage.getItem('microerp_session');
+            if (!sessionStr) {
+                window.location.href = 'index.html';
+                return;
+            }
+            usuarioActual = JSON.parse(sessionStr);
+        }
+
+        async function cargarDatosIniciales() {
+            // Cargar Almacenes
+            const { data: almacenes } = await supabaseClient.from('almacenes').select('*').eq('activo', true);
+
+            if (almacenes) {
+                if (almacenes.length < 2) {
+                    alert('⚠️ Se requieren al menos 2 almacenes para realizar traslados.');
+                    window.location.href = 'gestion_inventarios.html';
+                    return;
+                }
+
+                const origen = document.getElementById('almacenOrigen');
+                const destino = document.getElementById('almacenDestino');
+
+                almacenes.forEach(a => {
+                    const opt = new Option(a.nombre, a.id);
+                    origen.add(opt.cloneNode(true));
+                    destino.add(opt);
+                });
+            }
+
+            // Cargar Proveedores (para gastos)
+            const { data: proveedores } = await supabaseClient.from('proveedores').select('*').eq('activo', true);
+            proveedoresCache = proveedores || [];
+
+            const provSelect = document.getElementById('gastoProveedor');
+            proveedoresCache.forEach(p => {
+                provSelect.add(new Option(p.razon_social, p.id));
+            });
+        }
+
+        function validarAlmacenes() {
+            const origen = document.getElementById('almacenOrigen').value;
+            const destino = document.getElementById('almacenDestino').value;
+            const buscador = document.getElementById('buscadorProducto');
+            const mensaje = document.getElementById('mensajeBloqueo');
+
+            if (origen && destino && origen === destino) {
+                alert('El almacén de destino no puede ser igual al de origen.');
+                document.getElementById('almacenDestino').value = '';
+                return;
+            }
+
+            if (origen) {
+                buscador.disabled = false;
+                mensaje.classList.add('hidden');
+            } else {
+                buscador.disabled = true;
+                mensaje.classList.remove('hidden');
+                itemsTraslado = []; // Limpiar si cambia origen
+                renderizarTablaItems();
+            }
+        }
+
+        // ============================================
+        // LÓGICA DE BÚSQUEDA Y FIFO (Adaptado de egresos.html)
+        // ============================================
+        function configurarBuscador() {
+            const buscador = document.getElementById('buscadorProducto');
+            buscador.addEventListener('input', debounce(async (e) => {
+                const termino = e.target.value;
+                if (termino.length < 2) return;
+
+                const almacenId = document.getElementById('almacenOrigen').value;
+                if (!almacenId) return;
+
+                await buscarProductos(termino, almacenId);
+            }, 300));
+
+            // Cerrar resultados al click fuera
+            document.addEventListener('click', (e) => {
+                if (!buscador.contains(e.target) && !document.getElementById('resultadosBusqueda').contains(e.target)) {
+                    document.getElementById('resultadosBusqueda').style.display = 'none';
+                }
+            });
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        async function buscarProductos(termino, almacenId) {
+            const resultadosDiv = document.getElementById('resultadosBusqueda');
+            resultadosDiv.style.display = 'block';
+            resultadosDiv.innerHTML = '<div class="p-4 text-center text-gray-500">Buscando...</div>';
+
+            try {
+                // 1. Buscar items
+                const { data: productos } = await supabaseClient
+                    .from('items')
+                    .select('id, codigo, descripcion, unidad_medida')
+                    .or(`descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
+                    .limit(10);
+
+                if (!productos || productos.length === 0) {
+                    resultadosDiv.innerHTML = '<div class="p-4 text-center text-gray-500">No encontrado</div>';
+                    return;
+                }
+
+                // 2. Verificar Stock
+                const resultadosConStock = [];
+                for (const prod of productos) {
+                    const { data: lotes } = await supabaseClient
+                        .from('ingresos_detalle')
+                        .select('cantidad_disponible, ingresos!inner(almacen_destino_id)')
+                        .eq('item_id', prod.id)
+                        .eq('ingresos.almacen_destino_id', almacenId)
+                        .gt('cantidad_disponible', 0);
+
+                    const stock = lotes ? lotes.reduce((sum, l) => sum + Number(l.cantidad_disponible), 0) : 0;
+
+                    if (stock > 0) {
+                        resultadosConStock.push({ ...prod, stock });
+                    }
+                }
+
+                renderizarResultados(resultadosConStock);
+
+            } catch (error) {
+                console.error(error);
+                resultadosDiv.innerHTML = '<div class="p-4 text-center text-red-500">Error</div>';
+            }
+        }
+
+        function renderizarResultados(resultados) {
+            const div = document.getElementById('resultadosBusqueda');
+            div.innerHTML = '';
+
+            if (resultados.length === 0) {
+                div.innerHTML = '<div class="p-4 text-center text-gray-500">Sin stock en este almacén</div>';
+                return;
+            }
+
+            resultados.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'result-item';
+                el.innerHTML = `
+                    <div class="flex justify-between">
+                        <span>${item.descripcion}</span>
+                        <span class="font-bold text-green-600">Stock: ${item.stock}</span>
+                    </div>
+                `;
+                el.onclick = () => seleccionarProducto(item);
+                div.appendChild(el);
+            });
+        }
+
+        async function seleccionarProducto(producto) {
+            document.getElementById('resultadosBusqueda').style.display = 'none';
+            document.getElementById('buscadorProducto').value = '';
+
+            const cantidadStr = prompt(`Cantidad a trasladar de: ${producto.descripcion}\n(Stock: ${producto.stock})`);
+            if (!cantidadStr) return;
+
+            const cantidad = parseFloat(cantidadStr);
+            if (isNaN(cantidad) || cantidad <= 0 || cantidad > producto.stock) {
+                alert('Cantidad inválida o insuficiente');
+                return;
+            }
+
+            await procesarFIFO(producto, cantidad);
+        }
+
+        async function procesarFIFO(producto, cantidad) {
+            const almacenId = document.getElementById('almacenOrigen').value;
+
+            // Obtener lotes FIFO
+            const { data: lotes } = await supabaseClient
+                .from('ingresos_detalle')
+                .select(`
+                    id, cantidad_disponible, costo_adquisicion_unitario,
+                    ingresos!inner(fecha_ingreso, almacen_destino_id)
+                `)
+                .eq('item_id', producto.id)
+                .eq('ingresos.almacen_destino_id', almacenId)
+                .gt('cantidad_disponible', 0)
+                .order('ingresos(fecha_ingreso)', { ascending: true });
+
+            let pendiente = cantidad;
+            let costoTotalSalida = 0;
+            const lotesAfectados = [];
+
+            for (const lote of lotes) {
+                if (pendiente <= 0) break;
+                const tomar = Math.min(pendiente, Number(lote.cantidad_disponible));
+                const costo = tomar * Number(lote.costo_adquisicion_unitario);
+
+                costoTotalSalida += costo;
+                lotesAfectados.push({
+                    loteId: lote.id,
+                    cantidad: tomar,
+                    costoUnitario: Number(lote.costo_adquisicion_unitario),
+                    costoTotal: costo
+                });
+                pendiente -= tomar;
+            }
+
+            itemsTraslado.push({
+                producto,
+                cantidad,
+                costoSalidaTotal: costoTotalSalida,
+                lotes: lotesAfectados
+            });
+
+            renderizarTablaItems();
+            actualizarResumen();
+        }
+
+        function renderizarTablaItems() {
+            const tbody = document.getElementById('tablaItems');
+            tbody.innerHTML = '';
+
+            itemsTraslado.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4">${item.producto.descripcion}</td>
+                    <td class="px-6 py-4 text-right">${item.cantidad}</td>
+                    <td class="px-6 py-4 text-right">S/ ${item.costoSalidaTotal.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="eliminarItem(${idx})" class="text-red-600 hover:text-red-800">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const total = itemsTraslado.reduce((sum, i) => sum + i.costoSalidaTotal, 0);
+            document.getElementById('totalValorSalida').textContent = `S/ ${total.toFixed(2)}`;
+        }
+
+        function eliminarItem(index) {
+            itemsTraslado.splice(index, 1);
+            renderizarTablaItems();
+            actualizarResumen();
+        }
+
+        // ============================================
+        // LÓGICA DE GASTOS (Adaptado de ingresos.html)
+        // ============================================
+        function toggleCamposGasto() {
+            const conFactura = document.getElementById('gastoConFactura').value === 'true';
+            document.getElementById('gastoDatosFactura').classList.toggle('hidden', !conFactura);
+        }
+
+        function agregarGasto() {
+            const descripcion = document.getElementById('gastoDescripcion').value;
+            const monto = parseFloat(document.getElementById('gastoMonto').value);
+            const conFactura = document.getElementById('gastoConFactura').value === 'true';
+
+            if (!descripcion || isNaN(monto) || monto <= 0) {
+                alert('Datos de gasto inválidos');
+                return;
+            }
+
+            // Si es con factura, validar proveedor
+            let proveedorId = null;
+            if (conFactura) {
+                proveedorId = document.getElementById('gastoProveedor').value;
+                if (!proveedorId) {
+                    alert('Seleccione proveedor para la factura');
+                    return;
+                }
+            }
+
+            // Lógica de Costos (Según reglas de negocio: Costo Adquisición = Precio Bruto + Gastos Brutos)
+            // El valor a distribuir es el MONTO TOTAL (Inc. IGV si lo tuviera)
+            const valorParaCosto = monto;
+
+            // Cálculo de IGV (Solo informativo/tributario, no resta del costo)
+            let igv = 0;
+            let valorNeto = monto;
+
+            if (conFactura) {
+                valorNeto = monto / 1.18;
+                igv = monto - valorNeto;
+            }
+
+            gastosTraslado.push({
+                descripcion,
+                monto,
+                conFactura,
+                proveedorId,
+                valor: valorParaCosto, // Este es el que suma al costo del item
+                valorNeto: valorNeto,  // Para registro en BD (gastos_ingreso)
+                igv: igv,              // Para registro en BD (gastos_ingreso)
+                // Datos extra
+                serie: document.getElementById('gastoSerie').value,
+                numero: document.getElementById('gastoNumero').value,
+                fecha: document.getElementById('gastoFecha').value
+            });
+
+            renderizarTablaGastos();
+            actualizarResumen();
+
+            // Limpiar
+            document.getElementById('gastoDescripcion').value = '';
+            document.getElementById('gastoMonto').value = '';
+        }
+
+        function renderizarTablaGastos() {
+            const tbody = document.getElementById('tablaGastos');
+            tbody.innerHTML = '';
+
+            gastosTraslado.forEach((g, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4">${g.descripcion}</td>
+                    <td class="px-6 py-4 text-right">S/ ${g.monto.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-right">S/ ${g.valor.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="eliminarGasto(${idx})" class="text-red-600">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const totalValor = gastosTraslado.reduce((sum, g) => sum + g.valor, 0);
+            document.getElementById('totalGastosAsignables').textContent = `S/ ${totalValor.toFixed(2)}`;
+        }
+
+        function eliminarGasto(index) {
+            gastosTraslado.splice(index, 1);
+            renderizarTablaGastos();
+            actualizarResumen();
+        }
+
+        // ============================================
+        // RESUMEN Y GUARDADO
+        // ============================================
+        function actualizarResumen() {
+            const totalSalida = itemsTraslado.reduce((sum, i) => sum + i.costoSalidaTotal, 0);
+            const totalGastos = gastosTraslado.reduce((sum, g) => sum + g.valor, 0);
+            const totalEntrada = totalSalida + totalGastos;
+
+            document.getElementById('resumenValorSalida').textContent = `S/ ${totalSalida.toFixed(2)}`;
+            document.getElementById('resumenGastos').textContent = `S/ ${totalGastos.toFixed(2)}`;
+            document.getElementById('resumenValorEntrada').textContent = `S/ ${totalEntrada.toFixed(2)}`;
+        }
+
+        // 1. Solicitar Confirmación (Abre Modal)
+        function solicitarConfirmacion() {
+            if (itemsTraslado.length === 0) {
+                alert('No hay items para trasladar');
+                return;
+            }
+
+            const origenId = document.getElementById('almacenOrigen').value;
+            const destinoId = document.getElementById('almacenDestino').value;
+            const fecha = document.getElementById('fechaTraslado').value;
+
+            if (!origenId || !destinoId || !fecha) {
+                alert('Complete los datos generales');
+                return;
+            }
+
+            // Calcular y Llenar Modal
+            const totalSalida = itemsTraslado.reduce((sum, i) => sum + i.costoSalidaTotal, 0);
+            const totalGastos = gastosTraslado.reduce((sum, g) => sum + g.valor, 0);
+            const totalEntrada = totalSalida + totalGastos;
+            const factor = totalSalida > 0 ? (totalSalida + totalGastos) / totalSalida : 1;
+
+            const tbody = document.getElementById('tablaResumenCostos');
+            tbody.innerHTML = '';
+
+            itemsTraslado.forEach(item => {
+                const costoSalida = item.costoSalidaTotal;
+                const costoEntrada = costoSalida * factor;
+                const gastoAsignado = costoEntrada - costoSalida;
+                const nuevoUnitario = costoEntrada / item.cantidad;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-2 text-sm text-gray-900">${item.producto.descripcion}</td>
+                    <td class="px-4 py-2 text-sm text-right text-gray-600">S/ ${costoSalida.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-sm text-right text-gray-600">+ S/ ${gastoAsignado.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-sm text-right font-bold text-blue-700 bg-blue-50">S/ ${costoEntrada.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-sm text-right font-bold text-gray-900">S/ ${nuevoUnitario.toFixed(4)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('modalTotalSalida').textContent = `S/ ${totalSalida.toFixed(2)}`;
+            document.getElementById('modalTotalGastos').textContent = `S/ ${totalGastos.toFixed(2)}`;
+            document.getElementById('modalTotalEntrada').textContent = `S/ ${totalEntrada.toFixed(2)}`;
+
+            // Mostrar Modal
+            document.getElementById('modalCostos').classList.remove('hidden');
+        }
+
+        function cerrarModalCostos() {
+            document.getElementById('modalCostos').classList.add('hidden');
+        }
+
+        // 2. Guardar Real (Ejecuta Transacción)
+        async function confirmarGuardadoReal() {
+            cerrarModalCostos();
+
+            const btn = document.getElementById('btnGuardar'); // Botón principal
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Procesando...';
+
+            const origenId = document.getElementById('almacenOrigen').value;
+            const destinoId = document.getElementById('almacenDestino').value;
+            const fecha = document.getElementById('fechaTraslado').value;
+
+            try {
+                // 1. Obtener IDs de Tipos de Movimiento
+                // Buscamos "Traslado entre Almacenes" en ambas tablas
+                const { data: tipoEgreso } = await supabaseClient.from('tipos_egresos')
+                    .select('id').ilike('nombre', '%Traslado%').limit(1).single();
+                const { data: tipoIngreso } = await supabaseClient.from('tipos_ingresos')
+                    .select('id').ilike('nombre', '%Traslado%').limit(1).single();
+
+                if (!tipoEgreso || !tipoIngreso) {
+                    throw new Error('No se encontraron los tipos de movimiento "Traslado" configurados.');
+                }
+
+                const codigoTraslado = `TRA-${Date.now()}`; // Código de vinculación
+
+                // 2. Registrar EGRESO (Origen)
+                const { data: egreso, error: errEgreso } = await supabaseClient
+                    .from('egresos')
+                    .insert({
+                        almacen_origen_id: origenId,
+                        tipo_egreso_id: tipoEgreso.id,
+                        fecha_egreso: fecha,
+                        numero_egreso: codigoTraslado, // Usamos el mismo código o prefijo
+                        estado: 'CONFIRMADO',
+                        observaciones: `Traslado a Almacén Destino. ${document.getElementById('observaciones').value}`
+                    }).select().single();
+
+                if (errEgreso) throw errEgreso;
+
+                // 3. Registrar Detalles Egreso y Actualizar Stock Origen
+                for (const item of itemsTraslado) {
+                    // Detalle Egreso
+                    await supabaseClient.from('egresos_detalle').insert({
+                        egreso_id: egreso.id,
+                        item_id: item.producto.id,
+                        cantidad: item.cantidad,
+                        costo_total: item.costoSalidaTotal,
+                        costo_unitario: item.costoSalidaTotal / item.cantidad
+                    });
+
+                    // Actualizar Lotes (Resta de Stock)
+                    for (const lote of item.lotes) {
+                        // Leer stock actual para ser seguro
+                        const { data: l } = await supabaseClient.from('ingresos_detalle').select('cantidad_disponible').eq('id', lote.loteId).single();
+                        const nuevo = Number(l.cantidad_disponible) - lote.cantidad;
+                        await supabaseClient.from('ingresos_detalle').update({ cantidad_disponible: nuevo }).eq('id', lote.loteId);
+                    }
+                }
+
+                // 4. Calcular Costos de Entrada (Prorrateo)
+                const totalSalida = itemsTraslado.reduce((sum, i) => sum + i.costoSalidaTotal, 0);
+                const totalGastos = gastosTraslado.reduce((sum, g) => sum + g.valor, 0);
+
+                // Factor de Prorrateo: (ValorSalida + Gastos) / ValorSalida
+                // Si ValorSalida es 0 (ej: traslado de muestras sin valor), cuidado. Pero aquí siempre hay costo.
+                const factor = totalSalida > 0 ? (totalSalida + totalGastos) / totalSalida : 1;
+
+                // 5. Registrar INGRESO (Destino)
+                const { data: ingreso, error: errIngreso } = await supabaseClient
+                    .from('ingresos')
+                    .insert({
+                        almacen_destino_id: destinoId,
+                        almacen_origen_id: origenId, // Referencia informativa
+                        tipo_ingreso_id: tipoIngreso.id,
+                        fecha_ingreso: fecha,
+                        numero_ingreso: codigoTraslado,
+                        estado: 'REGISTRADO',
+                        costo_adquisicion_total: totalSalida + totalGastos,
+                        otros_egresos_total: totalGastos,
+                        observaciones: `Traslado desde Almacén Origen. ${document.getElementById('observaciones').value}`
+                    }).select().single();
+
+                if (errIngreso) throw errIngreso;
+
+                // 6. Registrar Detalles Ingreso (Nuevos Lotes en Destino)
+                for (const item of itemsTraslado) {
+                    const costoSalidaItem = item.costoSalidaTotal;
+                    const costoEntradaItem = costoSalidaItem * factor; // Aplica prorrateo
+                    const costoUnitarioEntrada = costoEntradaItem / item.cantidad;
+
+                    const { error: errorDetalle } = await supabaseClient.from('ingresos_detalle').insert({
+                        ingreso_id: ingreso.id,
+                        item_id: item.producto.id,
+                        cantidad: item.cantidad, // Corregido: cantidad_inicial -> cantidad
+                        cantidad_disponible: item.cantidad, // Stock nuevo
+                        costo_adquisicion_unitario: costoUnitarioEntrada,
+                        costo_adquisicion_total: costoEntradaItem
+                    });
+
+                    if (errorDetalle) throw errorDetalle;
+                }
+
+                // 7. Registrar Gastos Asociados (Para que aparezcan en Kardex)
+                if (gastosTraslado.length > 0) {
+                    const gastosParaInsertar = gastosTraslado.map(gasto => ({
+                        ingreso_id: ingreso.id,
+                        tipo_gasto: 'OTROS',
+                        descripcion: gasto.descripcion,
+                        precio_gasto: gasto.monto,
+                        con_factura_gasto: gasto.conFactura,
+                        valor_gasto: gasto.valorNeto, // Base imponible
+                        igv_credito_fiscal_gasto: gasto.igv,
+                        proveedor_id: gasto.proveedorId || null,
+                        serie_factura: gasto.serie || null,
+                        numero_factura: gasto.numero || null,
+                        fecha_emision: gasto.fecha || null
+                    }));
+
+                    const { error: errorGastos } = await supabaseClient
+                        .from('gastos_ingreso')
+                        .insert(gastosParaInsertar);
+
+                    if (errorGastos) throw errorGastos;
+                }
+
+                alert('✅ Traslado realizado con éxito!');
+                window.location.href = 'gestion_inventarios.html';
+
+            } catch (error) {
+                console.error(error);
+                alert('❌ Error al procesar traslado: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Confirmar Traslado';
+            }
+        }
+    </script>
+</body>
+
+</html>
