@@ -857,18 +857,27 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200 bg-white">
-                                    ${items.map(item => `
+                                    ${items.map(item => {
+                    // Lógica para mostrar precios o costos según el tipo de operación
+                    // En traslados, precio_compra es 0, usamos costo_adquisicion
+                    const precioUnit = item.precio_compra_unitario > 0 ? item.precio_compra_unitario : item.costo_adquisicion_unitario;
+                    const valorUnit = item.valor_compra_unitario > 0 ? item.valor_compra_unitario : item.costo_adquisicion_unitario;
+                    const igvUnit = item.igv_credito_fiscal_unitario || 0;
+                    const total = (item.precio_compra_total > 0 ? item.precio_compra_total : item.costo_adquisicion_total) || (item.cantidad * precioUnit);
+
+                    return `
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-4 py-3 font-mono text-gray-500">${item.items?.codigo || '-'}</td>
                                         <td class="px-4 py-3 font-medium text-gray-900">${item.items?.descripcion || '-'}</td>
                                         <td class="px-4 py-3 text-gray-500">${item.items?.unidad_medida || '-'}</td>
                                         <td class="px-4 py-3 text-right font-bold">${parseFloat(item.cantidad).toFixed(2)}</td>
-                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(item.precio_compra_unitario)}</td>
-                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(item.valor_compra_unitario)}</td>
-                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(item.igv_credito_fiscal_unitario)}</td>
-                                        <td class="px-4 py-3 text-right font-bold text-blue-600">S/ ${formatMoney(item.precio_compra_total || (item.cantidad * item.precio_compra_unitario))}</td>
+                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(precioUnit)}</td>
+                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(valorUnit)}</td>
+                                        <td class="px-4 py-3 text-right">S/ ${formatMoney(igvUnit)}</td>
+                                        <td class="px-4 py-3 text-right font-bold text-blue-600">S/ ${formatMoney(total)}</td>
                                     </tr>
-                                    `).join('')}
+                                    `;
+                }).join('')}
                                 </tbody>
                             </table>
                         </div>
