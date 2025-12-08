@@ -920,7 +920,7 @@
             }
 
             // ==========================================
-            // VALIDACIÓN DE INTEGRIDAD CRONOLÓGICA (SAFE APPEND)
+            // VALIDACIÓN DE INTEGRIDAD CRONOLÓGICA (SAFE APPEND PRO)
             // ==========================================
             // 1. Obtener fecha actual en Lima (UTC-5)
             const getLimaDate = () => {
@@ -938,58 +938,104 @@
                 return;
             }
 
-            // 3. Validar Pasado (Contra último movimiento de AMBOS almacenes)
+            // 3. Validar Pasado (PRO: Safe Append por Item - Doble Validación)
             try {
-                // a. Verificar Origen
-                const { data: ultimoMovOrigen, error: errorOrigen } = await supabaseClient
+                // a. Recolectar IDs de items (Confirmado: itemsTraslado tiene estructura { producto: { id: ... } })
+                const itemIds = itemsTraslado.map(i => i.producto.id);
+
+                // b. Calcular "Día Siguiente" a la fecha seleccionada (Inicio del día en Lima = 05:00 UTC)
+                // Usamos la misma lógica estricta que en Egresos para evitar "Efecto Cenicienta"
+                const fechaTrasladoDate = new Date(fecha + 'T00:00:00');
+                fechaTrasladoDate.setDate(fechaTrasladoDate.getDate() + 1);
+
+                const year = fechaTrasladoDate.getFullYear();
+                const month = String(fechaTrasladoDate.getMonth() + 1).padStart(2, '0');
+                const day = String(fechaTrasladoDate.getDate()).padStart(2, '0');
+
+                // PUNTO CLAVE: 00:00 Lima es 05:00 UTC.
+                const nextDay = `${year}-${month}-${day}T05:00:00Z`;
+
+                // c. Consultar ORIGEN: ¿Hay movimientos de ESTOS items en ORIGEN a partir de MAÑANA?
+                const { data: conflictosOrigen, error: errorOrigen } = await supabaseClient
                     .from('kardex')
-                    .select('fecha_movimiento')
+                    .select(`item_id, fecha_movimiento, items ( descripcion )`)
                     .eq('almacen_id', origenId)
-                    .order('fecha_movimiento', { ascending: false })
-                    .limit(1)
-                    .single();
+                    .in('item_id', itemIds)
+                    .gte('fecha_movimiento', nextDay);
 
-                if (errorOrigen && errorOrigen.code !== 'PGRST116') throw errorOrigen;
+                if (errorOrigen) throw errorOrigen;
 
-                if (ultimoMovOrigen) {
-                    const ultimaFechaOrigen = ultimoMovOrigen.fecha_movimiento.split('T')[0];
-                    if (fecha < ultimaFechaOrigen) {
-                        alert(
-                            `❌ BLOQUEO DE SEGURIDAD (ORIGEN)\n\n` +
-                            `El Almacén de Origen ya tiene movimientos el ${ultimaFechaOrigen}.\n` +
-                            `No puedes registrar un traslado con fecha anterior (${fecha}).\n\n` +
-                            `✅ Solución: Usa una fecha igual o posterior a ${ultimaFechaOrigen}.`
-                        );
-                        return;
-                    }
+                // d. Consultar DESTINO: ¿Hay movimientos de ESTOS items en DESTINO a partir de MAÑANA?
+                const { data: conflictosDestino, error: errorDestino } = await supabaseClient
+                    .from('kardex')
+                    .select(`item_id, fecha_movimiento, items ( descripcion )`)
+                    .eq('almacen_id', destinoId)
+                    .in('item_id', itemIds)
+                    .gte('fecha_movimiento', nextDay);
+
+                if (errorDestino) throw errorDestino;
+
+                // e. Analizar Conflictos Combinados
+                let hayConflictos = false;
+                let mensajeError = `❌ BLOQUEO DE SEGURIDAD (SAFE APPEND PRO)\n\n`;
+                mensajeError += `No se puede registrar el traslado con fecha ${fecha} debido a conflictos cronológicos:\n`;
+
+                // Helper para formateo estricto de fecha Lima (Resta 5 horas manual)
+                const formatFechaLima = (fechaIso) => {
+                    let f = fechaIso;
+                    if (!f.endsWith('Z') && !f.includes('+')) f += 'Z';
+                    const d = new Date(f);
+                    const limaTimeMs = d.getTime() - (5 * 3600000);
+                    const limaDate = new Date(limaTimeMs); // Objeto desplazado
+                    const yyyy = limaDate.getUTCFullYear();
+                    const mm = String(limaDate.getUTCMonth() + 1).padStart(2, '0');
+                    const dd = String(limaDate.getUTCDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                };
+
+                // Procesar Conflictos Origen
+                if (conflictosOrigen && conflictosOrigen.length > 0) {
+                    hayConflictos = true;
+                    mensajeError += `\n🔴 En ORIGEN (Almacén de Salida):\n`;
+                    // Agrupar por item (más reciente)
+                    const mapOrigen = {};
+                    conflictosOrigen.forEach(c => {
+                        if (!mapOrigen[c.item_id] || c.fecha_movimiento > mapOrigen[c.item_id].fecha_movimiento) {
+                            mapOrigen[c.item_id] = c;
+                        }
+                    });
+                    Object.values(mapOrigen).forEach(c => {
+                        mensajeError += `• ${c.items.descripcion} (Último: ${formatFechaLima(c.fecha_movimiento)})\n`;
+                    });
                 }
 
-                // b. Verificar Destino
-                const { data: ultimoMovDestino, error: errorDestino } = await supabaseClient
-                    .from('kardex')
-                    .select('fecha_movimiento')
-                    .eq('almacen_id', destinoId)
-                    .order('fecha_movimiento', { ascending: false })
-                    .limit(1)
-                    .single();
+                // Procesar Conflictos Destino
+                if (conflictosDestino && conflictosDestino.length > 0) {
+                    hayConflictos = true;
+                    mensajeError += `\n🔵 En DESTINO (Almacén de Llegada):\n`;
+                    // Agrupar por item (más reciente)
+                    const mapDestino = {};
+                    conflictosDestino.forEach(c => {
+                        if (!mapDestino[c.item_id] || c.fecha_movimiento > mapDestino[c.item_id].fecha_movimiento) {
+                            mapDestino[c.item_id] = c;
+                        }
+                    });
+                    Object.values(mapDestino).forEach(c => {
+                        mensajeError += `• ${c.items.descripcion} (Último: ${formatFechaLima(c.fecha_movimiento)})\n`;
+                    });
+                }
 
-                if (errorDestino && errorDestino.code !== 'PGRST116') throw errorDestino;
+                if (hayConflictos) {
+                    mensajeError += `\n✅ Soluciones:\n`;
+                    mensajeError += `1. Retire los items conflictivos de la lista.\n`;
+                    mensajeError += `2. O cambie la fecha del traslado a una posterior.`;
 
-                if (ultimoMovDestino) {
-                    const ultimaFechaDestino = ultimoMovDestino.fecha_movimiento.split('T')[0];
-                    if (fecha < ultimaFechaDestino) {
-                        alert(
-                            `❌ BLOQUEO DE SEGURIDAD (DESTINO)\n\n` +
-                            `El Almacén de Destino ya tiene movimientos el ${ultimaFechaDestino}.\n` +
-                            `No puedes registrar un traslado con fecha anterior (${fecha}).\n\n` +
-                            `✅ Solución: Usa una fecha igual o posterior a ${ultimaFechaDestino}.`
-                        );
-                        return;
-                    }
+                    alert(mensajeError);
+                    return;
                 }
 
             } catch (errVal) {
-                console.error('Error en validación Safe Append:', errVal);
+                console.error('Error en validación Safe Append Traslados:', errVal);
                 alert('Error interno validando fechas. Ver consola.');
                 return;
             }
