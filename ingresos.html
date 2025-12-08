@@ -1215,7 +1215,8 @@
         }
 
         function calcularSaldo() {
-            const total = parseFloat(document.getElementById('totalPagar').textContent.replace('S/ ', '').replace(',', '')) || 0;
+            // Usar el ID correcto para el total (lblCostoTotal)
+            const total = parseFloat(document.getElementById('lblCostoTotal').textContent.replace('S/ ', '').replace(/,/g, '')) || 0;
             const inicial = parseFloat(document.getElementById('montoInicial').value) || 0;
             const saldo = total - inicial;
             document.getElementById('saldoPendiente').value = saldo.toFixed(2);
@@ -1446,8 +1447,15 @@
             itemSeleccionadoActual = null; // Limpiar selección
             document.getElementById('unidadMedidaDisplay').textContent = '';
             document.getElementById('cantidadInput').value = '1';
+
+            // Limpiar inputs de precios
             document.getElementById('precioInput').value = '';
-            document.getElementById('montoInput').value = ''; // Limpiar nuevo input
+            document.getElementById('montoInput').value = '0.00';
+            document.getElementById('montoInput').setAttribute('value', '0.00');
+
+            // Resetear modo a precio unitario
+            document.getElementById('modoPrecio').value = 'PRECIO_UNITARIO';
+
             document.getElementById('productoBusqueda').focus();
         }
 
@@ -1801,7 +1809,13 @@
             }
 
             document.getElementById('cantidadInput').value = item.cantidad;
+
+            // Cargar el monto visual (montoInput) y el precio unitario (precioInput)
+            // Asumimos que el usuario quiere ver el precio unitario por defecto al editar
+            // O idealmente, deberíamos guardar qué "modo" usó, pero por ahora cargaremos el precio unitario
             document.getElementById('precioInput').value = item.precioUnitario;
+            document.getElementById('montoInput').value = item.precioUnitario;
+            document.getElementById('modoPrecio').value = 'PRECIO_UNITARIO'; // Resetear modo a precio unitario para consistencia
 
             // Eliminar de la lista
             eliminarFila(index);
@@ -1828,7 +1842,7 @@
         // ============================================
         // MODAL Y CONFIRMACIÓN
         // ============================================
-        function solicitarConfirmacion() {
+        async function solicitarConfirmacion() {
             // Validaciones básicas
             const tipoIngreso = document.getElementById('tipoIngreso').value;
             const proveedor = document.getElementById('proveedor').value;
@@ -1846,13 +1860,93 @@
                 return;
             }
 
-            if (tipoDocumento !== 'OTRO' && (!serie || !numero || !fechaDocumento)) {
+            if (tipoDocumento !== 'SIN_COMPROBANTE' && tipoDocumento !== 'OTRO' && (!serie || !numero || !fechaDocumento)) {
                 mostrarToast('Complete la serie, número y fecha del documento principal', 'warning');
                 return;
             }
 
             if (detalleIngreso.length === 0) {
-                mostrarToast('Agregue al menos un item al detalle', 'warning');
+                alert('Debe agregar al menos un item');
+                return;
+            }
+
+            // ==========================================
+            // VALIDACIÓN DE INTEGRIDAD CRONOLÓGICA (SAFE APPEND)
+            // ==========================================
+            // 1. Obtener fecha actual en Lima (UTC-5)
+            const getLimaDate = () => {
+                const now = new Date();
+                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                const limaOffset = -5 * 3600000;
+                return new Date(utc + limaOffset).toISOString().split('T')[0];
+            };
+
+            const hoyLima = getLimaDate();
+
+            // 2. Validar Futuro
+            if (fecha > hoyLima) {
+                alert(`❌ FECHA INVÁLIDA\n\nNo puedes registrar ingresos con fecha futura.\nLa fecha máxima permitida es HOY (${hoyLima}).`);
+                return;
+            }
+
+            // 3. Validar Pasado (PRO: Safe Append por Item)
+            try {
+                // a. Recolectar IDs de items en el carrito
+                const itemIds = detalleIngreso.map(i => i.productoId);
+
+                // b. Calcular "Día Siguiente" a la fecha seleccionada
+                // (Buscamos movimientos FUTUROS que rompan la cronología)
+                const fechaIngresoDate = new Date(fecha + 'T00:00:00');
+                fechaIngresoDate.setDate(fechaIngresoDate.getDate() + 1);
+                const nextDay = fechaIngresoDate.toISOString().split('T')[0];
+
+                // c. Consultar Kardex: ¿Hay movimientos de ESTOS items en ESTE almacén a partir de MAÑANA?
+                const { data: conflictos, error: errorConflictos } = await supabase
+                    .from('kardex')
+                    .select(`
+                        item_id, 
+                        fecha_movimiento,
+                        items ( codigo, descripcion )
+                    `)
+                    .eq('almacen_id', almacen)
+                    .in('item_id', itemIds)
+                    .gte('fecha_movimiento', nextDay);
+
+                if (errorConflictos) throw errorConflictos;
+
+                // d. Analizar Conflictos
+                if (conflictos && conflictos.length > 0) {
+                    // Agrupar por item para mostrar el conflicto más reciente de cada uno
+                    const conflictosMap = {};
+                    conflictos.forEach(c => {
+                        const id = c.item_id;
+                        if (!conflictosMap[id] || c.fecha_movimiento > conflictosMap[id].fecha_movimiento) {
+                            conflictosMap[id] = c;
+                        }
+                    });
+
+                    // Construir Mensaje de Error
+                    let mensajeError = `❌ BLOQUEO DE SEGURIDAD (SAFE APPEND PRO)\n\n`;
+                    mensajeError += `No se puede registrar con fecha ${fecha} porque los siguientes items tienen movimientos posteriores:\n\n`;
+
+                    Object.values(conflictosMap).forEach(c => {
+                        const fechaMov = c.fecha_movimiento.split('T')[0];
+                        mensajeError += `• ${c.items.descripcion} (Último: ${fechaMov})\n`;
+                    });
+
+                    mensajeError += `\n✅ Soluciones:\n`;
+                    mensajeError += `1. Cambie la fecha a una posterior.\n`;
+                    mensajeError += `2. O retire estos items y regístrelos en otro documento.`;
+
+                    alert(mensajeError);
+                    return;
+                }
+
+                // Si no hay conflictos, PASE USTED (Aunque el almacén tenga otros movimientos de otros items)
+
+            } catch (errVal) {
+                console.error('Error en validación Safe Append PRO:', errVal);
+                alert('Error interno validando fechas. Ver consola.');
                 return;
             }
 
