@@ -737,7 +737,113 @@
                 return;
             }
 
-            if (!confirm('¿Está seguro de registrar este egreso? Esta acción descontará stock y no se puede deshacer fácilmente.')) {
+            // ==========================================
+            // VALIDACIÓN DE INTEGRIDAD CRONOLÓGICA (SAFE APPEND)
+            // ==========================================
+            // 1. Obtener fecha actual en Lima (UTC-5)
+            const getLimaDate = () => {
+                const now = new Date();
+                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                const limaOffset = -5 * 3600000;
+                return new Date(utc + limaOffset).toISOString().split('T')[0];
+            };
+
+            const hoyLima = getLimaDate();
+
+            // 2. Validar Futuro
+            if (fechaEgreso > hoyLima) {
+                alert(`❌ FECHA INVÁLIDA\n\nNo puedes registrar egresos con fecha futura.\nLa fecha máxima permitida es HOY (${hoyLima}).`);
+                return;
+            }
+
+            // 3. Validar Pasado (PRO: Safe Append por Item)
+            try {
+                // a. Recolectar IDs de items en el carrito
+                // FIX: El ID del producto está dentro del objeto 'producto'
+                const itemIds = itemsEgreso.map(i => i.producto.id);
+
+                // b. Calcular "Día Siguiente" a la fecha seleccionada (Inicio del día en Lima)
+                // Queremos que "Mañana" empiece a las 00:00 Lima (que es 05:00 UTC)
+                // Así evitamos que movimientos de la noche (ej. 20:00 Lima = 01:00 UTC next day) cuenten como futuro.
+                const fechaEgresoDate = new Date(fechaEgreso + 'T00:00:00');
+                fechaEgresoDate.setDate(fechaEgresoDate.getDate() + 1);
+
+                const year = fechaEgresoDate.getFullYear();
+                const month = String(fechaEgresoDate.getMonth() + 1).padStart(2, '0');
+                const day = String(fechaEgresoDate.getDate()).padStart(2, '0');
+
+                // PUNTO CLAVE: 00:00 Lima es 05:00 UTC.
+                const nextDay = `${year}-${month}-${day}T05:00:00Z`;
+
+                // c. Consultar Kardex: ¿Hay movimientos de ESTOS items en ESTE almacén a partir de MAÑANA?
+                const { data: conflictos, error: errorConflictos } = await supabaseClient
+                    .from('kardex')
+                    .select(`
+                        item_id, 
+                        fecha_movimiento,
+                        items ( codigo, descripcion )
+                    `)
+                    .eq('almacen_id', almacenOrigenId)
+                    .in('item_id', itemIds)
+                    .gte('fecha_movimiento', nextDay);
+
+                if (errorConflictos) throw errorConflictos;
+
+                // d. Analizar Conflictos
+                if (conflictos && conflictos.length > 0) {
+                    // Agrupar por item para mostrar el conflicto más reciente de cada uno
+                    const conflictosMap = {};
+                    conflictos.forEach(c => {
+                        const id = c.item_id;
+                        if (!conflictosMap[id] || c.fecha_movimiento > conflictosMap[id].fecha_movimiento) {
+                            conflictosMap[id] = c;
+                        }
+                    });
+
+                    // Construir Mensaje de Error
+                    let mensajeError = `❌ BLOQUEO DE SEGURIDAD (SAFE APPEND PRO)\n\n`;
+                    mensajeError += `No se puede registrar con fecha ${fechaEgreso} porque los siguientes items tienen movimientos posteriores:\n\n`;
+
+                    Object.values(conflictosMap).forEach(c => {
+                        // FIX DEFINITIVO: Aritmética UTC Pura para mostrar Fecha Lima
+                        // 1. Asegurar que la fecha se interprete como UTC (añadir Z si falta)
+                        let fechaStr = c.fecha_movimiento;
+                        if (!fechaStr.endsWith('Z') && !fechaStr.includes('+')) {
+                            fechaStr += 'Z';
+                        }
+                        const d = new Date(fechaStr);
+
+                        // 2. Restar 5 horas (5 * 60 * 60 * 1000 ms) para obtener el "Tiempo Lima" en época
+                        const limaTimeMs = d.getTime() - (5 * 3600000);
+                        const limaDate = new Date(limaTimeMs);
+
+                        // 3. Extraer componentes UTC del objeto desplazado
+                        // (Al haber restado 5h, el 'UTC' de este nuevo objeto es la hora local de Lima)
+                        const yyyy = limaDate.getUTCFullYear();
+                        const mm = String(limaDate.getUTCMonth() + 1).padStart(2, '0');
+                        const dd = String(limaDate.getUTCDate()).padStart(2, '0');
+                        const fechaMov = `${yyyy}-${mm}-${dd}`;
+
+                        mensajeError += `• ${c.items.descripcion} (Último: ${fechaMov})\n`;
+                    });
+
+                    mensajeError += `\n✅ Soluciones:\n`;
+                    mensajeError += `1. Cambie la fecha a una posterior.\n`;
+                    mensajeError += `2. O retire estos items y regístrelos en otro documento.`;
+
+                    alert(mensajeError);
+                    return;
+                }
+
+                // Si no hay conflictos, PASE USTED (Aunque el almacén tenga otros movimientos de otros items)
+
+            } catch (errVal) {
+                console.error('Error en validación Safe Append PRO:', errVal);
+                alert('Error interno validando fechas. Ver consola.');
+                return;
+            }
+
+            if (!confirm('¿Está seguro de registrar este egreso? Esta acción descontará stock.')) {
                 return;
             }
 
