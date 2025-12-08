@@ -167,13 +167,14 @@
                     </select>
                 </div>
 
-                <!-- Fecha -->
+                <!-- Fecha de Traslado -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Fecha de Traslado
+                        Fecha de Traslado <span class="text-red-500">*</span>
                     </label>
                     <input type="date" id="fechaTraslado"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                    <p class="text-xs text-gray-500 mt-1">⚠️ No se permiten fechas pasadas.</p>
                 </div>
             </div>
             <div class="mt-4">
@@ -200,8 +201,12 @@
 
         <!-- 3. Tabla de Items a Trasladar -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-            <div class="p-4 border-b border-gray-200 bg-gray-50">
+            <div class="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                 <h3 class="font-semibold text-gray-800">Items a Trasladar</h3>
+                <button id="btnTogglePromedio"
+                    class="text-blue-600 text-sm hover:text-blue-800 hidden flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                    <i class="fas fa-eye"></i> Ver Costo Promedio Referencial
+                </button>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
@@ -209,10 +214,14 @@
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Item</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Lote (Origen)</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Cantidad</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Costo Salida<br><small>(Total)</small></th>
+                                Costo Unit. (Salida)</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Total Salida</th>
                             <th
                                 class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Acciones</th>
@@ -220,7 +229,7 @@
                     </thead>
                     <tbody id="tablaItems" class="bg-white divide-y divide-gray-200">
                         <tr id="filaVacia" class="text-center text-gray-500">
-                            <td colspan="4" class="py-8">
+                            <td colspan="6" class="py-8">
                                 <i class="fas fa-box-open text-3xl mb-2 text-gray-300"></i>
                                 <p>No hay items agregados.</p>
                             </td>
@@ -228,7 +237,7 @@
                     </tbody>
                     <tfoot class="bg-gray-50 font-semibold">
                         <tr>
-                            <td colspan="2" class="px-6 py-4 text-right text-gray-900">Total Valor Salida:</td>
+                            <td colspan="4" class="px-6 py-4 text-right text-gray-900">Total Valor Salida:</td>
                             <td class="px-6 py-4 text-right text-gray-900" id="totalValorSalida">S/ 0.00</td>
                             <td></td>
                         </tr>
@@ -693,7 +702,7 @@
                 .from('ingresos_detalle')
                 .select(`
                     id, cantidad_disponible, costo_adquisicion_unitario,
-                    ingresos!inner(fecha_ingreso, almacen_destino_id)
+                    ingresos!inner(fecha_ingreso, numero_ingreso, almacen_destino_id)
                 `)
                 .eq('item_id', producto.id)
                 .eq('ingresos.almacen_destino_id', almacenId)
@@ -701,30 +710,33 @@
                 .order('ingresos(fecha_ingreso)', { ascending: true });
 
             let pendiente = cantidad;
-            let costoTotalSalida = 0;
-            const lotesAfectados = [];
+            const itemsParaAgregar = [];
 
             for (const lote of lotes) {
                 if (pendiente <= 0) break;
                 const tomar = Math.min(pendiente, Number(lote.cantidad_disponible));
-                const costo = tomar * Number(lote.costo_adquisicion_unitario);
+                const costoUnitario = Number(lote.costo_adquisicion_unitario);
+                const costoTotal = tomar * costoUnitario;
 
-                costoTotalSalida += costo;
-                lotesAfectados.push({
-                    loteId: lote.id,
+                itemsParaAgregar.push({
+                    producto,
                     cantidad: tomar,
-                    costoUnitario: Number(lote.costo_adquisicion_unitario),
-                    costoTotal: costo
+                    costoUnitario: costoUnitario,
+                    costoSalidaTotal: costoTotal,
+                    loteId: lote.id,
+                    loteFecha: lote.ingresos.fecha_ingreso,
+                    loteNumero: lote.ingresos.numero_ingreso
                 });
                 pendiente -= tomar;
             }
 
-            itemsTraslado.push({
-                producto,
-                cantidad,
-                costoSalidaTotal: costoTotalSalida,
-                lotes: lotesAfectados
-            });
+            if (pendiente > 0) {
+                alert(`Stock insuficiente. Faltan ${pendiente} unidades.`);
+                return;
+            }
+
+            // Agregar items individuales a la lista global
+            itemsTraslado.push(...itemsParaAgregar);
 
             renderizarTablaItems();
             actualizarResumen();
@@ -737,11 +749,23 @@
             itemsTraslado.forEach((item, idx) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="px-6 py-4">${item.producto.descripcion}</td>
-                    <td class="px-6 py-4 text-right">${item.cantidad}</td>
-                    <td class="px-6 py-4 text-right">S/ ${item.costoSalidaTotal.toFixed(2)}</td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900">${item.producto.descripcion}</div>
+                        <div class="text-xs text-gray-500">${item.producto.codigo}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            ${item.loteNumero || 'N/A'}
+                        </span>
+                        <div class="text-xs text-gray-500 mt-1">${new Date(item.loteFecha).toLocaleDateString()}</div>
+                    </td>
+                    <td class="px-6 py-4 text-right text-sm text-gray-900">${item.cantidad}</td>
+                    <td class="px-6 py-4 text-right text-sm text-gray-500">S/ ${item.costoUnitario.toFixed(4)}</td>
+                    <td class="px-6 py-4 text-right text-sm font-medium text-gray-900">S/ ${item.costoSalidaTotal.toFixed(2)}</td>
                     <td class="px-6 py-4 text-center">
-                        <button onclick="eliminarItem(${idx})" class="text-red-600 hover:text-red-800">🗑️</button>
+                        <button onclick="eliminarItem(${idx})" class="text-red-600 hover:text-red-900">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -749,6 +773,14 @@
 
             const total = itemsTraslado.reduce((sum, i) => sum + i.costoSalidaTotal, 0);
             document.getElementById('totalValorSalida').textContent = `S/ ${total.toFixed(2)}`;
+
+            // Mostrar/Ocultar botón de promedio
+            const btnPromedio = document.getElementById('btnTogglePromedio');
+            if (itemsTraslado.length > 0) {
+                btnPromedio.classList.remove('hidden');
+            } else {
+                btnPromedio.classList.add('hidden');
+            }
         }
 
         function eliminarItem(index) {
@@ -756,6 +788,17 @@
             renderizarTablaItems();
             actualizarResumen();
         }
+
+        // Evento para el botón de promedio
+        document.getElementById('btnTogglePromedio').addEventListener('click', () => {
+            const totalCosto = itemsTraslado.reduce((sum, i) => sum + i.costoSalidaTotal, 0);
+            const totalCantidad = itemsTraslado.reduce((sum, i) => sum + i.cantidad, 0);
+
+            if (totalCantidad > 0) {
+                const promedio = totalCosto / totalCantidad;
+                alert(`ℹ️ Costo Promedio Referencial Global:\n\nS/ ${promedio.toFixed(4)} por unidad\n\n(Calculado sobre ${totalCantidad} unidades totales)`);
+            }
+        });
 
         // ============================================
         // LÓGICA DE GASTOS (Adaptado de ingresos.html)
@@ -861,7 +904,7 @@
         }
 
         // 1. Solicitar Confirmación (Abre Modal)
-        function solicitarConfirmacion() {
+        async function solicitarConfirmacion() {
             if (itemsTraslado.length === 0) {
                 alert('No hay items para trasladar');
                 return;
@@ -876,10 +919,89 @@
                 return;
             }
 
+            // ==========================================
+            // VALIDACIÓN DE INTEGRIDAD CRONOLÓGICA (SAFE APPEND)
+            // ==========================================
+            // 1. Obtener fecha actual en Lima (UTC-5)
+            const getLimaDate = () => {
+                const now = new Date();
+                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                const limaOffset = -5 * 3600000;
+                return new Date(utc + limaOffset).toISOString().split('T')[0];
+            };
+
+            const hoyLima = getLimaDate();
+
+            // 2. Validar Futuro
+            if (fecha > hoyLima) {
+                alert(`❌ FECHA INVÁLIDA\n\nNo puedes registrar traslados con fecha futura.\nLa fecha máxima permitida es HOY (${hoyLima}).`);
+                return;
+            }
+
+            // 3. Validar Pasado (Contra último movimiento de AMBOS almacenes)
+            try {
+                // a. Verificar Origen
+                const { data: ultimoMovOrigen, error: errorOrigen } = await supabaseClient
+                    .from('kardex')
+                    .select('fecha_movimiento')
+                    .eq('almacen_id', origenId)
+                    .order('fecha_movimiento', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                if (errorOrigen && errorOrigen.code !== 'PGRST116') throw errorOrigen;
+
+                if (ultimoMovOrigen) {
+                    const ultimaFechaOrigen = ultimoMovOrigen.fecha_movimiento.split('T')[0];
+                    if (fecha < ultimaFechaOrigen) {
+                        alert(
+                            `❌ BLOQUEO DE SEGURIDAD (ORIGEN)\n\n` +
+                            `El Almacén de Origen ya tiene movimientos el ${ultimaFechaOrigen}.\n` +
+                            `No puedes registrar un traslado con fecha anterior (${fecha}).\n\n` +
+                            `✅ Solución: Usa una fecha igual o posterior a ${ultimaFechaOrigen}.`
+                        );
+                        return;
+                    }
+                }
+
+                // b. Verificar Destino
+                const { data: ultimoMovDestino, error: errorDestino } = await supabaseClient
+                    .from('kardex')
+                    .select('fecha_movimiento')
+                    .eq('almacen_id', destinoId)
+                    .order('fecha_movimiento', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                if (errorDestino && errorDestino.code !== 'PGRST116') throw errorDestino;
+
+                if (ultimoMovDestino) {
+                    const ultimaFechaDestino = ultimoMovDestino.fecha_movimiento.split('T')[0];
+                    if (fecha < ultimaFechaDestino) {
+                        alert(
+                            `❌ BLOQUEO DE SEGURIDAD (DESTINO)\n\n` +
+                            `El Almacén de Destino ya tiene movimientos el ${ultimaFechaDestino}.\n` +
+                            `No puedes registrar un traslado con fecha anterior (${fecha}).\n\n` +
+                            `✅ Solución: Usa una fecha igual o posterior a ${ultimaFechaDestino}.`
+                        );
+                        return;
+                    }
+                }
+
+            } catch (errVal) {
+                console.error('Error en validación Safe Append:', errVal);
+                alert('Error interno validando fechas. Ver consola.');
+                return;
+            }
+
             // Calcular y Llenar Modal
             const totalSalida = itemsTraslado.reduce((sum, i) => sum + i.costoSalidaTotal, 0);
             const totalGastos = gastosTraslado.reduce((sum, g) => sum + g.valor, 0);
             const totalEntrada = totalSalida + totalGastos;
+
+            // Factor de Prorrateo Global
+            // Nota: En PEPS estricto, podríamos querer asignar gastos por peso o volumen, 
+            // pero por simplicidad y consistencia con el modelo actual, usamos prorrateo por valor.
             const factor = totalSalida > 0 ? (totalSalida + totalGastos) / totalSalida : 1;
 
             const tbody = document.getElementById('tablaResumenCostos');
@@ -893,7 +1015,10 @@
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="px-4 py-2 text-sm text-gray-900">${item.producto.descripcion}</td>
+                    <td class="px-4 py-2 text-sm text-gray-900">
+                        ${item.producto.descripcion}<br>
+                        <span class="text-xs text-gray-500">Lote: ${item.loteNumero || 'N/A'}</span>
+                    </td>
                     <td class="px-4 py-2 text-sm text-right text-gray-600">S/ ${costoSalida.toFixed(2)}</td>
                     <td class="px-4 py-2 text-sm text-right text-gray-600">+ S/ ${gastoAsignado.toFixed(2)}</td>
                     <td class="px-4 py-2 text-sm text-right font-bold text-blue-700 bg-blue-50">S/ ${costoEntrada.toFixed(2)}</td>
@@ -926,9 +1051,13 @@
             const destinoId = document.getElementById('almacenDestino').value;
             const fecha = document.getElementById('fechaTraslado').value;
 
+            // Obtener Nombres de Almacenes para Observaciones
+            const origenNombre = document.getElementById('almacenOrigen').options[document.getElementById('almacenOrigen').selectedIndex].text;
+            const destinoNombre = document.getElementById('almacenDestino').options[document.getElementById('almacenDestino').selectedIndex].text;
+            const obsUsuario = document.getElementById('observaciones').value;
+
             try {
                 // 1. Obtener IDs de Tipos de Movimiento
-                // Buscamos "Traslado entre Almacenes" en ambas tablas
                 const { data: tipoEgreso } = await supabaseClient.from('tipos_egresos')
                     .select('id').ilike('nombre', '%Traslado%').limit(1).single();
                 const { data: tipoIngreso } = await supabaseClient.from('tipos_ingresos')
@@ -947,14 +1076,14 @@
                         almacen_origen_id: origenId,
                         tipo_egreso_id: tipoEgreso.id,
                         fecha_egreso: fecha,
-                        numero_egreso: codigoTraslado, // Usamos el mismo código o prefijo
+                        numero_egreso: codigoTraslado,
                         estado: 'CONFIRMADO',
-                        observaciones: `Traslado a Almacén Destino. ${document.getElementById('observaciones').value}`
+                        observaciones: `Trasladado hacia el Almacén: ${destinoNombre}. OBS: ${obsUsuario}`
                     }).select().single();
 
                 if (errEgreso) throw errEgreso;
 
-                // 3. Registrar Detalles Egreso y Actualizar Stock Origen
+                // 3. Registrar Detalles Egreso y Actualizar Stock Origen (LOTE POR LOTE)
                 for (const item of itemsTraslado) {
                     // Detalle Egreso
                     await supabaseClient.from('egresos_detalle').insert({
@@ -962,24 +1091,19 @@
                         item_id: item.producto.id,
                         cantidad: item.cantidad,
                         costo_total: item.costoSalidaTotal,
-                        costo_unitario: item.costoSalidaTotal / item.cantidad
+                        costo_unitario: item.costoUnitario // Costo real del lote
                     });
 
                     // Actualizar Lotes (Resta de Stock)
-                    for (const lote of item.lotes) {
-                        // Leer stock actual para ser seguro
-                        const { data: l } = await supabaseClient.from('ingresos_detalle').select('cantidad_disponible').eq('id', lote.loteId).single();
-                        const nuevo = Number(l.cantidad_disponible) - lote.cantidad;
-                        await supabaseClient.from('ingresos_detalle').update({ cantidad_disponible: nuevo }).eq('id', lote.loteId);
-                    }
+                    // Nota: item.loteId es el ID en ingresos_detalle
+                    const { data: l } = await supabaseClient.from('ingresos_detalle').select('cantidad_disponible').eq('id', item.loteId).single();
+                    const nuevo = Number(l.cantidad_disponible) - item.cantidad;
+                    await supabaseClient.from('ingresos_detalle').update({ cantidad_disponible: nuevo }).eq('id', item.loteId);
                 }
 
                 // 4. Calcular Costos de Entrada (Prorrateo)
                 const totalSalida = itemsTraslado.reduce((sum, i) => sum + i.costoSalidaTotal, 0);
                 const totalGastos = gastosTraslado.reduce((sum, g) => sum + g.valor, 0);
-
-                // Factor de Prorrateo: (ValorSalida + Gastos) / ValorSalida
-                // Si ValorSalida es 0 (ej: traslado de muestras sin valor), cuidado. Pero aquí siempre hay costo.
                 const factor = totalSalida > 0 ? (totalSalida + totalGastos) / totalSalida : 1;
 
                 // 5. Registrar INGRESO (Destino)
@@ -987,19 +1111,19 @@
                     .from('ingresos')
                     .insert({
                         almacen_destino_id: destinoId,
-                        almacen_origen_id: origenId, // Referencia informativa
+                        almacen_origen_id: origenId,
                         tipo_ingreso_id: tipoIngreso.id,
                         fecha_ingreso: fecha,
                         numero_ingreso: codigoTraslado,
                         estado: 'REGISTRADO',
                         costo_adquisicion_total: totalSalida + totalGastos,
                         otros_egresos_total: totalGastos,
-                        observaciones: `Traslado desde Almacén Origen. ${document.getElementById('observaciones').value}`
+                        observaciones: `Trasladado desde el Almacén: ${origenNombre}. OBS: ${obsUsuario}`
                     }).select().single();
 
                 if (errIngreso) throw errIngreso;
 
-                // 6. Registrar Detalles Ingreso (Nuevos Lotes en Destino)
+                // 6. Registrar Detalles Ingreso (Nuevos Lotes en Destino - UNO POR CADA LOTE DE ORIGEN)
                 for (const item of itemsTraslado) {
                     const costoSalidaItem = item.costoSalidaTotal;
                     const costoEntradaItem = costoSalidaItem * factor; // Aplica prorrateo
@@ -1008,7 +1132,7 @@
                     const { error: errorDetalle } = await supabaseClient.from('ingresos_detalle').insert({
                         ingreso_id: ingreso.id,
                         item_id: item.producto.id,
-                        cantidad: item.cantidad, // Corregido: cantidad_inicial -> cantidad
+                        cantidad: item.cantidad,
                         cantidad_disponible: item.cantidad, // Stock nuevo
                         costo_adquisicion_unitario: costoUnitarioEntrada,
                         costo_adquisicion_total: costoEntradaItem
@@ -1017,7 +1141,7 @@
                     if (errorDetalle) throw errorDetalle;
                 }
 
-                // 7. Registrar Gastos Asociados (Para que aparezcan en Kardex)
+                // 7. Registrar Gastos Asociados
                 if (gastosTraslado.length > 0) {
                     const gastosParaInsertar = gastosTraslado.map(gasto => ({
                         ingreso_id: ingreso.id,
@@ -1025,7 +1149,7 @@
                         descripcion: gasto.descripcion,
                         precio_gasto: gasto.monto,
                         con_factura_gasto: gasto.conFactura,
-                        valor_gasto: gasto.valorNeto, // Base imponible
+                        valor_gasto: gasto.valorNeto,
                         igv_credito_fiscal_gasto: gasto.igv,
                         proveedor_id: gasto.proveedorId || null,
                         serie_factura: gasto.serie || null,
