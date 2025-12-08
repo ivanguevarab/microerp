@@ -237,11 +237,11 @@
                     <thead>
                         <tr>
                             <th class="p-4 border-b border-gray-200">Fecha</th>
-                            <th class="p-4 border-b border-gray-200">Documento</th>
+                            <th class="p-4 border-b border-gray-200">CÓDIGO</th>
                             <th class="p-4 border-b border-gray-200">Item</th>
                             <th class="p-4 border-b border-gray-200">Movimiento</th>
                             <th class="p-4 border-b border-gray-200 text-right">Cantidad</th>
-                            <th class="p-4 border-b border-gray-200 text-right">Costo Unit.</th>
+                            <th class="p-4 border-b border-gray-200 text-right">COSTO ADQ. UNIT.</th>
                             <th class="p-4 border-b border-gray-200 text-right">TOTAL</th>
                             <th class="p-4 border-b border-gray-200 text-right">SALDO</th>
                             <th class="p-4 border-b border-gray-200 text-right">ACCIONES</th>
@@ -820,6 +820,7 @@
                             <div><p class="text-xs text-gray-500 uppercase">Serie - Número</p><p class="font-medium">${(ingreso.serie_factura || ingreso.numero_factura) ? (ingreso.serie_factura || '') + ' - ' + (ingreso.numero_factura || '') : '-'}</p></div>
                             
                             <div><p class="text-xs text-gray-500 uppercase">Fecha Emisión Doc.</p><p class="font-medium">${fechaEmision}</p></div>
+                            <div class="md:col-span-2"><p class="text-xs text-gray-500 uppercase">Observaciones</p><p class="font-medium text-gray-800">${ingreso.observaciones || '-'}</p></div>
                         </div>
                     </section>
 
@@ -851,9 +852,9 @@
                                         <th class="px-4 py-3">Unidad</th>
                                         <th class="px-4 py-3 text-right">Cant.</th>
                                         <th class="px-4 py-3 text-right">Precio Unit.</th>
-                                        <th class="px-4 py-3 text-right">Valor Compra</th>
-                                        <th class="px-4 py-3 text-right">IGV</th>
-                                        <th class="px-4 py-3 text-right">Total</th>
+                                        <th class="px-4 py-3 text-right">VALOR COMPRA UNIT.</th>
+                                        <th class="px-4 py-3 text-right">IGV CF UNIT.</th>
+                                        <th class="px-4 py-3 text-right">PRECIO TOTAL</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200 bg-white">
@@ -898,7 +899,7 @@
                                         <th class="px-4 py-3">Doc. Ref.</th>
                                         <th class="px-4 py-3 text-right">Monto</th>
                                         <th class="px-4 py-3 text-right">Valor Gasto</th>
-                                        <th class="px-4 py-3 text-right">IGV Gasto</th>
+                                        <th class="px-4 py-3 text-right">IGV CF GASTO</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200 bg-white">
@@ -974,6 +975,7 @@
                             <div><p class="text-xs text-gray-500 uppercase">Tipo de Egreso</p><p class="font-medium">${egreso.tipos_egresos?.nombre || '-'}</p></div>
                             <div><p class="text-xs text-gray-500 uppercase">Fecha de Salida</p><p class="font-medium">${fechaSalida}</p></div>
                             <div><p class="text-xs text-gray-500 uppercase">Código Venta</p><p class="font-medium">${egreso.codigo_venta || '-'}</p></div>
+                            <div class="md:col-span-2"><p class="text-xs text-gray-500 uppercase">Observaciones</p><p class="font-medium text-gray-800">${egreso.observaciones || '-'}</p></div>
                         </div>
                     </section>
 
