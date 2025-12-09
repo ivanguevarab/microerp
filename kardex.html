@@ -855,6 +855,7 @@
                                         <th class="px-4 py-3 text-right">VALOR COMPRA UNIT.</th>
                                         <th class="px-4 py-3 text-right">IGV CF UNIT.</th>
                                         <th class="px-4 py-3 text-right">PRECIO TOTAL</th>
+                                        <th class="px-4 py-3 text-center">VENCIMIENTO</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200 bg-white">
@@ -876,6 +877,9 @@
                                         <td class="px-4 py-3 text-right">S/ ${formatMoney(valorUnit)}</td>
                                         <td class="px-4 py-3 text-right">S/ ${formatMoney(igvUnit)}</td>
                                         <td class="px-4 py-3 text-right font-bold text-blue-600">S/ ${formatMoney(total)}</td>
+                                        <td class="px-4 py-3 text-center text-xs ${item.fecha_vencimiento ? 'text-red-600 font-bold' : 'text-gray-400'}">
+                                            ${formatDateSafe(item.fecha_vencimiento)}
+                                        </td>
                                     </tr>
                                     `;
                 }).join('')}
