@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Métricas e Inteligencia de Negocios - MicroERP</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --background-color: #f1f5f9;
+            --surface-color: #ffffff;
+            --text-color: #0f172a;
+            --border-color: #e2e8f0;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            padding-bottom: 2rem;
+        }
+
+        /* Header Premium */
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            gap: 2rem;
+        }
+
+        /* Google-Style Search Bar (Global Filter) */
+        .search-wrapper {
+            background: white;
+            padding: 1rem;
+            border-radius: 1rem;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .search-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            padding-left: 3rem;
+            font-size: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 0.75rem;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-color);
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border-top: 4px solid transparent;
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .kpi-card.danger {
+            border-top-color: var(--danger-color);
+        }
+
+        .kpi-card.warning {
+            border-top-color: var(--warning-color);
+        }
+
+        .kpi-card.success {
+            border-top-color: var(--success-color);
+        }
+
+        .kpi-card.info {
+            border-top-color: var(--primary-color);
+        }
+
+        .kpi-title {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-color);
+        }
+
+        .kpi-subtitle {
+            font-size: 0.875rem;
+            color: var(--secondary-color);
+        }
+
+        /* Dashboard Modules */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+        }
+
+        .module-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .module-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Module Specific Layouts */
+        .col-span-12 {
+            grid-column: span 12;
+        }
+
+        .col-span-8 {
+            grid-column: span 8;
+        }
+
+        .col-span-4 {
+            grid-column: span 4;
+        }
+
+        @media (max-width: 1024px) {
+
+            .col-span-8,
+            .col-span-4 {
+                grid-column: span 12;
+            }
+        }
+
+        /* Vencimientos Table (FEFO) */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem;
+            background: #f8fafc;
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .badge-danger {
+            background: #fef2f2;
+            color: var(--danger-color);
+        }
+
+        .badge-warning {
+            background: #fffbeb;
+            color: var(--warning-color);
+        }
+
+        .badge-success {
+            background: #f0fdf4;
+            color: var(--success-color);
+        }
+
+        /* Loader */
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Filters */
+        .filter-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        select {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            background: white;
+            color: var(--text-color);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loader -->
+    <div id="loader" class="loader-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            <button class="btn-back" onclick="window.location.href='gestion_inventarios.html'">
+                ← Volver
+            </button>
+            <h1>Inteligencia de Negocios</h1>
+        </div>
+        <div style="font-size: 0.875rem; opacity: 0.8;">
+            MICRO ERP v2.0
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 1. Buscador Global Inteligente -->
+        <div class="search-wrapper">
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="globalSearch" class="search-input"
+                    placeholder="Buscar producto para 'Ficha Clínica' (Nombre o Código)...">
+            </div>
+            <div id="searchResults" class="search-results"
+                style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:0.5rem; max-height:300px; overflow-y:auto; z-index:50; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);">
+                <!-- Resultados aquí -->
+            </div>
+        </div>
+
+        <!-- 2. KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card danger">
+                <span class="kpi-title">Riesgo Vencimiento</span>
+                <span class="kpi-value" id="kpiVencimientoVal">S/ 0.00</span>
+                <span class="kpi-subtitle" id="kpiVencimientoSub">0 items < 15 días</span>
+            </div>
+            <div class="kpi-card warning">
+                <span class="kpi-title">Capital Inmovilizado</span>
+                <span class="kpi-value" id="kpiInmovilizadoVal">S/ 0.00</span>
+                <span class="kpi-subtitle" id="kpiInmovilizadoSub">0 items sin mov. > 60 días</span>
+            </div>
+            <div class="kpi-card info">
+                <span class="kpi-title">Valor Inventario</span>
+                <span class="kpi-value" id="kpiTotalVal">S/ 0.00</span>
+                <span class="kpi-subtitle" id="kpiTotalSub">Costo Total Almacenado</span>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- 3. Módulo FEFO (Semáforo Vencimientos) -->
+            <div class="module-card col-span-8">
+                <div class="module-header">
+                    <h2 class="module-title">📅 Semáforo de Vencimientos (FEFO)</h2>
+                    <div class="filter-group">
+                        <select id="filtroVencimiento" onchange="renderizarVencimientos()">
+                            <option value="all">Todos</option>
+                            <option value="critical">Críticos (< 15 días)</option>
+                            <option value="warning">Alerta (15-30 días)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="tablaVencimientos">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Lote / Vencimiento</th>
+                                <th>Stock Lote</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Llenado dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4. Módulo Cobertura (Top 5) -->
+            <div class="module-card col-span-4">
+                <div class="module-header">
+                    <h2 class="module-title">🐢 Mayor Estancamiento</h2>
+                    <select id="filtroEstancamiento" onchange="calcularCapitalInmovilizado()">
+                        <option value="30">30 Días</option>
+                        <option value="60" selected>60 Días</option>
+                        <option value="90">90 Días</option>
+                    </select>
+                </div>
+                <canvas id="chartEstancamiento"></canvas>
+                <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center;">
+                    * Top 5 productos con mayor valor monetario sin salidas
+                </div>
+            </div>
+
+            <!-- 5. Módulo Mix de Inventario (NUEVO - Google Charts 3D) -->
+            <div class="module-card col-span-12" id="moduleMixInventario">
+                <div class="module-header" style="flex-wrap: wrap; gap: 1rem;">
+                    <h2 class="module-title">🍰 Composición de Stock (Valorizado)</h2>
+                    <div class="filter-group" style="flex-wrap: wrap;">
+                        <select id="filtroAlmacenMix" onchange="renderizarMixInventario()">
+                            <option value="global">Todos los Almacenes</option>
+                            <!-- Options filled dynamically -->
+                        </select>
+                        <select id="filtroCategoriaMix" onchange="renderizarMixInventario()">
+                            <option value="all">Todas las Categorías</option>
+                            <!-- Options filled dynamically -->
+                        </select>
+                    </div>
+                </div>
+                <div id="chartMixInventario"
+                    style="width: 100%; height: 500px; display: flex; justify-content: center;"></div>
+                <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center;">
+                    * Distribución del valor total de inventario por Producto (Top 20 + Otros)
+                </div>
+            </div>
+
+            <!-- ... (Scripts) ... -->
+
+
+
+            <!-- 6. Módulo Historial de Precios (Oculto por defecto, visible con filtro) -->
+            <div class="module-card col-span-12" id="moduleHistorialPrecios" style="display:none; margin-top: 1.5rem;">
+                <div class="module-header">
+                    <h2 class="module-title">📉 Historial de Costos de Compra</h2>
+                    <div style="font-size: 0.875rem; color: var(--secondary-color);">
+                        Tendencia de precios para: <strong id="historialItemName">---</strong>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+                    <div style="height: 300px;">
+                        <canvas id="chartHistorialPrecios"></canvas>
+                    </div>
+                    <div>
+                        <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-color);">Últimas 5 Compras
+                        </h3>
+                        <div class="table-wrapper">
+                            <table id="tablaHistorialCompras" style="font-size: 0.8rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Proveedor</th>
+                                        <th>Cant.</th>
+                                        <th>Precio Unit.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Scripts Logic -->
+    <script>
+        // Configuración Supabase
+        const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Load Google Charts
+        google.charts.load("current", { packages: ["corechart"] });
+        google.charts.setOnLoadCallback(() => {
+            // Flag to know google is ready
+            window.googleChartsLoaded = true;
+            if (window.appDataLoaded) renderizarMixInventario();
+        });
+
+        let allItems = [];
+        let allKardex = [];
+        let allAlmacenes = [];
+        let allCategorias = [];
+        let stockActual = [];
+        let lotesPerecibles = [];
+        let allPurchases = []; // Historial completo de compras
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initApp();
+        });
+
+        async function initApp() {
+            try {
+                if (typeof supabase === 'undefined') {
+                    console.error("Supabase client not found");
+                    return;
+                }
+
+                await loadData();
+                procesarStockActual();
+                procesarVencimientos();
+                actualizarKPIs();
+                renderizarVencimientos();
+                calcularCapitalInmovilizado();
+
+                // Signal data loaded/init chart
+                window.appDataLoaded = true;
+                if (window.googleChartsLoaded) renderizarMixInventario();
+
+                document.getElementById('loader').style.display = 'none';
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+
+        async function loadData() {
+            // A. Items
+            const { data: items, error: errItems } = await supabase.from('items').select('*');
+            if (errItems) throw errItems;
+            allItems = items || [];
+
+            // B. Kardex 
+            const { data: kardex, error: errKardex } = await supabase.from('kardex').select('*').order('fecha_movimiento', { ascending: false });
+            if (errKardex) throw errKardex;
+            allKardex = kardex || [];
+
+            // C. Lotes
+            const { data: lotes, error: errLotes } = await supabase
+                .from('ingresos_detalle')
+                .select('id, item_id, cantidad_disponible, fecha_vencimiento')
+                .not('fecha_vencimiento', 'is', null)
+                .gt('cantidad_disponible', 0)
+                .order('fecha_vencimiento', { ascending: true });
+
+            if (errLotes) throw errLotes;
+            lotesPerecibles = lotes || [];
+
+            // D. Almacenes (Nuevo)
+            const { data: almacenes, error: errAlmacenes } = await supabase.from('almacenes').select('*').eq('activo', true);
+            if (!errAlmacenes) {
+                allAlmacenes = almacenes || [];
+                // Populate Dropdown
+                const select = document.getElementById('filtroAlmacenMix');
+                select.innerHTML = '<option value="global">Todos los Almacenes</option>';
+                allAlmacenes.forEach(a => {
+                    const option = document.createElement('option');
+                    option.value = a.id;
+                    option.textContent = a.nombre;
+                    select.appendChild(option);
+                });
+            }
+
+            // E. Categorias (Nuevo)
+            const { data: cats, error: errCats } = await supabase.from('categorias').select('id, nombre');
+            if (!errCats) {
+                allCategorias = cats || [];
+                const selectCat = document.getElementById('filtroCategoriaMix');
+                selectCat.innerHTML = '<option value="all">Todas las Categorías</option>';
+                allCategorias.forEach(c => {
+                    const option = document.createElement('option');
+                    option.value = c.id;
+                    option.textContent = c.nombre;
+                    selectCat.appendChild(option);
+                });
+            }
+
+            // F. Historial
+            if (allKardex.length > 0) {
+                const ingresosKardex = allKardex.filter(k =>
+                    (k.tipo_movimiento && k.tipo_movimiento.toUpperCase() === 'INGRESO') &&
+                    (parseFloat(k.precio_compra_unitario) > 0 || parseFloat(k.costo_unitario) > 0)
+                );
+
+                allPurchases = ingresosKardex.map(k => ({
+                    item_id: k.item_id,
+                    precio: parseFloat(k.precio_compra_unitario) || parseFloat(k.costo_unitario),
+                    cantidad: k.cantidad,
+                    fecha: k.fecha_movimiento,
+                    proveedor: '---'
+                }));
+            }
+        }
+
+        function procesarStockActual() {
+            stockActual = allItems.map(i => {
+                return {
+                    id: i.id,
+                    codigo: i.codigo,
+                    descripcion: i.descripcion,
+                    categoria_id: i.categoria_id,
+                    stock: i.stock_total || 0, // This is Global Stock
+                    costoUnitario: obtenerUltimoCosto(i.id)
+                };
+            }).filter(i => i.stock > 0);
+        }
+
+        function obtenerUltimoCosto(itemId) {
+            const mov = allKardex.find(k => k.item_id === itemId && k.tipo_movimiento === 'INGRESO' && k.costo_unitario > 0);
+            return mov ? mov.costo_unitario : 0;
+        }
+
+        function procesarVencimientos() {
+            lotesPerecibles = lotesPerecibles.map(lote => {
+                const item = allItems.find(i => i.id === lote.item_id);
+                return {
+                    ...lote,
+                    nombreItem: item ? item.descripcion : 'S/N',
+                    codigoItem: item ? item.codigo : '???',
+                    diasRestantes: calcularDiasRestantes(lote.fecha_vencimiento)
+                };
+            });
+        }
+
+        function calcularDiasRestantes(fechaVenc) {
+            if (!fechaVenc) return 999;
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const partes = fechaVenc.split('-');
+            const venc = new Date(partes[0], partes[1] - 1, partes[2]);
+            const diffTime = venc - hoy;
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        // ==========================================
+        // NUEVA FUNCIÓN: RENDERIZAR MIX (GOOGLE 3D)
+        // ==========================================
+        function renderizarMixInventario() {
+            if (typeof google === 'undefined' || !google.visualization) return;
+
+            const filtroAlmacen = document.getElementById('filtroAlmacenMix').value;
+            const filtroCategoria = document.getElementById('filtroCategoriaMix').value;
+
+            // 1. Prepare Items List (Apply Category Filter)
+            let itemsToRender = allItems;
+            if (filtroCategoria !== 'all') {
+                itemsToRender = allItems.filter(i => String(i.categoria_id) === String(filtroCategoria));
+            }
+
+            // 2. Calculate Value per Item
+            const itemValues = [];
+
+            itemsToRender.forEach(item => {
+                let stockItem = 0;
+
+                if (filtroAlmacen === 'global') {
+                    stockItem = item.stock_total || 0;
+                } else {
+                    // Calculate from Kardex for specific warehouse
+                    // Get all movements for this item in this warehouse
+                    const movs = allKardex.filter(k => k.item_id === item.id && String(k.almacen_id) === String(filtroAlmacen));
+
+                    // Sum quantities (Ingreso +, others -)
+                    stockItem = movs.reduce((acc, k) => {
+                        const cant = parseFloat(k.cantidad) || 0;
+                        if (k.tipo_movimiento === 'INGRESO' || k.tipo_movimiento === 'ENTRADA') return acc + cant;
+                        return acc - cant;
+                    }, 0);
+                }
+
+                if (stockItem > 0) {
+                    const costo = obtenerUltimoCosto(item.id);
+                    const valorTotal = stockItem * costo;
+
+                    if (valorTotal > 0) {
+                        itemValues.push({
+                            nombre: item.descripcion,
+                            valor: valorTotal
+                        });
+                    }
+                }
+            });
+
+            // 3. Sort/Group Data (Top X + Others to avoid clutter)
+            itemValues.sort((a, b) => b.valor - a.valor);
+
+            const dataArray = [['Producto', 'Valor Stock (S/)']];
+
+            if (itemValues.length === 0) {
+                document.getElementById('chartMixInventario').innerHTML = '<div style="padding:2rem; color:#64748b;">No hay stock valorizado con los filtros seleccionados</div>';
+                return;
+            }
+
+            // Strategy: Show Top 20 items, group rest in "Otros"
+            const topLimits = 20;
+            const topItems = itemValues.slice(0, topLimits);
+            const otherItems = itemValues.slice(topLimits);
+
+            topItems.forEach(i => dataArray.push([i.nombre, i.valor]));
+
+            if (otherItems.length > 0) {
+                const otherTotal = otherItems.reduce((acc, i) => acc + i.valor, 0);
+                dataArray.push(['Otros (' + otherItems.length + ' items)', otherTotal]);
+            }
+
+            const data = google.visualization.arrayToDataTable(dataArray);
+
+            const options = {
+                title: filtroCategoria !== 'all'
+                    ? `Mix de Inventario: ${document.getElementById('filtroCategoriaMix').options[document.getElementById('filtroCategoriaMix').selectedIndex].text}`
+                    : 'Mix de Inventario (Top Productos)',
+                is3D: true,
+                backgroundColor: 'transparent',
+                chartArea: { left: 20, top: 40, width: '90%', height: '80%' },
+                fontSize: 12,
+                fontName: 'Inter',
+                legend: { position: 'right', textStyle: { color: '#0f172a', fontSize: 11 } },
+                sliceVisibilityThreshold: 0, // Show all passed slices (we manually grouped 'Others')
+                tooltip: { text: 'value' }
+            };
+
+            const chart = new google.visualization.PieChart(document.getElementById('chartMixInventario'));
+            chart.draw(data, options);
+        }
+
+        function renderizarVencimientos(dataOverride) {
+            const tbody = document.querySelector('#tablaVencimientos tbody');
+            tbody.innerHTML = '';
+            const filtro = document.getElementById('filtroVencimiento').value;
+            let data = dataOverride || lotesPerecibles;
+
+            if (filtro === 'critical') data = data.filter(l => l.diasRestantes < 15);
+            if (filtro === 'warning') data = data.filter(l => l.diasRestantes >= 15 && l.diasRestantes <= 30);
+
+            const criticos = data.filter(l => l.diasRestantes < 15);
+            const totalRiesgo = criticos.reduce((acc, l) => acc + (l.cantidad_disponible * obtenerUltimoCosto(l.item_id)), 0);
+
+            document.getElementById('kpiVencimientoVal').textContent = formatMoney(totalRiesgo);
+            document.getElementById('kpiVencimientoSub').innerHTML = criticos.length > 0 ? `<span style="color:var(--danger-color)">${criticos.length} lotes críticos</span>` : 'Sin riesgo inmediato';
+
+            data.slice(0, 15).forEach(lote => {
+                const tr = document.createElement('tr');
+                let badgeClass = 'badge-success';
+                let label = 'Seguro';
+                if (lote.diasRestantes < 0) { badgeClass = 'badge-danger'; label = 'VENCIDO'; }
+                else if (lote.diasRestantes < 15) { badgeClass = 'badge-danger'; label = 'Crítico'; }
+                else if (lote.diasRestantes <= 30) { badgeClass = 'badge-warning'; label = 'Alerta'; }
+
+                tr.innerHTML = `
+                    <td>
+                        <div style="font-weight:600">${lote.nombreItem}</div>
+                        <div style="font-size:0.75rem; color:#64748b">${lote.codigoItem}</div>
+                    </td>
+                    <td>
+                        ${lote.fecha_vencimiento}
+                        <div style="font-size:0.75rem; color:${lote.diasRestantes < 0 ? 'red' : 'inherit'}">
+                            ${lote.diasRestantes} días
+                        </div>
+                    </td>
+                    <td>${parseFloat(lote.cantidad_disponible).toFixed(2)}</td>
+                    <td><span class="badge ${badgeClass}">${label}</span></td>
+                    <td>---</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (data.length === 0) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem">No hay registros</td></tr>';
+        }
+
+        function calcularCapitalInmovilizado(stockOverride) {
+            const dias = parseInt(document.getElementById('filtroEstancamiento').value);
+            const fechaLimite = new Date();
+            fechaLimite.setDate(fechaLimite.getDate() - dias);
+            const limiteIso = fechaLimite.toISOString().split('T')[0];
+
+            const estancados = [];
+            const sourceStock = stockOverride || stockActual;
+
+            sourceStock.forEach(item => {
+                const salidas = allKardex.filter(k => k.item_id === item.id && k.tipo_movimiento === 'SALIDA');
+                const ultimaSalida = salidas[0];
+                let fechaUltima = '2000-01-01';
+                if (ultimaSalida) {
+                    fechaUltima = ultimaSalida.fecha_movimiento.split('T')[0];
+                } else {
+                    const ultimoIngreso = allKardex.find(k => k.item_id === item.id && k.tipo_movimiento === 'INGRESO');
+                    if (ultimoIngreso) fechaUltima = ultimoIngreso.fecha_movimiento.split('T')[0];
+                }
+
+                if (fechaUltima < limiteIso) {
+                    estancados.push({
+                        nombre: item.descripcion,
+                        valor: item.stock * item.costoUnitario
+                    });
+                }
+            });
+
+            estancados.sort((a, b) => b.valor - a.valor);
+            const totalEstancado = estancados.reduce((acc, i) => acc + i.valor, 0);
+            document.getElementById('kpiInmovilizadoVal').textContent = formatMoney(totalEstancado);
+            document.getElementById('kpiInmovilizadoSub').textContent = `${estancados.length} items sin mov. > ${dias}d`;
+
+            renderChart(estancados.slice(0, 5));
+        }
+
+        function renderChart(data) {
+            const ctx = document.getElementById('chartEstancamiento');
+            if (window.myChart) window.myChart.destroy();
+            window.myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.nombre.substring(0, 10) + '...'),
+                    datasets: [{
+                        label: 'Valor Inmovilizado (S/)',
+                        data: data.map(d => d.valor),
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function actualizarKPIs() {
+            const total = stockActual.reduce((acc, i) => acc + (i.stock * i.costoUnitario), 0);
+            document.getElementById('kpiTotalVal').textContent = formatMoney(total);
+        }
+
+        function formatMoney(n) {
+            return 'S/ ' + parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '---';
+
+            // 1. Normalize to ISO (UTC)
+            let normalized = dateStr.replace(' ', 'T');
+            if (!normalized.includes('Z') && !normalized.includes('+') && !normalized.match(/-\d\d:?\d\d$/)) {
+                normalized += 'Z';
+            }
+
+            const date = new Date(normalized);
+            if (isNaN(date.getTime())) return dateStr;
+
+            // 2. Manual Subtraction of 5 hours (Peru Time = UTC - 5)
+            const peruTime = new Date(date.getTime() - (5 * 60 * 60 * 1000));
+            const day = peruTime.getUTCDate().toString().padStart(2, '0');
+            const month = (peruTime.getUTCMonth() + 1).toString().padStart(2, '0');
+            const year = peruTime.getUTCFullYear();
+
+            return `${day}/${month}/${year}`;
+        }
+
+        // Search Handlers
+        const searchInput = document.getElementById('globalSearch');
+        const searchResults = document.getElementById('searchResults');
+
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            if (term.length < 2) {
+                searchResults.style.display = 'none';
+                if (term.length === 0) resetFiltro();
+                return;
+            }
+
+            const matches = allItems.filter(i =>
+                i.descripcion.toLowerCase().includes(term) ||
+                i.codigo.toLowerCase().includes(term)
+            ).slice(0, 10);
+
+            if (matches.length > 0) {
+                searchResults.innerHTML = matches.map(i => `
+                    <div onclick="filtrarPorItem('${i.id}', '${i.descripcion}')" 
+                         style="padding:0.75rem; cursor:pointer; border-bottom:1px solid #f1f5f9; hover:bg-gray-50">
+                        <div style="font-weight:600">${i.descripcion}</div>
+                        <div style="font-size:0.75rem; color:#64748b">${i.codigo}</div>
+                    </div>
+                `).join('');
+                searchResults.style.display = 'block';
+            } else {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        let currentFilterId = null;
+
+        window.filtrarPorItem = (id, descripcion) => {
+            currentFilterId = id;
+            searchInput.value = descripcion;
+            searchResults.style.display = 'none';
+            searchInput.style.borderColor = 'var(--primary-color)';
+            searchInput.style.backgroundColor = '#eff6ff';
+            aplicarFiltrosGlobales();
+        };
+
+        function resetFiltro() {
+            currentFilterId = null;
+            searchInput.style.borderColor = 'var(--border-color)';
+            searchInput.style.backgroundColor = 'white';
+            aplicarFiltrosGlobales();
+        }
+
+        function aplicarFiltrosGlobales() {
+            let stockFiltrado = stockActual;
+            if (currentFilterId) {
+                stockFiltrado = stockActual.filter(i => String(i.id) === String(currentFilterId));
+                // Hide Mix Module when filtering by item
+                const mixModule = document.getElementById('moduleMixInventario');
+                if (mixModule) mixModule.style.display = 'none';
+            } else {
+                // Show Mix Module when not filtering
+                const mixModule = document.getElementById('moduleMixInventario');
+                if (mixModule) mixModule.style.display = 'block';
+            }
+
+            let lotesFiltrados = lotesPerecibles;
+            if (currentFilterId) {
+                lotesFiltrados = lotesPerecibles.filter(l => String(l.item_id) === String(currentFilterId));
+            }
+
+            const total = stockFiltrado.reduce((acc, i) => acc + (i.stock * i.costoUnitario), 0);
+            document.getElementById('kpiTotalVal').textContent = formatMoney(total);
+
+            renderizarVencimientos(lotesFiltrados);
+            calcularCapitalInmovilizado(stockFiltrado);
+
+            if (currentFilterId) {
+                renderizarHistorialPrecios(currentFilterId);
+            } else {
+                document.getElementById('moduleHistorialPrecios').style.display = 'none';
+            }
+        }
+
+        let chartPreciosInstance = null;
+
+        function renderizarHistorialPrecios(itemId) {
+            const moduleDiv = document.getElementById('moduleHistorialPrecios');
+            const item = allItems.find(i => String(i.id) === String(itemId));
+
+            if (!item) return;
+
+            document.getElementById('historialItemName').textContent = item.descripcion;
+            moduleDiv.style.display = 'block';
+
+            const historial = allPurchases.filter(p => String(p.item_id) === String(itemId));
+            const historialCrono = [...historial].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+            const ctx = document.getElementById('chartHistorialPrecios').getContext('2d');
+            if (chartPreciosInstance) chartPreciosInstance.destroy();
+
+            const labels = historialCrono.map(h => formatDate(h.fecha));
+            const dataPrices = historialCrono.map(h => h.precio);
+
+            chartPreciosInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Precio de Compra Unitario (S/)',
+                        data: dataPrices,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function (context) {
+                                    const idx = context.dataIndex;
+                                    const record = historialCrono[idx];
+                                    return `Prov: ${record.proveedor}\nCant: ${record.cantidad}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Precio (S/)' }
+                        }
+                    }
+                }
+            });
+
+            const tbody = document.querySelector('#tablaHistorialCompras tbody');
+            tbody.innerHTML = '';
+
+            const historialReciente = [...historial].sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 5);
+
+            historialReciente.forEach(h => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${formatDate(h.fecha)}</td>
+                    <td>${h.proveedor}</td>
+                    <td>${h.cantidad}</td>
+                    <td style="font-weight:bold;">${formatMoney(h.precio)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (historialReciente.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Sin compras registradas</td></tr>';
+            }
+        }
+    </script>
+</body>
+
+</html>
