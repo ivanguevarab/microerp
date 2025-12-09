@@ -858,6 +858,8 @@
                             <th class="col-number">Valor Compra</th>
                             <th class="col-number">IGV</th>
                             <th class="col-number">Total</th>
+                            <th class="col-action" style="min-width: 150px;">Perecible /
+                                Vencimiento</th>
                             <th class="col-action"></th>
                         </tr>
                     </thead>
@@ -1432,7 +1434,10 @@
                 // Costos distribuidos
                 gastoAsignado: 0,
                 costoAdquisicionTotal: 0,
-                costoAdquisicionUnitario: 0
+                costoAdquisicionUnitario: 0,
+                // Nuevos campos para Perecibles
+                esPerecible: false,
+                fechaVencimiento: null
             });
 
             recalcularTodo();
@@ -1603,6 +1608,19 @@
                     <td class="col-number">${formatMoney(item.subtotal)}</td>
                     <td class="col-number">${formatMoney(item.igvTotal)}</td>
                     <td class="col-number">${formatMoney(item.total)}</td>
+                    <td class="col-action">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;">
+                                <input type="checkbox" ${item.esPerecible ? 'checked' : ''} onchange="togglePerecible(${index})">
+                                Perecible
+                            </label>
+                            <input type="date" 
+                                   value="${item.fechaVencimiento || ''}" 
+                                   onchange="updateVencimiento(${index}, this.value)"
+                                   style="display: ${item.esPerecible ? 'block' : 'none'}; font-size: 0.8rem; padding: 2px; border: 1px solid #ccc; border-radius: 4px; width: 120px;"
+                            >
+                        </div>
+                    </td>
                     <td class="col-action">
                         <button class="btn-icon" onclick="editarFila(${index})" title="Editar">✏️</button>
                         <button class="btn-icon btn-delete" onclick="eliminarFila(${index})" title="Eliminar">🗑️</button>
@@ -1830,6 +1848,18 @@
             recalcularTodo(); // Recalcular totales
         }
 
+        function togglePerecible(index) {
+            detalleIngreso[index].esPerecible = !detalleIngreso[index].esPerecible;
+            if (!detalleIngreso[index].esPerecible) {
+                detalleIngreso[index].fechaVencimiento = null; // Limpiar si se desmarca
+            }
+            renderizarTabla();
+        }
+
+        function updateVencimiento(index, value) {
+            detalleIngreso[index].fechaVencimiento = value;
+        }
+
         function limpiarInputsProducto() {
             document.getElementById('productoBusqueda').value = '';
             document.getElementById('productoBusqueda').dataset.id = '';
@@ -1867,6 +1897,14 @@
 
             if (detalleIngreso.length === 0) {
                 alert('Debe agregar al menos un item');
+                return;
+            }
+
+            // Validar Perecibles
+            const itemsPereciblesSinFecha = detalleIngreso.filter(i => i.esPerecible && !i.fechaVencimiento);
+            if (itemsPereciblesSinFecha.length > 0) {
+                const nombres = itemsPereciblesSinFecha.map(i => i.descripcion).join(', ');
+                mostrarToast(`⚠️ Faltan fechas de vencimiento en: ${nombres}`, 'warning');
                 return;
             }
 
@@ -2109,6 +2147,9 @@
                     // Costos Finales (CON GASTOS DISTRIBUIDOS)
                     costo_adquisicion_unitario: item.costoAdquisicionUnitario,
                     costo_adquisicion_total: item.costoAdquisicionTotal,
+
+                    // Gestión de Perecibles
+                    fecha_vencimiento: item.esPerecible ? item.fechaVencimiento : null,
 
                     // Otros egresos asignados
                     otros_egresos_unitario: item.gastoAsignado / item.cantidad,
