@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroERP - Dashboard V2</title> <!-- Tracer Bullet -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css"> <!-- Estilos Globales (Necesario para Sidebar) -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="auth-guard.js"></script> <!-- Auth Guard Integration -->
+  <style>
+    /* Estilos Locales (Resets globales delegados a styles.css) */
+
+    body {
+      /* Hereda de styles.css, solo aseguramos fondo */
+      background-color: #f8fafc;
+    }
+
+    /* Header */
+    /* Header */
+    .header {
+      background: var(--header-bg-gradient);
+      color: var(--header-text-color);
+      height: 80px;
+      padding: 0 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--header-shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      width: 100%;
+      /* Asegurar ancho completo */
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px 20px;
+      border-radius: 50px;
+      backdrop-filter: blur(10px);
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid white;
+      /* Fallback si no hay imagen */
+      background: #bdc3c7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #2c3e50;
+      object-fit: cover;
+    }
+
+    .user-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .user-role {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .btn-logout {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .btn-logout:hover {
+      background: #c0392b;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+    }
+
+    /* Container */
+    .container {
+      padding: 40px 30px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .welcome-section {
+      margin-bottom: 40px;
+    }
+
+    .welcome-section h2 {
+      color: #2c3e50;
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .welcome-section p {
+      color: #7f8c8d;
+      font-size: 16px;
+    }
+
+    /* Módulos Grid */
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .module-card {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+      transition: all 0.3s;
+      border-left: 4px solid #0070f2;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .module-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #0070f2, #00a8ff);
+      transform: scaleX(0);
+      transition: transform 0.3s;
+    }
+
+    .module-card:hover::before {
+      transform: scaleX(1);
+    }
+
+    .module-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    .module-card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      border-left-color: #bdc3c7;
+    }
+
+    .module-card.disabled:hover {
+      transform: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .module-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .module-icon {
+      font-size: 48px;
+      line-height: 1;
+    }
+
+    .module-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #354a5f;
+    }
+
+    .module-description {
+      color: #7f8c8d;
+      line-height: 1.6;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+
+    .permissions-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .permission-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .permission-badge.can-view {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .permission-badge.can-edit {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .permission-badge.can-delete {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .permission-badge.no-access {
+      background: #fce4ec;
+      color: #c2185b;
+    }
+
+    /* Stats Cards */
+    .stats-section {
+      margin-bottom: 40px;
+    }
+
+    .stats-section h3 {
+      color: #2c3e50;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .stat-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    .stat-icon.blue {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .stat-icon.green {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .stat-icon.orange {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stat-icon.purple {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .stat-content h4 {
+      color: #7f8c8d;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      color: #2c3e50;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    /* Responsive */
+    @media (max-width: 968px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        padding: 20px;
+      }
+
+      .header-left,
+      .header-right {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .user-info {
+        flex: 1;
+      }
+
+      .container {
+        padding: 30px 20px;
+      }
+
+      .welcome-section h2 {
+        font-size: 24px;
+      }
+
+      .modules-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header {
+        position: relative;
+      }
+
+      .header h1 {
+        font-size: 18px;
+      }
+
+      .user-details {
+        display: flex;
+        text-align: left;
+      }
+
+      .user-name {
+        font-size: 13px;
+        line-height: 1.2;
+      }
+
+      .user-role {
+        font-size: 11px;
+      }
+
+      .btn-logout {
+        padding: 8px 16px;
+        font-size: 13px;
+      }
+    }
+
+    /* Loading State */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #0070f2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <h1 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Dashboard</h1>
+    </div>
+    <div class="header-right">
+      <div class="user-info">
+        <!-- Se usará img o div según disponibilidad de avatar -->
+        <img id="userAvatarImg" class="user-avatar" src="" alt="User" style="display: none;" onerror="this.onerror=null; this.style.display='none'; document.getElementById('userAvatarDiv').style.display='flex';">
+        <div id="userAvatarDiv" class="user-avatar">U</div>
+
+        <div class="user-details">
+          <div class="user-name" id="userName"></div>
+          <div class="user-role" id="userRole"></div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    <!-- Welcome Section -->
+    <section class="welcome-section">
+      <h2 id="welcomeMessage">Bienvenido al Dashboard</h2>
+      <p>Accede a los módulos según tus permisos de usuario</p>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+      <h3>Resumen General</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon blue">📦</div>
+          <div class="stat-content">
+            <h4>Valorización del Inventario</h4>
+            <div class="stat-value">S/ 98,756</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">💰</div>
+          <div class="stat-content">
+            <h4>Ventas del Mes</h4>
+            <div class="stat-value">S/ 45,780</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange">🏭</div>
+          <div class="stat-content">
+            <h4>Órdenes de Producción</h4>
+            <div class="stat-value">23</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple">👥</div>
+          <div class="stat-content">
+            <h4>Clientes Activos</h4>
+            <div class="stat-value">156</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Modules Section -->
+    <section>
+      <h3 style="color: #2c3e50; font-size: 24px; margin-bottom: 20px;">Módulos del Sistema</h3>
+      <div class="modules-grid" id="modulesGrid">
+        <!-- Los módulos se cargarán dinámicamente aquí -->
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ============================================
+    // DEFINICIÓN DE MÓDULOS Y PERMISOS
+    // ============================================
+
+    const MODULES = [
+      {
+        id: 'compras',
+        icon: '💰',
+        title: 'Ventas y Facturación',
+        description: 'Control de ventas, cotizaciones en tiempo real y facturación electrónica',
+        url: 'ventas_y_facturacion.html',
+        permissions: {
+          'ADMIN': ['ver', 'editar', 'eliminar'],
+          'LOGISTICA': ['ver', 'editar'],
+          'VENTAS': ['ver'],
+          'LECTURA': ['ver']
+        }
+      },
+      {
+        id: 'inventarios',
+        icon: '📦',
+        title: 'Control de Inventarios',
+        description: 'Gestiona tu stock en tiempo real con alertas automáticas y control de lotes',
+        url: 'gestion_inventarios.html',
+        permissions: {
+          'ADMIN': ['ver', 'editar', 'eliminar'],
+          'LOGISTICA': ['ver', 'editar', 'eliminar'],
+          'VENTAS': ['ver'],
+          'LECTURA': ['ver']
+        }
+      },
+      {
+        id: 'ventas',
+        icon: '🤝', // Changed icon from Gestión de Personal
+        title: 'Gestión de Relaciones con Clientes (CRM)',
+        description: 'Gestión y fidelización de cartera de Clientes',
+        url: 'gestion_crm.html',
+        permissions: {
+          'ADMIN': ['ver', 'editar', 'eliminar'],
+          'LOGISTICA': [],
+          'VENTAS': ['ver', 'editar'],
+          'LECTURA': ['ver']
+        }
+      },
+      {
+        id: 'produccion',
+        icon: '🏭',
+        title: 'Gestión de Producción y Servicios',
+        description: 'Control de órdenes, trazabilidad y etiquetado',
+        url: 'gestion_produccion_y_servicios.html',
+        permissions: {
+          'ADMIN': ['ver', 'editar', 'eliminar'],
+          'LOGISTICA': ['ver', 'editar'],
+          'VENTAS': ['ver'],
+          'LECTURA': ['ver']
+        }
+      },
+      {
+        id: 'personal',
+        icon: '👥',
+        title: 'Gestión de Personal',
+        description: 'Padrón, control de tiempos, banco de horas y liquidaciones mensuales',
+        url: 'gestion_de_personal.html',
+        permissions: {
+          'ADMIN': ['ver', 'editar', 'eliminar'],
+          'LOGISTICA': ['ver'],
+          'VENTAS': ['ver'],
+          'LECTURA': ['ver']
+        }
+      },
+      {
+        id: 'finanzas',
+        icon: '📊',
+        title: 'Análisis Financiero',
+        description: 'Reportes detallados, control total de finanzas y análisis de rentabilidad',
+        url: 'finanzas.html',
+        permissions: {
+          'ADMIN': ['ver', 'editar'],
+          'LOGISTICA': [],
+          'VENTAS': [],
+          'LECTURA': ['ver']
+        }
+      }
+    ];
+
+    // ============================================
+    // RENDERIZADO DE MÓDULOS
+    // ============================================
+
+    function renderModules(userData) {
+      const modulesGrid = document.getElementById('modulesGrid');
+      modulesGrid.innerHTML = '';
+
+      const userRole = userData.role || 'LECTURA';
+      const userRoutes = userData.userRoutes || [];
+      const isAdmin = userRole === 'ADMIN';
+
+      MODULES.forEach(module => {
+        // Regla de Negocio: Ocultar Producción si es estrictamente Comercial
+        if (module.id === 'produccion' && userData.isOnlyCommercial) {
+          return;
+        }
+
+        let hasAccess = false;
+        if (isAdmin) {
+          hasAccess = true;
+        } else {
+          // Buscamos si el usuario tiene permiso a por lo menos una sub-página de este macromódulo
+          const sidebarConfig = (window.MicroErpMenuConfig || []).find(m => m.url === module.url);
+          if (sidebarConfig && sidebarConfig.type === 'accordion') {
+            hasAccess = sidebarConfig.groups.some(g => g.items.some(i => userRoutes.includes(i.url)));
+          } else if (sidebarConfig && sidebarConfig.type === 'link') {
+            hasAccess = userRoutes.includes(sidebarConfig.url);
+          } else {
+            // Fallback
+            hasAccess = false;
+          }
+        }
+
+        const moduleCard = document.createElement('div');
+        moduleCard.className = `module-card ${!hasAccess ? 'disabled' : ''}`;
+
+        if (hasAccess) {
+          moduleCard.onclick = () => navigateToModule(module.url);
+        }
+
+        moduleCard.innerHTML = `
+          <div class="module-header">
+            <div class="module-icon">${module.icon}</div>
+            <div class="module-title">${module.title}</div>
+          </div>
+          <div class="module-description">${module.description}</div>
+        `;
+
+        modulesGrid.appendChild(moduleCard);
+      });
+    }
+
+    function navigateToModule(url) {
+      if (url === 'ventas_y_facturacion.html' || url === 'gestion_inventarios.html' || url === 'gestion_produccion_y_servicios.html' || url === 'gestion_crm.html' || url === 'gestion_de_personal.html' || url === 'calendario_esperado_de_trabajadores.html') {
+        window.location.href = url;
+      } else {
+        alert(`Módulo en desarrollo. Próximamente se cargará: ${url}`);
+      }
+    }
+
+    async function logout() {
+      if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+        if (window.supabaseClient) await window.supabaseClient.auth.signOut();
+        localStorage.removeItem('microerp_session'); // Legacy clean
+        window.location.href = 'index.html';
+      }
+    }
+
+    // ============================================
+    // INICIALIZACIÓN
+    // ============================================
+
+    window.addEventListener('load', () => {
+      // Auth Guard ya ha verificado la sesión para este punto o está en proceso.
+      // Esperamos asegurar que window.currentUser existe.
+      const checkGuard = setInterval(() => {
+        if (window.currentUser) {
+          clearInterval(checkGuard);
+          initDashboard(window.currentUser);
+        }
+      }, 100);
+    });
+
+    async function initDashboard(user) {
+      // 1. Datos básicos desde Auth (Google)
+      const userData = {
+        name: user.user_metadata.full_name || user.email,
+        email: user.email,
+        picture: user.user_metadata.avatar_url || '',
+        role: 'Cargando...', // Se actualizará
+        company: 'Conectando...' // Se actualizará
+      };
+
+      // 2. Renderizar UI Inicial (Skeleton)
+      renderHeader(userData);
+      document.getElementById('welcomeMessage').textContent = `Bienvenido, ${userData.name}`;
+
+      try {
+        // 3. Consultar Perfil Real en Base de Datos
+        // NOTA: Gracias a la vista o RLS, esto debería traer solo MI perfil
+        const { data: profile, error } = await window.supabaseClient
+          .from('perfiles_usuario')
+          .select(`
+            rol,
+            accesos_rutas,
+            empresas (
+              nombre,
+              plan_suscripcion,
+              es_comercializadora,
+              es_servicios,
+              es_industrial
+            )
+          `)
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        if (profile) {
+          // 4. Actualizar Datos Reales
+          userData.role = profile.rol;
+          userData.userRoutes = profile.accesos_rutas || [];
+
+          if (profile.empresas) {
+            userData.company = profile.empresas.nombre;
+            // Evaluar lógica: Es EXCLUSIVAMENTE comercial
+            userData.isOnlyCommercial = (
+              profile.empresas.es_comercializadora === true &&
+              profile.empresas.es_servicios === false &&
+              profile.empresas.es_industrial === false
+            );
+          } else {
+            userData.company = 'Sin Empresa';
+            userData.isOnlyCommercial = false; // Fallback seguro
+          }
+
+          // Actualizar UI Header con nuevos datos
+          updateHeaderInfo(userData);
+
+          // Renderizar módulos según permisos y giro de negocio
+          renderModules(userData);
+
+          // Lógica inyectada para limpiar el sidebar si es exclusivamente comercial
+          if (userData.isOnlyCommercial) {
+            const sidebarProd = document.getElementById('menu-produccion');
+            if (sidebarProd) {
+              const liParent = sidebarProd.closest('li.nav-section');
+              if (liParent) {
+                liParent.style.display = 'none';
+              }
+            }
+          }
+
+          console.log('✅ Perfil Empresa cargado:', userData.company, userData.role, '| Exclusivo Comercial:', userData.isOnlyCommercial);
+        }
+
+      } catch (err) {
+        console.error('Error cargando perfil extendido:', err);
+        userData.role = 'Error';
+        userData.company = 'Sin Conexión';
+        updateHeaderInfo(userData);
+      }
+    }
+
+    function renderHeader(userData) {
+      // Avatar
+      const avatarImg = document.getElementById('userAvatarImg');
+      const avatarDiv = document.getElementById('userAvatarDiv');
+
+      if (userData.picture) {
+        avatarImg.src = userData.picture;
+        avatarImg.style.display = 'block';
+        avatarDiv.style.display = 'none';
+      } else {
+        avatarImg.style.display = 'none';
+        avatarDiv.style.display = 'flex';
+        avatarDiv.textContent = (userData.name || 'U').charAt(0).toUpperCase();
+      }
+
+      // Textos Iniciales
+      updateHeaderInfo(userData);
+    }
+
+    function updateHeaderInfo(userData) {
+      document.getElementById('userName').textContent = userData.name;
+
+      // Formato: "Nombre Empresa (ROL)"
+      const roleDisplay = userData.company
+        ? `${userData.company} (${userData.role})`
+        : userData.role;
+
+      document.getElementById('userRole').textContent = roleDisplay;
+    }
+  </script>
+  <!-- Inyectar Sidebar -->
+  <script src="sidebar.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Revocado - MICRO ERP</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px); background-size: 30px 30px; }
+        .industrial-accent { color: #f59e0b; }
+        .bg-industrial-accent { background-color: #f59e0b; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-gray-300">
+
+    <div class="w-full max-w-lg p-10 border border-gray-800 bg-[#121212] shadow-2xl relative overflow-hidden">
+        <!-- Deco top -->
+        <div class="absolute top-0 left-0 w-full h-1 bg-red-600"></div>
+        <div class="absolute bottom-0 right-0 py-1 px-4 bg-red-600 text-white text-xs font-bold tracking-widest">ERROR 403: CESE LOGICO</div>
+
+        <div class="text-center">
+            <i class="fas fa-user-lock text-6xl text-red-500 mb-6 drop-shadow-lg"></i>
+            <h1 class="text-3xl font-bold mb-2 tracking-tighter text-white uppercase">Acceso Revocado<span class="text-red-500">.</span></h1>
+            <p class="text-gray-500 text-sm uppercase tracking-widest mb-8 border-b border-gray-800 pb-6">Restricted Area // Session Terminated</p>
+
+            <div class="bg-gray-900/50 p-6 border border-gray-800 rounded mb-8 text-left">
+                <p class="text-gray-300 leading-relaxed">
+                    Hola. Te informamos que <strong>la empresa titular ha revocado tu acceso</strong> informático al núcleo de Micro ERP.
+                </p>
+                <p class="text-gray-400 text-sm mt-4">
+                    Tu sesión de autenticación JWT ha sido aniquilada localmente para preservar la integridad del perímetro. Todos tus registros de auditoría y operaciones pasadas permanecerán asociados a tu rúbrica.
+                </p>
+                <p class="text-industrial-accent mt-4 font-bold text-sm">
+                    <i class="fas fa-info-circle mr-1"></i> Si consideras que esto es un error administrativo, por favor comunícate directamente con la Gerencia de tu Empresa para solicitar la reactivación formal de tu usuario.
+                </p>
+            </div>
+
+            <button onclick="window.location.replace('index.html')" class="px-8 py-3 border border-gray-700 hover:border-red-500 hover:bg-red-500/10 hover:text-red-500 text-gray-400 text-sm font-bold uppercase tracking-widest transition duration-300">
+                [ VOLVER AL INICIO ]
+            </button>
+        </div>
+    </div>
+
+</body>
+</html>

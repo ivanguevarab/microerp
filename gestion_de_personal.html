@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Personal - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth(); // Esperar a que supabaseClient y currentEmpresaId existan (vía auth-guard)
+
+            // Necesitamos retrasar levemente para garantizar que currentUser este parseado
+            setTimeout(cargarAlertas, 500);
+        });
+
+        async function cargarAlertas() {
+            if (!window.supabaseClient || !window.currentUser) return;
+
+            try {
+                // Obtener empresa del usuario actual
+                const { data: perfil } = await window.supabaseClient
+                    .from('perfiles_usuario')
+                    .select('empresa_id')
+                    .eq('id', window.currentUser.id)
+                    .single();
+
+                const currentEmpresaId = perfil.empresa_id;
+
+                // Determinar el mes actual YYYY-MM
+                const hoy = new Date();
+                const objMes = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+                const prmDia = objMes + '-01';
+                // Ultimo dia del mes
+                const ultDiaD = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+                const ultDia = objMes + '-' + String(ultDiaD.getDate()).padStart(2, '0');
+
+                document.getElementById('alertMesText').textContent = objMes;
+
+                // 1. OBTENER TODO EL PERSONAL
+                const { data: listado } = await window.supabaseClient
+                    .from('personal')
+                    .select('id, nombres, apellidos, pago_horas_extras_habilitado')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('activo', true);
+
+                if (!listado || listado.length === 0) {
+                    const liVacio = '<li style="color: #666; font-style: italic; font-size: 13px;"><i class="fas fa-info-circle mt-1 mr-1 text-slate-400"></i> No hay personal registrado.</li>';
+                    document.getElementById('alertListNegativo').innerHTML = liVacio;
+                    document.getElementById('alertListPositivo').innerHTML = liVacio;
+                    
+                    // Aplicar estilo de Empty State Global
+                    document.getElementById('alertBox').style.borderLeftColor = '#4caf50';
+                    document.getElementById('alertBox').style.backgroundColor = '#e8f5e9';
+                    const icon = document.getElementById('alertMainIcon');
+                    if(icon) {
+                        icon.style.color = '#4caf50';
+                        icon.className = 'fas fa-check-circle';
+                    }
+                    const hText = document.getElementById('alertBox').querySelector('h4');
+                    if (hText) hText.style.color = '#2e7d32';
+                    
+                    return;
+                }
+
+                // 2. OBTENER SALDOS DEL MES EN CURSO
+                const { data: bancos } = await window.supabaseClient
+                    .from('banco_horas')
+                    .select('personal_id, saldo_acumulado, fecha_movimiento, created_at')
+                    .eq('empresa_id', currentEmpresaId)
+                    .gte('fecha_movimiento', prmDia)
+                    .lte('fecha_movimiento', ultDia)
+                    .order('fecha_movimiento', { ascending: false })
+                    .order('created_at', { ascending: false });
+
+                const saldoBancoMap = {};
+                (bancos || []).forEach(bh => {
+                    // Solo guardamos el primer (ultimo) registro hallado por ordenado por fecha desc
+                    if (saldoBancoMap[bh.personal_id] === undefined) {
+                        saldoBancoMap[bh.personal_id] = parseFloat(bh.saldo_acumulado || 0);
+                    }
+                });
+
+                // 3. SEPARAR Y ORDENAR ALERTAS
+                const alertasNegativas = [];
+                const alertasPositivas = [];
+
+                listado.forEach(p => {
+                    const saldo = saldoBancoMap[p.id];
+                    if (saldo === undefined || saldo === 0) return;
+                    
+                    if (saldo < 0) {
+                        alertasNegativas.push({
+                            sortKey: p.apellidos + ' ' + p.nombres,
+                            html: `<strong>${p.nombres.split(' ')[0]} ${p.apellidos.split(' ')[0]}</strong> mantiene una deuda de <strong style="color: #d32f2f;">${Math.abs(saldo)} horas</strong>. Se descontará en planilla.`
+                        });
+                    } else if (saldo > 0) {
+                        const accion = p.pago_horas_extras_habilitado ? "abonará en Efectivo" : "reservará para Canje";
+                        alertasPositivas.push({
+                            sortKey: p.apellidos + ' ' + p.nombres,
+                            html: `<strong>${p.nombres.split(' ')[0]} ${p.apellidos.split(' ')[0]}</strong> tiene saldo a favor de <strong style="color: #388e3c;">+${saldo} horas</strong>. Se ${accion} según perfil.`
+                        });
+                    }
+                });
+
+                // Ordenar alfabéticamente A-Z
+                alertasNegativas.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+                alertasPositivas.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+                // 4. RENDERIZAR
+                const dListNeg = document.getElementById('alertListNegativo');
+                const dListPos = document.getElementById('alertListPositivo');
+                dListNeg.innerHTML = '';
+                dListPos.innerHTML = '';
+
+                if (alertasNegativas.length === 0) {
+                    dListNeg.innerHTML = '<li style="color: #666; font-style: italic; font-size: 13px;"><i class="fas fa-check mt-1 mr-1 text-slate-400"></i> No hay personal con balance negativo.</li>';
+                } else {
+                    alertasNegativas.forEach(item => {
+                        const li = document.createElement('li');
+                        li.style.marginBottom = '6px';
+                        li.innerHTML = item.html;
+                        dListNeg.appendChild(li);
+                    });
+                }
+
+                if (alertasPositivas.length === 0) {
+                    dListPos.innerHTML = '<li style="color: #666; font-style: italic; font-size: 13px;"><i class="fas fa-info-circle mt-1 mr-1 text-slate-400"></i> No hay personal con excedentes.</li>';
+                } else {
+                    alertasPositivas.forEach(item => {
+                        const li = document.createElement('li');
+                        li.style.marginBottom = '6px';
+                        li.innerHTML = item.html;
+                        dListPos.appendChild(li);
+                    });
+                }
+
+                // Estilo general si todo está en cero absoluto
+                if (alertasNegativas.length === 0 && alertasPositivas.length === 0) {
+                    document.getElementById('alertBox').style.borderLeftColor = '#4caf50';
+                    document.getElementById('alertBox').style.backgroundColor = '#e8f5e9';
+                    const icon = document.getElementById('alertMainIcon');
+                    if(icon) {
+                        icon.style.color = '#4caf50';
+                        icon.className = 'fas fa-check-circle';
+                    }
+                    const hText = document.getElementById('alertBox').querySelector('h4');
+                    if (hText) hText.style.color = '#2e7d32';
+                }
+
+            } catch (err) {
+                console.error("Error generando alertas: ", err);
+                const errorStr = '<li style="color: red;">No se pudo conectar con la BD de horas.</li>';
+                if(document.getElementById('alertListNegativo')) document.getElementById('alertListNegativo').innerHTML = errorStr;
+                if(document.getElementById('alertListPositivo')) document.getElementById('alertListPositivo').innerHTML = errorStr;
+            }
+        }
+    </script>
+
+    <style>
+        /* Estilos Locales - Grid Module Layout */
+        .container {
+            padding: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h2 {
+            color: #2c3e50;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 30px;
+        }
+
+        .module-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid #0070f2;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            text-decoration: none;
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0070f2, #00a8ff);
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .module-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .module-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-left-color: #bdc3c7;
+        }
+
+        .module-card.disabled:hover {
+            transform: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .module-icon {
+            font-size: 40px;
+            line-height: 1;
+            color: #354a5f;
+        }
+
+        .module-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-core {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .badge-daily {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .badge-finance {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .badge-config {
+            background: #f3e5f5;
+            color: #6a1b9a;
+        }
+
+        .module-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .module-description {
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .alert-box {
+            background-color: #fff3e0;
+            border-left: 4px solid #f57c00;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .alert-box i {
+            font-size: 24px;
+            color: #f57c00;
+            margin-top: 4px;
+        }
+
+        .alert-content h4 {
+            color: #e65100;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 15px;
+        }
+
+        .alert-content p {
+            color: #b26a00;
+            font-size: 14px;
+        }
+
+        .alert-content ul {
+            color: #b26a00;
+            font-size: 13px;
+            margin-top: 8px;
+            padding-left: 20px;
+            list-style-type: disc;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header Standarizado del Módulo -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='dashboard.html'">
+                ← Volver al Panel
+            </button>
+            <h1>Gestión de Personal</h1>
+            <div class="submodule-version">MICRO ERP v2.0</div>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- Alerta Dinámica de Fin de Mes -->
+        <div class="alert-box" id="alertBox" style="display: block;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                <i class="fas fa-exclamation-triangle" id="alertMainIcon" style="margin: 0; font-size: 24px;"></i>
+                <div class="alert-content" style="width: 100%;">
+                    <h4 style="margin: 0;">Alertas de Fin de Mes (<span id="alertMesText">Cargando...</span>)</h4>
+                </div>
+            </div>
+            <div class="alert-content">
+                <p style="margin-bottom: 16px;">Resumen de saldos del Banco de Horas al momento:</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+                    <!-- Columna Izquierda: Deudas -->
+                    <div style="background: rgba(255,255,255,0.7); padding: 16px; border-radius: 8px; border-left: 4px solid #d32f2f; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <h5 style="color: #c62828; font-weight: 700; font-size: 13px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-arrow-down mr-1"></i> Balance Negativo (Para Corregir)</h5>
+                        <ul id="alertListNegativo" style="margin-top:0; max-height: 120px; overflow-y: auto; padding-right: 5px;" class="custom-scrollbar">
+                            <li><i class="fas fa-spinner fa-spin"></i> Consultando...</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Columna Derecha: Excedentes -->
+                    <div style="background: rgba(255,255,255,0.7); padding: 16px; border-radius: 8px; border-left: 4px solid #388e3c; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <h5 style="color: #2e7d32; font-weight: 700; font-size: 13px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-arrow-up mr-1" style="color: #388e3c;"></i> Balance Positivo (Para Felicitar)</h5>
+                        <ul id="alertListPositivo" style="margin-top:0; max-height: 120px; overflow-y: auto; padding-right: 5px;" class="custom-scrollbar">
+                            <li><i class="fas fa-spinner fa-spin"></i> Consultando...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <h2>Gestión de Recursos Humanos</h2>
+            <p>Administra colaboradores, turnos, registros de asistencia y generación de liquidaciones mensuales.</p>
+        </div>
+
+        <!-- GRUPO: CONTROL -->
+        <h3
+            class="text-lg font-bold text-slate-700 mt-8 mb-4 tracking-wide border-b border-slate-200 pb-2 flex items-center gap-2">
+            <i class="fas fa-tasks text-blue-500"></i> CONTROL</h3>
+        <div class="modules-grid" style="margin-top: 0;">
+
+            <a href="asistencia_reloj.html" class="module-card">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-calendar-check"></i></div>
+                    <span class="module-badge badge-daily">Diario</span>
+                </div>
+                <div class="module-title">Asistencia y Reloj</div>
+                <div class="module-description">
+                    Control diario de entradas y salidas. Gestión de almuerzos flexibles y alimentación automática del
+                    Banco de Horas.
+                </div>
+            </a>
+
+            <a href="banco_de_horas.html" class="module-card">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-hourglass-half"></i></div>
+                    <span class="module-badge badge-core">Trazabilidad</span>
+                </div>
+                <div class="module-title">Banco de Horas</div>
+                <div class="module-description">
+                    Visualiza el saldo exacto de cada trabajador. Trazabilidad de cómo se acumularon deudas o excedentes
+                    minuto a minuto.
+                </div>
+            </a>
+
+            <a href="liquidaciones.html" class="module-card">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-money-check-alt"></i></div>
+                    <span class="module-badge badge-finance">Finanzas</span>
+                </div>
+                <div class="module-title">Planillas y Liquidaciones</div>
+                <div class="module-description">
+                    Cierre de mes. Emisión de boletas A4. Gestión de Adelantos de Sueldo y Bonificaciones/Descuentos
+                    manuales de libre concepto.
+                </div>
+            </a>
+
+        </div>
+
+        <!-- GRUPO: CONFIGURACIÓN -->
+        <h3
+            class="text-lg font-bold text-slate-700 mt-10 mb-4 tracking-wide border-b border-slate-200 pb-2 flex items-center gap-2">
+            <i class="fas fa-cogs text-purple-600"></i> CONFIGURACIÓN</h3>
+        <div class="modules-grid" style="margin-top: 0;">
+
+            <!-- ACTIVO: Calendario Esperado -->
+            <a href="calendario_esperado_de_trabajadores.html" class="module-card">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-calendar-alt"></i></div>
+                    <span class="module-badge badge-config">Programación</span>
+                </div>
+                <div class="module-title">Calendario Esperado</div>
+                <div class="module-description">
+                    Define los días laborables, feriados y descansos de cada trabajador. Configura sus horarios meta de
+                    entrada, salida y almuerzo para calcular saldos del Banco de Horas.
+                </div>
+            </a>
+
+            <!-- ACTIVO: Padrón de Personal -->
+            <a href="padron_personal.html" class="module-card">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-users-cog"></i></div>
+                    <span class="module-badge badge-core">Maestro</span>
+                </div>
+                <div class="module-title">Padrón de Personal</div>
+                <div class="module-description">
+                    Registra nuevos trabajadores, asigna Funciones Clave, salarios base/KPI y establece políticas de
+                    horas.
+                </div>
+            </a>
+
+            <!-- ACTIVO: Políticas de la Empresa -->
+            <a href="politicas_empresa.html" class="module-card">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-sliders-h"></i></div>
+                    <span class="module-badge badge-config">Configuración</span>
+                </div>
+                <div class="module-title">Políticas de la Empresa</div>
+                <div class="module-description">
+                    Ajusta reglas de tolerancia cero, escalas de penalización dura por tardanzas y tiempos esperados de
+                    almuerzo.
+                </div>
+            </a>
+
+        </div>
+
+    </main>
+
+    <!-- Inyectar Sidebar -->
+    <script src="sidebar.js"></script>
+</body>
+
+</html>
