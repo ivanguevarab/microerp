@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Políticas de Asistencia - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        .page-container {
+            padding: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.35rem;
+        }
+
+        .input-group input[type="number"],
+        .input-group select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.375rem;
+            font-size: 0.95rem;
+            color: #1e293b;
+            background-color: #f8fafc;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .input-group input[type="number"]:focus,
+        .input-group select:focus {
+            border-color: #3b82f6;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .alert-info {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.85rem;
+            color: #1e3a8a;
+            margin-top: 1rem;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+        }
+
+        input:checked+.slider {
+            background-color: #10b981;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(20px);
+        }
+
+        .slider.round {
+            border-radius: 24px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+
+        .btn-icon {
+            color: #ef4444;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 4px 8px;
+            transition: transform 0.1s;
+        }
+
+        .btn-icon:hover {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50">
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.history.back()">
+                ← Volver
+            </button>
+            <h1 id="tituloPagina">Políticas de Empresa</h1>
+            <div class="submodule-version" id="subtituloPagina">Reglas de Negocio Globales</div>
+        </div>
+    </header>
+
+    <main class="page-container">
+
+        <div id="loading" class="py-12 flex flex-col items-center justify-center text-slate-500">
+            <i class="fas fa-circle-notch fa-spin text-3xl text-blue-500 mb-3"></i>
+            <p>Cargando configuración...</p>
+        </div>
+
+        <form id="form-politicas" onsubmit="event.preventDefault(); guardarPoliticas();" class="hidden">
+            <div id="alertaHeredada"
+                class="hidden bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded shadow-sm text-yellow-800 text-sm">
+                <i class="fas fa-info-circle mr-2"></i> Este trabajador no tiene reglas propias. Estás viendo la
+                <strong>Política Global</strong> pre-llenada. Al modificarla y aplicarla, crearás una regla exclusiva
+                para él (Sobreescritura).
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <!-- 1. Tiempos Básicos -->
+                <div class="mb-8 pb-8 border-b border-slate-200">
+                    <h2 class="text-xl font-semibold text-blue-600 mb-2">1. Tiempos y Flexibilidad</h2>
+                    <p class="text-sm text-slate-500 mb-5">Configura los parámetros de tiempos normales de descanso y
+                        tolerancias pacíficas.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="input-group relative">
+                            <label>Minutos de Gracia (Tolerancia Inicial)</label>
+                            <input type="number" id="minutosGracia" required min="0" value="15">
+                            <i class="fas fa-history absolute right-3 top-[32px] text-slate-400"></i>
+                            <p class="text-xs text-slate-500 mt-1">Margen pacífico libre de deudas.</p>
+                        </div>
+
+                        <div class="input-group relative">
+                            <label>Tiempo Esperado de Almuerzo (Minutos)</label>
+                            <input type="number" id="minAlmuerzo" required min="0" value="60">
+                            <i class="fas fa-utensils absolute right-3 top-[32px] text-slate-400"></i>
+                            <p class="text-xs text-slate-500 mt-1">Si toma menos, se deposita al Banco a favor.</p>
+                        </div>
+
+                        <!-- Toggle de Almuerzo (Part Time) -->
+                        <div
+                            class="input-group col-span-1 md:col-span-2 flex items-center justify-between mt-2 pt-4 border-t border-slate-100">
+                            <div>
+                                <label class="mb-0 text-slate-700 flex items-center gap-2">
+                                    ¿Requiere Tiempo de Almuerzo?
+                                    <i class="fas fa-info-circle text-blue-500 text-sm cursor-help" title="Deducción Inteligente: El tiempo de almuerzo solo se descontará a metas que superen las 6 horas de corrido (Turnos Full-Time)."></i>
+                                </label>
+                                <p class="text-xs text-slate-500 mt-1">Si se apaga (Part-Time), no se exigirá marcación
+                                    durante la jornada.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="aplicaAlmuerzo" checked onchange="toggleAlmuerzoInput()">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 2. Penalizaciones -->
+                <div>
+                    <h2 class="text-xl font-semibold text-blue-600 mb-2">2. Políticas de Penalización</h2>
+                    <p class="text-sm text-slate-500 mb-5">Define el algoritmo severo para castigar las tardanzas
+                        superada la tolerancia inicial.</p>
+
+                    <!-- Toggle de Penalizaciones (Excepción) -->
+                    <div class="max-w-2xl mb-6 pb-6 border-b border-slate-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label class="mb-0 text-slate-700 font-semibold inline-block">¿Aplican
+                                    Penalizaciones?</label>
+                                <p class="text-xs text-slate-500 mt-1">Si se apaga, las tardanzas no generarán deuda en
+                                    el banco de horas (Ideal para roles con flexibilidad de horario).</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="aplicaPenalizaciones" checked
+                                    onchange="togglePenalizacionInput()">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="input-group mb-5 max-w-md" id="contenedorTipoPenalizacion">
+                        <label>Tipo de Sanción Disciplinaria</label>
+                        <select id="tipoPenalizacion" onchange="toggleTablaEscalas()">
+                            <option value="DESCUENTO_MONETARIO">Descuento Monetario Directo (Clásico)</option>
+                            <option value="DESCUENTO_TIEMPO_DOBLE">Descuento de Tiempo Doble (1 min = 2 min deuda)
+                            </option>
+                            <option value="ESCALONADA_DURA">Escalonada Dura (Bloques fijos de carga al Banco)</option>
+                        </select>
+                    </div>
+
+                    <!-- Editor de Escalas (JSONB) -->
+                    <div id="containerEscalas" class="bg-slate-50 p-4 rounded-lg border border-slate-200 hidden">
+                        <h4 class="font-semibold text-sm text-slate-700 mb-3">Tramos Configurables (Tolerancia Cero)
+                        </h4>
+
+                        <div class="overflow-hidden rounded border border-slate-200 bg-white mb-3">
+                            <table class="w-full text-left text-sm" id="tablaEscalas">
+                                <thead class="bg-slate-100 text-slate-600">
+                                    <tr>
+                                        <th class="py-2 px-3 font-semibold">Minutos Tarde (Desde)</th>
+                                        <th class="py-2 px-3 font-semibold">Minutos Tarde (Hasta)</th>
+                                        <th class="py-2 px-3 font-semibold">Deuda Inyectada (Minutos)</th>
+                                        <th class="py-2 px-3 w-10 text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyEscalas" class="divide-y divide-slate-100">
+                                    <!-- Render via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <button type="button" onclick="agregarFilaEscala()"
+                            class="w-full py-2 bg-white border border-dashed border-slate-300 rounded text-slate-600 font-medium text-sm hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-colors">
+                            <i class="fas fa-plus mr-1"></i> Añadir Tramo de Castigo
+                        </button>
+
+                        <div class="alert-info">
+                            <strong>Nota Lógica:</strong> Los rangos se evalúan secuencialmente. Si el trabajador llega
+                            tarde (por encima de los minutos de gracia iniciales), se buscará en qué rango cae su
+                            tardanza neta y se cargará esa "Deuda Inyectada" directo en su Banco de Horas.
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Botonera -->
+            <div class="flex justify-between items-center pt-2">
+                <button type="button" id="btnRestaurar" onclick="eliminarPoliticaPropia()"
+                    class="hidden text-red-500 hover:text-red-700 font-medium text-sm px-4 py-2">
+                    <i class="fas fa-trash-alt mr-1"></i> Eliminar Reglas de este Empleado (Restaurar Global)
+                </button>
+                <div class="flex-grow"></div>
+                <button type="submit" id="btnGuardar"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition shadow-md font-semibold flex items-center gap-2">
+                    <i class="fas fa-shield-alt"></i> Aplicar Reglas
+                </button>
+            </div>
+
+        </form>
+    </main>
+
+    <script src="sidebar.js"></script>
+    <script>
+        let politicasAcuales = null;
+        let escalasJSON = []; // Array of {de(int), hasta(int), penalizacion_minutos(int)}
+
+        // Parámetros Híbridos
+        const urlParams = new URLSearchParams(window.location.search);
+        const personalId = urlParams.get('personal_id');
+        const personalNombre = urlParams.get('nombre');
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (personalNombre) {
+                document.getElementById('tituloPagina').innerText = "Reglas de Excepción";
+                document.getElementById('subtituloPagina').innerHTML = `<span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold border border-purple-200" style="font-family: Inter;">Trabajador: ${personalNombre}</span>`;
+            }
+
+            if (typeof window.supabaseClient === 'undefined') {
+                setTimeout(iniciarApp, 500);
+            } else {
+                await iniciarApp();
+            }
+        });
+
+        async function iniciarApp() {
+            await cargarPoliticasBD();
+        }
+
+        async function cargarPoliticasBD() {
+            try {
+                let query = window.supabaseClient.from('politicas_asistencia').select('*');
+
+                // Si estamos viendo un trabajador específico, buscar su política
+                if (personalId) {
+                    query = query.eq('personal_id', personalId);
+                } else {
+                    // Ver Política general de la empresa
+                    query = query.is('personal_id', null);
+                }
+
+                const { data, error } = await query.limit(1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    // Política Propia / Global Directa encontrada
+                    politicasAcuales = data[0];
+                    if (personalId) {
+                        document.getElementById('btnRestaurar').classList.remove('hidden');
+                        document.getElementById('alertaHeredada').classList.add('hidden');
+                    }
+                } else if (personalId) {
+                    // Trabajador SIN política propia. Clonaremos la Global para mostrarla.
+                    const { data: globalData, error: globalError } = await window.supabaseClient
+                        .from('politicas_asistencia').select('*').is('personal_id', null).limit(1);
+
+                    if (!globalError && globalData && globalData.length > 0) {
+                        politicasAcuales = globalData[0];
+                        politicasAcuales.id = null; // Important: Force INSERT mode
+                        document.getElementById('alertaHeredada').classList.remove('hidden');
+                        document.getElementById('btnRestaurar').classList.add('hidden');
+                    }
+                }
+
+                if (politicasAcuales) {
+                    escalasJSON = politicasAcuales.escalas_penalizacion || [];
+                    document.getElementById('minutosGracia').value = politicasAcuales.minutos_gracia_tardanza;
+                    document.getElementById('minAlmuerzo').value = politicasAcuales.minutos_almuerzo_esperado;
+                    document.getElementById('tipoPenalizacion').value = politicasAcuales.penalizacion_tipo;
+                    document.getElementById('aplicaAlmuerzo').checked = politicasAcuales.aplicar_descuento_almuerzo !== false;
+                    document.getElementById('aplicaPenalizaciones').checked = politicasAcuales.aplicar_penalizaciones_tardanza !== false;
+                } else {
+                    // Default values de Base
+                    escalasJSON = [
+                        { de: 1, hasta: 30, penalizacion_minutos: 30 },
+                        { de: 31, hasta: 60, penalizacion_minutos: 60 }
+                    ];
+                    document.getElementById('aplicaAlmuerzo').checked = true;
+                    document.getElementById('aplicaPenalizaciones').checked = true;
+                }
+
+                toggleAlmuerzoInput();
+                togglePenalizacionInput();
+                toggleTablaEscalas();
+                renderTablaEscalas();
+
+                // Mostrar Form
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('form-politicas').classList.remove('hidden');
+
+            } catch (err) {
+                console.error(err);
+                alert("Error cargando configuraciones. Ver consola.");
+            }
+        }
+
+        function toggleAlmuerzoInput() {
+            const aplica = document.getElementById('aplicaAlmuerzo').checked;
+            const inputAlmuerzo = document.getElementById('minAlmuerzo');
+            inputAlmuerzo.disabled = !aplica;
+            if (!aplica) {
+                inputAlmuerzo.parentElement.classList.add('opacity-50');
+                inputAlmuerzo.classList.add('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+            } else {
+                inputAlmuerzo.parentElement.classList.remove('opacity-50');
+                inputAlmuerzo.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+            }
+        }
+
+        function togglePenalizacionInput() {
+            const aplica = document.getElementById('aplicaPenalizaciones').checked;
+            const inputTipo = document.getElementById('tipoPenalizacion');
+            const containerEscalas = document.getElementById('containerEscalas');
+
+            inputTipo.disabled = !aplica;
+            if (!aplica) {
+                inputTipo.parentElement.classList.add('opacity-50');
+                inputTipo.classList.add('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                containerEscalas.classList.add('hidden');
+            } else {
+                inputTipo.parentElement.classList.remove('opacity-50');
+                inputTipo.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                toggleTablaEscalas(); // Restaurar visibilidad según selección actual
+            }
+        }
+
+        function toggleTablaEscalas() {
+            const aplicaPen = document.getElementById('aplicaPenalizaciones').checked;
+            if (!aplicaPen) return; // Si la palanca general está apagada, no mostrar
+
+            const select = document.getElementById('tipoPenalizacion');
+            const container = document.getElementById('containerEscalas');
+
+            if (select.value === 'ESCALONADA_DURA') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        // ==========================================
+        // UI JSON EDITOR
+        // ==========================================
+        function renderTablaEscalas() {
+            const tbody = document.getElementById('tbodyEscalas');
+            tbody.innerHTML = '';
+
+            if (escalasJSON.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400 italic">No hay rangos definidos. El sistema no aplicará penalidades adicionales en este modo.</td></tr>`;
+                return;
+            }
+
+            escalasJSON.forEach((escala, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2 px-3">
+                        <input type="number" class="w-20 p-1 border rounded text-center text-sm" value="${escala.de}" onchange="updEscala(${index},'de',this.value)"> min
+                    </td>
+                    <td class="py-2 px-3">
+                        <input type="number" class="w-20 p-1 border rounded text-center text-sm" value="${escala.hasta}" onchange="updEscala(${index},'hasta',this.value)"> min
+                    </td>
+                    <td class="py-2 px-3 font-semibold text-red-600">
+                        <input type="number" class="w-20 p-1 border border-red-200 rounded text-center text-sm font-bold text-red-600" value="${escala.penalizacion_minutos}" onchange="updEscala(${index},'penalizacion_minutos',this.value)"> min al Banco
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        <button type="button" class="btn-icon" onclick="borrarEscala(${index})" title="Remover"><i class="fas fa-times"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function agregarFilaEscala() {
+            let nextDe = 1;
+            if (escalasJSON.length > 0) {
+                nextDe = Number(escalasJSON[escalasJSON.length - 1].hasta) + 1;
+            }
+            escalasJSON.push({ de: nextDe, hasta: nextDe + 29, penalizacion_minutos: 30 });
+            renderTablaEscalas();
+        }
+
+        function borrarEscala(index) {
+            escalasJSON.splice(index, 1);
+            renderTablaEscalas();
+        }
+
+        function updEscala(index, field, val) {
+            escalasJSON[index][field] = parseInt(val) || 0;
+        }
+
+        // ==========================================
+        // GUARDAR/UPSERT/DELETE
+        // ==========================================
+        async function guardarPoliticas() {
+            const btn = document.getElementById('btnGuardar');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+            try {
+                // Recuperar sesion
+                const { data: userData, error: userError } = await window.supabaseClient.auth.getUser();
+                if (userError || !userData.user) throw new Error("No hay usuario autenticado.");
+
+                const { data: perfilData, error: perfilError } = await window.supabaseClient
+                    .from('perfiles_usuario')
+                    .select('empresa_id')
+                    .eq('id', userData.user.id)
+                    .single();
+
+                if (perfilError || !perfilData) throw new Error("Error obteniendo perfil de empresa.");
+
+                const payload = {
+                    empresa_id: perfilData.empresa_id,
+                    minutos_gracia_tardanza: parseInt(document.getElementById('minutosGracia').value) || 0,
+                    minutos_almuerzo_esperado: parseInt(document.getElementById('minAlmuerzo').value) || 0,
+                    penalizacion_tipo: document.getElementById('tipoPenalizacion').value,
+                    escalas_penalizacion: document.getElementById('tipoPenalizacion').value === 'ESCALONADA_DURA' ? escalasJSON : [],
+                    aplicar_descuento_almuerzo: document.getElementById('aplicaAlmuerzo').checked,
+                    aplicar_penalizaciones_tardanza: document.getElementById('aplicaPenalizaciones').checked
+                };
+
+                // Si es modo Híbrido, añadir FK
+                if (personalId) {
+                    payload.personal_id = personalId;
+                }
+
+                let res;
+                if (politicasAcuales && politicasAcuales.id) {
+                    // Update
+                    res = await window.supabaseClient.from('politicas_asistencia')
+                        .update(payload)
+                        .eq('id', politicasAcuales.id);
+                } else {
+                    // Insert
+                    res = await window.supabaseClient.from('politicas_asistencia')
+                        .insert([payload]);
+                }
+
+                if (res.error) throw res.error;
+
+                // Exito
+                btn.classList.replace('bg-blue-600', 'bg-green-600');
+                btn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+                btn.innerHTML = '<i class="fas fa-check"></i> Reglas Aplicadas';
+
+                await cargarPoliticasBD();
+
+                setTimeout(() => {
+                    btn.classList.replace('bg-green-600', 'bg-blue-600');
+                    btn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
+                    btn.innerHTML = '<i class="fas fa-shield-alt"></i> Aplicar Reglas';
+                    btn.disabled = false;
+                }, 2000);
+
+            } catch (err) {
+                console.error(err);
+                alert(err.message || "Error al inyectar reglas. Ver consola.");
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-shield-alt"></i> Aplicar Reglas';
+            }
+        }
+
+        async function eliminarPoliticaPropia() {
+            if (!confirm("¿Deseas restaurar este trabajador a las reglas generales de la empresa?")) return;
+
+            try {
+                const { error } = await window.supabaseClient.from('politicas_asistencia')
+                    .delete()
+                    .eq('id', politicasAcuales.id);
+                if (error) throw error;
+
+                // Recargar como limpia
+                await cargarPoliticasBD();
+            } catch (err) {
+                console.error(err);
+                alert("Error restaurando política.");
+            }
+        }
+
+    </script>
+</body>
+
+</html>
