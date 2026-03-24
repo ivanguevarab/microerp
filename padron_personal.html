@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padrón de Personal - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        .page-container {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Buscador Flotante Estilo Google */
+        .search-box {
+            position: relative;
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 9999px;
+            transition: all 0.3s ease;
+        }
+
+        .search-box:focus-within {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem 1.5rem 1rem 3.5rem;
+            border: 2px solid transparent;
+            border-radius: 9999px;
+            font-size: 1rem;
+            color: #1e293b;
+            background-color: #ffffff;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: #3b82f6;
+            background-color: #f8fafc;
+        }
+
+        .search-input::placeholder {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+        }
+
+        .search-box:focus-within .search-icon {
+            color: #3b82f6;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: #ffffff;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: #ef4444;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            position: sticky;
+            bottom: 0;
+            background: white;
+            z-index: 10;
+        }
+
+        /* Formulario Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-section-title {
+            grid-column: 1 / -1;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 10px;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 5px;
+        }
+
+        /* Estilización de Inputs en Formulario */
+        .input-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.35rem;
+        }
+
+        .input-group input[type="text"],
+        .input-group input[type="number"],
+        .input-group select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #cbd5e1;
+            /* slate-300 */
+            border-radius: 0.375rem;
+            /* rounded-md */
+            font-size: 0.95rem;
+            color: #1e293b;
+            background-color: #f8fafc;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .input-group input[type="text"]:focus,
+        .input-group input[type="number"]:focus,
+        .input-group select:focus {
+            border-color: #3b82f6;
+            /* blue-500 */
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            /* ring light blue */
+        }
+
+        /* Botones de Icono en Tabla */
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .btn-icon.view {
+            color: #3b82f6;
+        }
+
+        .btn-icon.view:hover {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .btn-icon.edit {
+            color: #f59e0b;
+        }
+
+        .btn-icon.edit:hover {
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .btn-icon.delete {
+            color: #ef4444;
+        }
+
+        .btn-icon.delete:hover {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50">
+
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='gestion_de_personal.html'">
+                ← Panel de Personal
+            </button>
+            <h1>Padrón de Personal y Roles</h1>
+            <div class="submodule-version">Registro Maestro</div>
+        </div>
+    </header>
+
+    <main class="page-container">
+
+        <!-- Barra de Herramientas Superior -->
+        <div class="flex justify-between items-start mb-6">
+            <!-- Buscador visual Google -->
+            <div class="search-box">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="searchInput" class="search-input"
+                    placeholder="Buscar por DNI/CE, Nombres, Apellidos, Ocupación o Área..." autocomplete="off">
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="openModal('modal-categorias')"
+                    class="bg-white border text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 transition font-medium shadow-sm">
+                    <i class="fas fa-tags mr-2"></i>Funciones Clave
+                </button>
+                <button onclick="abrirModalTrabajador()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg 
+                             transition shadow-md font-medium flex items-center gap-2">
+                    <i class="fas fa-user-plus"></i> Nuevo Trabajador
+                </button>
+            </div>
+        </div>
+
+        <!-- Pestañas de Macro-Áreas -->
+        <div id="macroTabsContainer" class="flex border-b border-slate-200 mb-6 overflow-x-auto gap-2" style="scrollbar-width: none;">
+            <!-- Renderizado por JS -->
+        </div>
+
+        <!-- Tabla -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left" id="tablaPersonal">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                        <tr>
+                            <th class="py-4 px-6 font-semibold text-sm">Colaborador</th>
+                            <th class="py-4 px-6 font-semibold text-sm">Identidad</th>
+                            <th class="py-4 px-6 font-semibold text-sm">Organización</th>
+                            <th class="py-4 px-6 font-semibold text-sm w-32">Salario Base</th>
+                            <th class="py-4 px-6 font-semibold text-sm w-32">Salario KPI</th>
+                            <th class="py-4 px-6 font-semibold text-sm text-center">Estado</th>
+                            <th class="py-4 px-6 font-semibold text-sm text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-700" id="tbodyPersonal">
+                        <!-- Renderizado por JS -->
+                    </tbody>
+                </table>
+
+                <!-- Loading State -->
+                <div id="loading" class="hidden py-12 flex flex-col items-center justify-center text-slate-500">
+                    <i class="fas fa-circle-notch fa-spin text-3xl text-blue-500 mb-3"></i>
+                    <p>Cargando padrón...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="empty-state" class="hidden py-16 flex flex-col items-center justify-center text-slate-500">
+                    <i class="fas fa-users-slash text-5xl mb-4 text-slate-300"></i>
+                    <p class="text-lg font-medium text-slate-600">No hay trabajadores registrados</p>
+                    <p class="text-sm mt-1">Haz clic en "Nuevo Trabajador" para empezar.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ============================================== -->
+    <!-- MODAL: GESTIÓN DE NUEVO TRABAJADOR -->
+    <!-- ============================================== -->
+    <div id="modal-trabajador" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nuevo Trabajador</h2>
+                <button class="close-btn" onclick="closeModal('modal-trabajador')">&times;</button>
+            </div>
+
+            <form id="form-trabajador" onsubmit="event.preventDefault(); guardarTrabajador();">
+                <div class="modal-body">
+                    <input type="hidden" id="personalId">
+
+                    <div class="form-grid">
+                        <div class="form-section-title">Datos Personales</div>
+
+                        <div class="input-group">
+                            <label>Tipo Doc.</label>
+                            <select id="tipoDoc" required>
+                                <option value="DNI">DNI</option>
+                                <option value="CE">Carné de Extranjería (CE)</option>
+                                <option value="PASAPORTE">Pasaporte</option>
+                                <option value="OTRO">Otro</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Documento de Identidad</label>
+                            <input type="text" id="nroDoc" required autocomplete="off">
+                        </div>
+
+                        <div class="input-group">
+                            <label>Nombres</label>
+                            <input type="text" id="nombres" required autocomplete="off">
+                        </div>
+
+                        <div class="input-group">
+                            <label>Apellidos</label>
+                            <input type="text" id="apellidos" required autocomplete="off">
+                        </div>
+
+                        <div class="form-section-title">Rol en la Empresa</div>
+
+                        <div class="input-group">
+                            <label>Macro-Área / Departamento</label>
+                            <select id="categoriaSelect" required class="w-full">
+                                <option value="" disabled selected>Cargando áreas...</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Ocupación / Cargo Específico</label>
+                            <input type="text" id="cargoRol" required autocomplete="off"
+                                placeholder="Ej: Soldador, Promotora">
+                        </div>
+
+                        <div class="form-section-title">Estructura Remunerativa</div>
+
+                        <div class="input-group">
+                            <label>Monto Salario Base (S/)</label>
+                            <input type="number" step="0.01" id="montoBase" required min="0" value="0.00">
+                            <small class="text-xs text-slate-500 mt-1 block">Afecto a descuentos por tardanza/falta y
+                                base para hora extra.</small>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Remuneración por KPI (S/)</label>
+                            <input type="number" step="0.01" id="montoKpi" required min="0" value="0.00">
+                            <small class="text-xs text-slate-500 mt-1 block">Variable. No afecto a descuentos de tiempo
+                                disciplinarios.</small>
+                        </div>
+
+                        <div class="form-section-title">Configuración de Control</div>
+
+                        <div class="input-group flex items-center justify-between mt-2" style="grid-column: 1 / -1;">
+                            <div>
+                                <label class="mb-0 font-medium">¿Requiere Control de Asistencia (Marcación)?</label>
+                                <p class="text-sm text-slate-500">Los directivos usualmente no marcan.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="requiereMarcacion" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+
+                        <div class="input-group flex items-center justify-between mt-2" style="grid-column: 1 / -1;">
+                            <div>
+                                <label class="mb-0 font-medium">¿Habilitar pago de Horas Extras en Efectivo?</label>
+                                <p class="text-sm text-slate-500">Si está apagado, las horas positivas irán solo al
+                                    Banco de Horas (Canje).</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="pagoHorasExtras">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button"
+                        class="text-slate-500 hover:text-red-500 px-3 py-2 text-sm h-[38px] transition"
+                        onclick="closeModal('modal-trabajador')">Cancelar</button>
+                    <button type="submit"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition shadow-sm font-medium whitespace-nowrap text-sm h-[38px]"
+                        id="btnGuardar">
+                        <i class="fas fa-save mr-1"></i> Guardar Trabajador
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal confirmacion eliminacion -->
+    <div id="modal-confirm-delete" class="modal" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header" style="background-color: #fee2e2;">
+                <h2 class="text-red-700"><i class="fas fa-exclamation-triangle mr-2"></i> Confirmar Eliminación</h2>
+                <button class="close-btn" onclick="closeModal('modal-confirm-delete')">&times;</button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-4 text-slate-700">Estás apunto de borrar físicamente al trabajador <strong
+                        id="delete-name"></strong> de la base de datos.</p>
+                <div class="bg-red-50 p-3 rounded border border-red-200 mb-4 text-sm text-red-800 text-left">
+                    <strong>Peligro:</strong> Se borrará también en cascada su historial de Banco de Horas, asistencias
+                    pasadas y liquidaciones. Esta acción NO se puede deshacer.
+                </div>
+                <p class="text-sm font-semibold mb-2">Para confirmar, escribe la palabra "ELIMINAR" abajo:</p>
+                <input type="text" id="confirmWord"
+                    class="w-full text-center tracking-widest font-bold uppercase border-red-300 focus:border-red-500 focus:ring-red-500"
+                    autocomplete="off">
+            </div>
+            <div class="modal-footer bg-slate-50">
+                <button type="button" class="btn-cancelar"
+                    onclick="closeModal('modal-confirm-delete')">Cancelar</button>
+                <button type="button"
+                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm font-semibold rounded disabled:opacity-50 transition w-full"
+                    id="btnConfirmDelete" disabled>Confirmo Eliminar (Hard Delete)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL: FUNCIONES CLAVE (CATEGORÍAS) -->
+    <!-- ============================================== -->
+    <div id="modal-categorias" class="modal">
+        <div class="modal-content" style="max-width: 650px;">
+            <div class="modal-header">
+                <h2>Gestión de Macro-Áreas</h2>
+                <button class="close-btn" onclick="closeModal('modal-categorias')">&times;</button>
+            </div>
+
+            <div class="modal-body bg-slate-50 border-b border-slate-200">
+                <form id="form-categoria" onsubmit="event.preventDefault(); guardarCategoria();"
+                    class="flex gap-3 items-end">
+                    <input type="hidden" id="categoriaId">
+                    <div class="w-1/3">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-widest mb-1">Nombre
+                            del Área</label>
+                        <input type="text" id="catNombre" required autocomplete="off" placeholder="Ej: Operaciones"
+                            class="w-full text-sm">
+                    </div>
+                    <div class="flex-grow">
+                        <label
+                            class="block text-xs font-semibold text-slate-600 uppercase tracking-widest mb-1">Descripción
+                            (Opcional)</label>
+                        <input type="text" id="catDescripcion" autocomplete="off" placeholder="Función de Fabricación"
+                            class="w-full text-sm">
+                    </div>
+                    <div class="px-3" style="min-width: 130px; transform:translateY(-8px);">
+                        <label class="block text-[10px] font-semibold text-slate-600 uppercase tracking-widest mb-1 text-center" title="Aplica a costos de CUS">¿Costos CUS?</label>
+                        <div class="flex justify-center mt-1">
+                            <label class="switch" style="transform: scale(0.85); margin:0;">
+                                <input type="checkbox" id="catAplicaCus">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" id="btnGuardarCat"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition shadow-sm font-medium whitespace-nowrap text-sm h-[38px]">
+                        <i class="fas fa-save mr-1"></i> Guardar
+                    </button>
+                    <button type="button" onclick="cancelarEdicionCategoria()" id="btnCancelCat"
+                        class="hidden text-slate-500 hover:text-red-500 px-3 py-2 text-sm h-[38px] transition">
+                        Cancelar
+                    </button>
+                </form>
+            </div>
+
+            <div class="modal-body p-0">
+                <div class="max-h-[350px] overflow-y-auto">
+                    <table class="w-full text-left" id="tablaCategorias">
+                        <thead class="bg-white border-b border-slate-200 text-slate-500 sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th class="py-3 px-6 text-xs font-bold uppercase tracking-wider">Macro-Área</th>
+                                <th class="py-3 px-4 text-xs font-bold text-center uppercase tracking-wider" title="Admite Operarios para CUS">CUS M.O.</th>
+                                <th class="py-3 px-6 text-xs font-bold uppercase tracking-wider">Detalle</th>
+                                <th class="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right">Acciones
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-slate-700 bg-white" id="tbodyCategorias">
+                            <!-- Render por JS -->
+                        </tbody>
+                    </table>
+
+                    <div id="loading-cat" class="hidden py-8 text-center text-slate-400">
+                        <i class="fas fa-spinner fa-spin text-2xl"></i>
+                    </div>
+
+                    <div id="empty-cat" class="hidden py-8 text-center text-slate-400">
+                        <i class="fas fa-tags text-4xl mb-2 text-slate-300"></i>
+                        <p class="text-sm">No hay macro-áreas registradas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="sidebar.js"></script>
+    <script>
+        let categoriasApp = []; // Caché en memoria de funciones
+        let personalApp = [];   // Caché en memoria de colaboradores
+        let currentMacroArea = 'Todas'; // Tab activa
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Esperar que auth-guard exponga el obj
+            if (typeof window.supabaseClient === 'undefined') {
+                console.error("No se detecta window.supabaseClient. Esperar a auth-guard.");
+                setTimeout(iniciarApp, 500); // Intento de re-enganche
+            } else {
+                await iniciarApp();
+            }
+
+            // Bind Eventos Locales
+            document.getElementById('searchInput').addEventListener('input', renderTablaPersonal);
+            document.getElementById('confirmWord').addEventListener('input', function () {
+                document.getElementById('btnConfirmDelete').disabled = this.value !== 'ELIMINAR';
+                if (this.value === 'ELIMINAR') {
+                    // Prevenir enter submit accidental
+                    this.addEventListener('keypress', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+                }
+            });
+        });
+
+        async function iniciarApp() {
+            mostrarCarga(true);
+            await cargarCategorias();
+            await cargarPersonal();
+            mostrarCarga(false);
+        }
+
+        // ==========================================
+        // FETCH DATA
+        // ==========================================
+        async function cargarCategorias() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('categorias_personal')
+                    .select('id, nombre, descripcion, cus_mano_obra_areas(activo)')
+                    .eq('activo', true)
+                    .order('nombre', { ascending: true });
+
+                if (error) throw error;
+                
+                categoriasApp = (data || []).map(c => ({
+                    ...c,
+                    aplica_cus: c.cus_mano_obra_areas && c.cus_mano_obra_areas.length > 0 ? c.cus_mano_obra_areas[0].activo : false
+                }));
+                
+                llenarSelectCategorias();
+                renderTablaCategorias(); // Render en el Modal 
+                renderTabs(); // Renderizar pestañas
+            } catch (error) {
+                console.error("Error al cargar categorías:", error);
+                alert("Error cargando Macro-Áreas.");
+            }
+        }
+
+        function llenarSelectCategorias() {
+            const select = document.getElementById('categoriaSelect');
+            select.innerHTML = '<option value="" disabled selected>Seleccione un área / departamento...</option>';
+            categoriasApp.forEach(cat => {
+                select.innerHTML += `<option value="${cat.id}">${cat.nombre}</option>`;
+            });
+        }
+
+        async function cargarPersonal() {
+            try {
+                // Hacemos el join con categorias para traer el nombre
+                const { data, error } = await window.supabaseClient
+                    .from('personal')
+                    .select(`
+                        *,
+                        categorias_personal (nombre)
+                    `)
+                    .order('apellidos', { ascending: true });
+
+                if (error) throw error;
+                personalApp = data || [];
+                renderTablaPersonal();
+            } catch (error) {
+                console.error("Error al cargar personal:", error);
+                mostrarCarga(false); // Detener loop
+            }
+        }
+
+        // ==========================================
+        // RENDER UI
+        // ==========================================
+        function renderTabs() {
+            const tabsContainer = document.getElementById('macroTabsContainer');
+            if (!tabsContainer) return;
+
+            tabsContainer.innerHTML = '';
+
+            // Definir todas las áreas disponibles, empezando por "Todas"
+            const areas = ['Todas', ...categoriasApp.map(c => c.nombre).sort()];
+
+            areas.forEach(area => {
+                const btn = document.createElement('button');
+                
+                // Estilos base y dinámicos
+                const baseClasses = "px-5 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors focus:outline-none";
+                const activeClasses = "border-blue-600 text-blue-600";
+                const inactiveClasses = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300";
+
+                btn.className = `${baseClasses} ${area === currentMacroArea ? activeClasses : inactiveClasses}`;
+                btn.innerText = area;
+
+                btn.onclick = () => {
+                    currentMacroArea = area;
+                    renderTabs(); // Re-render tabs for active state
+                    renderTablaPersonal(); // Filter table
+                };
+
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function renderTablaPersonal() {
+            const tbody = document.getElementById('tbodyPersonal');
+            const emptyState = document.getElementById('empty-state');
+            const termino = document.getElementById('searchInput').value.toLowerCase();
+
+            tbody.innerHTML = '';
+
+            const filtrados = personalApp.filter(p => {
+                const catNombre = p.categorias_personal ? p.categorias_personal.nombre : '';
+
+                // Filtro por pestaña (Macro-Área)
+                if (currentMacroArea !== 'Todas' && catNombre !== currentMacroArea) {
+                    return false;
+                }
+
+                // Búsqueda inteligente
+                const nombreCompletoStr = `${p.apellidos}, ${p.nombres}`.toLowerCase();
+                const docStr = p.documento_identidad.toLowerCase();
+                const catStr = (p.categorias_personal?.nombre || '').toLowerCase();
+                const rolStr = (p.cargo_rol || '').toLowerCase();
+
+                return nombreCompletoStr.includes(termino) || docStr.includes(termino) || catStr.includes(termino) || rolStr.includes(termino);
+            });
+
+            if (filtrados.length === 0) {
+                emptyState.classList.remove('hidden');
+                document.getElementById('tablaPersonal').parentElement.classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            document.getElementById('tablaPersonal').parentElement.classList.remove('hidden');
+
+            filtrados.forEach(trabajador => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors group';
+
+                // Format Moneda Local Standard
+                const formatoMoneda = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+                const baseS = formatoMoneda.format(trabajador.monto_salario_base);
+                const kpiS = formatoMoneda.format(trabajador.monto_salario_kpi);
+
+                const catNombre = trabajador.categorias_personal ? trabajador.categorias_personal.nombre : 'Sin Asignar';
+                const colorTextoCat = trabajador.activo ? 'text-blue-700' : 'text-slate-400';
+
+                const estadoBage = trabajador.activo
+                    ? '<span class="bg-green-100 text-green-800 text-xs font-bold px-2.5 py-1 rounded-full border border-green-200">Activo</span>'
+                    : '<span class="bg-red-100 text-red-800 text-xs font-bold px-2.5 py-1 rounded-full border border-red-200">Inactivo</span>';
+
+                tr.innerHTML = `
+                    <td class="py-4 px-6">
+                        <div class="font-bold text-slate-800">${trabajador.apellidos}, ${trabajador.nombres}</div>
+                    </td>
+                    <td class="py-4 px-6 text-sm">
+                        <span class="text-xs font-bold text-slate-400">${trabajador.tipo_documento}</span><br>
+                        ${trabajador.documento_identidad}
+                    </td>
+                    <td class="py-4 px-6">
+                        <span class="font-semibold ${colorTextoCat}">${catNombre}</span><br>
+                        <span class="text-xs text-slate-500">${trabajador.cargo_rol || 'Por Definir'}</span>
+                    </td>
+                    <td class="py-4 px-6 font-medium text-slate-700">
+                        ${baseS}
+                    </td>
+                    <td class="py-4 px-6 font-medium text-slate-700">
+                        ${kpiS}
+                    </td>
+                    <td class="py-4 px-6 text-center">
+                        ${estadoBage}
+                    </td>
+                    <td class="py-4 px-6 text-right">
+                        <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="btn-icon view" title="Ver Expediente (Próximamente)"><i class="fas fa-eye"></i></button>
+                            <button class="btn-icon view" onclick="configurarPoliticaTrabajador('${trabajador.id}', '${trabajador.nombres} ${trabajador.apellidos}')" title="Políticas Individuales de Asistencia"><i class="fas fa-cog text-slate-500 hover:text-purple-600"></i></button>
+                            <button class="btn-icon edit" onclick="editarTrabajador('${trabajador.id}')" title="Editar"><i class="fas fa-pen"></i></button>
+                            <button class="btn-icon delete" onclick="abrirConfirmacionEliminar('${trabajador.id}', '${trabajador.apellidos}, ${trabajador.nombres}')" title="Eliminar (Físico)"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function mostrarCarga(mostrar) {
+            const tableContainer = document.getElementById('tablaPersonal').parentElement;
+            const loader = document.getElementById('loading');
+            const empty = document.getElementById('empty-state');
+
+            if (mostrar) {
+                tableContainer.classList.add('hidden');
+                empty.classList.add('hidden');
+                loader.classList.remove('hidden');
+            } else {
+                loader.classList.add('hidden');
+                // renderTablaPersonal ya maneja el toggle table/empty
+            }
+        }
+
+        function configurarPoliticaTrabajador(id, nombreCompleto) {
+            window.location.href = `politicas_empresa.html?personal_id=${id}&nombre=${encodeURIComponent(nombreCompleto)}`;
+        }
+
+        // ==========================================
+        // CATEGORÍAS (Funciones Clave) - UI & CRUD
+        // ==========================================
+        function renderTablaCategorias() {
+            const tbody = document.getElementById('tbodyCategorias');
+            const empty = document.getElementById('empty-cat');
+            tbody.innerHTML = '';
+
+            if (categoriasApp.length === 0) {
+                empty.classList.remove('hidden');
+                document.getElementById('tablaCategorias').classList.add('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            document.getElementById('tablaCategorias').classList.remove('hidden');
+
+            categoriasApp.forEach(cat => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 group transition-colors';
+
+                tr.innerHTML = `
+                    <td class="py-3 px-6 font-semibold text-slate-800 text-sm whitespace-nowrap">${cat.nombre}</td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${cat.aplica_cus ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}">
+                            ${cat.aplica_cus ? 'SÍ' : 'NO'}
+                        </span>
+                    </td>
+                    <td class="py-3 px-6 text-sm text-slate-500 truncate max-w-[200px]" title="${cat.descripcion || '-'}">${cat.descripcion || '-'}</td>
+                    <td class="py-3 px-4 text-right">
+                        <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button type="button" class="btn-icon edit h-8 w-8 text-xs" onclick="editarCategoria('${cat.id}')" title="Editar"><i class="fas fa-pen"></i></button>
+                            <button type="button" class="btn-icon delete h-8 w-8 text-xs" onclick="eliminarCategoria('${cat.id}', '${cat.nombre}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function guardarCategoria() {
+            const btn = document.getElementById('btnGuardarCat');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                const id = document.getElementById('categoriaId').value;
+                const nombre = document.getElementById('catNombre').value.trim();
+                const descripcion = document.getElementById('catDescripcion').value.trim();
+                const aplicaCus = document.getElementById('catAplicaCus').checked;
+
+                const { data: userData, error: userError } = await window.supabaseClient.auth.getUser();
+                if (userError || !userData.user) throw new Error("Sesión inválida.");
+
+                const { data: pData } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', userData.user.id).single();
+
+                const payload = {
+                    nombre: nombre,
+                    descripcion: descripcion
+                };
+
+                let savedCatId = id;
+
+                if (id) {
+                    // Update
+                    const { error } = await window.supabaseClient.from('categorias_personal').update(payload).eq('id', id);
+                    if (error) {
+                        if (error.code === '23505') throw new Error("Ya existe una Macro-Área con ese nombre.");
+                        throw error;
+                    }
+                } else {
+                    // Insert
+                    payload.empresa_id = pData.empresa_id;
+                    const { data: newCat, error } = await window.supabaseClient.from('categorias_personal').insert([payload]).select().single();
+                    if (error) {
+                        if (error.code === '23505') throw new Error("Ya existe una Macro-Área con ese nombre.");
+                        throw error;
+                    }
+                    if (newCat) savedCatId = newCat.id;
+                }
+
+                // --- Guardar config de CUS MO ---
+                if (savedCatId) {
+                    const { data: existingCus } = await window.supabaseClient
+                        .from('cus_mano_obra_areas')
+                        .select('id')
+                        .eq('categoria_id', savedCatId)
+                        .single();
+                    
+                    if (existingCus) {
+                        await window.supabaseClient.from('cus_mano_obra_areas').update({ activo: aplicaCus }).eq('id', existingCus.id);
+                    } else {
+                        await window.supabaseClient.from('cus_mano_obra_areas').insert([{
+                            empresa_id: pData.empresa_id,
+                            categoria_id: savedCatId,
+                            activo: aplicaCus
+                        }]);
+                    }
+                }
+                // --------------------------------
+
+                cancelarEdicionCategoria(); // Reset form local
+                await cargarCategorias(); // Rehidratar listas y select
+                await cargarPersonal();   // Por si la empresa le cambió el nombre a una categoría en uso, re-renderizar tabla maestra
+
+            } catch (error) {
+                alert(error.message || "Error al guardar Macro-Área.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save mr-1"></i> Guardar';
+            }
+        }
+
+        function editarCategoria(id) {
+            const cat = categoriasApp.find(c => c.id === id);
+            if (!cat) return;
+            document.getElementById('categoriaId').value = cat.id;
+            document.getElementById('catNombre').value = cat.nombre;
+            document.getElementById('catDescripcion').value = cat.descripcion || '';
+            document.getElementById('catAplicaCus').checked = cat.aplica_cus || false;
+            document.getElementById('btnCancelCat').classList.remove('hidden');
+            document.getElementById('btnGuardarCat').innerHTML = '<i class="fas fa-save mr-1"></i> Actualizar';
+        }
+
+        function cancelarEdicionCategoria() {
+            document.getElementById('form-categoria').reset();
+            document.getElementById('categoriaId').value = '';
+            document.getElementById('btnCancelCat').classList.add('hidden');
+            document.getElementById('btnGuardarCat').innerHTML = '<i class="fas fa-save mr-1"></i> Guardar';
+        }
+
+        async function eliminarCategoria(id, nombre) {
+            if (!confirm(`¿Deseas eliminar físicamente la Macro-Área "${nombre}"?\n\nSolo se podrá si ningún trabajador la tiene asignada.`)) return;
+
+            try {
+                const { error } = await window.supabaseClient.from('categorias_personal').delete().eq('id', id);
+                if (error) {
+                    if (error.code === '23503') throw new Error("Operación Denegada: Hay trabajadores asignados a esta Macro-Área en el padrón actual.");
+                    throw error;
+                }
+                await cargarCategorias(); // Refresco
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // ==========================================
+        // UI Modales Base
+        // ==========================================
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        window.onclick = function (event) {
+            if (event.target.classList.contains('modal')) {
+                closeModal(event.target.id);
+            }
+        }
+
+        // ==========================================
+        // ACCIONES (Abrir Crear/Editar)
+        // ==========================================
+        function abrirModalTrabajador() {
+            document.getElementById('form-trabajador').reset();
+            document.getElementById('personalId').value = '';
+            document.getElementById('modalTitle').textContent = 'Nuevo Trabajador';
+
+            // Valores default
+            document.getElementById('tipoDoc').value = 'DNI';
+            document.getElementById('nroDoc').value = ''; // Clear DNI
+            document.getElementById('nombres').value = ''; // Clear Nombres
+            document.getElementById('apellidos').value = ''; // Clear Apellidos
+            document.getElementById('categoriaSelect').value = ''; // Clear categoria
+            document.getElementById('cargoRol').value = ''; // Clear cargoRol
+            document.getElementById('montoBase').value = '0.00';
+            document.getElementById('montoKpi').value = '0.00';
+            document.getElementById('requiereMarcacion').checked = true;
+            document.getElementById('pagoHorasExtras').checked = false;
+
+            if (categoriasApp.length === 0) {
+                alert("Advertencia: No hay Macro-Áreas creadas. Debe crear una desde el botón 'Funciones Clave' antes de poder registrar un trabajador.");
+                return;
+            }
+
+            openModal('modal-trabajador');
+        }
+
+        function editarTrabajador(id) {
+            const target = personalApp.find(p => p.id === id);
+            if (!target) return;
+
+            document.getElementById('form-trabajador').reset();
+            document.getElementById('personalId').value = target.id;
+            document.getElementById('modalTitle').textContent = 'Editar Trabajador';
+
+            document.getElementById('tipoDoc').value = target.tipo_documento;
+            document.getElementById('nroDoc').value = target.documento_identidad;
+            document.getElementById('nombres').value = target.nombres;
+            document.getElementById('apellidos').value = target.apellidos;
+            document.getElementById('categoriaSelect').value = target.categoria_id;
+            document.getElementById('cargoRol').value = target.cargo_rol;
+
+            document.getElementById('montoBase').value = target.monto_salario_base;
+            document.getElementById('montoKpi').value = target.monto_salario_kpi;
+
+            document.getElementById('requiereMarcacion').checked = target.requiere_marcacion;
+            document.getElementById('pagoHorasExtras').checked = target.pago_horas_extras_habilitado;
+
+            openModal('modal-trabajador');
+        }
+
+        // ==========================================
+        // GUARDAR TRABAJADOR (CREAR / EDITAR)
+        // ==========================================
+        async function guardarTrabajador() {
+            const btn = document.getElementById('btnGuardar');
+            btn.disabled = true;
+            btn.textContent = 'Guardando...';
+
+            try {
+                // Recuperar sesion
+                const { data: userData, error: userError } = await window.supabaseClient.auth.getUser();
+                if (userError || !userData.user) throw new Error("No hay usuario autenticado.");
+
+                const { data: perfilData, error: perfilError } = await window.supabaseClient
+                    .from('perfiles_usuario')
+                    .select('empresa_id')
+                    .eq('id', userData.user.id)
+                    .single();
+
+                if (perfilError || !perfilData) throw new Error("Error obteniendo perfil de empresa.");
+
+                const id = document.getElementById('personalId').value;
+                const payload = {
+                    nombres: document.getElementById('nombres').value.trim(),
+                    apellidos: document.getElementById('apellidos').value.trim(),
+                    tipo_documento: document.getElementById('tipoDoc').value,
+                    documento_identidad: document.getElementById('nroDoc').value.trim(),
+                    categoria_id: document.getElementById('categoriaSelect').value,
+                    cargo_rol: document.getElementById('cargoRol').value.trim(),
+                    monto_salario_base: parseFloat(document.getElementById('montoBase').value || 0),
+                    monto_salario_kpi: parseFloat(document.getElementById('montoKpi').value || 0),
+                    requiere_marcacion: document.getElementById('requiereMarcacion').checked,
+                    pago_horas_extras_habilitado: document.getElementById('pagoHorasExtras').checked
+                };
+
+                // Validaciones Básicas
+                if (!payload.nombres || !payload.apellidos || !payload.documento_identidad || !payload.categoria_id || !payload.cargo_rol) {
+                    throw new Error("Por favor completa los campos obligatorios.");
+                }
+
+                if (id) {
+                    // MODO EDICIÓN
+                    const { error } = await window.supabaseClient
+                        .from('personal')
+                        .update(payload)
+                        .eq('id', id);
+                    if (error) throw error;
+                    alert("Trabajador actualizado correctamente.");
+                } else {
+                    // MODO CREACIÓN
+                    payload.empresa_id = perfilData.empresa_id;
+                    const { error } = await window.supabaseClient
+                        .from('personal')
+                        .insert([payload]);
+                    if (error) {
+                        if (error.code === '23505') throw new Error("Ya existe un trabajador con ese número de documento en la empresa.");
+                        throw error;
+                    }
+                    alert("Trabajador registrado correctamente.");
+                }
+
+                closeModal('modal-trabajador');
+                await cargarPersonal(); // Refrescar grilla
+
+            } catch (error) {
+                console.error("Error Guardando Trabajador:", error);
+                alert(error.message || "Error al guardar el trabajador.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Guardar Trabajador';
+            }
+        }
+
+        // ==========================================
+        // HARD DELETE (Eliminar Físico)
+        // ==========================================
+        let idParaEliminar = null;
+        function abrirConfirmacionEliminar(id, nombre) {
+            idParaEliminar = id;
+            document.getElementById('delete-name').textContent = nombre;
+            document.getElementById('confirmWord').value = '';
+            document.getElementById('btnConfirmDelete').disabled = true;
+            openModal('modal-confirm-delete');
+        }
+
+        // Agregar evento al boton eliminar real
+        document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
+            if (!idParaEliminar) return;
+            const btn = document.getElementById('btnConfirmDelete');
+
+            btn.disabled = true;
+            btn.textContent = 'Eliminando...';
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('personal')
+                    .delete()
+                    .eq('id', idParaEliminar);
+
+                if (error) {
+                    // Si el error es de restricción de llave foránea porque ya tiene asistencias o pagos
+                    if (error.code === '23503') {
+                        throw new Error("No se puede eliminar físicamente este trabajador porque ya tiene asistencias o historial asociado. Sugiérele a Soporte que cambie su estado a 'Inactivo' en vez de borrarlo.");
+                    }
+                    throw error;
+                }
+
+                alert("Trabajador eliminado definitivamente.");
+                closeModal('modal-confirm-delete');
+                await cargarPersonal(); // Refrescar
+
+            } catch (error) {
+                console.error("Error en Delete:", error);
+                alert(error.message || "Error al eliminar trabajador.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Confirmo Eliminar (Hard Delete)';
+                idParaEliminar = null;
+            }
+        });
+
+    </script>
+</body>

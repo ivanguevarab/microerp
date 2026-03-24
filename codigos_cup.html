@@ -1,0 +1,1717 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Producción (CUP) | MICRO ERP</title>
+    <!-- JsBarcode -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <!-- Iconos -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Supabase -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="styles.css">
+    <script src="sidebar.js"></script>
+
+
+    <style>
+        /* --- ESTILOS CORPORATIVOS --- */
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --background-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-color: #0f172a;
+            --border-color: #e2e8f0;
+            --success-color: #22c55e;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+        }
+
+        /* Resets conflictivos eliminados */
+
+        body {
+            /* Background controlado por styles.css o variable local si es necesario, pero alineado */
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* USER PROFILE (Header Right) */
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 16px;
+            border-radius: 30px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            background: white;
+            color: #354a5f;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* MAIN CONTAINER */
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        /* CARDS */
+        .card {
+            background: var(--surface-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+        }
+
+        /* STATS GRID */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            color: var(--secondary-color);
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ACTION BAR */
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .search-box {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* TABLE */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        thead {
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th,
+        td {
+            padding: 1rem;
+            text-align: left;
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--secondary-color);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            border-bottom: 1px solid #f1f5f9;
+            color: var(--text-color);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        /* BADGES */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .bg-slate {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .bg-blue {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .bg-green {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .bg-red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* BUTTONS ICON */
+        .btn-icon-group {
+            display: flex;
+            gap: 6px;
+            justify-content: flex-end;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+            color: var(--secondary-color);
+        }
+
+        .btn-icon:hover {
+            background: #f1f5f9;
+            color: var(--primary-color);
+        }
+
+        /* MODALS */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+        }
+
+        .modal-header h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            background: #f8fafc;
+        }
+
+        /* FORMS IN MODAL */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--secondary-color);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        /* SEARCH DROPDOWN */
+        .search-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-top: 4px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 50;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* PRINT SPECIFICS */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            /* --- IMPRESIÓN ETIQUETA --- */
+            body.print-etiqueta #modal-etiqueta,
+            body.print-etiqueta #modal-etiqueta * {
+                visibility: visible;
+            }
+
+            body.print-etiqueta #modal-etiqueta {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            body.print-etiqueta #modal-etiqueta .modal-content {
+                width: 5cm !important;
+                height: 10cm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none;
+                border: none;
+            }
+
+            body.print-etiqueta #etiqueta-content {
+                transform: scale(0.85);
+                transform-origin: top center;
+            }
+
+            /* --- IMPRESIÓN TRAZABILIDAD --- */
+            body.print-traceability #modal-traceability,
+            body.print-traceability #modal-traceability * {
+                visibility: visible;
+            }
+
+            body.print-traceability #modal-traceability {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: auto;
+                /* Anular altura fija */
+                background: white;
+                display: block;
+                /* Flujo natural */
+            }
+
+            body.print-traceability .modal-content {
+                box-shadow: none;
+                border: none;
+                width: 100%;
+                max-width: none;
+            }
+
+            body.print-traceability .table-container {
+                overflow: visible !important;
+                max-height: none !important;
+            }
+
+            body.print-traceability table tr {
+                page-break-inside: avoid;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Auth Guard -->
+    <script src="auth-guard.js"></script>
+
+    <!-- HEADER -->
+    <!-- HEADER -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='gestion_produccion_y_servicios.html'">
+                ← Volver
+            </button>
+            <h1>Órdenes de Producción (CUP)</h1>
+            <div class="submodule-version">MICRO ERP v2.0</div>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- STATS SUMMARY -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number text-slate-400" id="count-no-iniciado">0</div>
+                <div class="stat-label">No Iniciados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number text-blue-600" id="count-en-proceso" style="color: var(--primary-color);">0
+                </div>
+                <div class="stat-label">En Proceso</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number text-green-600" id="count-terminado" style="color: var(--success-color);">0
+                </div>
+                <div class="stat-label">Terminados</div>
+            </div>
+        </div>
+
+        <!-- ACTION BAR -->
+        <div class="action-bar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar por código, cliente o descripción..."
+                    class="search-input">
+                <i class="fas fa-search search-icon"></i>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="openConfigMoCUP()" class="btn-icon" style="background-color: white; border: 1px solid var(--border-color); border-radius: 8px; width: 42px; height: 42px;" title="Configurar Macro-Áreas CUP">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button onclick="openModal()" class="btn-primary">
+                    <i class="fas fa-plus"></i> Nueva Orden
+                </button>
+            </div>
+        </div>
+
+        <!-- TABLE -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código CUP</th>
+                        <th>Descripción Producto</th>
+                        <th>Cliente / Destino</th>
+                        <th style="text-align: center;">Estado</th>
+                        <th style="text-align: center;">Fechas</th>
+                        <th style="text-align: right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="cupList">
+                    <!-- JS Injected -->
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 10px; color: var(--secondary-color); font-size: 0.875rem; text-align: right;"
+            id="total-registros">
+            Cargando registros...
+        </div>
+
+    </div>
+
+    <!-- MODAL PRINCIPAL (CREAR/EDITAR) -->
+    <div id="modal-cup" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 id="modal-title">Nueva Orden</h3>
+                <button onclick="closeModal()" class="btn-icon"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="cupForm">
+                    <input type="hidden" id="cup_id">
+
+                    <div class="form-group">
+                        <label>Tipo de Producción</label>
+                        <div class="radio-group" style="padding: 0.5rem; background: #f8fafc; border-radius: 8px;">
+                            <label class="radio-option">
+                                <input type="radio" name="tipo_produccion" value="stock" checked
+                                    onchange="toggleClientField(false)">
+                                Para Stock (Exhibición)
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="tipo_produccion" value="pedido"
+                                    onchange="toggleClientField(true)">
+                                Bajo Pedido (Cliente)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Código CUP (PROD-Año-Mes-X)</label>
+                            <input type="text" id="codigo" readonly
+                                style="background-color: #f1f5f9; font-family: monospace; font-weight: bold;">
+                        </div>
+
+                        <!-- CLIENTE SEARCH -->
+                        <div class="form-group relative" id="cliente-container"
+                            style="opacity: 0.5; pointer-events: none;">
+                            <label>Cliente Solicitante *</label>
+                            <input type="text" id="cliente_search" placeholder="Buscar cliente (Nombre/RUC)..."
+                                autocomplete="off">
+                            <input type="hidden" id="cliente_id">
+                            <div id="cliente-dropdown" class="search-dropdown hidden"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción del Producto *</label>
+                        <input type="text" id="descripcion" required placeholder="Ej. Mesa de Caoba 120x80">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Fecha Inicio</label>
+                            <input type="date" id="fecha_inicio" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Estado</label>
+                            <select id="estado" onchange="toggleFechaFin()">
+                                <option value="NO_INICIADO">No Iniciado</option>
+                                <option value="EN_PROCESO">En Proceso</option>
+                                <option value="TERMINADO">Terminado</option>
+                                <option value="ANULADO">Anulado</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Fin</label>
+                            <input type="date" id="fecha_fin" disabled>
+                        </div>
+                    </div>
+
+                    <!-- MÓDULO HORAS HOMBRE EN CREAR/EDITAR -->
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--primary-color);">Mano de Obra (Personal Involucrado)</h4>
+                            <button type="button" onclick="agregarFilaManoObra()" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
+                                <i class="fas fa-plus"></i> Añadir Participante
+                            </button>
+                        </div>
+                        
+                        <div class="table-container" style="max-height: 250px; overflow-y: auto; overflow-x: auto;">
+                            <table style="min-width: 600px;">
+                                <thead style="background: #f1f5f9;">
+                                    <tr>
+                                        <th style="padding: 8px;">Trabajador</th>
+                                        <th style="padding: 8px; width: 130px;">Fecha Labor</th>
+                                        <th style="padding: 8px; width: 100px;">Horas</th>
+                                        <th style="padding: 8px;">Responsabilidad / Tarea</th>
+                                        <th style="padding: 8px; width: 50px; text-align: center;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="moList">
+                                    <tr id="moEmpty"><td colspan="5" style="text-align: center; color: #94a3b8; font-style: italic; padding: 15px;">Sin personal asignado aún</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p style="font-size: 0.75rem; color: #64748b; margin-top: 8px;">
+                            <i class="fas fa-info-circle"></i> Solo se listarán trabajadores de Macro-Áreas habilitadas para Producción (CUP). 
+                            El Costo Hora Efectiva se calculará al guardar.
+                        </p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal()" class="btn-icon"
+                    style="width: auto; padding: 0 20px; border: 1px solid var(--border-color);">Cancelar</button>
+                <button onclick="saveCup()" class="btn-primary">Guardar Orden</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIGURACION MO -->
+    <div id="modal-config-mo" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-cogs" style="color: var(--primary-color);"></i> Configurar Macro-Áreas</h3>
+                <button onclick="closeConfigMoCUP()" class="btn-icon"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--secondary-color); margin-bottom: 1rem;">
+                    Habilita qué Macro-Áreas de la empresa están autorizadas para generar Costo por Mano de Obra en las órdenes de Producción (CUP).
+                </p>
+                <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Macro-Área (Función Clave)</th>
+                                <th style="text-align: center;">Participa en CUP</th>
+                            </tr>
+                        </thead>
+                        <tbody id="configMoList">
+                            <tr><td colspan="2" style="text-align: center;">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                 <p style="font-size: 0.75rem; color: #64748b;">Los cambios se guardan automáticamente al alternar.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ELIMINAR CUP -->
+    <div id="modal-delete" class="modal transition-opacity duration-300">
+        <div class="modal-content relative bg-white rounded-2xl shadow-2xl flex flex-col items-center transform transition-all duration-300" style="width: 100%; max-width: 420px; padding: 2.5rem 2rem; border-top: none;">
+            
+            <!-- Icon Container (Animated Pulse) -->
+            <div class="flex items-center justify-center h-20 w-20 rounded-full bg-red-100 shadow-[0_0_20px_rgba(220,38,38,0.3)] mb-6 ring-4 ring-red-50">
+                <i class="fas fa-trash-alt text-3xl text-red-600"></i>
+            </div>
+            
+            <h3 class="text-2xl font-extrabold text-gray-900 mb-2 text-center tracking-tight" style="margin-top: 0; margin-bottom: 0.5rem; font-size: 1.5rem;">
+                ¿Eliminar Orden?
+            </h3>
+            
+            <p class="text-[0.95rem] text-gray-500 mb-6 text-center leading-relaxed px-2" style="font-size: 0.95rem; margin-bottom: 1.5rem; color: #64748b;">
+                Está a punto de eliminar físicamente la orden <strong id="delete-codigo" class="text-gray-800 bg-gray-100 px-2 py-0.5 rounded"></strong>. Esta acción es profundamente irreversible. Para confirmar su total destrucción, escriba la palabra <strong class="text-red-600 bg-red-50 px-2 py-0.5 rounded" style="color: #dc2626;">ELIMINAR</strong>.
+            </p>
+            
+            <div class="w-full mb-6" style="width: 100%; margin-bottom: 1.5rem;">
+                <input type="text" id="delete-confirm-text" 
+                    class="w-full text-center font-black tracking-[0.2em] text-gray-700 bg-gray-50 border-2 border-gray-200 rounded-xl py-3 focus:outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100 transition-all duration-200 uppercase placeholder-gray-300 shadow-inner" 
+                    style="width: 100%; text-align: center; font-weight: 900; letter-spacing: 0.2rem; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 0.75rem; background-color: #f8fafc;"
+                    placeholder="ELIMINAR" 
+                    oninput="document.getElementById('btn-confirm-delete').disabled = (this.value.trim().toUpperCase() !== 'ELIMINAR')">
+            </div>
+            
+            <input type="hidden" id="delete-id">
+            
+            <div class="flex gap-3 justify-center w-full mt-2" style="display: flex; gap: 0.75rem; width: 100%; justify-content: center;">
+                <button onclick="document.getElementById('modal-delete').classList.remove('active')" 
+                    class="flex-1 bg-white border-2 border-gray-200 text-gray-600 font-bold py-3 px-4 rounded-xl hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-100"
+                    style="flex: 1; padding: 0.75rem 1rem; border: 2px solid #e2e8f0; border-radius: 0.75rem; background-color: white; color: #475569; font-weight: bold; cursor: pointer;">
+                    Cancelar
+                </button>
+                <button id="btn-confirm-delete" onclick="executeDeleteCUP()" 
+                    class="flex-1 bg-gradient-to-r from-red-600 to-red-500 text-white font-bold py-3 px-4 rounded-xl shadow-[0_4px_14px_rgba(220,38,38,0.4)] hover:shadow-[0_6px_20px_rgba(220,38,38,0.6)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none" 
+                    style="flex: 1; padding: 0.75rem 1rem; border: none; border-radius: 0.75rem; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; font-weight: bold; cursor: pointer; box-shadow: 0 4px 14px rgba(220,38,38,0.4);" disabled>
+                    <i class="fas fa-fire mr-1"></i> Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL TRAZABILIDAD -->
+    <div id="modal-traceability" class="modal">
+        <div class="modal-content" style="max-width: 1100px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="trace-title"><i class="fas fa-chart-line" style="color: var(--primary-color);"></i>
+                        Trazabilidad</h3>
+                    <p id="trace-subtitle"
+                        style="font-size: 0.8rem; color: var(--secondary-color); font-family: monospace;">...</p>
+                </div>
+                <button onclick="closeTraceability()" class="btn-icon"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <!-- KPI CARDS -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
+                    <div style="padding: 1rem; background: #eff6ff; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #1e40af; font-weight: bold; text-transform: uppercase;">
+                            Costo Total</div>
+                        <div id="trace-total-cost" style="font-size: 1.5rem; font-weight: bold; color: #1e3a8a;">S/ 0.00
+                        </div>
+                    </div>
+                    <div style="padding: 1rem; background: #f0fdf4; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #166534; font-weight: bold; text-transform: uppercase;">
+                            Items</div>
+                        <div id="trace-total-items" style="font-size: 1.5rem; font-weight: bold; color: #14532d;">0
+                        </div>
+                    </div>
+                    <div style="padding: 1rem; background: #faf5ff; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #6b21a8; font-weight: bold; text-transform: uppercase;">
+                            Movimientos</div>
+                        <div id="trace-total-movements" style="font-size: 1.5rem; font-weight: bold; color: #581c87;">0
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLE -->
+                <div class="table-container" style="max-height: 55vh; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Ref.</th>
+                                <th>Insumo</th>
+                                <th style="text-align: right;">Cant</th>
+                                <th style="text-align: right;">Costo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trace-list"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button onclick="printTraceability()" class="btn-icon" style="width: auto; gap: 8px;">
+                    <i class="fas fa-print"></i> Imprimir Reporte
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ETIQUETA -->
+    <div id="modal-etiqueta" class="modal">
+        <div class="modal-content" style="max-width: 400px; padding: 0;">
+            <div id="etiqueta-content" class="modal-body" style="text-align: center; border-bottom: 2px dashed #ccc;">
+                <h2 id="lbl-producto"
+                    style="font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; text-transform: uppercase;">
+                    PRODUCTO</h2>
+                <svg id="lbl-barcode" style="width: 100%; max-width: 300px;"></svg>
+                <p id="lbl-cup" style="font-family: monospace; font-size: 1.2rem; font-weight: bold; margin-top: 5px;">
+                    PROD-YYYY-MM-XXXXXX</p>
+            </div>
+            <div class="modal-footer no-print">
+                <span style="margin-right: auto; font-size: 0.7rem; color: #888;">Formato 10x5cm</span>
+                <button onclick="closeModalEtiqueta()" class="btn-icon" style="width: auto;">Cerrar</button>
+                <button onclick="window.print()" class="btn-primary" style="background: #1e293b;">
+                    <i class="fas fa-print"></i> Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- LOGICA IMPORTADA Y ADAPTADA ---
+
+        // 1. Inicialización y Perfil
+        async function initModule() {
+            try {
+                // Get User
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (!user) window.location.href = 'index.html';
+
+                // Get Profile & Enterprise
+                const { data: perfil } = await supabaseClient
+                    .from('perfiles_usuario')
+                    .select('empresa_id, nombre_completo, rol')
+                    .eq('id', user.id)
+                    .single();
+
+                if (!perfil) throw new Error('Sin perfil');
+
+                // Set Global
+                window.currentEmpresaId = perfil.empresa_id;
+
+                // Update Header UI (Profile Logic)
+                // Update Header UI (Legacy removed)
+                // document.getElementById('userDisplay').innerText = perfil.nombre_completo || 'Usuario';
+                // document.getElementById('userAvatar').innerText = (perfil.nombre_completo || 'U').charAt(0).toUpperCase();
+
+                // Load Data
+                await loadCUPs();
+                setupSearch(); // Local Search
+                setupClientSearch(); // Modal Client Search
+
+            } catch (error) {
+                console.error("Init Error:", error);
+                document.getElementById('userDisplay').innerText = "Error";
+            }
+        }
+
+        // 2. Cargar CUPs
+        async function loadCUPs(filtro = '') {
+            const listBody = document.getElementById('cupList');
+            listBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">Cargando...</td></tr>';
+
+            let query = window.supabaseClient // use window explicitly
+                .from('codigos_unicos')
+                .select(`*, clientes ( razon_social )`)
+                .eq('empresa_id', window.currentEmpresaId)
+                .eq('tipo', 'CUP')
+                .order('created_at', { ascending: false });
+
+            if (filtro) {
+                query = query.or(`codigo.ilike.%${filtro}%,descripcion.ilike.%${filtro}%`);
+            }
+
+            const { data: cups, error } = await query;
+            if (error) {
+                console.error(error);
+                listBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Error al cargar datos.</td></tr>';
+                return;
+            }
+
+            renderTable(cups);
+            updateStats(cups);
+        }
+
+        function renderTable(cups) {
+            const listBody = document.getElementById('cupList');
+            document.getElementById('total-registros').innerText = `Mostrando ${cups.length} registros`;
+
+            if (cups.length === 0) {
+                listBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 30px; color: #888;">No hay órdenes registradas.</td></tr>';
+                return;
+            }
+
+            listBody.innerHTML = cups.map(cup => {
+                const cliente = cup.clientes?.razon_social || '<span style="color:#94a3b8; font-style:italic;">Stock / Exhibición</span>';
+                const badgeClass = getBadgeClass(cup.estado);
+
+                return `
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--text-color);">${cup.codigo}</td>
+                    <td style="font-weight: 500;">${cup.descripcion}</td>
+                    <td>${cliente}</td>
+                    <td style="text-align: center;"><span class="badge ${badgeClass}">${cup.estado.replace('_', ' ')}</span></td>
+                    <td style="text-align: center; font-size: 0.8rem;">
+                        <div>${formatDate(cup.fecha_inicio)}</div>
+                        ${cup.fecha_fin ? `<div style="color: #94a3b8;">${formatDate(cup.fecha_fin)}</div>` : ''}
+                    </td>
+                    <td>
+                        <div class="btn-icon-group">
+                            <button onclick="viewTraceability('${cup.id}')" class="btn-icon" title="Trazabilidad"><i class="fas fa-chart-line"></i></button>
+                            <button onclick="openEtiqueta('${cup.codigo}', '${cup.descripcion.replace(/'/g, "\\'")}')" class="btn-icon" title="Etiqueta"><i class="fas fa-barcode"></i></button>
+                            <button onclick="editCup('${cup.id}')" class="btn-icon" title="Editar"><i class="fas fa-edit"></i></button>
+                            <button onclick="confirmDeleteOrden('${cup.id}', '${cup.codigo}')" class="btn-icon" style="color: var(--danger-color);" title="Eliminar"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        function getBadgeClass(estado) {
+            switch (estado) {
+                case 'NO_INICIADO': return 'bg-slate';
+                case 'EN_PROCESO': return 'bg-blue';
+                case 'TERMINADO': return 'bg-green';
+                case 'ANULADO': return 'bg-red';
+                default: return 'bg-slate';
+            }
+        }
+
+        function formatDate(str) {
+            if (!str) return '';
+            const [y, m, d] = str.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function updateStats(cups) {
+            const counts = { 'NO_INICIADO': 0, 'EN_PROCESO': 0, 'TERMINADO': 0 };
+            cups.forEach(c => { if (counts[c.estado] !== undefined) counts[c.estado]++; });
+            document.getElementById('count-no-iniciado').innerText = counts['NO_INICIADO'];
+            document.getElementById('count-en-proceso').innerText = counts['EN_PROCESO'];
+            document.getElementById('count-terminado').innerText = counts['TERMINADO'];
+        }
+
+        // 3. Modales & Logica UI
+        function openModal() {
+            document.getElementById('cupForm').reset();
+            document.getElementById('cup_id').value = '';
+            document.getElementById('modal-title').innerText = 'Nueva Orden';
+            generarNuevoCodigo().then(code => document.getElementById('codigo').value = code);
+
+            document.getElementById('fecha_inicio').valueAsDate = new Date();
+            document.getElementById('estado').value = 'NO_INICIADO';
+
+            // Default Stock
+            const radios = document.getElementsByName('tipo_produccion');
+            radios[0].checked = true; // Stock
+            toggleClientField(false);
+
+            document.getElementById('modal-cup').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-cup').classList.remove('active');
+        }
+
+        function toggleClientField(show) {
+            const container = document.getElementById('cliente-container');
+            const input = document.getElementById('cliente_search');
+
+            if (show) {
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+                input.required = true;
+            } else {
+                container.style.opacity = '0.5';
+                container.style.pointerEvents = 'none';
+                input.required = false;
+                input.value = '';
+                document.getElementById('cliente_id').value = '';
+            }
+        }
+
+        function toggleFechaFin() {
+            const estado = document.getElementById('estado').value;
+            const fin = document.getElementById('fecha_fin');
+            if (estado === 'TERMINADO' || estado === 'ANULADO') {
+                fin.disabled = false;
+                if (!fin.value) fin.valueAsDate = new Date();
+            } else {
+                fin.disabled = true;
+                fin.value = '';
+            }
+        }
+
+        async function generarNuevoCodigo() {
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+
+            const { data } = await supabaseClient
+                .from('codigos_unicos')
+                .select('codigo')
+                .eq('empresa_id', window.currentEmpresaId)
+                .ilike('codigo', `PROD-${year}-%`)
+                .order('codigo', { ascending: false })
+                .limit(1);
+
+            let sec = 1;
+            if (data && data.length > 0) {
+                const parts = data[0].codigo.split('-');
+                if (parts.length === 4) sec = parseInt(parts[3]) + 1;
+            }
+            return `PROD-${year}-${month}-${String(sec).padStart(6, '0')}`;
+        }
+
+        // 4. Guardar
+        async function saveCup() {
+            const id = document.getElementById('cup_id').value;
+            const desc = document.getElementById('descripcion').value.trim();
+            if (!desc) return alert('Descripción obligatoria');
+
+            const tipo = document.querySelector('input[name="tipo_produccion"]:checked').value;
+            const cliId = document.getElementById('cliente_id').value;
+            const cliSearch = document.getElementById('cliente_search').value;
+
+            if (tipo === 'pedido' && !cliId && !cliSearch) return alert('Seleccione cliente para pedido');
+
+            const payload = {
+                descripcion: desc,
+                cliente_id: cliId || null,
+                estado: document.getElementById('estado').value,
+                fecha_inicio: document.getElementById('fecha_inicio').value || null,
+                fecha_fin: document.getElementById('fecha_fin').value || null
+            };
+
+            // Recopilar MO
+            const moList = document.getElementById('moList');
+            const moRows = Array.from(moList.querySelectorAll('tr')).filter(r => r.id !== 'moEmpty');
+            const moData = [];
+
+            for (const r of moRows) {
+                const trabaInput = r.querySelector('.mo-trabajador-id');
+                const fechaInput = r.querySelector('.mo-fecha');
+                const horasInput = r.querySelector('.mo-horas');
+                const respInput = r.querySelector('.mo-resp');
+
+                if (!trabaInput || !trabaInput.value || !fechaInput.value || !horasInput.value || !respInput.value) {
+                    alert('Por favor, complete todos los campos de los participantes agregados en la Mano de Obra.');
+                    return;
+                }
+
+                const personalId = trabaInput.value;
+                const mes = fechaInput.value; 
+
+                // 1. Obtener salario real (Base + KPI)
+                const empleado = moEmpleadosData.find(e => e.id === personalId);
+                if(!empleado) continue; // safety fallback
+
+                const salarioTotal = (empleado.monto_salario_base || 0) + (empleado.monto_salario_kpi || 0);
+                
+                // 2. Obtener minutos laborables de calendario_personal
+                const year = mes.split('-')[0];
+                const month = mes.split('-')[1];
+                const inicioMes = `${year}-${month}-01`;
+                // Obtener ultimo dia del mes
+                const ultDia = new Date(year, month, 0).getDate();
+                const finMes = `${year}-${month}-${String(ultDia).padStart(2,'0')}`;
+                
+                const { data: cal } = await window.supabaseClient.from('calendario_personal')
+                    .select('hora_entrada_esperada, hora_salida_esperada, aplica_almuerzo, hora_inicio_almuerzo_esperado, hora_fin_almuerzo_esperado')
+                    .eq('personal_id', personalId)
+                    .gte('fecha', inicioMes)
+                    .lte('fecha', finMes)
+                    .in('tipo_dia', ['LABORABLE']);
+                
+                let minutosEfectivosMes = 0;
+                
+                if (cal && cal.length > 0) {
+                    cal.forEach(dia => {
+                        const mStr = (timeString) => {
+                            if(!timeString) return 0;
+                            const [h, m] = timeString.split(':');
+                            return (parseInt(h, 10) * 60) + parseInt(m, 10);
+                        };
+                        
+                        let minJornada = mStr(dia.hora_salida_esperada) - mStr(dia.hora_entrada_esperada);
+                        let minAlmuerzo = dia.aplica_almuerzo ? (mStr(dia.hora_fin_almuerzo_esperado) - mStr(dia.hora_inicio_almuerzo_esperado)) : 0;
+                        
+                        if(minJornada > 0) {
+                            if(minAlmuerzo > 0 && minAlmuerzo < minJornada) minJornada -= minAlmuerzo;
+                            minutosEfectivosMes += minJornada;
+                        }
+                    });
+                }
+                
+                let horasEfectivasMes = minutosEfectivosMes / 60;
+                // Fallback de contingencia: Si no tiene calendario configurado en absoluto ese mes pero lo cargaron, usar tarifa base 240hrs o 0
+                if(horasEfectivasMes <= 0) horasEfectivasMes = 240; 
+                
+                const costoHora = (salarioTotal / horasEfectivasMes).toFixed(4);
+                
+                moData.push({
+                    personal_id: personalId,
+                    fecha_labor: `${mes}-01`, // YYYY-MM-01 referencial
+                    horas_invertidas: parseFloat(horasInput.value),
+                    responsabilidad: respInput.value,
+                    costo_hora_efectiva: parseFloat(costoHora)
+                });
+            }
+
+            let err;
+            let currentCupId = id;
+            if (id) {
+                const { error } = await supabaseClient.from('codigos_unicos').update(payload).eq('id', id);
+                err = error;
+            } else {
+                payload.codigo = document.getElementById('codigo').value;
+                payload.tipo = 'CUP';
+                const { data, error } = await supabaseClient.from('codigos_unicos').insert([payload]).select('id');
+                err = error;
+                if(data && data.length > 0) currentCupId = data[0].id;
+            }
+
+            if (err) return alert('Error: ' + err.message);
+
+            // --- GUARDAR MANO DE OBRA ---
+            if(currentCupId) {
+                const { error: errDel } = await window.supabaseClient.from('cup_horas_hombre').delete().eq('cup_id', currentCupId);
+                
+                if(moData.length > 0) {
+                    const finalMoPayload = moData.map(md => {
+                        let cleanMeta = {...md, cup_id: currentCupId};
+                        return cleanMeta;
+                    });
+                    const { error: errorMo } = await window.supabaseClient.from('cup_horas_hombre').insert(finalMoPayload);
+                    if(errorMo) console.error("Error MO:", errorMo);
+                }
+            }
+
+            closeModal(); 
+            loadCUPs();
+        }
+
+        // 5. Edición
+        async function editCup(id) {
+            const { data: cup } = await supabaseClient
+                .from('codigos_unicos')
+                .select(`*, clientes(razon_social)`)
+                .eq('id', id)
+                .single();
+
+            if (!cup) return;
+
+            document.getElementById('cup_id').value = cup.id;
+            document.getElementById('modal-title').innerText = 'Editar Orden';
+            document.getElementById('codigo').value = cup.codigo;
+            document.getElementById('descripcion').value = cup.descripcion;
+            document.getElementById('fecha_inicio').value = cup.fecha_inicio;
+            document.getElementById('fecha_fin').value = cup.fecha_fin || '';
+            document.getElementById('estado').value = cup.estado;
+
+            // Cargar MO
+            document.getElementById('moList').innerHTML = '<tr id="moEmpty"><td colspan="5" style="text-align: center; color: #94a3b8; font-style: italic; padding: 15px;">Sin personal asignado aún</td></tr>';
+            const { data: moDb } = await window.supabaseClient.from('cup_horas_hombre').select('*').eq('cup_id', id);
+            
+            if(moDb && moDb.length > 0) {
+                document.getElementById('moList').innerHTML = '';
+                for(const md of moDb) {
+                    const { data: p } = await window.supabaseClient.from('personal').select('nombres, apellidos').eq('id', md.personal_id).single();
+                    const nombre = p ? `${p.nombres} ${p.apellidos}` : 'Desconocido';
+                    const mesLabor = md.fecha_labor ? md.fecha_labor.substring(0, 7) : '';
+                    
+                    agregarFilaManoObra({
+                        personal_id: md.personal_id,
+                        nombreTemp: nombre,
+                        fecha_labor: mesLabor,
+                        horas_invertidas: md.horas_invertidas,
+                        responsabilidad: md.responsabilidad
+                    });
+                }
+            }
+
+            const radios = document.getElementsByName('tipo_produccion');
+            if (cup.cliente_id) {
+                radios[1].checked = true; // Pedido
+                toggleClientField(true);
+                document.getElementById('cliente_id').value = cup.cliente_id;
+                document.getElementById('cliente_search').value = cup.clientes?.razon_social || '';
+            } else {
+                radios[0].checked = true; // Stock
+                toggleClientField(false);
+            }
+            toggleFechaFin();
+            document.getElementById('modal-cup').classList.add('active');
+        }
+
+        // 6. Buscadores
+        function setupSearch() {
+            const input = document.getElementById('searchInput');
+            let timeout;
+            input.addEventListener('input', (e) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => loadCUPs(e.target.value), 300);
+            });
+        }
+
+        function setupClientSearch() {
+            const input = document.getElementById('cliente_search');
+            let timeout;
+            input.addEventListener('input', (e) => {
+                clearTimeout(timeout);
+                const term = e.target.value;
+                if (term.length < 2) {
+                    document.getElementById('cliente-dropdown').classList.add('hidden');
+                    return;
+                }
+                timeout = setTimeout(() => doClientSearch(term), 300);
+            });
+            // Close onclick outside
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target)) {
+                    document.getElementById('cliente-dropdown').classList.add('hidden');
+                }
+            });
+        }
+
+        async function doClientSearch(term) {
+            console.log('Buscando:', term, window.currentEmpresaId);
+            const { data: clientes } = await supabaseClient
+                .from('clientes')
+                .select('id, razon_social, numero_documento')
+                .eq('empresa_id', window.currentEmpresaId)
+                .or(`razon_social.ilike.%${term}%,numero_documento.ilike.%${term}%`)
+                .limit(5);
+
+            const dropdown = document.getElementById('cliente-dropdown');
+            if (!clientes || clientes.length === 0) {
+                dropdown.innerHTML = '<div style="padding:10px; text-align:center; font-size: 0.8rem; color:#888;">No encontrado</div>';
+            } else {
+                dropdown.innerHTML = clientes.map(c => `
+                    <div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer;" onclick="selectCliente('${c.id}', '${c.razon_social}')">
+                        <div style="font-weight: 500; font-size: 0.9rem;">${c.razon_social}</div>
+                        <div style="font-size: 0.75rem; color: #666;">${c.numero_documento || 'S/D'}</div>
+                    </div>
+                 `).join('');
+            }
+            dropdown.classList.remove('hidden'); // hidden is a tailwind class? No, we need standard css for this dropdown toggle. 
+            // Wait, I didn't define .hidden in CSS. Adding inline style or class.
+            // Let's rely on .hidden being common utility or define it.
+            dropdown.style.display = 'block';
+        }
+
+        // Fix dropdown hiding
+        window.selectCliente = (id, name) => {
+            document.getElementById('cliente_id').value = id;
+            document.getElementById('cliente_search').value = name;
+            document.getElementById('cliente-dropdown').style.display = 'none';
+        }
+
+        // 7. Trazabilidad & Etiquetas
+        async function viewTraceability(id) {
+            document.getElementById('modal-traceability').classList.add('active');
+            // ... (Logic for filling traceability, copied from previous)
+            const list = document.getElementById('trace-list');
+            list.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
+
+            try {
+                // Load cup info for title
+                const { data: cup } = await supabaseClient.from('codigos_unicos').select('codigo,descripcion').eq('id', id).single();
+                document.getElementById('trace-subtitle').innerText = `${cup.codigo} - ${cup.descripcion}`;
+
+                const { data: movs } = await supabaseClient
+                    .from('egresos_detalle')
+                    .select(`id, cantidad, costo_total, items(descripcion, unidad_medida, categoria_id, categorias(nombre)), egresos!inner(fecha_egreso, numero_egreso, cup_id)`)
+                    .eq('egresos.cup_id', id)
+                    .order('created_at', { ascending: false });
+
+                let tCost = 0, tItems = 0;
+                // Traer Mano de Obra
+                const { data: moTrace } = await window.supabaseClient
+                    .from('cup_horas_hombre')
+                    .select('*, personal(nombres, apellidos)')
+                    .eq('cup_id', id);
+
+                if ((!movs || movs.length === 0) && (!moTrace || moTrace.length === 0)) {
+                    list.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Sin movimientos ni mano de obra</td></tr>';
+                } else {
+                    // Agrupar por categoría
+                    const grouped = (movs||[]).reduce((acc, current) => {
+                        const catName = current.items?.categorias?.nombre || 'Sin Categoría';
+                        if (!acc[catName]) acc[catName] = [];
+                        acc[catName].push(current);
+                        return acc;
+                    }, {});
+
+                    if(moTrace && moTrace.length > 0) {
+                        grouped['👩‍🔧 MANO DE OBRA (HORAS HOMBRE)'] = moTrace.map(mo => ({
+                            isMo: true,
+                            fecha_labor: mo.fecha_labor,
+                            personal: mo.personal ? `${mo.personal.nombres} ${mo.personal.apellidos}` : 'No Asignado',
+                            responsabilidad: mo.responsabilidad,
+                            horas: parseFloat(mo.horas_invertidas),
+                            costo_total: parseFloat(mo.subtotal_costo || 0)
+                        }));
+                    }
+
+                    let htmlOutput = '';
+
+                    // Iterar sobre cada categoría y crear filas de bloque
+                    for (const [categoria, itemsGroup] of Object.entries(grouped)) {
+                        let subtotalCat = 0;
+
+                        // Fila Subtítulo (Header de Categoría)
+                        htmlOutput += `
+                        <tr style="background-color: #f1f5f9;">
+                            <td colspan="5" style="font-weight: bold; color: #334155; padding: 0.75rem;">
+                                ${categoria.toUpperCase()}
+                            </td>
+                        </tr>`;
+
+                        // Filas de items
+                        itemsGroup.forEach(m => {
+                            if(m.isMo) {
+                                tCost += m.costo_total;
+                                subtotalCat += m.costo_total;
+                                htmlOutput += `<tr>
+                                 <td>${m.fecha_labor}</td>
+                                 <td>HORAS</td>
+                                 <td>${m.responsabilidad} <br><small style="color:#64748b;">(${m.personal})</small></td>
+                                 <td style="text-align:right;">${m.horas} hrs</td>
+                                 <td style="text-align:right;">S/ ${m.costo_total.toFixed(2)}</td>
+                               </tr>`;
+                            } else {
+                                tCost += m.costo_total;
+                                tItems += m.cantidad;
+                                subtotalCat += m.costo_total;
+                                htmlOutput += `<tr>
+                                 <td>${formatDate(m.egresos.fecha_egreso)}</td>
+                                 <td>${m.egresos.numero_egreso || 'EGR'}</td>
+                                 <td>${m.items.descripcion}</td>
+                                 <td style="text-align:right;">${m.cantidad} ${m.items.unidad_medida}</td>
+                                 <td style="text-align:right;">S/ ${m.costo_total.toFixed(2)}</td>
+                               </tr>`;
+                            }
+                        });
+
+                        // Fila de Sumatoria de Categoría
+                        htmlOutput += `
+                        <tr style="background-color: #fafafa; border-bottom: 2px solid #e2e8f0;">
+                            <td colspan="4" style="text-align: right; font-weight: 600; font-size: 0.85rem; color: var(--secondary-color);">
+                                SUBTOTAL ${categoria.toUpperCase()}:
+                            </td>
+                            <td style="text-align: right; font-weight: bold; color: var(--text-color);">
+                                S/ ${subtotalCat.toFixed(2)}
+                            </td>
+                        </tr>`;
+                    }
+
+                    list.innerHTML = htmlOutput;
+                }
+                document.getElementById('trace-total-cost').innerText = `S/ ${tCost.toFixed(2)}`;
+                document.getElementById('trace-total-items').innerText = tItems.toFixed(2);
+                document.getElementById('trace-total-movements').innerText = movs ? movs.length : 0;
+
+            } catch (e) { console.error(e); }
+        }
+
+        window.closeTraceability = () => {
+            document.getElementById('modal-traceability').classList.remove('active');
+            document.body.classList.remove('print-traceability');
+        };
+
+        window.printTraceability = () => {
+            document.body.classList.add('print-traceability');
+            window.print();
+        };
+
+        function openEtiqueta(code, desc) {
+            document.getElementById('lbl-cup').innerText = code;
+            document.getElementById('lbl-producto').innerText = desc;
+            JsBarcode("#lbl-barcode", code, { format: "CODE128", width: 1.5, height: 40, displayValue: false });
+            document.getElementById('modal-etiqueta').classList.add('active');
+            document.body.classList.add('print-etiqueta');
+        }
+        window.closeModalEtiqueta = () => {
+            document.getElementById('modal-etiqueta').classList.remove('active');
+            document.body.classList.remove('print-etiqueta');
+        };
+
+        // --- MÉTODOS MANO DE OBRA ---
+        let moEmpleadosData = [];
+
+        async function openConfigMoCUP() {
+            document.getElementById('modal-config-mo').classList.add('active');
+            loadMoAreasConfig();
+        }
+
+        function closeConfigMoCUP() {
+            document.getElementById('modal-config-mo').classList.remove('active');
+            loadMOEmpleados(); // Recargar el combobox de personal
+        }
+
+        async function loadMoAreasConfig() {
+            const list = document.getElementById('configMoList');
+            list.innerHTML = '<tr><td colspan="2" style="text-align: center; padding: 20px;">Cargando áreas...</td></tr>';
+            try {
+                // Todas las categorias
+                const { data: categorias } = await window.supabaseClient
+                    .from('categorias_personal')
+                    .select('id, nombre')
+                    .eq('empresa_id', window.currentEmpresaId)
+                    .eq('activo', true)
+                    .order('nombre');
+                
+                // Config actual
+                const { data: configs } = await window.supabaseClient
+                    .from('cup_mano_obra_areas')
+                    .select('categoria_id, activo')
+                    .eq('empresa_id', window.currentEmpresaId);
+
+                const configMap = {};
+                if(configs) configs.forEach(c => { configMap[c.categoria_id] = c.activo; });
+
+                if (!categorias || categorias.length === 0) {
+                    list.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #888;">No hay Macro-Áreas registradas. Ve a Padrón de Personal.</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                categorias.forEach(cat => {
+                    const isActive = configMap[cat.id] === true;
+                    html += `
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="font-weight: 500; color: var(--text-color);">${cat.nombre}</td>
+                            <td style="text-align: center;">
+                                <label class="relative inline-flex items-center cursor-pointer mb-0">
+                                  <input type="checkbox" onchange="toggleAreaCUP('${cat.id}', this.checked)" ${isActive ? 'checked' : ''} class="sr-only peer">
+                                  <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                list.innerHTML = html;
+
+            } catch (error) {
+                console.error("Error cargando config MO", error);
+                list.innerHTML = '<tr><td colspan="2" style="color: red; text-align: center;">Error al cargar</td></tr>';
+            }
+        }
+
+        async function toggleAreaCUP(categoria_id, isActive) {
+            try {
+                const { data: existing } = await window.supabaseClient
+                    .from('cup_mano_obra_areas')
+                    .select('id')
+                    .eq('empresa_id', window.currentEmpresaId)
+                    .eq('categoria_id', categoria_id)
+                    .maybeSingle();
+
+                if (existing) {
+                    await window.supabaseClient.from('cup_mano_obra_areas').update({ activo: isActive }).eq('id', existing.id);
+                } else {
+                    await window.supabaseClient.from('cup_mano_obra_areas').insert([{
+                        empresa_id: window.currentEmpresaId,
+                        categoria_id: categoria_id,
+                        activo: isActive
+                    }]);
+                }
+            } catch (error) {
+                console.error("Error al guardar toggle", error);
+                loadMoAreasConfig(); 
+            }
+        }
+
+        async function loadMOEmpleados() {
+            try {
+                const { data: conf } = await window.supabaseClient.from('cup_mano_obra_areas')
+                    .select('categoria_id')
+                    .eq('empresa_id', window.currentEmpresaId)
+                    .eq('activo', true);
+                
+                if(!conf || conf.length === 0) return [];
+                const catIds = conf.map(c => c.categoria_id);
+
+                const { data: personal } = await window.supabaseClient.from('personal')
+                    .select('id, nombres, apellidos, monto_salario_base, monto_salario_kpi, categoria_id, activo')
+                    .eq('empresa_id', window.currentEmpresaId)
+                    .eq('activo', true)
+                    .in('categoria_id', catIds)
+                    .order('nombres');
+                
+                moEmpleadosData = personal || [];
+                return personal || [];
+            } catch (error) {
+                console.error("Error cargando personal para MO", error);
+                return [];
+            }
+        }
+
+        async function agregarFilaManoObra(data = null) {
+            const list = document.getElementById('moList');
+            const emptyState = document.getElementById('moEmpty');
+            if(emptyState) emptyState.remove();
+
+            if(moEmpleadosData.length === 0) await loadMOEmpleados();
+
+            const tr = document.createElement('tr');
+            
+            let optionsHtml = '<option value="">Seleccione personal...</option>';
+            moEmpleadosData.forEach(p => {
+                const fullName = `${p.nombres} ${p.apellidos}`;
+                const selected = (data && data.personal_id === p.id) ? 'selected' : '';
+                optionsHtml += `<option value="${p.id}" ${selected}>${fullName}</option>`;
+            });
+
+            if(data && data.personal_id && !moEmpleadosData.find(p => p.id === data.personal_id)) {
+                optionsHtml += `<option value="${data.personal_id}" selected>${data.nombreTemp || 'Registro Antiguo'}</option>`;
+            }
+
+            const hoy = new Date();
+            const mesActual = data && data.fecha_labor ? data.fecha_labor : `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+
+            tr.innerHTML = `
+                <td style="padding: 4px;">
+                    <select class="mo-trabajador-id" required style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;">
+                        ${optionsHtml}
+                    </select>
+                </td>
+                <td style="padding: 4px;">
+                    <input type="month" class="mo-fecha" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;" value="${mesActual}" required>
+                </td>
+                <td style="padding: 4px;">
+                    <input type="number" step="0.5" min="0.5" class="mo-horas" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;" placeholder="Ej. 1.5" value="${data ? data.horas_invertidas : ''}" required>
+                </td>
+                <td style="padding: 4px;">
+                    <input type="text" class="mo-resp" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;" placeholder="Ej. Ensamble final" value="${data ? data.responsabilidad : ''}" required>
+                </td>
+                <td style="padding: 4px; text-align: center;">
+                    <button type="button" onclick="this.closest('tr').remove(); if(document.getElementById('moList').children.length===0) document.getElementById('moList').innerHTML = '<tr id=\\'moEmpty\\'><td colspan=\\'5\\' style=\\'text-align: center; color: #94a3b8; font-style: italic; padding: 15px;\\'>Sin personal asignado aún</td></tr>';" class="btn-icon" style="color: var(--danger-color); margin: 0 auto;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    ${data && data.id ? `<input type="hidden" class="mo-row-id" value="${data.id}">` : ''}
+                </td>
+            `;
+            list.appendChild(tr);
+        }
+
+        // --- SISTEMA DE ELIMINACIÓN DE CUP ---
+        async function confirmDeleteOrden(id, codigo) {
+            try {
+                // Validación 1: Egresos (Items)
+                const { data: items, error: errItems } = await window.supabaseClient
+                    .from('egresos')
+                    .select('id')
+                    .eq('cup_id', id)
+                    .limit(1);
+
+                if (errItems) throw errItems;
+                const holdsItems = items && items.length > 0;
+
+                // Validación 2: Mano de Obra
+                const { data: mo, error: errMo } = await window.supabaseClient
+                    .from('cup_horas_hombre')
+                    .select('id')
+                    .eq('cup_id', id)
+                    .limit(1);
+
+                if (errMo) throw errMo;
+                const holdsMo = mo && mo.length > 0;
+
+                // Validación 3: Ventas Asociadas
+                const { data: ventasDetalle, error: errVentas } = await window.supabaseClient
+                    .from('ventas_detalle')
+                    .select('id, ventas!inner(estado, numero_ticket)')
+                    .eq('referencia_id', id)
+                    .neq('ventas.estado', 'ANULADO');
+
+                if (errVentas) throw errVentas;
+                const numVentas = ventasDetalle ? ventasDetalle.length : 0;
+
+                let ticketsVenta = [];
+                if (numVentas > 0) {
+                    ticketsVenta = [...new Set(ventasDetalle.map(v => v.ventas.numero_ticket))];
+                }
+
+                if (holdsItems || holdsMo || numVentas > 0) {
+                    let motivos = [];
+                    let soluciones = [];
+
+                    if (holdsItems) {
+                        motivos.push("Insumos vinculados");
+                        soluciones.push("Reviértalos primero en Kardex");
+                    }
+                    if (holdsMo) {
+                        motivos.push("Mano de Obra vinculada");
+                        soluciones.push("Reviértala primero en Editar Orden");
+                    }
+                    if (numVentas > 0) {
+                        const pluralVenta = numVentas === 1 ? "venta vinculada" : "ventas vinculadas";
+                        const ticketsStr = ticketsVenta.join(', ');
+                        motivos.push(`${String(numVentas).padStart(2, '0')} ${pluralVenta} (Tickets: ${ticketsStr})`);
+                        soluciones.push(numVentas === 1 ? "Reviértala primero en Histórico de Ventas" : "Reviértalas primero en Histórico de Ventas");
+                    }
+
+                    const formatList = (arr) => arr.length === 1 ? arr[0] : arr.slice(0, -1).join(', ') + ' y ' + arr[arr.length - 1];
+                    let msj = `No se puede eliminar la Orden de Producción ${codigo} porque tiene ${formatList(motivos)}.\n\nPor favor siga estos pasos:\n- ${soluciones.join('\n- ')}`;
+                    
+                    alert(msj);
+                    return;
+                }
+
+                // Si todo pasa, abrimos Modal Confirmation
+                document.getElementById('delete-id').value = id;
+                document.getElementById('delete-codigo').innerText = codigo;
+                document.getElementById('delete-confirm-text').value = '';
+                document.getElementById('btn-confirm-delete').disabled = true;
+                
+                document.getElementById('modal-delete').classList.add('active');
+
+            } catch (error) {
+                console.error("Error validando dependencias CUP:", error);
+                alert("Ocurrió un error al validar dependencias. Revise la consola.");
+            }
+        }
+
+        async function executeDeleteCUP() {
+            const id = document.getElementById('delete-id').value;
+            const btn = document.getElementById('btn-confirm-delete');
+            const originalText = btn.innerText;
+
+            btn.innerText = 'Eliminando...';
+            btn.disabled = true;
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('codigos_unicos')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                document.getElementById('modal-delete').classList.remove('active');
+                loadCUPs(); // Recargar
+            } catch (error) {
+                console.error("Error al eliminar CUP:", error);
+                alert("Error crítico al eliminar la orden. Es posible que existan ventas u otros documentos fuertemente vinculados.");
+            } finally {
+                btn.innerText = originalText;
+            }
+        }
+
+        // INIT
+        document.addEventListener('DOMContentLoaded', initModule);
+
+        // Helper for dropdown
+        document.addEventListener('click', (e) => {
+            const dd = document.getElementById('cliente-dropdown');
+            const inp = document.getElementById('cliente_search');
+            if (dd && inp && !inp.contains(e.target)) dd.style.display = 'none';
+        });
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corregir Egreso - MicroERP</title>
+    <!-- Tailwind CSS (Consistente con Egresos) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- ERP Base Styles & Sidebar -->
+    <link rel="stylesheet" href="styles.css">
+    <script src="sidebar.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        /* Buscador Google-Style */
+        .search-container { position: relative; max-width: 800px; margin: 0 auto; }
+        .search-input { width: 100%; padding: 16px 24px; padding-left: 50px; border-radius: 24px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); font-size: 1.1rem; transition: all 0.3s ease; }
+        .search-input:focus { outline: none; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #ef4444; }
+        .search-input:disabled { background-color: #f5f5f5; cursor: not-allowed; }
+        .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 1.2rem; }
+        .search-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 16px; margin-top: 8px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); z-index: 50; display: none; max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; }
+        .result-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; }
+        .result-item:hover { background-color: #fef2f2; }
+    </style>
+</head>
+
+<body class="text-gray-800">
+
+    <header class="bg-gradient-to-br from-red-700 to-red-600 text-white h-[76px] px-8 flex justify-between items-center shadow-md sticky top-0 z-50">
+        <div class="flex items-center gap-6">
+            <button class="bg-white border-0 bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-md cursor-pointer text-sm flex items-center gap-2 transition-all" onclick="window.location.href='kardex.html'">
+                <i class="fas fa-arrow-left"></i> Volver a Kardex
+            </button>
+            <h1 class="text-2xl tracking-wide font-semibold m-0 leading-none">CORREGIR EGRESO</h1>
+        </div>
+        <div class="hidden sm:flex items-center gap-4">
+            <span id="fechaActual" class="text-sm font-medium opacity-90"></span>
+            <span class="bg-red-900 px-3 py-1 rounded text-xs font-bold uppercase tracking-wider text-white">Modo Edición</span>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Loader inicial -->
+        <div id="loadingOverlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex flex-col justify-center items-center">
+            <i class="fas fa-spinner fa-spin text-white text-5xl mb-4"></i>
+            <p class="text-white text-lg font-semibold tracking-wide">Cargando Egreso y Lotes Retenidos...</p>
+        </div>
+
+        <!-- 1. Cabecera del Egreso -->
+        <div class="bg-white rounded-xl shadow-sm border-t-4 border-red-500 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Datos Generales del Egreso</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Almacén Origen -->
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Almacén de Origen <span class="text-red-500">*</span></label>
+                    <select id="almacenOrigen" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 h-10 px-3 border" required>
+                        <option value="">Seleccione...</option>
+                    </select>
+                </div>
+
+                <!-- Tipo de Egreso -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Egreso <span class="text-red-500">*</span></label>
+                    <select id="tipoEgreso" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 h-10 px-3 border" required>
+                        <option value="">Seleccione...</option>
+                    </select>
+                </div>
+
+                <!-- Selector de CUP/CUS -->
+                <div id="cupContainer" class="hidden transition-all duration-300">
+                    <label id="labelCupContainer" class="block text-sm font-medium text-red-600 mb-1">Asignar a Orden (CUP/CUS)</label>
+                    <select id="cupId" class="w-full rounded-lg border-red-300 bg-red-50 shadow-sm focus:border-red-500 focus:ring-red-500 h-10 px-3 border text-red-800 font-medium">
+                        <option value="">-- Seleccionar --</option>
+                    </select>
+                </div>
+
+                <!-- Fecha -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Salida</label>
+                    <input type="date" id="fechaEgreso" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 h-10 border px-3" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Buscador Google Style -->
+        <div class="mb-8 relative z-30">
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="buscadorProducto" class="search-input" placeholder="Buscar producto para agregar (Nombre o código)..." autocomplete="off">
+                <div id="resultadosBusqueda" class="search-results"></div>
+            </div>
+        </div>
+
+        <!-- 3. Tabla de Items (Detalle FIFO) -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 class="font-semibold text-gray-800">Cesta de Modificación (Lotes Asignados)</h3>
+                <span class="text-xs text-red-600 font-bold bg-red-100 px-2 py-1 rounded">Trazabilidad FIFO Inversa Activa</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lote (Origen)</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Costo Unit.</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaItems" class="bg-white divide-y divide-gray-200">
+                        <tr id="filaVacia" class="text-center text-gray-500 hidden">
+                            <td colspan="6" class="py-8">
+                                <i class="fas fa-box-open text-3xl mb-2 text-gray-300"></i>
+                                <p>Cesta vacía. Busque productos para re-armar el egreso.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-gray-50 font-semibold border-t-2 border-gray-300">
+                        <tr>
+                            <td colspan="4" class="px-6 py-4 text-right text-gray-900 uppercase">Nuevo Total Egreso:</td>
+                            <td class="px-6 py-4 text-right text-gray-900 border-l" id="totalEgreso">S/ 0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. Footer de Acciones -->
+        <div class="flex justify-between items-center mt-8">
+            <button id="btnAnular" class="px-6 py-2 border border-red-300 bg-white text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors flex items-center gap-2">
+                <i class="fas fa-trash-alt"></i> Anular Egreso Entero
+            </button>
+
+            <div class="flex gap-4">
+                <button onclick="window.location.href='kardex.html'" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
+                    Descartar Cambios
+                </button>
+                <button id="btnGuardar" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium shadow-sm transition-colors flex items-center gap-2">
+                    <i class="fas fa-bolt"></i> Guardar Corrección
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        const supabaseClient = window.supabaseClient;
+        
+        // Estado Global
+        let currentEgresoId = null;
+        let originalEgreso = {};
+        let itemsEgreso = []; 
+        let lotesRetenidos = {}; // Diccionario para inflar los lotes virtuales: { "ingreso_detalle_id": cantidad_retenida }
+        let esIndustrial = false;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const fechaOptions = { timeZone: 'America/Lima', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', fechaOptions);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            currentEgresoId = urlParams.get('id');
+
+            if(!currentEgresoId) {
+                alert("ID de Egreso inválido");
+                window.location.href = 'kardex.html';
+                return;
+            }
+
+            await verificarSesionYEmpresa();
+            await cargarCatalogos();
+            configurarEventos();
+            await cargarEgresoExistente();
+        });
+
+        async function verificarSesionYEmpresa() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if(!user) { window.location.href = 'index.html'; return; }
+
+            const { data: perfil } = await supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', user.id).single();
+            if(perfil) {
+                window.currentEmpresaId = perfil.empresa_id;
+                const { data: empresa } = await supabaseClient.from('empresas').select('es_industrial').eq('id', perfil.empresa_id).single();
+                if(empresa && empresa.es_industrial) esIndustrial = true;
+            }
+        }
+
+        async function cargarCatalogos() {
+            const { data: almacenes } = await supabaseClient.from('almacenes').select('*').eq('activo', true);
+            const selectAlmacen = document.getElementById('almacenOrigen');
+            if (almacenes) almacenes.forEach(a => selectAlmacen.add(new Option(a.nombre, a.id)));
+
+            const { data: tiposDb } = await supabaseClient.from('tipos_egresos').select('id, nombre').eq('activo', true).order('nombre');
+            const selectTipo = document.getElementById('tipoEgreso');
+            if (tiposDb) {
+                tiposDb.forEach(t => {
+                    const nombreUpper = t.nombre.toUpperCase();
+                    if (!esIndustrial && (nombreUpper.includes('PRODUCCI') || nombreUpper.includes('PRODUCTION'))) return;
+                    const opt = document.createElement('option');
+                    opt.value = t.id; opt.textContent = t.nombre; opt.setAttribute('data-nombre', nombreUpper);
+                    selectTipo.appendChild(opt);
+                });
+            }
+        }
+
+        async function cargarCodigosUnicosActivos(tipo) {
+            const selectCup = document.getElementById('cupId');
+            selectCup.innerHTML = `<option value="">-- Seleccionar Orden ${tipo} --</option>`;
+            const { data: codigos } = await supabaseClient.from('codigos_unicos').select('id, codigo, descripcion').eq('empresa_id', window.currentEmpresaId).eq('tipo', tipo);
+            // Incluir los "Ya Facturados / Terminados" por si el egreso antiguo apuntaba a uno de ellos
+            if (codigos) {
+                codigos.forEach(c => { selectCup.add(new Option(`${c.codigo} - ${c.descripcion}`, c.id)); });
+            }
+        }
+
+        async function cargarEgresoExistente() {
+            try {
+                // LOAD CABECERA
+                const { data: cabecera, error: errCabecera } = await supabaseClient
+                    .from('egresos')
+                    .select('*')
+                    .eq('id', currentEgresoId)
+                    .single();
+                
+                if (errCabecera) throw errCabecera;
+                originalEgreso = cabecera;
+
+                // VALIDACIÓN: Bloquear edición si el egreso proviene de una venta
+                if (cabecera.observaciones && cabecera.observaciones.startsWith('VENTA_REF:')) {
+                    const ticket = cabecera.observaciones.split(':')[1] || 'Desconocido';
+                    alert(`Este Egreso de Inventario está relacionado con la venta del Ticket ${ticket}.\n\nNo se permite su edición. Y Sólo se permite su eliminación desde "Histórico de Ventas".`);
+                    window.location.href = 'registros_historicos_ventas.html';
+                    return;
+                }
+
+                document.getElementById('fechaEgreso').value = cabecera.fecha_egreso;
+                document.getElementById('almacenOrigen').value = cabecera.almacen_origen_id;
+                document.getElementById('tipoEgreso').value = cabecera.tipo_egreso_id;
+
+                // Forzar evento de visibilidad CUP/CUS
+                const selectTipo = document.getElementById('tipoEgreso');
+                const selectedNombre = selectTipo.options[selectTipo.selectedIndex]?.getAttribute('data-nombre') || '';
+                if(selectedNombre.includes('PRODUCCI') || selectedNombre.includes('SERVICIO')) {
+                    const tipoCodigo = selectedNombre.includes('PRODUCCI') ? 'CUP' : 'CUS';
+                    document.getElementById('cupContainer').classList.remove('hidden');
+                    document.getElementById('labelCupContainer').innerText = `Asignar a Orden (${tipoCodigo})`;
+                    await cargarCodigosUnicosActivos(tipoCodigo);
+                    document.getElementById('cupId').value = cabecera.cup_id || cabecera.cus_id || '';
+                }
+
+                // LOAD DETALLES
+                const { data: detalles, error: errDetalles } = await supabaseClient
+                    .from('egresos_detalle')
+                    .select('*, items(codigo, descripcion, unidad_medida)')
+                    .eq('egreso_id', currentEgresoId);
+                
+                if (errDetalles) throw errDetalles;
+
+                // INFLAR Lotes y Cesta
+                let hasNullTrazability = false;
+
+                detalles.forEach(d => {
+                    if (!d.ingreso_detalle_id) hasNullTrazability = true;
+
+                    // Almacenar en lotes retenidos para que el FIFO reverse funcione en UI visual
+                    // Si un lote ya está, sumar la cantidad retenida
+                    if (!lotesRetenidos[d.ingreso_detalle_id]) {
+                        lotesRetenidos[d.ingreso_detalle_id] = 0;
+                    }
+                    lotesRetenidos[d.ingreso_detalle_id] += Number(d.cantidad);
+
+                    // Insertar en la tabla visual
+                    // OJO: En la BD no guardamos el numero de lote textualmente en egresos_detalle, 
+                    // así que visualmente pondremos el ID truncado o "Lote Reservado" hasta que re-busquen
+                    itemsEgreso.push({
+                        producto: { 
+                            id: d.item_id, 
+                            codigo: d.items.codigo, 
+                            descripcion: d.items.descripcion,
+                            unidad_medida: d.items.unidad_medida
+                        },
+                        loteId: d.ingreso_detalle_id,
+                        numeroIngreso: 'ORIGINAL', // Placeholder visual
+                        fechaIngreso: cabecera.fecha_egreso, // Placeholder visual
+                        cantidad: Number(d.cantidad),
+                        costoUnitario: Number(d.costo_unitario),
+                        costoTotal: Number(d.costo_total)
+                    });
+                });
+
+                if (hasNullTrazability) {
+                    alert("⚠️ ALERTA: Este egreso antiguo no cuenta con trazabilidad FIFO de lotes en la base de datos y no puede ser corregido o anulado por medios automáticos.\nComuníquese con soporte.");
+                    document.getElementById('btnGuardar').disabled = true;
+                    document.getElementById('btnAnular').disabled = true;
+                }
+
+                actualizarTabla();
+
+            } catch (error) {
+                console.error("Error cargando egreso:", error);
+                alert("Error al intentar recuperar el egreso.");
+            } finally {
+                document.getElementById('loadingOverlay').style.display = 'none';
+            }
+        }
+
+        // --- Eventos & Búsqueda ---
+        function configurarEventos() {
+            const buscador = document.getElementById('buscadorProducto');
+            const tipoEgresoSelect = document.getElementById('tipoEgreso');
+            const cupContainer = document.getElementById('cupContainer');
+            
+            tipoEgresoSelect.addEventListener('change', async () => {
+                const nombreTipo = tipoEgresoSelect.options[tipoEgresoSelect.selectedIndex].getAttribute('data-nombre') || '';
+                if (nombreTipo.includes('PRODUCCI') || nombreTipo.includes('PRODUCTION')) {
+                    cupContainer.classList.remove('hidden'); await cargarCodigosUnicosActivos('CUP');
+                } else if (nombreTipo.includes('SERVICIO')) {
+                    cupContainer.classList.remove('hidden'); await cargarCodigosUnicosActivos('CUS');
+                } else {
+                    cupContainer.classList.add('hidden');
+                }
+            });
+
+            buscador.addEventListener('input', debounce(async (e) => {
+                const termino = e.target.value.trim();
+                const almacenId = document.getElementById('almacenOrigen').value;
+                if (!almacenId || termino.length < 2) {
+                    document.getElementById('resultadosBusqueda').style.display = 'none';
+                    return;
+                }
+                await buscarProductosV2(termino, almacenId);
+            }, 300));
+
+            // Acciones Maestro
+            document.getElementById('btnAnular').addEventListener('click', anularEgreso);
+            document.getElementById('btnGuardar').addEventListener('click', guardarCorreccion);
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); };
+        }
+
+        // Búsqueda con "Inflado" Lotes Virtuales
+        async function buscarProductosV2(termino, almacenId) {
+            const resultadosDiv = document.getElementById('resultadosBusqueda');
+            resultadosDiv.innerHTML = '<div class="p-4 text-center text-gray-500"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>';
+            resultadosDiv.style.display = 'block';
+
+            try {
+                const { data: productos } = await supabaseClient
+                    .from('items')
+                    .select('id, codigo, descripcion, unidad_medida')
+                    .or(`descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
+                    .limit(10);
+
+                if (!productos || productos.length === 0) {
+                    resultadosDiv.innerHTML = '<div class="p-4 text-center text-gray-500">No se encontraron productos.</div>';
+                    return;
+                }
+
+                const resultadosConStock = [];
+
+                for (const prod of productos) {
+                    // Consultamos TODOS los lotes físicos de este producto
+                    const { data: lotes } = await supabaseClient
+                        .from('ingresos_detalle')
+                        .select(`id, cantidad_disponible, ingresos!inner (almacen_destino_id)`)
+                        .eq('item_id', prod.id)
+                        .eq('ingresos.almacen_destino_id', almacenId);
+                    
+                    let stockVirtualTotal = 0;
+                    let lotesConFondo = 0;
+
+                    if (lotes) {
+                        lotes.forEach(l => {
+                            let fisico = Number(l.cantidad_disponible);
+                            let retenido = lotesRetenidos[l.id] || 0;
+                            let sumaTotal = fisico + retenido;
+
+                            if (sumaTotal > 0) {
+                                stockVirtualTotal += sumaTotal;
+                                lotesConFondo++;
+                            }
+                        });
+                    }
+
+                    if (stockVirtualTotal > 0) {
+                        resultadosConStock.push({ producto: prod, stock: stockVirtualTotal, lotesCount: lotesConFondo });
+                    }
+                }
+
+                renderizarResultados(resultadosConStock);
+            } catch (err) {
+                console.error(err);
+                resultadosDiv.innerHTML = '<div class="p-4 text-center text-red-500">Error en búsqueda.</div>';
+            }
+        }
+
+        function renderizarResultados(resultados) {
+            const div = document.getElementById('resultadosBusqueda');
+            div.innerHTML = '';
+            if (resultados.length === 0) {
+                div.innerHTML = '<div class="p-4 text-center text-gray-500">No hay stock disponible (ni físico ni retenido).</div>';
+                return;
+            }
+            resultados.forEach(res => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'result-item';
+                itemDiv.innerHTML = `<div class="flex justify-between items-center"><div><span class="font-medium text-gray-900">${res.producto.descripcion}</span><span class="text-sm text-gray-500 ml-2">${res.producto.codigo}</span></div><div class="text-right"><span class="block text-sm font-bold text-red-600">Stock Disp: ${res.stock} ${res.producto.unidad_medida}</span></div></div>`;
+                itemDiv.onclick = () => seleccionarProducto(res.producto);
+                div.appendChild(itemDiv);
+            });
+        }
+
+        async function seleccionarProducto(producto) {
+            document.getElementById('resultadosBusqueda').style.display = 'none';
+            document.getElementById('buscadorProducto').value = '';
+
+            const existe = itemsEgreso.some(i => i.producto.id === producto.id);
+            if (existe) {
+                alert('Este producto ya está en la cesta. Elimínelo primero de la tabla si desea re-evaluar sus cantidades.');
+                return;
+            }
+
+            const cantidadStr = prompt(`Ingrese nueva cantidad de Egresos de: ${producto.descripcion}\n(Unidad: ${producto.unidad_medida})`);
+            if (!cantidadStr) return;
+            const cantidad = parseFloat(cantidadStr);
+            if (isNaN(cantidad) || cantidad <= 0) return alert('Cantidad inválida');
+
+            await procesarEgresoFIFO_Virtual(producto, cantidad);
+        }
+
+        // FIFO Virtual Re-calculando Retenidos
+        async function procesarEgresoFIFO_Virtual(producto, cantidadSolicitada) {
+            const almacenId = document.getElementById('almacenOrigen').value;
+            try {
+                const { data: lotesBd } = await supabaseClient
+                    .from('ingresos_detalle')
+                    .select(`id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner (id, fecha_ingreso, numero_ingreso, almacen_destino_id)`)
+                    .eq('item_id', producto.id)
+                    .eq('ingresos.almacen_destino_id', almacenId);
+
+                // Re-inflar y filtrar
+                let lotesVirtuales = lotesBd.map(l => {
+                    let retenido = lotesRetenidos[l.id] || 0;
+                    return {
+                        ...l,
+                        cantidad_virtual: Number(l.cantidad_disponible) + retenido
+                    }
+                }).filter(l => l.cantidad_virtual > 0);
+
+                // Sort FIFO manual (El DB sort falla con campos calculados)
+                lotesVirtuales.sort((a,b) => new Date(a.ingresos.fecha_ingreso) - new Date(b.ingresos.fecha_ingreso));
+
+                const stockTotalVirtual = lotesVirtuales.reduce((sum, l) => sum + l.cantidad_virtual, 0);
+                if (cantidadSolicitada > stockTotalVirtual) {
+                    alert(`Stock insuficiente. Solo existen ${stockTotalVirtual} disponibles repuestos.`);
+                    return;
+                }
+
+                let pendiente = cantidadSolicitada;
+                for (const lote of lotesVirtuales) {
+                    if (pendiente <= 0) break;
+                    const aTomar = Math.min(pendiente, lote.cantidad_virtual);
+                    const costoTotalL = aTomar * Number(lote.costo_adquisicion_unitario);
+
+                    itemsEgreso.push({
+                        producto: producto,
+                        loteId: lote.id,
+                        numeroIngreso: lote.ingresos.numero_ingreso,
+                        fechaIngreso: lote.ingresos.fecha_ingreso,
+                        cantidad: aTomar,
+                        costoUnitario: Number(lote.costo_adquisicion_unitario),
+                        costoTotal: costoTotalL
+                    });
+                    pendiente -= aTomar;
+                }
+                actualizarTabla();
+
+            } catch(e) { console.error(e); alert("Error de Recálculo FIFO"); }
+        }
+
+        function actualizarTabla() {
+            const tbody = document.getElementById('tablaItems');
+            tbody.innerHTML = '';
+            
+            if (itemsEgreso.length === 0) {
+                tbody.innerHTML = `<tr id="filaVacia" class="text-center text-gray-500"><td colspan="6" class="py-8"><i class="fas fa-box-open text-3xl mb-2 text-gray-300"></i><p>Cesta vacía.</p></td></tr>`;
+                document.getElementById('totalEgreso').textContent = 'S/ 0.00';
+                document.getElementById('btnGuardar').disabled = true;
+                return;
+            }
+
+            let suma = 0;
+            itemsEgreso.forEach((item, index) => {
+                suma += item.costoTotal;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-medium text-gray-900">${item.producto.descripcion}</div><div class="text-xs text-gray-500">${item.producto.codigo}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">${item.numeroIngreso}</span><div class="text-xs text-gray-500 mt-1">${new Date(item.fechaIngreso).toLocaleDateString()}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-700">${item.cantidad} ${item.producto.unidad_medida}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">S/ ${item.costoUnitario.toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-red-600">S/ ${item.costoTotal.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="editarCantidadGlobalProducto('${item.producto.id}')" class="text-blue-500 hover:text-blue-800 mr-4" title="Editar Cantidad Total del Producto"><i class="fas fa-edit"></i></button>
+                        <button onclick="eliminarItem(${index})" class="text-red-500 hover:text-red-800" title="Eliminar este lote"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('totalEgreso').textContent = `S/ ${suma.toFixed(2)}`;
+            document.getElementById('btnGuardar').disabled = false;
+        }
+
+        window.eliminarItem = function(index) {
+            itemsEgreso.splice(index, 1);
+            actualizarTabla();
+        };
+
+        window.editarCantidadGlobalProducto = async function(productoId) {
+            const backupLines = itemsEgreso.filter(i => i.producto.id === productoId);
+            if (backupLines.length === 0) return;
+            const producto = backupLines[0].producto;
+            const totalActual = backupLines.reduce((sum, i) => sum + i.cantidad, 0);
+
+            const nuevaCantStr = prompt(`Ingrese nueva cantidad TOTAL a egresar para:\n${producto.descripcion}\n(Actual: ${totalActual} ${producto.unidad_medida})`, totalActual);
+            if (!nuevaCantStr) return;
+            
+            // Permitir comas o puntos decimales
+            const cleanedStr = nuevaCantStr.replace(',', '.');
+            const nuevaCant = parseFloat(cleanedStr);
+            
+            if (isNaN(nuevaCant) || nuevaCant <= 0) return alert('Cantidad inválida');
+            if (nuevaCant === totalActual) return;
+
+            // Remover temporalmente TODAS las líneas (lotes) de este producto
+            itemsEgreso = itemsEgreso.filter(i => i.producto.id !== productoId);
+
+            const oldLength = itemsEgreso.length;
+            
+            try {
+                // El motor FIFO procesará la nueva cantidad usando el fondo total (físico + virtual/retenido)
+                await procesarEgresoFIFO_Virtual(producto, nuevaCant);
+                
+                // Si itemsEgreso no creció, significa que el stock fue insuficiente y la función abortó silenciosamente (hizo alert)
+                if (itemsEgreso.length === oldLength) {
+                    itemsEgreso.push(...backupLines); // Restaurar el backup a la cesta
+                    actualizarTabla();
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Error durante la asignación FIFO.");
+                itemsEgreso.push(...backupLines);
+                actualizarTabla();
+            }
+        };
+
+        // --- SAFE APPEND PRO & PERSISTENCIA ---
+        const getLimaDate = () => {
+            const now = new Date(); const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            return new Date(utc - 5 * 3600000).toISOString().split('T')[0];
+        };
+
+        async function ejecutarSafeAppendPro(fechaEvaluar) {
+            const hoyLima = getLimaDate();
+            if (fechaEvaluar > hoyLima) { alert('❌ FECHA INVÁLIDA: No puedes guardar en el futuro.'); return false; }
+
+            const itemIds = Array.from(new Set(itemsEgreso.map(i => i.producto.id)));
+            const fechaBase = new Date(fechaEvaluar + 'T00:00:00'); 
+            fechaBase.setDate(fechaBase.getDate() + 1);
+            const nextDayUTC = `${fechaBase.getFullYear()}-${String(fechaBase.getMonth()+1).padStart(2,'0')}-${String(fechaBase.getDate()).padStart(2,'0')}T05:00:00Z`;
+
+            const { data: conflictos } = await supabaseClient
+                .from('kardex')
+                .select('item_id, fecha_movimiento, items ( descripcion )')
+                .eq('almacen_id', document.getElementById('almacenOrigen').value)
+                .in('item_id', itemIds)
+                .gte('fecha_movimiento', nextDayUTC);
+            
+            if (conflictos && conflictos.length > 0) {
+                alert(`❌ SAFE APPEND PRO BLOQUEO:\nExisten movimientos posteriores en el kardex para los items bajo edición.\nNo se puede alterar el pasado si ya hay movimientos futuros para estos códigos.`);
+                return false;
+            }
+            return true;
+        }
+
+        async function guardarCorreccion() {
+            if (itemsEgreso.length === 0) return alert('La cesta no puede estar vacía.');
+
+            const Payload = {
+                almacen_origen_id: document.getElementById('almacenOrigen').value,
+                tipo_egreso_id: document.getElementById('tipoEgreso').value,
+                fecha_egreso: document.getElementById('fechaEgreso').value,
+                cup_id: document.getElementById('cupId').value || null,
+                cus_id: document.getElementById('cupId').value || null // Nota: la UI reusa un select, pasaremos al correcto según el scope del DB trigger o RPC
+            };
+
+            // Reparar el Cup/Cus asignation depending on select name
+            const nombreTipo = document.getElementById('tipoEgreso').options[document.getElementById('tipoEgreso').selectedIndex]?.getAttribute('data-nombre') || '';
+            const valID = document.getElementById('cupId').value || null;
+            if(nombreTipo.includes('PRODUCCI')) { Payload.cup_id = valID; Payload.cus_id = null; }
+            else if(nombreTipo.includes('SERVICIO')) { Payload.cus_id = valID; Payload.cup_id = null; }
+            else { Payload.cup_id = null; Payload.cus_id = null; }
+
+            // Si hay alteracion de fecha de inventario, check Safe Append
+            if(Payload.fecha_egreso !== originalEgreso.fecha_egreso) {
+                const isSafe = await ejecutarSafeAppendPro(Payload.fecha_egreso);
+                if(!isSafe) return;
+            }
+
+            if (!confirm('¿Confirma la transacción destructiva-reconstructiva (Recall & Fix)?')) return;
+
+            Payload.detalles = itemsEgreso.map(item => ({
+                item_id: item.producto.id,
+                cantidad: item.cantidad,
+                costo_unitario: item.costoUnitario,
+                costo_total: item.costoTotal,
+                ingreso_detalle_id: item.loteId
+            }));
+
+            try {
+                document.getElementById('btnGuardar').disabled = true;
+                document.getElementById('btnGuardar').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ejecutando...';
+
+                // Llamada a RPC Mágico
+                const { data, error } = await supabaseClient.rpc('fn_administrar_correccion_egreso', {
+                    p_egreso_id: currentEgresoId,
+                    p_accion: 'CORREGIR',
+                    p_nueva_data: Payload
+                });
+
+                if (error) throw error;
+                if(data && !data.success) throw new Error(data.message);
+
+                alert(data.message || 'Corrección aplicada.');
+                window.location.href = 'kardex.html';
+
+            } catch(e) {
+                console.error(e);
+                alert("Fallo atómico: " + e.message);
+                document.getElementById('btnGuardar').disabled = false;
+                document.getElementById('btnGuardar').innerHTML = '<i class="fas fa-bolt"></i> Guardar Corrección';
+            }
+        }
+
+        async function anularEgreso() {
+            if(!confirm('¿Anulación Definitiva? Se regresará el stock a los lotes exactos de ingreso y desaparecerá de su pantalla.')) return;
+            try {
+                const { data, error } = await supabaseClient.rpc('fn_administrar_correccion_egreso', {
+                    p_egreso_id: currentEgresoId,
+                    p_accion: 'ELIMINAR'
+                });
+                if (error) throw error;
+                if(data && !data.success) throw new Error(data.message);
+                alert('Egreso ELIMINADO exitosamente');
+                window.location.href = 'kardex.html';
+            } catch (e) { alert("Fallo en Anulación: " + e.message); }
+        }
+
+    </script>
+</body>
+</html>

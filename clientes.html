@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroERP - Clientes</title>
+
+    <!-- Supabase Client -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <script src="sidebar.js"></script>
+
+
+    <style>
+        /* ESTILOS ESPECIFICOS (Resets conflictivos eliminados para consistencia visual) */
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Container */
+        .container {
+            padding: 30px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .page-header h2 {
+            color: #2c3e50;
+            font-size: 28px;
+        }
+
+        .btn-primary {
+            background: #0070f2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            background: #0060d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 112, 242, 0.3);
+        }
+
+        /* Tabla */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .search-box {
+            position: relative;
+            max-width: 400px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #0070f2;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7f8c8d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            text-align: left;
+            padding: 15px 20px;
+            font-weight: 600;
+            color: #354a5f;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #2c3e50;
+            vertical-align: top;
+        }
+
+        tbody tr {
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-active {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .badge-inactive {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .doc-tag {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        .doc-tag.DNI {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .doc-tag.RUC {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-size: 16px;
+        }
+
+        .btn-edit {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .btn-edit:hover {
+            background: #1565c0;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .btn-delete:hover {
+            background: #c62828;
+            color: white;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            color: #2c3e50;
+            font-size: 20px;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #7f8c8d;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .btn-close:hover {
+            background: #f0f0f0;
+            color: #2c3e50;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .form-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #354a5f;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-row.single {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #354a5f;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #0070f2;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            background: #ecf0f1;
+            color: #7f8c8d;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-secondary:hover {
+            background: #dfe4e6;
+        }
+
+        /* Buscador Externo */
+        .input-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-search-ext {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 0 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        .btn-search-ext:hover {
+            background: #bbdefb;
+        }
+
+        .btn-search-ext.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            background: #f5f5f5;
+            border-color: #e0e0e0;
+            color: #bdbdbd;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 2000;
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .toast.active {
+            display: flex;
+        }
+
+        .toast.success {
+            border-left: 4px solid #2e7d32;
+        }
+
+        .toast.error {
+            border-left: 4px solid #c62828;
+        }
+
+        .toast.warning {
+            border-left: 4px solid #f57c00;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0070f2;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .contact-info {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .contact-label {
+            color: #7f8c8d;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        /* Botones de Contacto (Inspirado en proveedores.html) */
+        .contact-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+            flex-wrap: wrap;
+        }
+
+        .btn-contact-action {
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .btn-whatsapp {
+            background: #dcf8c6;
+            color: #075e54;
+            border: 1px solid #25d366;
+        }
+
+        .btn-whatsapp:hover {
+            background: #25d366;
+            color: white;
+        }
+
+        .btn-call {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #2196f3;
+        }
+
+        .btn-call:hover {
+            background: #2196f3;
+            color: white;
+        }
+    </style>
+
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="if(document.referrer) { window.history.back(); } else { window.location.href='dashboard.html'; }">
+                ← Volver
+            </button>
+            <h1>Gestión de Clientes</h1>
+            <div class="submodule-version">MICRO ERP v2.0</div>
+        </div>
+    </header>
+    <!-- Main Content -->
+    <main class="container">
+        <div class="page-header">
+            <h2>👥 Gestión de Clientes</h2><button class="btn-primary" onclick="abrirModalNuevo()">+Nuevo
+                Cliente </button>
+        </div>
+        <div class="table-container">
+            <div class="table-header">
+                <div class="search-box"><input type="text" id="searchInput"
+                        placeholder="Buscar por documento o nombre..." onkeyup="buscarClientes()"><span
+                        class="search-icon">🔍</span></div>
+            </div>
+            <div id="tableContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando clientes...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+    <!-- Modal -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Nuevo Cliente</h3><button class="btn-close" onclick="cerrarModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="clienteForm" onsubmit="guardarCliente(event)"><input type="hidden" id="clienteId">
+                    <!-- SECCIÓN: IDENTIFICACIÓN -->
+                    <div class="form-section">
+                        <div class="form-section-title">🆔 Identificación</div>
+                        <div class="form-row">
+                            <div class="form-group"><label for="tipoDocumento">Tipo Documento
+                                    *</label><select id="tipoDocumento" required onchange="actualizarModoBusqueda()">
+                                    <option value="DNI">DNI (Persona Natural)</option>
+                                    <option value="RUC">RUC (Empresa)</option>
+                                    <option value="CARNET_EXTRANJERIA">Carnet Extranjería</option>
+                                    <option value="PASAPORTE">Pasaporte</option>
+                                    <option value="SIN_DOCUMENTO">Sin Documento</option>
+                                </select></div>
+                            <div class="form-group"><label for="numeroDocumento">Número
+                                    Documento</label>
+                                <div class="input-group"><input type="text" id="numeroDocumento"
+                                        placeholder="Ingrese número" maxlength="15"><a href="#" id="btnSearchExt"
+                                        target="_blank" class="btn-search-ext" title="Consultar en Web Externa">🌐 </a>
+                                </div>
+                                <div class="form-hint" id="docHint">8 dígitos para DNI</div>
+                            </div>
+                        </div>
+                        <div class="form-row single">
+                            <div class="form-group"><label for="razonSocial" id="lblRazonSocial">Razón
+                                    Social *</label><input type="text" id="razonSocial" required
+                                    placeholder="Ej: Juan Pérez o IMPORTEC S.A.C." maxlength="200">
+                            </div>
+                        </div>
+                        <div class="form-row single" id="rowNombreComercial">
+                            <div class="form-group"><label for="nombreComercial">Nombre Comercial
+                                    (Opcional)</label><input type="text" id="nombreComercial"
+                                    placeholder="Solo si difiere de la Razón Social" maxlength="200">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- SECCIÓN: CONTACTO EMPRESA -->
+                    <div class="form-section" id="sectionContactoEmpresa">
+                        <div class="form-section-title" id="titleContactoEmpresa">🏢 Contacto
+                            Empresa / Facturación </div>
+                        <div class="form-row">
+                            <div class="form-group"><label for="email">Correo
+                                    Electrónico</label><input type="email" id="email"
+                                    placeholder="facturacion@empresa.com" maxlength="100"></div>
+                            <div class="form-group"><label for="celular">Celular Principal
+                                    (WhatsApp)</label><input type="text" id="celular" placeholder="999888777"
+                                    maxlength="20"></div>
+                        </div>
+                    </div>
+                    <!-- SECCIÓN: REPRESENTANTE -->
+                    <div class="form-section" id="sectionRepresentante">
+                        <div class="form-section-title">👤 Persona de Contacto (Representante)
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label for="contactoNombre">Nombre</label><input type="text"
+                                    id="contactoNombre" placeholder="Ej: María Gómez" maxlength="100"></div>
+                            <div class="form-group"><label for="contactoCargo">Cargo</label><input type="text"
+                                    id="contactoCargo" placeholder="Ej: Logística" maxlength="100"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label for="contactoCelular">Celular
+                                    Directo</label><input type="text" id="contactoCelular" placeholder="999..."
+                                    maxlength="20"></div>
+                            <div class="form-group"><label for="contactoEmail">Email
+                                    Directo</label><input type="email" id="contactoEmail"
+                                    placeholder="maria@empresa.com" maxlength="100"></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer"><button class="btn-secondary" onclick="cerrarModal()">Cancelar</button><button
+                    class="btn-primary" onclick="document.getElementById('clienteForm').requestSubmit()">💾 Guardar
+                    Cliente
+                </button></div>
+        </div>
+    </div>
+    <!-- Toast -->
+    <div class="toast" id="toast"><span id="toastIcon"></span><span id="toastMessage"></span></div>
+    <script> // CLIENTE SUPABASE (GLOBAL)
+        const supabaseApp = window.supabaseClient;
+
+        // AUTH GUARD
+        function protectPage() {
+            const token = localStorage.getItem('microerp_session');
+            if (!token) window.location.href = 'index.html';
+        }
+
+        // INIT
+        document.addEventListener('DOMContentLoaded', () => {
+            protectPage();
+            cargarClientes();
+            actualizarModoBusqueda(); // Init link state
+            
+            // Auto-abrir modal si viene del POS
+            const params = new URLSearchParams(window.location.search);
+            if(params.get('action') === 'new_client') {
+                setTimeout(() => abrirModalNuevo(), 300);
+            }
+        });
+
+        // VARIABLES
+        let clientesData = [];
+        let clienteEditando = null;
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        const LINK_DNI = "https://eldni.com/pe/buscar-datos-por-dni";
+        const LINK_RUC = "https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaWeb.jsp";
+
+        // ============================================
+        // LOGICA DE NEGOCIO Y UI INTERACTIVA
+        // ============================================
+
+        function actualizarModoBusqueda() {
+            const tipo = document.getElementById('tipoDocumento').value;
+            const btn = document.getElementById('btnSearchExt');
+            const hint = document.getElementById('docHint');
+            const input = document.getElementById('numeroDocumento');
+
+            // UI Elements to toggle
+            const rowNombreComercial = document.getElementById('rowNombreComercial');
+            const sectionRepresentante = document.getElementById('sectionRepresentante');
+            const titleContactoEmpresa = document.getElementById('titleContactoEmpresa');
+            const lblRazonSocial = document.getElementById('lblRazonSocial');
+
+            // Inputs for placeholders
+            const inputRazon = document.getElementById('razonSocial');
+            const inputEmail = document.getElementById('email');
+
+            input.disabled = (tipo === 'SIN_DOCUMENTO');
+            if (input.disabled) input.value = '';
+
+            btn.classList.remove('disabled');
+
+            // Logic for RUC vs Others
+            if (tipo === 'RUC') {
+                // Modo Empresa
+                rowNombreComercial.style.display = '';
+                sectionRepresentante.style.display = 'block';
+                titleContactoEmpresa.innerText = '🏢 Contacto Empresa / Facturación';
+                lblRazonSocial.innerText = 'Razón Social *';
+
+                // Placeholders Empresa
+                inputRazon.placeholder = "Ej: IMPORTEC S.A.C.";
+                inputEmail.placeholder = "facturacion@empresa.com";
+
+                btn.href = LINK_RUC;
+                btn.title = "Consulta RUC (SUNAT)";
+                btn.innerHTML = '🏢';
+                hint.innerText = "11 dígitos numéricos";
+                input.maxLength = 11;
+            }
+
+            else {
+                // Modo Persona / Otros
+                rowNombreComercial.style.display = 'none';
+                sectionRepresentante.style.display = 'none';
+                titleContactoEmpresa.innerText = '📞 Datos de Contacto';
+                lblRazonSocial.innerText = 'Nombre Completo *';
+
+                // Placeholders Persona
+                inputRazon.placeholder = "Ej: Juan Pérez";
+                inputEmail.placeholder = "ejemplo@gmail.com";
+
+                if (tipo === 'DNI') {
+                    btn.href = LINK_DNI;
+                    btn.title = "Buscar Persona por DNI (eldni.com)";
+                    btn.innerHTML = '🪪';
+                    hint.innerText = "8 dígitos numéricos";
+                    input.maxLength = 8;
+                }
+
+                else {
+                    btn.href = "#";
+                    btn.classList.add('disabled');
+                    btn.innerHTML = '🚫';
+                    hint.innerText = "Ingrese el número de documento";
+                    input.maxLength = 20;
+                }
+            }
+        }
+
+        // ============================================
+        // CRUD SUPABASE
+        // ============================================
+
+        async function cargarClientes() {
+            try {
+                const {
+                    data,
+                    error
+                }
+
+                    = await supabaseApp.from('clientes').select('*').order('razon_social', {
+                        ascending: true
+                    });
+
+                if (error) throw error;
+                clientesData = data;
+                renderizarTabla(clientesData);
+            }
+
+            catch (error) {
+                console.error('Error load:', error);
+                mostrarToast('Error al cargar clientes: ' + error.message, 'error');
+            }
+        }
+
+        function renderizarTabla(datos) {
+            const container = document.getElementById('tableContent');
+
+            if (datos.length === 0) {
+                container.innerHTML = `
+                    <div class="loading">
+                        <span style="font-size: 40px;">👥</span>
+                        <h3>No hay clientes registrados</h3>
+                        <p style="margin-top:10px">Usa el botón "+ Nuevo Cliente" para comenzar.</p>
+                    </div>`;
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Perfil Cliente</th>
+                            <th style="width: 40%;">Contacto</th>
+                            <th style="width: 10%; text-align: right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            datos.forEach(c => {
+                // Lógica de Presentación
+                const isEmpresa = c.tipo_documento === 'RUC';
+                const icon = isEmpresa ? '🏢' : '👤';
+                const docBadge = `<span class="doc-tag ${c.tipo_documento}">${c.tipo_documento}</span>`;
+
+                // Nombre Comercial solo si es dif. de Razón Social y existe
+                let subName = '';
+                if (c.nombre_comercial && c.nombre_comercial !== c.razon_social) {
+                    subName = `<div style="font-size:12px; color:#7f8c8d; margin-top:2px">(${c.nombre_comercial})</div>`;
+                }
+
+                // Construcción de Contacto Unificado
+                let contactInfo = '';
+
+                // Email
+                if (c.email) {
+                    contactInfo += `<div style="margin-bottom:2px">📧 <a href="mailto:${c.email}" style="color:#0070f2; text-decoration:none">${c.email}</a></div>`;
+                }
+
+                // Teléfonos (Celular o Fijo o Contacto Celular)
+                // Prioridad: Celular Principal > Celular Contacto > Telefono Fijo
+                const phone = c.celular || c.contacto_celular || c.telefono;
+                if (phone) {
+                    const cleanPhone = phone.replace(/\D/g, '');
+                    // Asumimos celular si tiene 9 digitos y empieza con 9, o simplemente longitud >= 9
+                    const isCell = cleanPhone.length >= 9;
+                    const waIcon = isCell ? '📱' : '📞';
+
+                    contactInfo += `<div style="margin-bottom:4px; font-weight:500; color:#2c3e50">${waIcon} ${phone}</div>`;
+
+                    if (isCell) {
+                        contactInfo += `<div class="contact-actions">`;
+
+                        // Call Button (Solo en Móvil)
+                        if (isMobile) {
+                            contactInfo += `
+                               <a href="tel:${cleanPhone}" class="btn-contact-action btn-call" title="Llamar">
+                                 📞 Llamar
+                               </a>`;
+                        }
+
+                        // WhatsApp Button (Siempre, es web y móvil friendly)
+                        contactInfo += `
+                           <a href="https://wa.me/51${cleanPhone}" target="_blank" class="btn-contact-action btn-whatsapp" title="Enviar WhatsApp">
+                             💬 WhatsApp
+                           </a>`;
+
+                        contactInfo += `</div>`;
+                    }
+                }
+
+                // Representante (Solo si es empresa y tiene dato)
+                if (isEmpresa && c.contacto_nombre) {
+                    contactInfo += `<div style="font-size:12px; color:#555; margin-top:4px; padding-top:4px; border-top:1px dashed #eee">
+                        👤 Rep: <strong>${c.contacto_nombre}</strong>
+                        ${c.contacto_cargo ? `<span style="color:#7f8c8d"> - ${c.contacto_cargo}</span>` : ''}
+                    </div>`;
+                }
+
+                if (!contactInfo) contactInfo = '<span style="color:#bdc3c7; font-size:12px">Sin datos de contacto</span>';
+
+                html += `
+                    <tr>
+                        <!-- COLUMNA 1: PERFIL -->
+                        <td>
+                            <div style="display:flex; gap:12px; align-items:flex-start">
+                                <div style="font-size:24px; line-height:1">${icon}</div>
+                                <div>
+                                    <div style="font-weight:600; color:#2c3e50; font-size:15px">${c.razon_social}</div>
+                                    <div style="margin-top:4px; font-size:13px">
+                                        ${docBadge} <span style="font-family:monospace; font-weight:600; color:#555">${c.numero_documento || 'S/N'}</span>
+                                    </div>
+                                    ${subName}
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- COLUMNA 2: CONTACTO -->
+                        <td>
+                            <div style="font-size:13px; line-height:1.5; color:#34495e">
+                                ${contactInfo}
+                            </div>
+                        </td>
+
+                        <!-- COLUMNA 3: ACCIONES -->
+                        <td style="text-align: right;">
+                            <div class="actions" style="justify-content: flex-end;">
+                                <button class="btn-icon btn-edit" onclick="editarCliente('${c.id}')" title="Editar">✏️</button>
+                                <button class="btn-icon btn-delete" onclick="eliminarCliente('${c.id}', '${c.razon_social}')" title="Eliminar">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        async function guardarCliente(e) {
+            e.preventDefault();
+
+            // MAPEO: Frontend (camelCase) -> DB (snake_case)
+            const id = document.getElementById('clienteId').value;
+
+            const payload = {
+                tipo_documento: document.getElementById('tipoDocumento').value,
+                numero_documento: document.getElementById('numeroDocumento').value.trim() || null,
+                razon_social: document.getElementById('razonSocial').value.trim(),
+                nombre_comercial: document.getElementById('nombreComercial').value.trim() || null,
+                // direccion: removed from UI
+
+                email: document.getElementById('email').value.trim() || null,
+                // telefono: removed from UI
+                celular: document.getElementById('celular').value.trim() || null,
+
+                contacto_nombre: document.getElementById('contactoNombre').value.trim() || null,
+                contacto_cargo: document.getElementById('contactoCargo').value.trim() || null,
+                contacto_celular: document.getElementById('contactoCelular').value.trim() || null,
+                contacto_email: document.getElementById('contactoEmail').value.trim() || null,
+
+                activo: true
+            };
+
+            // Validación RUC/DNI Unicidad Local (Optimista)
+            if (payload.numero_documento && payload.tipo_documento !== 'SIN_DOCUMENTO') {
+                const duplicado = clientesData.find(c => c.tipo_documento === payload.tipo_documento && c.numero_documento === payload.numero_documento && c.id !== id);
+
+                if (duplicado) {
+                    mostrarToast(`Ya existe un cliente con ${payload.tipo_documento}: ${payload.numero_documento}`, 'warning');
+                    return;
+                }
+            }
+
+            try {
+                let error;
+                let idInsertado = null;
+
+                if (id) {
+                    // Update
+                    const { error: errUpd } = await supabaseApp.from('clientes').update(payload).eq('id', id);
+                    error = errUpd;
+                } else {
+                    // Insert
+                    const { data: insData, error: errIns } = await supabaseApp.from('clientes').insert([payload]).select().single();
+                    error = errIns;
+                    if(!error) idInsertado = insData.id;
+                }
+
+                if (error) throw error;
+
+                mostrarToast('Cliente guardado exitosamente', 'success');
+                cerrarModal();
+                
+                // Si fue creación (no tenía ID previo) y venimos de POS, regresar
+                const urlParams = new URLSearchParams(window.location.search);
+                const returnTo = urlParams.get('return_to');
+                if(!id && returnTo && idInsertado) {
+                    window.location.href = returnTo + '?new_client_id=' + idInsertado;
+                    return; // Abortar resto lógico
+                }
+
+                cargarClientes();
+
+            } catch (err) {
+                console.error("Save error:", err);
+                mostrarToast('Error al guardar: ' + err.message, 'error');
+            }
+        }
+
+        function editarCliente(id) {
+            const cliente = clientesData.find(c => c.id === id);
+            if (!cliente) return;
+
+            // MAPEO: DB (snake_case) -> Frontend (camelCase)
+            clienteEditando = cliente;
+            document.getElementById('clienteId').value = cliente.id;
+
+            setValue('tipoDocumento', cliente.tipo_documento);
+            // Trigger manual del cambio de link
+            actualizarModoBusqueda();
+
+            setValue('numeroDocumento', cliente.numero_documento);
+            setValue('razonSocial', cliente.razon_social);
+            setValue('nombreComercial', cliente.nombre_comercial);
+            // setValue('direccion', cliente.direccion);
+
+            setValue('email', cliente.email);
+            // setValue('telefono', cliente.telefono);
+            setValue('celular', cliente.celular);
+
+            setValue('contactoNombre', cliente.contacto_nombre);
+            setValue('contactoCargo', cliente.contacto_cargo);
+            setValue('contactoCelular', cliente.contacto_celular);
+            setValue('contactoEmail', cliente.contacto_email);
+
+            document.getElementById('modalTitle').innerText = 'Editar Cliente';
+            document.getElementById('modal').classList.add('active');
+        }
+
+        async function eliminarCliente(id, nombre) {
+            if (!confirm(`¿Estás seguro de eliminar al cliente "${nombre}" ?`)) return;
+
+            try {
+                const {
+                    error
+                }
+
+                    = await supabaseApp.from('clientes').delete().eq('id', id);
+
+                if (error) throw error;
+                mostrarToast('Cliente eliminado', 'success');
+                cargarClientes();
+            }
+
+            catch (err) {
+                mostrarToast('Error al eliminar: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================
+        // UTILIDADES UI
+        // ============================================
+
+        function setValue(id, val) {
+            document.getElementById(id).value = val || '';
+        }
+
+        function abrirModalNuevo() {
+            clienteEditando = null;
+            document.getElementById('clienteForm').reset();
+            document.getElementById('clienteId').value = '';
+            document.getElementById('modalTitle').innerText = 'Nuevo Cliente';
+            document.getElementById('modal').classList.add('active');
+
+            // Reset selects y estados
+            document.getElementById('tipoDocumento').value = 'DNI';
+            actualizarModoBusqueda();
+            setTimeout(() => document.getElementById('numeroDocumento').focus(), 100);
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function buscarClientes() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+
+            if (!term) {
+                renderizarTabla(clientesData);
+                return;
+            }
+
+            const filtrados = clientesData.filter(c => (c.razon_social || '').toLowerCase().includes(term) || (c.numero_documento || '').includes(term) || (c.nombre_comercial || '').toLowerCase().includes(term));
+            renderizarTabla(filtrados);
+        }
+
+        function mostrarToast(msg, type) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const text = document.getElementById('toastMessage');
+
+            toast.className = `toast $ {
+                type
+            }
+
+            active`;
+            text.innerText = msg;
+            icon.innerText = type === 'success' ? '✅' : (type === 'error' ? '❌' : '⚠️');
+
+            setTimeout(() => toast.classList.remove('active'), 3000);
+        }
+
+        // Validacion Inputs Numericos documentos
+        document.getElementById('numeroDocumento').addEventListener('input', function (e) {
+            const tipo = document.getElementById('tipoDocumento').value;
+
+            if (tipo === 'DNI' || tipo === 'RUC') {
+                this.value = this.value.replace(/\D/g, '');
+            }
+        });
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banco de Horas - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        .page-container {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-box {
+            background: #ffffff;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .summary-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+            font-variant-numeric: tabular-nums;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .val-positive {
+            color: #10b981;
+        }
+
+        .val-negative {
+            color: #ef4444;
+        }
+
+        .val-neutral {
+            color: #64748b;
+        }
+
+        .table-cell-val {
+            font-family: 'Inter', sans-serif;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+
+        /* Oculta los controles de espín en inputs de número/mes si aplicara */
+        input[type="month"]::-webkit-inner-spin-button,
+        input[type="month"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            filter: invert(0.5);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50">
+
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='gestion_de_personal.html'">
+                ← Volver al Panel
+            </button>
+            <h1>Banco de Horas</h1>
+            <div class="submodule-version">Control de Trazabilidad Mensual</div>
+        </div>
+    </header>
+
+    <main class="page-container">
+
+        <!-- Controles Superiores -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <div class="flex flex-col md:flex-row gap-4 items-end">
+                <div class="flex-grow w-full md:w-auto">
+                    <label
+                        class="text-xs text-slate-500 font-bold mb-1 uppercase tracking-wider block">Colaborador</label>
+                    <select id="selectPersonal"
+                        class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-700 bg-white shadow-sm focus:border-blue-500 focus:outline-none font-medium h-[42px]"
+                        onchange="filtrarDatos()">
+                        <option value="">Cargando personal...</option>
+                    </select>
+                </div>
+                <div class="w-full md:w-48 shrink-0">
+                    <label class="text-xs text-slate-500 font-bold mb-1 uppercase tracking-wider block">Mes de
+                        Consulta</label>
+                    <input type="month" id="inputMes"
+                        class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-700 bg-white shadow-sm focus:border-blue-500 focus:outline-none font-medium h-[42px]"
+                        onchange="filtrarDatos()">
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjetas de Resumen -->
+        <div class="summary-grid">
+            <div class="summary-box relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10">
+                    <i class="fas fa-wallet text-5xl"></i>
+                </div>
+                <div class="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Saldo Actual (Fin del Mes)
+                </div>
+                <div id="saldoActual" class="summary-value val-neutral">-- hrs</div>
+                <div id="saldoSubtext" class="text-xs font-semibold mt-2 text-slate-400">Seleccione un mes</div>
+            </div>
+
+            <div class="summary-box relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10">
+                    <i class="fas fa-arrow-up text-5xl text-green-500"></i>
+                </div>
+                <div class="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Total Excedentes</div>
+                <div id="totalExcedentes" class="summary-value val-positive">-- hrs</div>
+                <div class="text-xs font-semibold mt-2 text-slate-400">A favor del colaborador</div>
+            </div>
+
+            <div class="summary-box relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10">
+                    <i class="fas fa-arrow-down text-5xl text-red-500"></i>
+                </div>
+                <div class="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Total Deudas</div>
+                <div id="totalDeudas" class="summary-value val-negative">-- hrs</div>
+                <div class="text-xs font-semibold mt-2 text-slate-400">Descuentos o tiempo a reponer</div>
+            </div>
+        </div>
+
+        <!-- Tabla Detallada -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800"><i class="fas fa-history mr-2 text-slate-400"></i>Historial de
+                    Movimientos</h3>
+                <span class="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-200"
+                    id="contadorMovimientos">0 registros</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left" id="tablaBanco">
+                    <thead class="bg-white border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="py-3 px-6 font-bold">Fecha Doc.</th>
+                            <th class="py-3 px-6 font-bold">Documento / Origen</th>
+                            <th class="py-3 px-6 font-bold">Tipo Movimiento</th>
+                            <!-- Columna Observación retirada para mayor limpieza/espacio -->
+                            <th class="py-3 px-6 font-bold text-right">Cant. Horas</th>
+                            <th class="py-3 px-6 font-bold text-right">Saldo Acumulado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-700" id="tbodyBanco">
+                        <!-- Render via JS -->
+                    </tbody>
+                </table>
+
+                <div id="loading"
+                    class="hidden py-12 flex flex-col items-center justify-center text-slate-500 bg-white">
+                    <i class="fas fa-circle-notch fa-spin text-3xl text-blue-500 mb-3"></i>
+                    <p>Cargando trazabilidad...</p>
+                </div>
+
+                <div id="empty-state"
+                    class="hidden py-16 flex flex-col items-center justify-center text-slate-500 bg-white">
+                    <i class="fas fa-file-invoice text-5xl mb-4 text-slate-300"></i>
+                    <p class="text-lg font-medium text-slate-600">No hay movimientos registrados</p>
+                    <p class="text-sm mt-1">El trabajador no tiene historial en este mes.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="sidebar.js"></script>
+    <script>
+        let movimientosCache = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Iniciar mes actual
+            const hoy = new Date();
+            const mesStr = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+            document.getElementById('inputMes').value = mesStr;
+
+            if (typeof window.supabaseClient === 'undefined') {
+                setTimeout(initApp, 500);
+            } else {
+                await initApp();
+            }
+        });
+
+        async function initApp() {
+            mostrarCarga(true);
+            await cargarPersonal();
+            await filtrarDatos();
+        }
+
+        async function cargarPersonal() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('personal')
+                    .select('id, nombres, apellidos, cargo_rol, documento_identidad')
+                    .eq('activo', true)
+                    .order('apellidos');
+
+                if (error) throw error;
+
+                const select = document.getElementById('selectPersonal');
+                select.innerHTML = '';
+
+                if (data && data.length > 0) {
+                    data.forEach(p => {
+                        let nom = p.nombres.split(' ')[0];
+                        select.innerHTML += '<option value="' + p.id + '">' + p.apellidos + ', ' + nom + ' - ' + (p.cargo_rol || 'Operativo') + ' (DNI/CE: ' + p.documento_identidad + ')</option>';
+                    });
+                } else {
+                    select.innerHTML = '<option value="">No hay personal activo</option>';
+                    select.disabled = true;
+                }
+            } catch (error) {
+                console.error("Error cargando personal:", error);
+            }
+        }
+
+        async function filtrarDatos() {
+            const personalId = document.getElementById('selectPersonal').value;
+            const mesInput = document.getElementById('inputMes').value; // YYYY-MM
+
+            if (!personalId || !mesInput) {
+                renderVacio();
+                return;
+            }
+
+            mostrarCarga(true);
+
+            try {
+                // Fechas inicio y fin del mes
+                const [yyyy, mm] = mesInput.split('-');
+                const fechaInicio = yyyy + '-' + mm + '-01';
+                // Ultimo dia del mes
+                const dateFin = new Date(yyyy, mm, 0);
+                const fechaFin = yyyy + '-' + mm + '-' + String(dateFin.getDate()).padStart(2, '0');
+
+                const { data, error } = await window.supabaseClient
+                    .from('banco_horas')
+                    .select('*')
+                    .eq('personal_id', personalId)
+                    .gte('fecha_movimiento', fechaInicio)
+                    .lte('fecha_movimiento', fechaFin)
+                    .order('fecha_movimiento', { ascending: true }) // ASC for calculation
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+                let rawData = data || [];
+
+                // NUEVO: 1. Agrupación y Compactación Visual (RAM)
+                // Agruparemos por "fecha_movimiento + documento_referencia" para colapsar correcciones retroactivas de Lápiz
+                let agrupadosMap = new Map();
+                
+                rawData.forEach(m => {
+                    if (!m.documento_referencia || m.documento_referencia.trim() === '') {
+                        // Si no tiene doc, no agrupamos, forzamos un ID único falso
+                        agrupadosMap.set(m.id, { ...m });
+                    } else {
+                        const key = m.fecha_movimiento + '_' + m.documento_referencia;
+                        if (!agrupadosMap.has(key)) {
+                            // Primer registro de este doc en este día
+                            agrupadosMap.set(key, { ...m, _cantidad_neta: parseFloat(m.cantidad_horas || 0) });
+                        } else {
+                            // Registro subsiguiente (corrección/Safe Append)
+                            let existente = agrupadosMap.get(key);
+                            existente._cantidad_neta += parseFloat(m.cantidad_horas || 0);
+                            existente.cantidad_horas = existente._cantidad_neta; // Actualizamos para el cálculo visual posterior
+                            
+                            // Nos quedamos con la última forma de la observación (la más actual cronológicamente)
+                            // Y limpiamos la muletilla del motor "(Aj. Compensatorio de +X hrs)"
+                            if (m.observacion) {
+                                existente.observacion = m.observacion.replace(/\s*\(Aj\. Compensatorio de [+-]?[\d.]+ hrs\)/i, '');
+                            }
+                            // Re-tipificar si el balance neto cambia de signo
+                            if (existente._cantidad_neta > 0) {
+                                existente.tipo_movimiento = 'EXCEDENTE_GENERADO';
+                            } else if (existente._cantidad_neta < 0) {
+                                existente.tipo_movimiento = 'DEUDA_GENERADA';
+                            } else {
+                                existente.tipo_movimiento = 'MOVIMIENTO_NEUTRO';
+                            }
+                        }
+                    }
+                });
+                
+                // Convertir mapa de nuevo a un array ordenado
+                let compactData = Array.from(agrupadosMap.values());
+
+                // 2. Obtener Saldo Base (Calculo Inverso histórico)
+                const { data: dataAnterior, error: errAnterior } = await window.supabaseClient
+                    .from('banco_horas')
+                    .select('cantidad_horas')
+                    .eq('personal_id', personalId)
+                    .lt('fecha_movimiento', fechaInicio);
+
+                let saldoReal = 0;
+                if (!errAnterior && dataAnterior) {
+                    saldoReal = dataAnterior.reduce((sum, row) => sum + parseFloat(row.cantidad_horas || 0), 0);
+                }
+
+                // 3. Fila a Fila Forward-Calculation sobre la data COMPACTADA
+                compactData.forEach(m => {
+                    let cantActual = m._cantidad_neta !== undefined ? m._cantidad_neta : parseFloat(m.cantidad_horas || 0);
+                    saldoReal += cantActual;
+                    m.saldo_visual = saldoReal;
+                    m.requiere_asterisco = Math.abs(parseFloat(m.saldo_acumulado || 0) - m.saldo_visual) > 0.001;
+                });
+
+                // 4. Re-inversión para Mostrar lo nuevo arriba en la iteración visual
+                movimientosCache = compactData.reverse();
+
+                actualizarTarjetas();
+                renderTabla();
+                mostrarCarga(false);
+
+            } catch (error) {
+                console.error("Error filtrando banco:", error);
+                alert("Hubo un error al extraer los movimientos.");
+                mostrarCarga(false);
+            }
+        }
+
+        function actualizarTarjetas() {
+            let totalExc = 0;
+            let totalDeu = 0;
+            let saldoMes = 0;
+
+            if (movimientosCache.length > 0) {
+                // El saldo actual será el del registro más reciente (el primero del array por el order desc)
+                saldoMes = movimientosCache[0].saldo_visual !== undefined ? parseFloat(movimientosCache[0].saldo_visual) : parseFloat(movimientosCache[0].saldo_acumulado || 0);
+            }
+
+            movimientosCache.forEach(m => {
+                if (m.tipo_movimiento === 'EXCEDENTE_GENERADO') {
+                    totalExc += parseFloat(m.cantidad_horas || 0);
+                } else if (m.tipo_movimiento === 'DEUDA_GENERADA') {
+                    totalDeu += Math.abs(parseFloat(m.cantidad_horas || 0));
+                }
+            });
+
+            // Re-render UI
+            const uiSaldo = document.getElementById('saldoActual');
+            const uiSaldoSubtext = document.getElementById('saldoSubtext');
+
+            uiSaldo.innerText = (saldoMes > 0 ? '+' : '') + saldoMes.toFixed(2) + ' Hrs';
+            if (saldoMes > 0) {
+                uiSaldo.className = 'summary-value val-positive';
+                uiSaldoSubtext.innerText = 'Saldo acumulado a favor';
+                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-green-600';
+            } else if (saldoMes < 0) {
+                uiSaldo.className = 'summary-value val-negative';
+                uiSaldoSubtext.innerText = 'Deuda global. Descuento si no repone.';
+                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-red-600';
+            } else {
+                uiSaldo.className = 'summary-value val-neutral';
+                uiSaldoSubtext.innerText = 'Equilibrio exacto';
+                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-slate-400';
+            }
+
+            document.getElementById('totalExcedentes').innerText = '+' + totalExc.toFixed(2) + ' Hrs';
+            document.getElementById('totalDeudas').innerText = '-' + totalDeu.toFixed(2) + ' Hrs';
+
+            let ext = movimientosCache.length === 1 ? 'registro' : 'registros';
+            document.getElementById('contadorMovimientos').innerText = movimientosCache.length + ' ' + ext;
+        }
+
+        function renderTabla() {
+            const tbody = document.getElementById('tbodyBanco');
+            const emptyState = document.getElementById('empty-state');
+            const table = document.getElementById('tablaBanco');
+
+            tbody.innerHTML = '';
+
+            if (movimientosCache.length === 0) {
+                table.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            table.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            movimientosCache.forEach(m => {
+                let badgeTipo = '';
+                let tClass = '';
+                let valStr = parseFloat(m.cantidad_horas || 0).toFixed(2) + 'h';
+
+                if (m.tipo_movimiento === 'EXCEDENTE_GENERADO') {
+                    badgeTipo = '<span class="bg-green-50 text-green-700 text-[0.7rem] font-bold px-2 py-1 rounded border border-green-200">EXCEDENTE GENERADO</span>';
+                    tClass = 'val-positive';
+                    valStr = '+' + valStr;
+                } else if (m.tipo_movimiento === 'DEUDA_GENERADA') {
+                    badgeTipo = '<span class="bg-red-50 text-red-700 text-[0.7rem] font-bold px-2 py-1 rounded border border-red-200">DEUDA GENERADA</span>';
+                    tClass = 'val-negative';
+                    if (!valStr.startsWith('-')) valStr = '-' + valStr;
+                } else {
+                    badgeTipo = '<span class="bg-slate-100 text-slate-600 text-[0.7rem] font-bold px-2 py-1 rounded border border-slate-200">' + m.tipo_movimiento.replace(/_/g, ' ') + '</span>';
+                    tClass = 'val-neutral';
+                }
+
+                const fechaParts = m.fecha_movimiento.split('-');
+                const fechaDoc = fechaParts[2] + '/' + fechaParts[1] + '/' + fechaParts[0];
+                
+                let floatSaldo = m.saldo_visual !== undefined ? parseFloat(m.saldo_visual) : parseFloat(m.saldo_acumulado || 0);
+                const asterisco = m.requiere_asterisco ? ' <i class="fas fa-asterisk text-orange-400 text-[0.6rem] align-top cursor-help" title="Saldo recalculado cronológicamente por edición retroactiva"></i>' : '';
+                const saldoAcumStr = (floatSaldo > 0 ? '+' : '') + floatSaldo.toFixed(2) + 'h' + asterisco;
+                const sClass = floatSaldo < 0 ? 'text-red-500' : (floatSaldo > 0 ? 'text-green-500' : 'text-slate-500');
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors bg-white';
+
+                // Observación se renderiza como subtítulo del origen del documento
+                let obsHtml = m.observacion ? '<div class="text-[0.65rem] text-slate-500 mt-1 leading-tight border-l-2 border-slate-200 pl-2 bg-slate-50/50 py-0.5">' + m.observacion + '</div>' : '';
+                tr.innerHTML = `
+                    <td class="py-4 px-6 text-sm font-medium text-slate-600">${fechaDoc}</td>
+                    <td class="py-4 px-6 max-w-sm">
+                        <div class="font-mono text-[0.85rem] font-bold text-slate-700">${m.documento_referencia || '-'}</div>
+                        ${obsHtml}
+                    </td>
+                    <td class="py-4 px-6">${badgeTipo}</td>
+                    <td class="py-4 px-6 text-right table-cell-val text-sm ${tClass}">${valStr}</td>
+                    <td class="py-4 px-6 text-right table-cell-val font-bold text-[0.95rem] ${sClass}">${saldoAcumStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function mostrarCarga(mostrar) {
+            const emptyState = document.getElementById('empty-state');
+            const table = document.getElementById('tablaBanco');
+            const loader = document.getElementById('loading');
+
+            if (mostrar) {
+                emptyState.classList.add('hidden');
+                table.classList.add('hidden');
+                loader.classList.remove('hidden');
+            } else {
+                loader.classList.add('hidden');
+            }
+        }
+
+        function renderVacio() {
+            mostrarCarga(false);
+            const emptyState = document.getElementById('empty-state');
+            const table = document.getElementById('tablaBanco');
+            table.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            document.getElementById('contadorMovimientos').innerText = '0 registros';
+        }
+
+    </script>
+</body>
+
+</html>

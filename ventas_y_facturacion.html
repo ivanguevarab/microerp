@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ventas y Facturación - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        /* Estilos Locales - Grid Module Layout (Inspirado en gestion_de_personal.html) */
+        .container {
+            padding: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h2 {
+            color: #2c3e50;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 30px;
+        }
+
+        .module-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid #0070f2;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            text-decoration: none;
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0070f2, #00a8ff);
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .module-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .module-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-left-color: #bdc3c7;
+        }
+
+        .module-card.disabled:hover {
+            transform: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .module-icon {
+            font-size: 40px;
+            line-height: 1;
+            color: #354a5f;
+        }
+
+        .module-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Color Coding Badges */
+        .badge-core {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .badge-daily {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .badge-finance {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .badge-config {
+            background: #f3e5f5;
+            color: #6a1b9a;
+        }
+
+        .module-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .module-description {
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .alert-box {
+            background-color: #e3f2fd;
+            border-left: 4px solid #1565c0;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .alert-box i {
+            font-size: 24px;
+            color: #1565c0;
+            margin-top: 4px;
+        }
+
+        .alert-content h4 {
+            color: #0d47a1;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 15px;
+        }
+
+        .alert-content p {
+            color: #1565c0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header Standarizado del Módulo -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='dashboard.html'">
+                ← Volver al Panel
+            </button>
+            <h1>Ventas y Facturación</h1>
+            <div class="submodule-version">MICRO ERP v2.0</div>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- Alerta Dinámica Informativa -->
+        <div class="alert-box" id="alertBox">
+            <i class="fas fa-info-circle"></i>
+            <div class="alert-content">
+                <h4>Ventas Directas y Facturación</h4>
+                <p>Módulo para el registro diario de ingresos por comercialización de productos, servicios u órdenes de producción industrial (CUP/CUS).</p>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <h2>Gestión Comercial</h2>
+            <p>Emite tickets de venta, gestiona tus catálogos de precios y revisa tu histórico financiero en tiempo real.</p>
+        </div>
+
+        <!-- GRUPO: OPERACIÓN COMERCIAL -->
+        <h3 class="text-lg font-bold text-slate-700 mt-8 mb-4 tracking-wide border-b border-slate-200 pb-2 flex items-center gap-2">
+            <i class="fas fa-shopping-cart text-blue-500"></i> OPERACIÓN COMERCIAL
+        </h3>
+        <div class="modules-grid" style="margin-top: 0;">
+
+            <!-- Emitir Ticket -->
+            <a href="emitir_ticket.html" class="module-card" style="border-left-color: #2196f3;">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-receipt text-blue-500"></i></div>
+                    <span class="module-badge badge-daily">Transaccional</span>
+                </div>
+                <div class="module-title">Punto de Venta / Crear Ticket</div>
+                <div class="module-description">
+                    Interfaz rápida para registrar nuevas ventas. Adaptable a la formalidad tributaria (Boleta/Factura) e integrada con base de datos Múltiple (CUS/CUP/Items).
+                </div>
+            </a>
+
+            <!-- Histórico de Ventas -->
+            <a href="registros_historicos_ventas.html" class="module-card" style="border-left-color: #4caf50;">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-history text-green-500"></i></div>
+                    <span class="module-badge badge-core">Trazabilidad</span>
+                </div>
+                <div class="module-title">Histórico de Ventas</div>
+                <div class="module-description">
+                    Consulta todo el historial comercial. Anula transacciones con la validación de integridad "Safe Append PRO" para restaurar el inventario logístico.
+                </div>
+            </a>
+
+            <!-- Inteligencia Analítica de Ventas -->
+            <a href="metricas_ventas.html" class="module-card" style="border-left-color: #e91e63;">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-chart-line text-pink-500"></i></div>
+                    <span class="module-badge" style="background:#fce4ec; color:#c2185b;">Analytics</span>
+                </div>
+                <div class="module-title">Métricas de Ventas</div>
+                <div class="module-description">
+                    Dashboard interactivo. Analiza tus KPIs financieros, el ticket promedio y tu top de productos más vendidos en tiempo real.
+                </div>
+            </a>
+
+        </div>
+
+        <!-- GRUPO: CONFIGURACIÓN -->
+        <h3 class="text-lg font-bold text-slate-700 mt-10 mb-4 tracking-wide border-b border-slate-200 pb-2 flex items-center gap-2">
+            <i class="fas fa-cogs text-purple-600"></i> CONFIGURACIÓN
+        </h3>
+        <div class="modules-grid" style="margin-top: 0;">
+
+            <!-- Listas de Precios -->
+            <a href="precios_de_venta.html" class="module-card" style="border-left-color: #9c27b0;">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-tags text-purple-600"></i></div>
+                    <span class="module-badge badge-config">Maestro Tarifas</span>
+                </div>
+                <div class="module-title">Listas de Precios</div>
+                <div class="module-description">
+                    Define y actualiza el "Precio de Venta" estandarizado (Tarifario Base) para todos tus elementos (Productos o Servicios) y automatiza el Punto de Venta.
+                </div>
+            </a>
+
+            <!-- Gestión de Clientes (Llamada al módulo existente cliente.html) -->
+            <a href="clientes.html" class="module-card" style="border-left-color: #ff9800;">
+                <div class="module-header">
+                    <div class="module-icon"><i class="fas fa-users text-orange-500"></i></div>
+                    <span class="module-badge badge-finance">Base CRM</span>
+                </div>
+                <div class="module-title">Base de Clientes</div>
+                <div class="module-description">
+                    Administra tu padrón de clientes (DNI/RUC) para la emisión eficiente y correcta de tickets, boletas y facturas con referencias tributarias válidas.
+                </div>
+            </a>
+
+        </div>
+
+    </main>
+
+    <!-- Inyectar Sidebar -->
+    <script src="sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth(); // Esperar a que se resuelva la autenticación global
+        });
+    </script>
+</body>
+
+</html>

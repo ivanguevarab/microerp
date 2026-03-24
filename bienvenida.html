@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroERP - Sala de Bienvenida</title>
+
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Auth Guard -->
+    <script src="auth-guard.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #354a5f 0%, #2c3e50 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #2c3e50;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            text-align: center;
+            padding: 50px;
+            position: relative;
+        }
+
+        .header-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            line-height: 1.6;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+            text-align: left;
+        }
+
+        .feature-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 25px;
+            border-left: 4px solid #0070f2;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        }
+
+        .feature-icon {
+            font-size: 30px;
+            margin-bottom: 15px;
+        }
+
+        .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #354a5f;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: #7f8c8d;
+            line-height: 1.5;
+        }
+
+        .status-box {
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 auto 30px auto;
+            max-width: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .status-icon {
+            font-size: 24px;
+            color: #f39c12;
+        }
+
+        .status-text {
+            color: #d68910;
+            font-weight: 500;
+            font-size: 15px;
+            text-align: left;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: #0070f2;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 112, 242, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: #005bb5;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #ecf0f1;
+            color: #7f8c8d;
+        }
+
+        .btn-secondary:hover {
+            background: #dfe4e6;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header-icon">👋</div>
+        <h1>¡Bienvenido a Micro ERP!</h1>
+        <p class="subtitle">
+            El sistema integral diseñado específicamente para llevar tu microempresa al siguiente nivel. 
+            Actualmente tu cuenta ha sido autenticada con éxito, pero **estamos esperando que el administrador te asigne una empresa y los permisos correspondientes**.
+        </p>
+
+        <div class="status-box">
+            <div class="status-icon">⏳</div>
+            <div class="status-text">
+                Tu perfil está en sala de espera. Por favor comunicate con el administrador para que te otorgue el nivel de acceso en la plataforma.
+            </div>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📦</div>
+                <div class="feature-title">Inventario Inteligente</div>
+                <div class="feature-desc">Controla tus existencias al milímetro. Rastrea entradas, salidas y recibe notificaciones cuando tu stock esté bajo.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤝</div>
+                <div class="feature-title">Gestión de Clientes (CRM)</div>
+                <div class="feature-desc">Construye relaciones duraderas. Administra tus ventas, cotizaciones y ofrece un servicio al cliente excepcional.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🏭</div>
+                <div class="feature-title">Producción y Servicios</div>
+                <div class="feature-desc">Optimiza tus horas hombre, realiza seguimientos de órdenes de trabajo y transforma materias primas con total trazabilidad.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <div class="feature-title">Recursos Humanos</div>
+                <div class="feature-desc">Lleva el control exacto de asistencia, horas extra, faltas y liquidaciones de manera automática y sin errores.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <div class="feature-title">Análisis Financiero</div>
+                <div class="feature-desc">Reportes detallados y control total de finanzas para evaluar la rentabilidad del negocio de un vistazo.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🧾</div>
+                <div class="feature-title">Ventas y Facturación</div>
+                <div class="feature-desc">Control de cotizaciones y emisión rápida de facturación electrónica e inventario.</div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="checkStatus()">
+                🔄 Actualizar Estado
+            </button>
+            <button class="btn btn-secondary" onclick="logout()">
+                🚪 Cerrar Sesión
+            </button>
+        </div>
+    </div>
+
+    <script>
+        async function checkStatus() {
+            // Recargamos la página. Cuando cargue, auth-guard.js volverá a consultar 
+            // la tabla perfiles_usuario. Si el admin ya asignó el perfil,
+            // auth-guard.js detectará el vínculo y de inmediato redirigirá a dashboard.html
+            window.location.reload();
+        }
+
+        async function logout() {
+            if (confirm('¿Deseas cerrar sesión y volver a la pantalla de inicio?')) {
+                // auth-guard.js inyecta window.supabaseClient tempranamente, 
+                // pero si por alguna razón falla, nos aseguramos de limpiarlo
+                if (window.supabaseClient) {
+                    await window.supabaseClient.auth.signOut();
+                }
+                localStorage.removeItem('microerp_session');
+                window.location.replace('index.html');
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Métricas de Ventas - Inteligencia de Negocios</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase, Auth & Chart JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        /* Diseño Módulo Analytics Copiado de Inventarios */
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --background-color: #f1f5f9;
+            --text-color: #0f172a;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        body { background-color: var(--background-color); color: var(--text-color); padding-bottom: 2rem; font-family: 'Inter', sans-serif;}
+
+        .container { max-width: 1400px; margin: 2rem auto; padding: 0 1.5rem; display: grid; gap: 2rem; }
+
+        .search-wrapper { background: white; padding: 1rem; border-radius: 1rem; box-shadow: var(--card-shadow); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;}
+        .search-input { width: 100%; padding: 0.8rem 1rem; font-size: 1rem; border: 2px solid #e2e8f0; border-radius: 0.75rem; }
+
+        /* KPI Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .kpi-card { background: white; padding: 1.5rem; border-radius: 1rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 0.5rem; border-top: 4px solid var(--primary-color); transition: transform 0.2s; }
+        .kpi-card:hover { transform: translateY(-4px); }
+        .kpi-title { font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--secondary-color); font-weight: 600; display:flex; justify-content: space-between}
+        .kpi-value { font-size: 2.5rem; font-weight: 800; color: var(--text-color); }
+        .kpi-subtitle { font-size: 0.875rem; color: var(--secondary-color); font-style: italic;}
+        
+        /* Dashboard Layout */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem; }
+        .module-card { background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column; }
+        .col-span-8 { grid-column: span 8; }
+        .col-span-4 { grid-column: span 4; }
+        .col-span-12 { grid-column: span 12; }
+        @media (max-width: 1024px) { .col-span-8, .col-span-4 { grid-column: span 12; } }
+        
+        .module-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; }
+        .module-title { font-size: 1.25rem; font-weight: 700; color: var(--text-color); display: flex; align-items: center; gap: 0.5rem; }
+        
+        .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.9); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e2e8f0; border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+
+<body>
+    <!-- Loader -->
+    <div id="loader" class="loader-overlay" style="display:none;">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Header Modulo Estandar (styles.css) -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='ventas_y_facturacion.html'">
+                ← Volver a Ventas
+            </button>
+            <h1>Analytics: Métricas de Ventas</h1>
+            <div class="submodule-version">MICRO ERP v3.0</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 1. Controlador de Tiempos -->
+        <div class="search-wrapper">
+            <h2 class="text-lg font-bold text-slate-700"><i class="fas fa-calendar-alt text-blue-500 mr-2"></i> Rango Temporal de Análisis</h2>
+            <div style="display:flex; gap: 1rem">
+                <select id="selectPeriodo" class="search-input" style="width:auto; cursor: pointer; border-color: #3b82f6; border-width: 2px" onchange="cargarDataAnalitica()">
+                    <option value="HOY">Hoy</option>
+                    <option value="SEMANA">Este Semanal (Últ. 7 Días)</option>
+                    <option value="MES" selected>Este Mes (MTD)</option>
+                    <option value="TRIMESTRE">Este Trimestre</option>
+                    <option value="SEMESTRE">Este Semestre</option>
+                    <option value="ANIO">Este Año (YTD)</option>
+                    <option value="HISTORICO">Todo el Histórico</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 2. KPI Cards C-Level -->
+        <div class="kpi-grid">
+            <div class="kpi-card" style="border-top-color: #10b981;">
+                <span class="kpi-title">Ingresos Brutos Totales <i class="fas fa-money-bill-wave text-emerald-500"></i></span>
+                <span class="kpi-value" id="kpiIngresos">S/ 0.00</span>
+                <span class="kpi-subtitle" id="subIngresos">Monetización del periodo</span>
+            </div>
+            <div class="kpi-card" style="border-top-color: #3b82f6;">
+                <span class="kpi-title">Volumen de Transacciones <i class="fas fa-receipt text-blue-500"></i></span>
+                <span class="kpi-value" id="kpiVolumen">0</span>
+                <span class="kpi-subtitle">Tickets Emitidos (Fact/Bol/Simple)</span>
+            </div>
+            <div class="kpi-card" style="border-top-color: #8b5cf6;">
+                <span class="kpi-title">Ticket Promedio <i class="fas fa-shopping-basket text-purple-500"></i></span>
+                <span class="kpi-value" id="kpiTicketPromedio">S/ 0.00</span>
+                <span class="kpi-subtitle">Gasto promedio por cada venta</span>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- 3. Evolucion de Ventas (Linea) -->
+            <div class="module-card col-span-8">
+                <div class="module-header flex justify-between items-center flex-wrap gap-2">
+                    <h2 class="module-title">📈 Evolución Temporal</h2>
+                    <select id="filtroEvolucion" class="search-input w-auto text-sm py-1 border-blue-500" onchange="renderEvolucion()">
+                        <option value="DINERO">Ingresos Diarios (S/)</option>
+                        <option value="CANTIDAD">Volumen de Tickets Emitidos</option>
+                    </select>
+                </div>
+                <div style="position: relative; height: 350px; width: 100%;">
+                    <canvas id="chartEvolucion"></canvas>
+                </div>
+            </div>
+
+            <!-- 4. Top Clientes (CRM) -->
+            <div class="module-card col-span-4">
+                <div class="module-header">
+                    <h2 class="module-title">👑 Top 5 Clientes VIP</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-3">Cliente</th>
+                                <th scope="col" class="px-4 py-3 text-right">Volumen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaClientesBody">
+                            <!-- JS Inject -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="noClientes" class="text-center py-4 text-gray-400 hidden">Datos VIP no detectados</div>
+            </div>
+
+            <!-- 5. Top Productos Estrellas: COMERCIAL -->
+            <div id="cardComercial" class="module-card col-span-12" style="display:none;">
+                <div class="module-header flex justify-between items-center flex-wrap gap-2">
+                    <h2 class="module-title" style="color:#e11d48;"><i class="fas fa-box-open mr-2"></i> Rank 10: División Comercial (Items)</h2>
+                    <select id="filtroComercial" class="search-input w-auto text-sm py-1 border-rose-500" onchange="renderTopProductos('COMERCIAL')">
+                        <option value="CANTIDAD">Ventas por Volumen (Und)</option>
+                        <option value="DINERO">Ventas por Recaudación (S/)</option>
+                    </select>
+                </div>
+                <div style="position: relative; height: 350px; width: 100%;">
+                    <canvas id="chartComercial"></canvas>
+                </div>
+            </div>
+
+            <!-- 6. Top Productos Estrellas: SERVICIOS -->
+            <div id="cardServicios" class="module-card col-span-12" style="display:none;">
+                <div class="module-header flex justify-between items-center flex-wrap gap-2">
+                    <h2 class="module-title" style="color:#059669;"><i class="fas fa-hands-helping mr-2"></i> Rank 10: División Servicios (Intangibles)</h2>
+                    <select id="filtroServicios" class="search-input w-auto text-sm py-1 border-emerald-500" onchange="renderTopProductos('SERVICIOS')">
+                        <option value="CANTIDAD">Ventas por Tráfico (Veces)</option>
+                        <option value="DINERO">Ventas por Recaudación (S/)</option>
+                    </select>
+                </div>
+                <div style="position: relative; height: 350px; width: 100%;">
+                    <canvas id="chartServicios"></canvas>
+                </div>
+            </div>
+
+            <!-- 7. Top Productos Estrellas: PRODUCCION -->
+            <div id="cardProduccion" class="module-card col-span-12" style="display:none;">
+                <div class="module-header flex justify-between items-center flex-wrap gap-2">
+                    <h2 class="module-title" style="color:#7c3aed;"><i class="fas fa-industry mr-2"></i> Rank 10: División Producción (Manufactura)</h2>
+                    <select id="filtroProduccion" class="search-input w-auto text-sm py-1 border-purple-500" onchange="renderTopProductos('PRODUCCION')">
+                        <option value="CANTIDAD">Ventas por Volumen (Hechuras)</option>
+                        <option value="DINERO">Ventas por Recaudación (S/)</option>
+                    </select>
+                </div>
+                <div style="position: relative; height: 350px; width: 100%;">
+                    <canvas id="chartProduccion"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script>
+        // INIT GLOBAL
+        let currentEmpresaId = null;
+        let chartEvolucionInstance = null;
+        let chartInstances = {}; // Multi-Graficos
+        
+        // Memoria Analitica DB Caché
+        let dataProductosOriginal = [];
+        let dataEvolucionGlobal = {};
+        let mapNombresCacheados = {};
+        let confEmpresa = { es_comercializadora: true, es_servicios: false, es_industrial: false };
+        
+        // Formateador
+        const formatMoney = (amount) => { return Number(amount).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+
+        // Helper de Fechas Dinámicas (Estándar UTC-5 Lima simplificado local)
+        function getDatesByPeriod(periodStr) {
+            const today = new Date();
+            let start = new Date(today);
+            let end = new Date(today);
+            end.setHours(23, 59, 59, 999);
+
+            switch (periodStr) {
+                case 'HOY':
+                    start.setHours(0, 0, 0, 0); break;
+                case 'SEMANA':
+                    start.setDate(today.getDate() - 7); start.setHours(0, 0, 0, 0); break;
+                case 'MES': // MTD
+                    start = new Date(today.getFullYear(), today.getMonth(), 1); break;
+                case 'TRIMESTRE':
+                    const qMs = Math.floor(today.getMonth() / 3) * 3;
+                    start = new Date(today.getFullYear(), qMs, 1); break;
+                case 'SEMESTRE':
+                    const sMs = Math.floor(today.getMonth() / 6) * 6;
+                    start = new Date(today.getFullYear(), sMs, 1); break;
+                case 'ANIO': // YTD
+                    start = new Date(today.getFullYear(), 0, 1); break;
+                case 'HISTORICO':
+                    start = new Date('2020-01-01'); break;
+            }
+            return {
+                start: start.toISOString().split('T')[0],
+                end: end.toISOString().split('T')[0]
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loader = document.getElementById('loader');
+            loader.style.display = 'flex';
+            
+            try {
+                // Leer Persistencia
+                let mem = localStorage.getItem('metricas_periodo_seleccionado');
+                if(mem) document.getElementById('selectPeriodo').value = mem;
+
+                await checkAuth();
+                
+                // Fetch del tenant ID
+                const { data: perfil, error: errPerf } = await window.supabaseClient.from('perfiles_usuario')
+                    .select('empresa_id').eq('id', window.currentUser.id).single();
+                    
+                if(errPerf || !perfil) throw new Error("Perfil de usuario dañado o ilocalizable.");
+                
+                currentEmpresaId = perfil.empresa_id;
+                if(!currentEmpresaId) throw new Error("Acceso Inválido: Tenant no detectado.");
+
+                // Iniciar motor al cargar con el combobox default persistido
+                await cargarDataAnalitica();
+                
+            } catch (err) {
+                console.error("Error UI:", err);
+                alert("Error Inicializando Metrics: " + err.message);
+            } finally {
+                loader.style.display = 'none';
+            }
+        });
+
+        async function cargarDataAnalitica() {
+            const loader = document.getElementById('loader');
+            loader.style.display = 'flex';
+            
+            try {
+                const periodoTxt = document.getElementById('selectPeriodo').value;
+                localStorage.setItem('metricas_periodo_seleccionado', periodoTxt);
+
+                const r = getDatesByPeriod(periodoTxt);
+                console.log(`📡 Metrics Multi-Tenant DB. Empresa: ${currentEmpresaId} | Rango: ${r.start} -> ${r.end}`);
+                
+                const sb = window.supabaseClient;
+
+                // 1. Lectura de Configuración Multi-Canal
+                const {data: eData} = await sb.from('empresas').select('es_comercializadora, es_servicios, es_industrial').eq('id', currentEmpresaId).single();
+                if(eData) confEmpresa = eData;
+
+                document.getElementById('cardComercial').style.display = confEmpresa.es_comercializadora ? 'block' : 'none';
+                document.getElementById('cardServicios').style.display = confEmpresa.es_servicios ? 'block' : 'none';
+                document.getElementById('cardProduccion').style.display = confEmpresa.es_industrial ? 'block' : 'none';
+
+                // Promise.all SQL masivo (Con nueva logica limits y volumen)
+                let pKpi = sb.rpc('fn_metricas_kpi_ventas', { p_empresa_id: currentEmpresaId, p_fecha_inc: r.start, p_fecha_fin: r.end });
+                let pEvo = (periodoTxt === 'HOY') 
+                            ? Promise.resolve({ data: 'USA_JS_HOY', error: null }) 
+                            : sb.rpc('fn_metricas_evolucion_ventas', { p_empresa_id: currentEmpresaId, p_fecha_inc: r.start, p_fecha_fin: r.end });
+                let pProd= sb.rpc('fn_metricas_top_productos', { p_empresa_id: currentEmpresaId, p_fecha_inc: r.start, p_fecha_fin: r.end });
+                let pClie= sb.rpc('fn_metricas_top_clientes', { p_empresa_id: currentEmpresaId, p_fecha_inc: r.start, p_fecha_fin: r.end });
+
+                const [resKPI, resEvolucion, resProd, resClientes] = await Promise.all([ pKpi, pEvo, pProd, pClie ]);
+
+                if(resKPI.error) throw resKPI.error;
+                if(resEvolucion.error) throw resEvolucion.error;
+                if(resProd.error) throw resProd.error;
+                if(resClientes.error) throw resClientes.error;
+
+                // 2. RENDER KPIs Superiores
+                const kpis = resKPI.data && resKPI.data.length > 0 ? resKPI.data[0] : { total_ingresos: 0, volumen_tickets: 0, ticket_promedio: 0 };
+                document.getElementById('kpiIngresos').textContent = 'S/ ' + formatMoney(kpis.total_ingresos);
+                document.getElementById('kpiVolumen').textContent = kpis.volumen_tickets;
+                document.getElementById('kpiTicketPromedio').textContent = 'S/ ' + formatMoney(kpis.ticket_promedio);
+
+                // 3. CAPTURA DE DATA DE EVOLUCION
+                let labelsEvo = [];
+                let dataEvoTotales = [];
+                let dataEvoTickets = [];
+                
+                if (periodoTxt === 'HOY') {
+                    // Carga especial por HORAS del día de hoy leyendo DB cruda (Bypass)
+                    let dIni = new Date(); dIni.setHours(0,0,0,0);
+                    let dFin = new Date(); dFin.setHours(23,59,59,999);
+                    const { data: vHoy } = await sb.from('ventas')
+                         .select('created_at, precio_venta_total')
+                         .eq('empresa_id', currentEmpresaId).eq('estado', 'REGISTRADO')
+                         .gte('created_at', dIni.toISOString())
+                         .lte('created_at', dFin.toISOString());
+                         
+                    let hrsMapSoles = Array(24).fill(0);
+                    let hrsMapTickets = Array(24).fill(0);
+
+                    if(vHoy) {
+                         vHoy.forEach(v => {
+                              let dt = new Date(v.created_at); // UTC to Local Lima
+                              hrsMapSoles[dt.getHours()] += Number(v.precio_venta_total);
+                              hrsMapTickets[dt.getHours()] += 1;
+                         });
+                    }
+                    labelsEvo = [...Array(24).keys()].map(h => `${h}:00`);
+                    dataEvoTotales = hrsMapSoles;
+                    dataEvoTickets = hrsMapTickets;
+                } else {
+                    // Datos del RPC adaptado para dar Volumen
+                    labelsEvo = resEvolucion.data.map(d => {
+                        const dt = new Date(d.fecha + 'T00:00:00'); 
+                        return `${dt.getDate()}/${dt.getMonth()+1}`;
+                    });
+                    dataEvoTotales = resEvolucion.data.map(d => d.total);
+                    dataEvoTickets = resEvolucion.data.map(d => d.volumen_tickets);
+                }
+                
+                // Salvar Cache Evolutivo y Dibujar
+                dataEvolucionGlobal = { labels: labelsEvo, soles: dataEvoTotales, tickets: dataEvoTickets };
+                renderEvolucion();
+
+                // 4. ESTRATIFICACION DE CHART PRODUCTOS
+                let itemIds = resProd.data.filter(x => x.tipo==='ITEMS').map(x=>x.referencia_id);
+                let cusIds = resProd.data.filter(x => x.tipo!=='ITEMS').map(x=>x.referencia_id);
+                mapNombresCacheados = {};
+
+                if(itemIds.length > 0) {
+                    const {data: ix} = await sb.from('items').select('id, descripcion').in('id', itemIds);
+                    if(ix) ix.forEach(i => mapNombresCacheados[i.id] = i.descripcion);
+                }
+                if(cusIds.length > 0) {
+                    const {data: cx} = await sb.from('codigos_unicos').select('id, descripcion').in('id', cusIds);
+                    if(cx) cx.forEach(c => mapNombresCacheados[c.id] = c.descripcion);
+                }
+
+                // Salvar datos masivos (Limit 50 para evitar empastado) y renderizar Multi-Charts
+                dataProductosOriginal = resProd.data;
+                if(confEmpresa.es_comercializadora) renderTopProductos('COMERCIAL');
+                if(confEmpresa.es_servicios) renderTopProductos('SERVICIOS');
+                if(confEmpresa.es_industrial) renderTopProductos('PRODUCCION');
+
+                // 5. RENDER TOP CLIENTES
+                const tbody = document.getElementById('tablaClientesBody');
+                tbody.innerHTML = '';
+                document.getElementById('noClientes').classList.add('hidden');
+                
+                if(!resClientes.data || resClientes.data.length === 0) {
+                    document.getElementById('noClientes').classList.remove('hidden');
+                } else {
+                    resClientes.data.forEach((c, idx) => {
+                        const row = `<tr class="bg-white border-b hover:bg-gray-50 transition">
+                            <td class="px-4 py-3 font-medium text-gray-900">${idx+1}. ${c.razon_social || '<span class="italic text-gray-500">Cliente Standard (NN)</span>'} <br><span class="text-[10px] text-gray-500 bg-gray-100 px-1 py-0.5 rounded">${c.cantidad_tickets} tickets</span></td>
+                            <td class="px-4 py-3 text-right font-bold text-slate-800">S/ ${formatMoney(c.volumen_compra)}</td>
+                        </tr>`;
+                        tbody.innerHTML += row;
+                    });
+                }
+                
+            } catch (err) {
+                console.error("Error cargando Dashboard:", err);
+                alert("Fallo la sincronización analítica. Verifica la consola.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        // --- MANEJADORES DE RENDERIZADO AISLADO ---
+
+        function renderEvolucion() {
+            if(!dataEvolucionGlobal || !dataEvolucionGlobal.labels) return;
+            const mode = document.getElementById('filtroEvolucion').value; // DINERO o CANTIDAD
+            const isDinero = mode === 'DINERO';
+            
+            if (chartEvolucionInstance) chartEvolucionInstance.destroy();
+            const ctxEvo = document.getElementById('chartEvolucion').getContext('2d');
+            chartEvolucionInstance = new Chart(ctxEvo, {
+                type: 'line',
+                data: {
+                    labels: dataEvolucionGlobal.labels,
+                    datasets: [{
+                        label: isDinero ? 'Ingresos Totales (S/)' : 'Tickets Emitidos por Terminal',
+                        data: isDinero ? dataEvolucionGlobal.soles : dataEvolucionGlobal.tickets,
+                        borderColor: isDinero ? '#3b82f6' : '#8b5cf6',
+                        backgroundColor: isDinero ? 'rgba(59, 130, 246, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+                        fill: true,
+                        tension: 0.3, borderWidth: 3, pointRadius: 4,
+                        pointBackgroundColor: isDinero ? '#2563eb' : '#7c3aed'
+                    }]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return isDinero ? 'S/ '+formatMoney(c.raw) : c.raw + ' Tickets'; } } } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } } }
+                }
+            });
+        }
+
+        function renderTopProductos(categoria) {
+            if(!dataProductosOriginal || dataProductosOriginal.length === 0) return;
+            
+            let chartId, filtroId, colorX, tipoPermitido = [];
+            
+            if(categoria === 'COMERCIAL') {
+                chartId = 'chartComercial'; filtroId = 'filtroComercial'; colorX = '#e11d48'; // Rose
+                tipoPermitido = ['ITEMS']; 
+            } else if (categoria === 'SERVICIOS') {
+                chartId = 'chartServicios'; filtroId = 'filtroServicios'; colorX = '#10b981'; // Emerald
+                tipoPermitido = ['SERVICIOS', 'CUS'];
+            } else {
+                chartId = 'chartProduccion'; filtroId = 'filtroProduccion'; colorX = '#8b5cf6'; // Violet
+                tipoPermitido = ['PRODUCCION', 'CUP'];
+            }
+
+            const selector = document.getElementById(filtroId).value; // CANTIDAD o DINERO
+            
+            // Reordenar según requerimiento
+            let arr = dataProductosOriginal.filter(v => tipoPermitido.includes(v.tipo));
+            
+            if (selector === 'CANTIDAD') arr.sort((a,b) => b.cantidad - a.cantidad);
+            else arr.sort((a,b) => b.monto_total - a.monto_total);
+            
+            arr = arr.slice(0, 10); // Cortar Top 10 Nativo del Rubro
+            
+            const labelsProd = arr.map(d => mapNombresCacheados[d.referencia_id] || 'Oculto/Anonimizado');
+            const dataProd = arr.map(d => selector === 'CANTIDAD' ? d.cantidad : d.monto_total);
+        
+            if (chartInstances[categoria]) chartInstances[categoria].destroy();
+            const ctx = document.getElementById(chartId).getContext('2d');
+            
+            chartInstances[categoria] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labelsProd,
+                    datasets: [{
+                        label: selector === 'CANTIDAD' ? 'Valor Contable (Métrica Base)' : 'Recaudación Equivalente (S/)',
+                        data: dataProd,
+                        backgroundColor: colorX,
+                        borderRadius: 6, barPercentage: 0.6
+                    }]
+                },
+                options: { 
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { grid: { color: '#f1f5f9' } }, y: { grid: { display: false } } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

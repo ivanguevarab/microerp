@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salida de Inventario</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script> <!-- Auth Guard -->
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="sidebar.js"></script>
+
+
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Estilos para el Buscador Google-Style */
+        .search-container {
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 24px;
+            padding-left: 50px;
+            border-radius: 24px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #3b82f6;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 1.2rem;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 16px;
+            margin-top: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            z-index: 50;
+            display: none;
+            /* Oculto por defecto */
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+        }
+
+        .result-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.2s;
+        }
+
+        .result-item:hover {
+            background-color: #f9fafb;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .batch-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background-color: #dbeafe;
+            color: #1e40af;
+            margin-left: 8px;
+        }
+
+        /* Animaciones */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        /* Mobile Optimization */
+        @media (max-width: 480px) {
+            .header {
+                position: relative;
+                /* Scrollable header */
+            }
+
+            .header-right {
+                display: none;
+                /* Hide date on mobile */
+            }
+        }
+    </style>
+</head>
+
+<body class="text-gray-800">
+
+    <!-- Navbar (Simplificado para consistencia) -->
+    <!-- Header -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='gestion_inventarios.html'">
+                ← Volver
+            </button>
+            <h1>Registrar Salida de Inventario</h1>
+            <div id="fechaActual" class="submodule-version"></div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- 1. Cabecera del Egreso -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Datos Generales</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Almacén Origen (CRÍTICO) -->
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Almacén de Origen <span class="text-red-500">*</span>
+                    </label>
+                    <select id="almacenOrigen"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                        <option value="">Seleccione un almacén...</option>
+                        <!-- Se llenará dinámicamente -->
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">⚠️ Debe seleccionar esto primero para ver el stock real.</p>
+                </div>
+
+                <!-- Tipo de Egreso -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo de Egreso <span class="text-red-500">*</span>
+                    </label>
+                    <select id="tipoEgreso"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                        <option value="">Seleccione...</option>
+                        <!-- Se llenará dinámicamente -->
+                    </select>
+                </div>
+
+                <!-- Selector de CUP (Oculto por defecto) -->
+                <div id="cupContainer" class="hidden transition-all duration-300">
+                    <label id="labelCupContainer" class="block text-sm font-medium text-blue-600 mb-1">
+                        Asignar a Orden de Producción (CUP)
+                    </label>
+                    <select id="cupId"
+                        class="w-full rounded-lg border-blue-300 bg-blue-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10 text-blue-800 font-medium">
+                        <option value="">-- Seleccionar CUP --</option>
+                        <!-- Se llenará dinámicamente -->
+                    </select>
+                </div>
+
+                <!-- Fecha -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Fecha de Salida
+                    </label>
+                    <input type="date" id="fechaEgreso"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Buscador Inteligente (Google Style) -->
+        <div class="mb-8 relative z-30">
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="buscadorProducto" class="search-input"
+                    placeholder="Buscar producto para agregar (Escriba nombre o código)..." autocomplete="off" disabled>
+                <!-- Disabled hasta seleccionar almacén -->
+
+                <!-- Resultados Predictivos -->
+                <div id="resultadosBusqueda" class="search-results">
+                    <!-- Ejemplo de resultado -->
+                    <!--
+                    <div class="result-item">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-medium text-gray-900">Acero Inoxidable 304</span>
+                                <span class="text-sm text-gray-500 ml-2">COD-001</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-sm font-bold text-green-600">Stock: 150 KG</span>
+                                <span class="text-xs text-gray-400">3 Lotes disponibles</span>
+                            </div>
+                        </div>
+                    </div>
+                    -->
+                </div>
+            </div>
+            <p id="mensajeBloqueo" class="text-center text-sm text-red-500 mt-2 hidden">
+                🔒 Seleccione un almacén de origen para habilitar la búsqueda.
+            </p>
+        </div>
+
+        <!-- 3. Tabla de Items (Detalle FIFO) -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 class="font-semibold text-gray-800">Items a Egresar</h3>
+                <button id="btnTogglePromedio"
+                    class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 hidden">
+                    <i class="fas fa-eye"></i> Ver Costo Promedio Referencial
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Item</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Lote (Origen)</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Cantidad</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Costo Unit.</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Total</th>
+                            <th
+                                class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaItems" class="bg-white divide-y divide-gray-200">
+                        <!-- Filas dinámicas -->
+                        <tr id="filaVacia" class="text-center text-gray-500">
+                            <td colspan="6" class="py-8">
+                                <i class="fas fa-box-open text-3xl mb-2 text-gray-300"></i>
+                                <p>No hay items agregados. Use el buscador para comenzar.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-gray-50 font-semibold">
+                        <tr>
+                            <td colspan="4" class="px-6 py-4 text-right text-gray-900">Total Egreso:</td>
+                            <td class="px-6 py-4 text-right text-gray-900" id="totalEgreso">S/ 0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. Footer de Acciones -->
+        <div class="flex justify-end gap-4 mt-8">
+            <button onclick="window.location.href='gestion_inventarios.html'"
+                class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
+                Cancelar
+            </button>
+            <button id="btnGuardar"
+                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-save"></i> Guardar Egreso
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Configuración Supabase (Delegado a Auth Guard)
+        // const SUPABASE_URL = '...';
+        // const SUPABASE_KEY = '...';
+        // const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Usar cliente global
+        const supabaseClient = window.supabaseClient;
+
+        // Estado Global
+        let itemsEgreso = [];
+        let usuarioActual = null;
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', async () => {
+            // MOSTRAR FECHA ACTUAL EN HEADER (UTC-5)
+            const fechaOptions = { timeZone: 'America/Lima', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', fechaOptions);
+
+            await verificarSesion();
+            await cargarCatalogos();
+            configurarEventos();
+
+            // Fecha por defecto: Hoy (Zona Horaria Perú)
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            document.getElementById('fechaEgreso').value = `${year}-${month}-${day}`;
+        });
+
+        // --- Lógica de Sesión (Reutilizada) ---
+        async function verificarSesion() {
+            const sessionStr = localStorage.getItem('microerp_session');
+            if (!sessionStr) {
+                window.location.href = 'index.html';
+                return;
+            }
+            usuarioActual = JSON.parse(sessionStr);
+
+            // Update UI only if elements exist
+            const userDisplay = document.getElementById('userDisplay');
+            if (userDisplay) userDisplay.textContent = usuarioActual.name || usuarioActual.email;
+
+            const roleDisplay = document.getElementById('roleDisplay');
+            if (roleDisplay) roleDisplay.textContent = usuarioActual.role || 'Usuario';
+
+            const userAvatar = document.getElementById('userAvatar');
+            if (userAvatar) userAvatar.textContent = (usuarioActual.name || usuarioActual.email).charAt(0).toUpperCase();
+        }
+
+        // --- Carga de Datos ---
+        async function cargarCatalogos() {
+            // console.log('Iniciando cargarCatalogos...');
+
+            // Cargar Almacenes
+            const { data: almacenes, error: errorAlmacenes } = await supabaseClient.from('almacenes').select('*').eq('activo', true);
+            if (errorAlmacenes) console.error('Error cargando almacenes:', errorAlmacenes);
+
+            const selectAlmacen = document.getElementById('almacenOrigen');
+            if (almacenes) {
+                almacenes.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = a.nombre;
+                    selectAlmacen.appendChild(opt);
+                });
+            }
+
+            // Validar Giro de Negocio (Industrial)
+            let esIndustrial = false;
+            try {
+                // Obtener ID usuario
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (user) {
+                    // Obtener Empresa ID
+                    const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', user.id).single();
+                    if (perfil) {
+                        window.currentEmpresaId = perfil.empresa_id; // Set Global
+
+                        // Obtener Flags Empresa
+                        const { data: empresa, error: errEmp } = await window.supabaseClient.from('empresas').select('es_industrial').eq('id', perfil.empresa_id).single();
+
+                        if (errEmp) console.warn("RLS Bloqueo lectura empresa:", errEmp);
+                        // else console.log("Configuración Empresa:", empresa);
+
+                        if (empresa && empresa.es_industrial) {
+                            esIndustrial = true;
+                            // console.log("🏭 MODO INDUSTRIAL DETECTADO: ACTIVADO");
+                        } else {
+                            // console.log("🏢 MODO COMERCIAL DETECTADO");
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Error verificando giro de negocio:', err);
+            }
+
+            // Cargar Tipos de Egreso desde BD (Dinamismo Total)
+            const { data: tiposDb, error: errTypes } = await supabaseClient
+                .from('tipos_egresos')
+                .select('id, nombre')
+                .eq('activo', true)
+                .order('nombre');
+
+            const selectTipo = document.getElementById('tipoEgreso');
+
+            // LIMPIEZA FORZADA
+            selectTipo.innerHTML = '<option value="">Seleccione...</option>';
+
+            if (tiposDb) {
+                tiposDb.forEach(t => {
+                    // Lógica de Negocio: Ocultar Producción si no es industrial
+                    const nombreUpper = t.nombre.toUpperCase();
+                    if (!esIndustrial && (nombreUpper.includes('PRODUCCI') || nombreUpper.includes('PRODUCTION'))) {
+                        return; // Skip
+                    }
+
+                    // console.log("DOM: Insertando opción BD:", t.nombre);
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.nombre;
+                    // Guardar atributo data para fácil detección en listener
+                    opt.setAttribute('data-nombre', nombreUpper);
+                    selectTipo.appendChild(opt);
+                });
+            } else {
+                console.error("Error cargando tipos:", errTypes);
+            }
+
+            // console.log("DOM: Finalizada carga tipos. Total:", selectTipo.children.length);
+
+            // La carga de CUPs o CUSs ahora se hace dinámicamente al cambiar el Tipo de Egreso
+        }
+
+        // Función dinámica para cargar CUPs o CUSs activos
+        async function cargarCodigosUnicosActivos(tipo) {
+            const selectCup = document.getElementById('cupId');
+            selectCup.innerHTML = `<option value="">-- Cargando ${tipo}... --</option>`;
+
+            const { data: codigos, error: errorCods } = await supabaseClient
+                .from('codigos_unicos')
+                .select('id, codigo, descripcion')
+                .eq('empresa_id', window.currentEmpresaId)
+                .in('estado', ['EN_PROCESO', 'No Iniciado'])
+                .eq('tipo', tipo);
+
+            selectCup.innerHTML = `<option value="">-- Seleccionar Orden ${tipo} --</option>`;
+            if (codigos) {
+                codigos.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = `${c.codigo} - ${c.descripcion}`;
+                    selectCup.appendChild(opt);
+                });
+            }
+        }
+
+        // --- Eventos ---
+        function configurarEventos() {
+            const buscador = document.getElementById('buscadorProducto');
+            const almacenSelect = document.getElementById('almacenOrigen');
+            const tipoEgresoSelect = document.getElementById('tipoEgreso');
+            const cupContainer = document.getElementById('cupContainer');
+            const cupSelect = document.getElementById('cupId');
+
+            // 1. Selector de Almacén
+            almacenSelect.addEventListener('change', () => {
+                if (almacenSelect.value) {
+                    buscador.disabled = false;
+                    document.getElementById('mensajeBloqueo').classList.add('hidden');
+                } else {
+                    buscador.disabled = true;
+                    document.getElementById('mensajeBloqueo').classList.remove('hidden');
+                    // Limpiar items si se cambia almacén
+                    if (itemsEgreso.length > 0 && confirm('¿Limpiar items al cambiar almacen?')) {
+                        itemsEgreso = [];
+                        renderTabla();
+                    }
+                }
+            });
+
+            // 2. Selector Tipo Egreso (Trazabilidad CUP / CUS Dinámica)
+            tipoEgresoSelect.addEventListener('change', async () => {
+                const selectedOption = tipoEgresoSelect.options[tipoEgresoSelect.selectedIndex];
+                const nombreTipo = selectedOption.getAttribute('data-nombre') || '';
+
+                if (nombreTipo.includes('PRODUCCI') || nombreTipo.includes('PRODUCTION')) {
+                    cupContainer.classList.remove('hidden');
+                    document.getElementById('labelCupContainer').innerText = "Asignar a Orden de Producción (CUP)";
+                    cupSelect.required = true;
+                    await cargarCodigosUnicosActivos('CUP');
+                } else if (nombreTipo.includes('SERVICIO')) {
+                    cupContainer.classList.remove('hidden');
+                    document.getElementById('labelCupContainer').innerText = "Asignar a Orden de Servicio (CUS)";
+                    cupSelect.required = true;
+                    await cargarCodigosUnicosActivos('CUS');
+                } else {
+                    cupContainer.classList.add('hidden');
+                    cupSelect.required = false;
+                    cupSelect.value = '';
+                }
+            });
+
+            // 3. Buscador
+            buscador.addEventListener('input', debounce(async (e) => {
+                const termino = e.target.value.trim();
+                const almacenId = almacenSelect.value;
+
+                if (!almacenId) return;
+
+                if (termino.length < 2) {
+                    document.getElementById('resultadosBusqueda').style.display = 'none';
+                    return;
+                }
+
+                await buscarProductos(termino, almacenId);
+            }, 300));
+        }
+
+        // Utilidad Debounce
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // --- Lógica de Búsqueda y Selección de Lotes ---
+
+        // 1. Buscar Productos con Stock Disponible
+        async function buscarProductos(termino, almacenId) {
+            const resultadosDiv = document.getElementById('resultadosBusqueda');
+            resultadosDiv.innerHTML = '<div class="p-4 text-center text-gray-500"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>';
+            resultadosDiv.style.display = 'block';
+
+            try {
+                // Paso 1: Buscar en la tabla de items (productos)
+                // Nota: Idealmente esto sería una vista o una función RPC para eficiencia
+                // Por ahora simulamos un join lógico en cliente por simplicidad del prototipo
+
+                const { data: productos, error } = await supabaseClient
+                    .from('items')
+                    .select('id, codigo, descripcion, unidad_medida')
+                    .or(`descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
+                    .limit(10);
+
+                if (error) throw error;
+
+                if (!productos || productos.length === 0) {
+                    resultadosDiv.innerHTML = '<div class="p-4 text-center text-gray-500">No se encontraron productos.</div>';
+                    return;
+                }
+
+                // Paso 2: Para cada producto, consultar su stock disponible en el almacén seleccionado
+                // Usamos ingresos_detalle con cantidad_disponible > 0
+                const resultadosConStock = [];
+
+                for (const prod of productos) {
+                    // Consultar lotes disponibles para este producto en este almacén
+                    // Necesitamos hacer join con ingresos para filtrar por almacén
+                    const { data: lotes, error: errorLotes } = await supabaseClient
+                        .from('ingresos_detalle')
+                        .select(`
+                            cantidad_disponible,
+                            ingresos!inner (
+                                almacen_destino_id,
+                                fecha_ingreso
+                            )
+                        `)
+                        .eq('item_id', prod.id)
+                        .eq('ingresos.almacen_destino_id', almacenId)
+                        .gt('cantidad_disponible', 0);
+
+                    if (errorLotes) {
+                        console.error('Error buscando lotes:', errorLotes);
+                        continue;
+                    }
+
+                    // Calcular stock total disponible
+                    const stockTotal = lotes.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0);
+
+                    if (stockTotal > 0) {
+                        resultadosConStock.push({
+                            producto: prod,
+                            stock: stockTotal,
+                            lotesCount: lotes.length
+                        });
+                    }
+                }
+
+                renderizarResultados(resultadosConStock);
+
+            } catch (err) {
+                console.error('Error en búsqueda:', err);
+                resultadosDiv.innerHTML = '<div class="p-4 text-center text-red-500">Error al buscar. Intente de nuevo.</div>';
+            }
+        }
+
+        // 2. Renderizar Resultados
+        function renderizarResultados(resultados) {
+            const div = document.getElementById('resultadosBusqueda');
+            div.innerHTML = '';
+
+            if (resultados.length === 0) {
+                div.innerHTML = '<div class="p-4 text-center text-gray-500">No hay stock disponible para esta búsqueda en este almacén.</div>';
+                return;
+            }
+
+            resultados.forEach(res => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'result-item';
+                itemDiv.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="font-medium text-gray-900">${res.producto.descripcion}</span>
+                            <span class="text-sm text-gray-500 ml-2">${res.producto.codigo}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="block text-sm font-bold text-green-600">Stock: ${res.stock} ${res.producto.unidad_medida}</span>
+                            <span class="text-xs text-gray-400">${res.lotesCount} Lotes disponibles</span>
+                        </div>
+                    </div>
+                `;
+                itemDiv.onclick = () => seleccionarProducto(res.producto);
+                div.appendChild(itemDiv);
+            });
+        }
+
+        // 3. Seleccionar Producto y Pedir Cantidad
+        async function seleccionarProducto(producto) {
+            // Ocultar buscador
+            document.getElementById('resultadosBusqueda').style.display = 'none';
+            document.getElementById('buscadorProducto').value = '';
+
+            // Pedir cantidad (Simple prompt por ahora, luego modal mejorado)
+            const cantidadStr = prompt(`Ingrese cantidad a retirar de: ${producto.descripcion}\n(Unidad: ${producto.unidad_medida})`);
+            if (!cantidadStr) return;
+
+            const cantidad = parseFloat(cantidadStr);
+            if (isNaN(cantidad) || cantidad <= 0) {
+                alert('Cantidad inválida');
+                return;
+            }
+
+            await procesarEgresoFIFO(producto, cantidad);
+        }
+
+        // 4. Procesar Egreso FIFO (Core Logic)
+        async function procesarEgresoFIFO(producto, cantidadSolicitada) {
+            const almacenId = document.getElementById('almacenOrigen').value;
+
+            try {
+                // Consultar lotes ordenados por fecha (FIFO)
+                const { data: lotes, error } = await supabaseClient
+                    .from('ingresos_detalle')
+                    .select(`
+                        id,
+                        cantidad_disponible,
+                        costo_adquisicion_unitario,
+                        ingresos!inner (
+                            id,
+                            fecha_ingreso,
+                            numero_ingreso,
+                            almacen_destino_id
+                        )
+                    `)
+                    .eq('item_id', producto.id)
+                    .eq('ingresos.almacen_destino_id', almacenId)
+                    .gt('cantidad_disponible', 0)
+                    .order('ingresos(fecha_ingreso)', { ascending: true }); // FIFO: Más antiguo primero
+
+                if (error) throw error;
+
+                // Validar stock total
+                const stockTotal = lotes.reduce((sum, l) => sum + Number(l.cantidad_disponible), 0);
+                if (cantidadSolicitada > stockTotal) {
+                    alert(`Stock insuficiente. Solo hay ${stockTotal} ${producto.unidad_medida} disponibles.`);
+                    return;
+                }
+
+                // Algoritmo de Distribución FIFO
+                let pendiente = cantidadSolicitada;
+                const itemsParaTabla = [];
+                let costoTotalAcumulado = 0;
+
+                for (const lote of lotes) {
+                    if (pendiente <= 0) break;
+
+                    const disponible = Number(lote.cantidad_disponible);
+                    const aTomar = Math.min(pendiente, disponible);
+
+                    const costoUnitario = Number(lote.costo_adquisicion_unitario);
+                    const costoTotalLinea = aTomar * costoUnitario;
+
+                    itemsParaTabla.push({
+                        producto: producto,
+                        loteId: lote.id,
+                        numeroIngreso: lote.ingresos.numero_ingreso,
+                        fechaIngreso: lote.ingresos.fecha_ingreso,
+                        cantidad: aTomar,
+                        costoUnitario: costoUnitario,
+                        costoTotal: costoTotalLinea
+                    });
+
+                    costoTotalAcumulado += costoTotalLinea;
+                    pendiente -= aTomar;
+                }
+
+                // Agregar a la tabla UI
+                agregarItemsATabla(itemsParaTabla);
+
+                // Calcular Costo Promedio para Referencia
+                const costoPromedio = costoTotalAcumulado / cantidadSolicitada;
+                console.log('Costo Promedio Referencial:', costoPromedio);
+
+                // Actualizar estado global
+                itemsEgreso.push(...itemsParaTabla);
+                actualizarTotales();
+
+            } catch (err) {
+                console.error('Error procesando FIFO:', err);
+                alert('Error al procesar los lotes. Ver consola.');
+            }
+        }
+
+        // Helper para formato de moneda (Miles con coma)
+        const formatMoney = (amount) => {
+            return parseFloat(amount || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        };
+
+        // 5. Agregar Items a la Tabla Visual
+        function agregarItemsATabla(items) {
+            const tbody = document.getElementById('tablaItems');
+            const filaVacia = document.getElementById('filaVacia');
+            if (filaVacia) filaVacia.remove();
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${item.producto.descripcion}</div>
+                        <div class="text-xs text-gray-500">${item.producto.codigo}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            ${item.numeroIngreso}
+                        </span>
+                        <div class="text-xs text-gray-500 mt-1">${new Date(item.fechaIngreso).toLocaleDateString()}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                        ${item.cantidad} ${item.producto.unidad_medida}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                        S/ ${formatMoney(item.costoUnitario)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
+                        S/ ${formatMoney(item.costoTotal)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <button onclick="eliminarItem(this)" class="text-red-600 hover:text-red-900">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 6. Actualizar Totales
+        function actualizarTotales() {
+            const total = itemsEgreso.reduce((sum, item) => sum + item.costoTotal, 0);
+            document.getElementById('totalEgreso').textContent = `S/ ${formatMoney(total)}`;
+
+            // Habilitar/Deshabilitar botón guardar
+            const btnGuardar = document.getElementById('btnGuardar');
+            btnGuardar.disabled = itemsEgreso.length === 0;
+
+            // Mostrar botón de promedio si hay items
+            const btnPromedio = document.getElementById('btnTogglePromedio');
+            if (itemsEgreso.length > 0) {
+                btnPromedio.classList.remove('hidden');
+                // Actualizar tooltip o data attribute con el promedio global si se desea
+            } else {
+                btnPromedio.classList.add('hidden');
+            }
+        }
+
+        // 7. Eliminar Item (Simplificado: Recarga toda la tabla)
+        function eliminarItem(btn) {
+            // En una implementación real, deberíamos identificar qué índice borrar.
+            // Por ahora, borramos la fila visual y el array (esto es básico, mejorar luego)
+            const row = btn.closest('tr');
+            const index = Array.from(row.parentNode.children).indexOf(row);
+
+            itemsEgreso.splice(index, 1);
+            row.remove();
+
+            if (itemsEgreso.length === 0) {
+                const tbody = document.getElementById('tablaItems');
+                tbody.innerHTML = `
+                    <tr id="filaVacia" class="text-center text-gray-500">
+                        <td colspan="6" class="py-8">
+                            <i class="fas fa-box-open text-3xl mb-2 text-gray-300"></i>
+                            <p>No hay items agregados. Use el buscador para comenzar.</p>
+                        </td>
+                    `;
+            }
+            actualizarTotales();
+        }
+
+        // 8. Guardar Egreso (Transaccional)
+        document.getElementById('btnGuardar').addEventListener('click', async () => {
+            const btn = document.getElementById('btnGuardar');
+            const almacenOrigenId = document.getElementById('almacenOrigen').value;
+            const tipoEgresoId = document.getElementById('tipoEgreso').value;
+            const fechaEgreso = document.getElementById('fechaEgreso').value;
+
+            if (!almacenOrigenId || !tipoEgresoId || !fechaEgreso) {
+                alert('Por favor complete todos los campos obligatorios (Almacén, Tipo, Fecha).');
+                return;
+            }
+
+            if (itemsEgreso.length === 0) {
+                alert('No hay items para egresar.');
+                return;
+            }
+
+            // ==========================================
+            // VALIDACIÓN DE INTEGRIDAD CRONOLÓGICA (SAFE APPEND)
+            // ==========================================
+            // 1. Obtener fecha actual en Lima (UTC-5)
+            const getLimaDate = () => {
+                const now = new Date();
+                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                const limaOffset = -5 * 3600000;
+                return new Date(utc + limaOffset).toISOString().split('T')[0];
+            };
+
+            const hoyLima = getLimaDate();
+
+            // 2. Validar Futuro
+            if (fechaEgreso > hoyLima) {
+                alert(`❌ FECHA INVÁLIDA\n\nNo puedes registrar egresos con fecha futura.\nLa fecha máxima permitida es HOY (${hoyLima}).`);
+                return;
+            }
+
+            // 3. Validar Pasado (PRO: Safe Append por Item)
+            try {
+                // a. Recolectar IDs de items en el carrito
+                // FIX: El ID del producto está dentro del objeto 'producto'
+                const itemIds = itemsEgreso.map(i => i.producto.id);
+
+                // b. Calcular "Día Siguiente" a la fecha seleccionada (Límite 05:00 UTC = 00:00 Perú)
+                const fechaBase = new Date(fechaEgreso + 'T00:00:00'); // Fecha seleccionada (Local)
+                fechaBase.setDate(fechaBase.getDate() + 1); // Sumar 1 día (Mañana Local)
+
+                // Formatear manualmente a YYYY-MM-DDT05:00:00Z para precisión absoluta
+                const yyyy = fechaBase.getFullYear();
+                const mm = String(fechaBase.getMonth() + 1).padStart(2, '0');
+                const dd = String(fechaBase.getDate()).padStart(2, '0');
+
+                // PUNTO CLAVE: 00:00 Lima es 05:00 UTC.
+                const nextDay = `${yyyy}-${mm}-${dd}T05:00:00Z`;
+
+                // c. Consultar Kardex: ¿Hay movimientos de ESTOS items en ESTE almacén a partir de MAÑANA?
+                const { data: conflictos, error: errorConflictos } = await supabaseClient
+                    .from('kardex')
+                    .select(`
+                        item_id, 
+                        fecha_movimiento,
+                        items ( codigo, descripcion )
+                    `)
+                    .eq('almacen_id', almacenOrigenId)
+                    .in('item_id', itemIds)
+                    .gte('fecha_movimiento', nextDay);
+
+                if (errorConflictos) throw errorConflictos;
+
+                // d. Analizar Conflictos
+                if (conflictos && conflictos.length > 0) {
+                    // Agrupar por item para mostrar el conflicto más reciente de cada uno
+                    const conflictosMap = {};
+                    conflictos.forEach(c => {
+                        const id = c.item_id;
+                        if (!conflictosMap[id] || c.fecha_movimiento > conflictosMap[id].fecha_movimiento) {
+                            conflictosMap[id] = c;
+                        }
+                    });
+
+                    // Construir Mensaje de Error
+                    let mensajeError = `❌ BLOQUEO DE SEGURIDAD (SAFE APPEND PRO)\n\n`;
+                    mensajeError += `No se puede registrar con fecha ${fechaEgreso} porque los siguientes items tienen movimientos posteriores:\n\n`;
+
+                    Object.values(conflictosMap).forEach(c => {
+                        // FIX VISUAL: Mostrar hora Perú (UTC-5) restando 5 horas al UTC
+                        let fechaRaw = c.fecha_movimiento;
+                        if (!fechaRaw.endsWith('Z') && !fechaRaw.includes('+')) fechaRaw += 'Z';
+
+                        const d = new Date(fechaRaw);
+                        const perTimeMs = d.getTime() - (5 * 3600000);
+                        const perDate = new Date(perTimeMs);
+
+                        // Formato: YYYY-MM-DD HH:mm:ss
+                        const fechaMov = perDate.toISOString().replace('T', ' ').substring(0, 19);
+                        mensajeError += `• ${c.items.descripcion} (Último: ${fechaMov})\n`;
+                    });
+
+                    mensajeError += `\n✅ Soluciones:\n`;
+                    mensajeError += `1. Cambie la fecha a una posterior.\n`;
+                    mensajeError += `2. O retire estos items y regístrelos en otro documento.`;
+
+                    alert(mensajeError);
+                    return;
+                }
+
+                // Si no hay conflictos, PASE USTED (Aunque el almacén tenga otros movimientos de otros items)
+
+            } catch (errVal) {
+                console.error('Error en validación Safe Append PRO:', errVal);
+                alert('Error interno validando fechas. Ver consola.');
+                return;
+            }
+
+            if (!confirm('¿Está seguro de registrar este egreso? Esta acción descontará stock.')) {
+                return;
+            }
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+
+                // 1. Crear Cabecera de Egreso
+                // Capturar ID si aplica
+                const cupIdVal = document.getElementById('cupId').value || null;
+                const tipoTexto = document.getElementById('tipoEgreso').options[document.getElementById('tipoEgreso').selectedIndex].text.toUpperCase();
+                
+                const isProduccion = tipoTexto.includes('PRODUCCI') || tipoTexto.includes('PRODUCTION');
+                const isServicio = tipoTexto.includes('SERVICIO');
+
+                // Validación: Si es producción o servicio, exigir ID
+                if ((isProduccion || isServicio) && !cupIdVal) {
+                    alert('Debe seleccionar una Orden válida (CUP o CUS) para este tipo de egreso.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-save"></i> Guardar Egreso';
+                    return;
+                }
+
+                const payloadEgreso = {
+                    almacen_origen_id: almacenOrigenId,
+                    tipo_egreso_id: tipoEgresoId,
+                    fecha_egreso: fechaEgreso,
+                    estado: 'CONFIRMADO',
+                    usuario_id: usuarioActual.id
+                };
+
+                if (isProduccion) payloadEgreso.cup_id = cupIdVal;
+                if (isServicio) payloadEgreso.cus_id = cupIdVal;
+
+                const { data: egreso, error: errorEgreso } = await supabaseClient
+                    .from('egresos')
+                    .insert([payloadEgreso])
+                    .select()
+                    .single();
+
+                if (errorEgreso) throw errorEgreso;
+
+                // 2. Procesar Detalles (Secuencial para evitar race conditions en updates)
+                for (const item of itemsEgreso) {
+                    // a. Insertar detalle de egreso
+                    const { error: errorDetalle } = await supabaseClient
+                        .from('egresos_detalle')
+                        .insert({
+                            egreso_id: egreso.id,
+                            item_id: item.producto.id,
+                            cantidad: item.cantidad,
+                            costo_unitario: item.costoUnitario,
+                            costo_total: item.costoTotal,
+                            ingreso_detalle_id: item.loteId
+                        });
+
+                    if (errorDetalle) throw errorDetalle;
+
+                    // b. Actualizar Stock del Lote (ingresos_detalle)
+                    // Necesitamos leer el valor actual para restar (o usar rpc si existiera)
+                    // Aquí confiamos en que nadie más modificó el lote en estos milisegundos (Optimistic Lock simple)
+
+                    // Primero obtenemos el lote actual para asegurar consistencia
+                    const { data: loteActual, error: errorLote } = await supabaseClient
+                        .from('ingresos_detalle')
+                        .select('cantidad_disponible')
+                        .eq('id', item.loteId)
+                        .single();
+
+                    if (errorLote) throw errorLote;
+
+                    const nuevoSaldo = Number(loteActual.cantidad_disponible) - Number(item.cantidad);
+
+                    const { error: errorUpdate } = await supabaseClient
+                        .from('ingresos_detalle')
+                        .update({ cantidad_disponible: nuevoSaldo })
+                        .eq('id', item.loteId);
+
+                    if (errorUpdate) throw errorUpdate;
+
+                    // c. Actualizar Stock Global y Kardex
+                    // SE ELIMINÓ LA LÓGICA MANUAL DE FRONTEND.
+                    // El trigger 'tr_egreso_kardex' en la base de datos se encarga de:
+                    // 1. Crear el registro en Kardex
+                    // 2. Descontar el stock en la tabla 'items'
+                    // Esto evita la duplicidad de movimientos.
+                }
+
+                alert('✅ Egreso registrado correctamente.');
+                window.location.reload();
+
+            } catch (err) {
+                console.error('Error al guardar:', err);
+                alert('Error crítico al guardar. Revise la consola.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Guardar Egreso';
+            }
+        });
+
+        // 9. Toggle Costo Promedio
+        document.getElementById('btnTogglePromedio').addEventListener('click', () => {
+            // Calcular promedio global ponderado de todos los items en tabla
+            const totalCosto = itemsEgreso.reduce((sum, i) => sum + i.costoTotal, 0);
+            const totalCantidad = itemsEgreso.reduce((sum, i) => sum + i.cantidad, 0);
+
+            if (totalCantidad === 0) return;
+
+            const promedio = totalCosto / totalCantidad;
+
+            alert(`ℹ️ Costo Promedio Referencial Global: \n\nS / ${promedio.toFixed(4)} por unidad\n\n(Calculado sobre ${totalCantidad} unidades totales en este egreso)`);
+        });
+
+    </script>
+</body>
+
+</html>
