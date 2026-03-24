@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroERP - Inicio de Sesión</title>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #354a5f 0%, #2c3e50 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      max-width: 1200px;
+      width: 100%;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      min-height: 600px;
+    }
+
+    /* Sección Izquierda - Información */
+    .info-section {
+      background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
+      color: white;
+      padding: 60px 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .logo-container {
+      margin-bottom: 40px;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translateY(0px);
+      }
+
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    .logo svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .brand-name {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+    }
+
+    .brand-tagline {
+      font-size: 16px;
+      opacity: 0.9;
+      line-height: 1.6;
+    }
+
+    .features {
+      margin-top: 40px;
+    }
+
+    .feature {
+      display: flex;
+      align-items: start;
+      margin-bottom: 24px;
+      opacity: 0;
+      animation: fadeInUp 0.6s forwards;
+    }
+
+    .feature:nth-child(1) {
+      animation-delay: 0.2s;
+    }
+
+    .feature:nth-child(2) {
+      animation-delay: 0.4s;
+    }
+
+    .feature:nth-child(3) {
+      animation-delay: 0.6s;
+    }
+
+    .feature:nth-child(4) {
+      animation-delay: 0.8s;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-right: 16px;
+      flex-shrink: 0;
+    }
+
+    .feature-text h3 {
+      font-size: 16px;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .feature-text p {
+      font-size: 14px;
+      opacity: 0.85;
+      line-height: 1.5;
+    }
+
+    /* Sección Derecha - Login */
+    .login-section {
+      padding: 60px 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .login-header {
+      margin-bottom: 40px;
+    }
+
+    .login-header h2 {
+      font-size: 28px;
+      color: #2c3e50;
+      margin-bottom: 8px;
+    }
+
+    .login-header p {
+      color: #7f8c8d;
+      font-size: 15px;
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Contenedor para el botón de Google */
+    #googleButtonContainer {
+      margin: 0 auto;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 30px 0;
+      color: #bdc3c7;
+      font-size: 14px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e0e0e0;
+    }
+
+    .divider span {
+      padding: 0 16px;
+    }
+
+    .info-box {
+      background: #f8f9fa;
+      border-left: 4px solid #0070f2;
+      padding: 16px;
+      border-radius: 6px;
+      margin-top: 24px;
+    }
+
+    .info-box.warning {
+      border-left-color: #f39c12;
+      background: #fff8e1;
+    }
+
+    .info-box.error {
+      border-left-color: #e74c3c;
+      background: #ffebee;
+    }
+
+    .info-box h4 {
+      color: #354a5f;
+      font-size: 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .info-box p {
+      color: #7f8c8d;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .footer-info {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 13px;
+      color: #95a5a6;
+    }
+
+    /* Usuario logueado */
+    .user-profile {
+      display: none;
+      text-align: center;
+    }
+
+    .user-profile.active {
+      display: block;
+    }
+
+    .user-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      margin: 0 auto 20px;
+      border: 3px solid #0070f2;
+    }
+
+    .user-name {
+      font-size: 24px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 8px;
+    }
+
+    .user-email {
+      color: #7f8c8d;
+      margin-bottom: 10px;
+    }
+
+    .user-role {
+      display: inline-block;
+      background: #0070f2;
+      color: white;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: #0070f2;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0060d8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 112, 242, 0.3);
+    }
+
+    .btn-secondary {
+      background: #ecf0f1;
+      color: #7f8c8d;
+    }
+
+    .btn-secondary:hover {
+      background: #dfe4e6;
+    }
+
+    /* Animación de carga */
+    .loading {
+      display: none;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #0070f2;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 968px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+
+      .info-section {
+        padding: 40px 30px;
+      }
+
+      .login-section {
+        padding: 40px 30px;
+      }
+
+      .brand-name {
+        font-size: 28px;
+      }
+
+      .login-header h2 {
+        font-size: 24px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+
+      .info-section,
+      .login-section {
+        padding: 30px 20px;
+      }
+
+      .feature {
+        margin-bottom: 20px;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+      }
+
+      .logo-container {
+        text-align: center;
+      }
+
+      .logo {
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- Sección de Información -->
+    <div class="info-section">
+      <div>
+        <div class="logo-container">
+          <div class="logo">
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="cubeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#0070f2;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#00a8ff;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+              <path d="M50 30 L80 45 L80 70 L50 85 L20 70 L20 45 Z" fill="url(#cubeGradient)" opacity="0.9" />
+              <path d="M50 10 L80 25 L80 45 L50 30 L20 45 L20 25 Z" fill="url(#cubeGradient)" opacity="1" />
+              <path d="M50 30 L50 85 L80 70 L80 45 Z" fill="#ffffff" opacity="0.3" />
+            </svg>
+          </div>
+          <div class="brand-name">MICRO ERP</div>
+          <div class="brand-tagline">Sistema de Gestión Empresarial Integral</div>
+        </div>
+
+        <div class="features">
+          <div class="feature">
+            <div class="feature-icon">📦</div>
+            <div class="feature-text">
+              <h3>Control de Inventarios</h3>
+              <p>Gestiona tu stock en tiempo real con alertas automáticas</p>
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🏭</div>
+            <div class="feature-text">
+              <h3>Gestión de Producción</h3>
+              <p>Optimiza procesos de fabricación y seguimiento de órdenes</p>
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">💰</div>
+            <div class="feature-text">
+              <h3>Ventas y CRM</h3>
+              <p>Administra clientes, cotizaciones y ventas integradas</p>
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📊</div>
+            <div class="feature-text">
+              <h3>Análisis Financiero</h3>
+              <p>Reportes detallados y control total de finanzas</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sección de Login -->
+    <div class="login-section">
+      <!-- Formulario de Login -->
+      <div id="loginForm" class="login-form">
+        <div class="login-header">
+          <h2>Iniciar Sesión</h2>
+          <p>Accede a tu cuenta con Google de forma segura</p>
+        </div>
+
+        <!-- El botón de Google se renderizará aquí -->
+        <div id="googleButtonContainer"></div>
+
+        <div class="divider">
+          <span>Acceso seguro</span>
+        </div>
+
+        <div class="info-box">
+          <h4>🔒 Seguridad Garantizada</h4>
+          <p>Tu información está protegida con OAuth 2.0. No almacenamos contraseñas y tu sesión está cifrada de extremo
+            a extremo.</p>
+        </div>
+
+        <div class="footer-info">
+          Al continuar, aceptas nuestros términos de servicio
+        </div>
+      </div>
+
+      <!-- Perfil de Usuario (oculto inicialmente) -->
+      <div id="userProfile" class="user-profile">
+        <img id="userAvatar" class="user-avatar" src="" alt="User" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'50\' fill=\'%230070f2\'/><text x=\'50\' y=\'65\' font-family=\'Arial\' font-size=\'40\' font-weight=\'bold\' fill=\'white\' text-anchor=\'middle\'>U</text></svg>';">
+        <div class="user-name" id="userName"></div>
+        <div class="user-email" id="userEmail"></div>
+        <div class="user-role" id="userRole">Rol: Socio</div>
+
+        <div id="actionInfoBox" class="info-box">
+          <h4>✅ Sesión Iniciada</h4>
+          <p>Tu información ha sido verificada correctamente. Puedes acceder al dashboard o cerrar sesión.</p>
+        </div>
+
+        <div class="action-buttons">
+          <button id="primaryActionButton" class="btn btn-primary" onclick="goToDashboard()">
+            Ir al Dashboard →
+          </button>
+          <button class="btn btn-secondary" onclick="logout()">
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+
+      <!-- Indicador de carga -->
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p style="margin-top: 12px; color: #7f8c8d;">Verificando credenciales...</p>
+      </div>
+
+      <!-- Mensaje de acceso denegado -->
+      <div id="accessDenied" class="login-form" style="display: none;">
+        <div class="login-header">
+          <h2>Acceso Denegado</h2>
+          <p>Tu correo no está autorizado para acceder</p>
+        </div>
+
+        <div class="info-box error">
+          <h4>⛔ Acceso Restringido</h4>
+          <p>El correo electrónico <strong id="deniedEmail"></strong> no está en la lista de usuarios autorizados.
+            Contacta al administrador del sistema para solicitar acceso.</p>
+        </div>
+
+        <button class="btn btn-secondary" onclick="resetLogin()" style="margin-top: 20px; width: 100%;">
+          ← Volver al inicio
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURACIÓN SUPABASE & GOOGLE
+    // ============================================
+
+    // 1. IMPORTANTE: Credenciales de Supabase
+    // (Copiadas de tu archivo de configuración existente)
+    const supabaseUrl = 'https://snyfzenjapyybbfqrnku.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+    const googleClientId = '906286679746-lu4lpsg07b7ctaujvmfo042ofae1lqc5.apps.googleusercontent.com';
+
+    // 2. Inicializar Cliente Supabase
+    // Usamos la variable global 'supabase' expuesta por el CDN que agregaremos al HEAD
+    let supabaseClient;
+
+    // ============================================
+    // INICIALIZACIÓN
+    // ============================================
+
+    function initSupabase() {
+      if (typeof supabase !== 'undefined') {
+        supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        console.log('✅ Supabase Inicializado');
+        checkSession();
+      } else {
+        console.error('❌ Librería Supabase no cargada');
+        setTimeout(initSupabase, 500);
+      }
+    }
+
+    // Inicializar Google Sign-In
+    function initializeGoogleSignIn() {
+      if (!google || !google.accounts || !google.accounts.id) return;
+
+      google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+
+      google.accounts.id.renderButton(
+        document.getElementById('googleButtonContainer'),
+        {
+          theme: 'outline',
+          size: 'large',
+          text: 'continue_with',
+          shape: 'rectangular',
+          logo_alignment: 'left',
+          width: 300
+        }
+      );
+    }
+
+    // ============================================
+    // MANEJO DE LOGIN (NÚCLEO)
+    // ============================================
+
+    async function handleCredentialResponse(response) {
+      const loading = document.getElementById('loading');
+      const loginForm = document.getElementById('loginForm');
+
+      loginForm.style.display = 'none';
+      loading.classList.add('active');
+
+      try {
+        console.log("🔄 Conectando con Supabase Auth...");
+
+        // 1. Intercambiar Token de Google por Sesión de Supabase
+        const { data, error } = await supabaseClient.auth.signInWithIdToken({
+          provider: 'google',
+          token: response.credential,
+        });
+
+        if (error) throw error;
+
+        console.log('✅ Login Exitoso en Supabase:', data);
+
+        // 2. Guardar Sesión (Supabase lo hace automágicamente, pero actualizamos UI)
+        await handleSuccessfulLogin(data.user);
+
+      } catch (error) {
+        console.error('❌ Error Login:', error);
+        loading.classList.remove('active');
+        loginForm.style.display = 'flex';
+        alert('Error al conectar con el servidor: ' + error.message);
+      }
+    }
+
+    async function handleSuccessfulLogin(user) {
+      const loading = document.getElementById('loading');
+      
+      // PARCHE DE ADMISIÓN DESDE EL INDEX
+      console.log("🔄 Verificando vinculación de usuario en Base de Datos...");
+      const { data: profile, error } = await supabaseClient
+        .from('perfiles_usuario')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+      
+      const isAssigned = (profile && !error);
+      
+      loading.classList.remove('active');
+
+      // Construir objeto para UI
+      const uiUser = {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata.full_name || user.email,
+        picture: user.user_metadata.avatar_url || '',
+        role: isAssigned ? 'Usuario Registrado' : 'Usuario Nuevo (Vínculo en espera)',
+        isAssigned: isAssigned
+      };
+
+      // Guardar respaldo en localStorage (opcional, para compatibilidad legacy)
+      localStorage.setItem('microerp_session', JSON.stringify(uiUser));
+
+      showUserProfile(uiUser);
+      console.log('🎉 Sesión Iniciada para:', uiUser.email);
+    }
+
+    async function checkSession() {
+      // Verificar sesión activa en Supabase
+      const { data: { session } } = await supabaseClient.auth.getSession();
+
+      if (session) {
+        console.log("Sesión recuperada:", session.user.email);
+        handleSuccessfulLogin(session.user);
+      } else {
+        // Inicializar botón Google si no hay sesión
+        if (typeof google !== 'undefined') initializeGoogleSignIn();
+        else {
+          const checkGoogle = setInterval(() => {
+            if (typeof google !== 'undefined') {
+              initializeGoogleSignIn();
+              clearInterval(checkGoogle);
+            }
+          }, 100);
+        }
+      }
+    }
+
+    // ============================================
+    // GESTIÓN UI & NAVEGACIÓN
+    // ============================================
+
+    function showUserProfile(userData) {
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('loading').classList.remove('active');
+      document.getElementById('accessDenied').style.display = 'none';
+
+      const profile = document.getElementById('userProfile');
+      document.getElementById('userAvatar').src = userData.picture;
+      document.getElementById('userName').textContent = userData.name;
+      document.getElementById('userEmail').textContent = userData.email;
+
+      // Mostrar status basado en asignación
+      document.getElementById('userRole').textContent = userData.isAssigned ? 'Conectado a Empresa' : 'Conectado a Supabase (Sin Asignar)';
+
+      // Actualizar dinámicamente UI del CTA basado en asignación
+      const actionButton = document.getElementById('primaryActionButton');
+      const actionInfoBox = document.getElementById('actionInfoBox');
+      
+      if (userData.isAssigned) {
+          actionButton.textContent = 'Ir al Dashboard →';
+          actionButton.onclick = () => window.location.href = 'dashboard.html';
+          
+          actionInfoBox.innerHTML = `
+            <h4>✅ Sesión Iniciada</h4>
+            <p>Tu información ha sido verificada correctamente. Puedes acceder al dashboard o cerrar sesión.</p>
+          `;
+          actionInfoBox.className = 'info-box';
+      } else {
+          actionButton.textContent = 'Ir a Sala de Bienvenida →';
+          actionButton.onclick = () => window.location.href = 'bienvenida.html';
+          
+          actionInfoBox.innerHTML = `
+            <h4>⏳ Perfil en Espera</h4>
+            <p>Has iniciado sesión correctamente pero tu cuenta aún no ha sido vinculada por un administrador del sistema.</p>
+          `;
+          actionInfoBox.className = 'info-box warning';
+      }
+
+      profile.classList.add('active');
+    }
+
+    async function logout() {
+      if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+        await supabaseClient.auth.signOut();
+        localStorage.removeItem('microerp_session');
+        window.location.reload();
+      }
+    }
+
+    function goToDashboard() {
+      // Redirigir al dashboard
+      window.location.href = 'dashboard.html';
+    }
+
+    // ============================================
+    // ARRANQUE
+    // ============================================
+    window.addEventListener('load', () => {
+      initSupabase();
+    });
+
+  </script>
+</body>
+
+</html>
