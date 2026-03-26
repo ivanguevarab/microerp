@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planilla Diaria de Tiempos - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        .page-container {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Inputs de Hora personalizados */
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            filter: invert(0.5);
+            /* Icono gris */
+        }
+
+        input[type="time"] {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            color: #334155;
+            background-color: white;
+            transition: all 0.2s;
+            width: 100%;
+            max-width: 125px;
+            font-family: 'Inter', sans-serif;
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        input[type="time"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        input[type="time"]:disabled {
+            background-color: #f1f5f9;
+            color: #94a3b8;
+            cursor: not-allowed;
+            border-color: transparent;
+        }
+
+        /* Botones de Acción Modificados */
+        .btn-action {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-process {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: white;
+        }
+
+        .btn-process:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-disabled {
+            border-color: #e2e8f0;
+            color: #94a3b8;
+            background: #f8fafc;
+            cursor: not-allowed;
+        }
+
+        /* Badges */
+        .badge-time {
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            font-family: 'Inter', sans-serif;
+            font-variant-numeric: tabular-nums;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 100px;
+        }
+
+        .badge-tardanza {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-color: #fca5a5;
+        }
+
+        .badge-salida-anticipada {
+            background: #fff7ed;
+            color: #c2410c;
+            border-color: #fdba74;
+        }
+
+        .badge-tardanza-y-salida {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #f87171;
+            font-size: 0.65rem;
+            line-height: 1;
+        }
+
+        .badge-falta {
+            background: #fef2f2;
+            color: #ef4444;
+            border-color: #fca5a5;
+            font-weight: 700;
+        }
+
+        /* Estado cerrado en la fila */
+        .row-closed {
+            background-color: #f8fafc !important;
+        }
+
+        .row-closed td {
+            opacity: 0.7;
+        }
+
+        .row-closed .status-col {
+            opacity: 1;
+            /* El status se mantiene sólido */
+        }
+
+        /* PRINT SPECIFICS - PDF REPORTE ASISTENCIA */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+            }
+
+            body * {
+                visibility: hidden;
+            }
+
+            body.print-reporte #modalReporteAsistencia,
+            body.print-reporte #modalReporteAsistencia * {
+                visibility: visible;
+            }
+
+            body.print-reporte {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            body.print-reporte #modalReporteAsistencia {
+                /* Se restaura el flujo absolute que es estable en Firefox */
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                /* El margin impreso lo asume el @page 10mm */
+                padding: 0 !important;
+                background: white !important;
+                box-shadow: none !important;
+                transform: none !important;
+                border-radius: 0 !important;
+                display: block !important;
+                z-index: 9999 !important;
+                
+                /* CORRECCIÓN CHROMIUM: Se elimina el flujo de recorte de scroll que rompe a Brave */
+                overflow: visible !important;
+                min-height: auto !important;
+                height: auto !important;
+            }
+
+            body.print-reporte .reporte-content {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                
+                /* CORRECCIÓN CHROMIUM */
+                overflow: visible !important;
+                min-height: auto !important;
+                height: auto !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+
+    </style>
+</head>
+
+<body class="bg-slate-50">
+
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='gestion_de_personal.html'">
+                ← Volver al Panel
+            </button>
+            <h1>Planilla Diaria de Tiempos</h1>
+            <div class="submodule-version">Registro Manual Administrador</div>
+        </div>
+    </header>
+
+    <main class="page-container">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+
+            <!-- Control Header (Sustituye al reloj en vivo) -->
+            <div
+                class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50 border border-slate-200 p-5 rounded-lg mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 mb-1">Registro de Horas</h2>
+                    <p class="text-sm text-slate-500">Digite los tiempos desde sus controles físicos y procese por
+                        trabajador.</p>
+                </div>
+
+                <div class="mt-4 md:mt-0 flex flex-col items-end gap-3">
+                    <div class="flex flex-col items-end">
+                        <label class="text-xs text-slate-500 font-bold mb-1 uppercase tracking-wider">Fecha a registrar
+                            o auditar</label>
+                        <input type="date" id="inputFecha"
+                            class="border border-slate-300 rounded px-4 py-2 text-slate-700 bg-white shadow-sm focus:border-blue-500 focus:outline-none font-medium"
+                            onchange="cambiarFecha()">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="prepararImpresionMensualGeneral()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center gap-2 h-[40px]" title="Imprimir Récord Mensual de Asistencia" id="btnImprimirGlobal">
+                            <i class="fas fa-print"></i> Reporte Mes
+                        </button>
+                        <button id="btnGuardarGlobal"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2 h-[40px]"
+                            onclick="procesarTodosLosEmpleados()">
+                            <i class="fas fa-save"></i> Guardar Planilla del Día
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestañas de Macro-Áreas -->
+            <div id="macroTabsContainer" class="flex border-b border-slate-200 mb-6 overflow-x-auto gap-2" style="scrollbar-width: none;">
+                <!-- Renderizado por JS -->
+            </div>
+
+            <!-- Tabla de marcaciones (Estilo Planilla) -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left" id="tablaReloj">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                        <tr>
+                            <th class="py-4 px-4 font-semibold text-sm">Colaborador</th>
+                            <th class="py-4 px-4 font-semibold text-sm">Meta del Día</th>
+                            <th class="py-4 px-4 font-semibold text-sm text-center">H. Entrada</th>
+                            <th class="py-4 px-4 font-semibold text-sm text-center">Inicio Almuerzo</th>
+                            <th class="py-4 px-4 font-semibold text-sm text-center">Fin Almuerzo</th>
+                            <th class="py-4 px-4 font-semibold text-sm text-center">H. Salida</th>
+                            <th class="py-4 px-4 font-semibold text-sm text-center">Acumulado del Día</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-700" id="tbodyReloj">
+                        <!-- Render via JS -->
+                    </tbody>
+                </table>
+
+                <!-- Loading State -->
+                <div id="loading" class="hidden py-12 flex flex-col items-center justify-center text-slate-500">
+                    <i class="fas fa-circle-notch fa-spin text-3xl text-blue-500 mb-3"></i>
+                    <p id="loadingText">Cargando padrón del día...</p>
+                </div>
+
+                <div id="empty-state" class="hidden py-12 flex flex-col items-center justify-center text-slate-500">
+                    <i class="fas fa-users-slash text-4xl mb-3 text-slate-300"></i>
+                    <p class="text-center">No hay personal configurado para marcación en esta empresa.</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal Superpuesto de "Procesando" para transacciones críticas -->
+    <div id="modalLoading"
+        class="hidden fixed inset-0 bg-slate-900 bg-opacity-75 z-[60] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm w-full mx-4">
+            <i class="fas fa-cog fa-spin text-4xl text-blue-600 mb-4"></i>
+            <h3 class="text-lg font-bold text-slate-800 mb-1" id="mlTitle">Procesando Marcación</h3>
+            <p class="text-sm text-slate-500" id="mlDesc">Inyectando datos en el Banco de Horas...</p>
+        </div>
+    </div>
+
+    <!-- Modal de Edición Segura -->
+    <div id="modalEdicion"
+        class="hidden fixed inset-0 bg-slate-900/60 z-50 flex flex-col justify-end sm:items-center sm:justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div
+                class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl sm:rounded-t-xl shrink-0">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                        <i class="fas fa-pen-to-square text-blue-500"></i> Editar Jornada Cerrada
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1" id="edicionSubtitle">Asistencia de ...</p>
+                </div>
+                <button onclick="cerrarModalEdicion()"
+                    class="text-slate-400 hover:text-slate-600 text-xl transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 custom-scrollbar">
+
+                <div
+                    class="bg-blue-50 rounded-lg p-3 border border-blue-100 mb-5 text-sm text-blue-800 flex items-start gap-3">
+                    <i class="fas fa-info-circle mt-0.5 text-blue-500"></i>
+                    <div>
+                        <strong class="block mb-1">Impacto Automático en Banco</strong>
+                        Los cambios guardados generarán un <strong>movimiento compensatorio</strong> en el Banco de
+                        Horas del colaborador para ajustar el saldo correctamente a la realidad.
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">H. Entrada</label>
+                        <input type="time" id="edit_ent" class="w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">H. Salida</label>
+                        <input type="time" id="edit_sal" class="w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Ini. Almuerzo</label>
+                        <input type="time" id="edit_inialm" class="w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fin Almuerzo</label>
+                        <input type="time" id="edit_finalm" class="w-full">
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-100 pt-5 mb-2">
+                    <label class="block text-xs font-bold text-red-500 uppercase mb-2"><i
+                            class="fas fa-shield-alt mr-1"></i> Confirmación de Seguridad</label>
+                    <p class="text-xs text-slate-500 mb-3">Dado que se afectará la contabilidad del Banco de Horas
+                        retroactivamente, escriba la palabra <strong>EDITAR</strong> para habilitar el guardado.</p>
+                    <input type="text" id="edit_confirm_text" oninput="validarTextoConfirmacion()"
+                        placeholder="Escriba EDITAR..."
+                        class="w-full border border-slate-300 rounded pb-2 pt-2 px-3 text-sm focus:border-blue-500 focus:outline-none uppercase">
+                </div>
+            </div>
+
+            <div
+                class="p-5 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between items-center shrink-0">
+                <button id="btnEditAInasistencia" onclick="convertirEdicionEnFalta()"
+                    class="text-red-600 hover:text-red-700 font-bold text-sm px-3 py-2 rounded transition-colors hover:bg-red-50 flex items-center gap-2">
+                    <i class="fas fa-user-times"></i> Volver INASISTENCIA
+                </button>
+                <div class="flex gap-2">
+                    <button onclick="cerrarModalEdicion()"
+                        class="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors">Cancelar</button>
+                    <button id="btnGuardarEdicion" disabled onclick="guardarEdicionFirme()"
+                        class="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:bg-blue-700 flex items-center gap-2">
+                        <i class="fas fa-save"></i> Guardar Tiempos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Limpieza/Reversión Segura -->
+    <div id="modalLimpiar"
+        class="hidden fixed inset-0 bg-slate-900/60 z-[55] flex flex-col justify-end sm:items-center sm:justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div
+                class="p-5 border-b border-red-100 flex justify-between items-center bg-red-50 rounded-t-2xl sm:rounded-t-xl shrink-0">
+                <div>
+                    <h3 class="font-bold text-red-800 text-lg flex items-center gap-2">
+                        <i class="fas fa-trash-restore text-red-500"></i> Limpiar Jornada
+                    </h3>
+                    <p class="text-xs text-red-600 mt-1" id="limpiarSubtitle">Revirtiendo asistencia de ...</p>
+                </div>
+                <button onclick="cerrarModalLimpiar()"
+                    class="text-red-400 hover:text-red-600 text-xl transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 custom-scrollbar">
+
+                <div
+                    class="bg-red-50 rounded-lg p-4 border border-red-200 mb-5 text-sm text-red-800 flex items-start gap-3">
+                    <i class="fas fa-exclamation-triangle mt-0.5 text-red-600 text-lg"></i>
+                    <div>
+                        <strong class="block mb-1">Acción Destructiva Fuerte</strong>
+                        Esta acción borrará físicamente el registro de asistencia del día, dejándolo en blanco. Así
+                        mismo, <strong>eliminará de raíz</strong> cualquier movimiento histórico que se haya generado en
+                        el Banco de Horas por este día. El saldo general del trabajador será recalculado desde cero.
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-100 pt-5 mb-2">
+                    <label class="block text-xs font-bold text-red-600 uppercase mb-2"><i class="fas fa-lock mr-1"></i>
+                        Confirmación Crítica</label>
+                    <p class="text-xs text-slate-600 mb-3">Para proceder con la eliminación física de la BD, por favor
+                        escribe exactamente la palabra <strong class="text-red-600 text-sm">LIMPIAR</strong>.</p>
+                    <input type="text" id="limpiar_confirm_text" oninput="validarTextoLimpiar()"
+                        placeholder="Escriba LIMPIAR..."
+                        class="w-full border border-red-300 rounded pb-2 pt-2 px-3 text-sm focus:border-red-500 focus:outline-none uppercase bg-red-50/30">
+                </div>
+            </div>
+
+            <div
+                class="p-5 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between items-center shrink-0">
+                <div></div>
+                <div class="flex gap-2">
+                    <button onclick="cerrarModalLimpiar()"
+                        class="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors">Cancelar</button>
+                    <button id="btnGuardarLimpieza" disabled onclick="ejecutarLimpiezaFirme()"
+                        class="px-5 py-2 text-sm font-bold text-white bg-red-600 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:bg-red-700 flex items-center gap-2">
+                        <i class="fas fa-eraser"></i> Confirmar Limpieza
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Selección de Mes e Impresión (Lanzador) -->
+    <div id="modalPrintMesSelector"
+        class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center backdrop-blur-sm transition-opacity px-4">
+        <div class="bg-white w-full sm:max-w-md rounded-xl shadow-2xl flex flex-col">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                        <i class="fas fa-file-pdf text-red-500"></i> Imprimir Récord Mensual
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1" id="printSelectorSubtitle">Trabajador: ...</p>
+                </div>
+                <button onclick="cerrarPrintSelector()" class="text-slate-400 hover:text-slate-600 text-xl transition-colors w-8 h-8 rounded-full hover:bg-slate-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Seleccione Colaborador</label>
+                    <select id="printSelectPid" class="w-full border border-slate-300 rounded pb-2 pt-2 px-3 text-sm focus:border-blue-500 outline-none">
+                        <!-- Llenado via JS -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Seleccione el Mes</label>
+                    <input type="month" id="printSelectMes" class="w-full border border-slate-300 rounded pb-2 pt-2 px-3 text-sm focus:border-blue-500 outline-none">
+                </div>
+            </div>
+            <div class="p-5 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-2">
+                <button onclick="cerrarPrintSelector()" class="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button onclick="generarYMostrarReportePdf()" class="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded transition-colors hover:bg-blue-700 flex items-center gap-2">
+                    <i class="fas fa-search"></i> Generar Vista
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REPORTE ASISTENCIA (PRINT VIEW) -->
+    <div id="modalReporteAsistencia" class="hidden fixed inset-0 bg-slate-900/60 z-[2000] flex items-center justify-center backdrop-blur-sm transition-opacity" style="align-items: flex-start; overflow-y: auto; padding: 2rem 0;">
+        <div class="reporte-content bg-white w-full max-w-[850px] rounded-xl shadow-2xl flex flex-col mx-auto" style="min-height: 80vh;">
+            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-xl no-print">
+                <h2 class="font-bold text-slate-800 text-xl">Vista Previa del Récord de Asistencia</h2>
+                <button onclick="cerrarModalReporteAsistencia()" class="text-slate-400 hover:text-red-500 text-2xl transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200">&times;</button>
+            </div>
+
+            <div class="p-8 flex-1" id="reporteContent" style="color: #333; font-family: Arial, sans-serif;">
+                <!-- Content injected via JS -->
+            </div>
+
+            <div class="p-5 border-t border-slate-200 bg-slate-50 rounded-b-xl flex justify-end gap-3 no-print">
+                <button class="text-slate-600 hover:text-slate-800 px-4 py-2 font-bold border border-slate-300 rounded bg-white transition hover:bg-slate-100" onclick="cerrarModalReporteAsistencia()">Cerrar</button>
+                <button onclick="ejecutarImpresionReporte()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2">
+                    <i class="fas fa-print"></i> Imprimir Reporte
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de lógica de UI e Integración DB -->
+    <script src="sidebar.js"></script>
+    <script>
+        let pDataEmpresaId = null;
+        let personalList = [];
+        let asistenciasHoy = [];
+        let politicasCache = {}; // Cache de políticas por ID de personal (o globales)
+        let currentMacroArea = 'Todas'; // Tab activa
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof window.supabaseClient === 'undefined') {
+                setTimeout(initApp, 500);
+            } else {
+                await initApp();
+            }
+        });
+
+        async function initApp() {
+            mostrarCarga(true, "Verificando sesión...");
+            // Setear inputDate a hoy
+            const hoyStr = formatFechas(new Date());
+            document.getElementById('inputFecha').value = hoyStr;
+
+            try {
+                const { data: userData, error: userError } = await window.supabaseClient.auth.getUser();
+                if (userError || !userData.user) throw new Error("Sesión inválida.");
+
+                const { data: pData } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', userData.user.id).single();
+                pDataEmpresaId = pData.empresa_id;
+
+                await precargarPoliticasGenerales();
+                await cargarDatosDelDia();
+            } catch (error) {
+                console.error("Error App:", error);
+                alert("Error cargando el motor del Reloj: " + error.message);
+            }
+            mostrarCarga(false);
+        }
+
+        // ==========================================
+        // HELPERS
+        // ==========================================
+        function formatFechas(dateObj) {
+            const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' });
+            return formatter.format(dateObj);
+        }
+
+        function parseLocalTime(timeStr) {
+            // Convierte "13:45:00" o "13:45" a minutos desde la medianoche
+            if (!timeStr) return null;
+            const parts = timeStr.split(':');
+            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        }
+
+        function formatMinutesToHM(totalMins) {
+            if (totalMins === null || isNaN(totalMins)) return "--:--";
+            let sym = totalMins < 0 ? "-" : "";
+            let absM = Math.abs(totalMins);
+            const h = Math.floor(absM / 60);
+            const m = Math.floor(absM % 60);
+            return `${sym}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        function safeSubstring(str) {
+            if (!str) return '';
+            return str.substring(0, 5); // Para cortar "13:00:00" a "13:00" que es lo que acepta el input[type=time]
+        }
+
+        function formatToAMPM(hora24) {
+            if (!hora24) return '--:--';
+            let mins = parseLocalTime(hora24);
+            let h = Math.floor(mins / 60);
+            let m = mins % 60;
+            let ampm = h >= 12 ? 'p.m.' : 'a.m.';
+            let h12 = h % 12;
+            h12 = h12 ? h12 : 12;
+            return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} <span class="text-[0.65rem] uppercase text-slate-500 font-bold ml-1">${ampm}</span>`;
+        }
+
+        function formatearTipoDia(tipoDia) {
+            if (!tipoDia) return '';
+            switch (tipoDia) {
+                case 'DESCANSO_REMUNERADO': return 'DESCANSO';
+                case 'DESCANSO_SIN_GOCE': return 'PERMISO / SIN GOCE';
+                case 'FERIADO': return 'FERIADO';
+                case 'LABORABLE': return 'LABORABLE';
+                default: return tipoDia.replace(/_/g, ' ');
+            }
+        }
+
+        // ==========================================
+        // CARGA DE DATOS (Backend)
+        // ==========================================
+        async function cambiarFecha() {
+            mostrarCarga(true, "Cargando datos de la fecha...");
+            await cargarDatosDelDia();
+            mostrarCarga(false);
+        }
+
+        async function precargarPoliticasGenerales() {
+            // Trae las políticas de la empresa y políticas de excepción
+            const { data, error } = await window.supabaseClient.from('politicas_asistencia').select('*');
+            if (!error && data) {
+                let global = data.find(p => p.personal_id === null);
+                data.forEach(p => {
+                    if (p.personal_id) {
+                        politicasCache[p.personal_id] = p; // Excepción específica
+                    }
+                });
+                politicasCache['GLOBAL'] = global;
+            }
+        }
+
+        async function cargarDatosDelDia() {
+            const fechaSeleccionada = document.getElementById('inputFecha').value;
+
+            // 1. Traer Todo el personal que exige marcación
+            const { data: pData, error: pErr } = await window.supabaseClient
+                .from('personal')
+                .select('id, nombres, apellidos, cargo_rol, requiere_marcacion, categorias_personal(nombre)')
+                .eq('activo', true)
+                .eq('requiere_marcacion', true)
+                .order('apellidos');
+
+            if (pErr) console.error(pErr);
+            personalList = pData || [];
+
+            if (personalList.length === 0) {
+                renderVacio();
+                return;
+            }
+
+            // 2. Traer la asistencia del día actual
+            const { data: aData, error: aErr } = await window.supabaseClient
+                .from('asistencia_diaria')
+                .select('*')
+                .eq('fecha', fechaSeleccionada);
+
+            if (aErr) console.error(aErr);
+            asistenciasHoy = aData || [];
+
+            // 3. Traer calendarios del dia (Metas)
+            const { data: cData, error: cErr } = await window.supabaseClient
+                .from('calendario_personal')
+                .select('*')
+                .eq('fecha', fechaSeleccionada);
+
+            let calendariosHoy = {};
+            if (cData) {
+                cData.forEach(c => calendariosHoy[c.personal_id] = c);
+            }
+
+            renderTabs(fechaSeleccionada, calendariosHoy);
+            renderTabla(fechaSeleccionada, calendariosHoy);
+        }
+
+        // ==========================================
+        // RENDER DE LA TABLA "PLANILLA"
+        // ==========================================
+        function renderTabs(fechaStr, calendariosHoy) {
+            const tabsContainer = document.getElementById('macroTabsContainer');
+            if (!tabsContainer) return;
+
+            tabsContainer.innerHTML = '';
+
+            const areasSet = new Set();
+            personalList.forEach(p => {
+                const area = (p.categorias_personal && p.categorias_personal.nombre) ? p.categorias_personal.nombre : '';
+                if (area) areasSet.add(area);
+            });
+            const areas = ['Todas', ...Array.from(areasSet).sort()];
+
+            areas.forEach(area => {
+                const btn = document.createElement('button');
+                const baseClasses = "px-5 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors focus:outline-none";
+                const activeClasses = "border-blue-600 text-blue-600";
+                const inactiveClasses = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300";
+
+                btn.className = `${baseClasses} ${area === currentMacroArea ? activeClasses : inactiveClasses}`;
+                btn.innerText = area;
+
+                btn.onclick = () => {
+                    currentMacroArea = area;
+                    renderTabs(fechaStr, calendariosHoy);
+                    renderTabla(fechaStr, calendariosHoy);
+                };
+
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function renderTabla(fechaStr, calendariosHoy) {
+            const tbody = document.getElementById('tbodyReloj');
+            tbody.innerHTML = '';
+            document.getElementById('tablaReloj').classList.remove('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+
+            const filtrados = personalList.filter(p => {
+                const catNombre = p.categorias_personal ? p.categorias_personal.nombre : '';
+                if (currentMacroArea !== 'Todas' && catNombre !== currentMacroArea) return false;
+                return true;
+            });
+
+            if (filtrados.length === 0) {
+                renderVacio();
+                return;
+            }
+
+            filtrados.forEach(p => {
+                const asis = asistenciasHoy.find(a => a.personal_id === p.id);
+                const cal = calendariosHoy[p.id];
+                const pol = politicasCache[p.id] || politicasCache['GLOBAL'] || { aplicar_penalizaciones_tardanza: false };
+
+                // 1. Meta del dia
+                let isLaborable = true;
+                let uiTipoDia = '';
+
+                if (cal) {
+                    if (cal.tipo_dia !== 'LABORABLE') {
+                        isLaborable = false;
+                        uiTipoDia = `<span class="text-[10px] font-bold text-amber-700 uppercase bg-amber-100 px-3 py-1 mt-1 rounded-full border border-amber-200 tracking-wide inline-block">${formatearTipoDia(cal.tipo_dia)}</span>`;
+                    }
+                } else {
+                    // Si no hay calendario, asumimos laborable por flex
+                    uiTipoDia = `<span class="text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-3 py-1 mt-1 rounded-full border border-slate-200 tracking-wide inline-block">SIN PROG.</span>`;
+                }
+
+                let metaEntradaStr = "08:00:00";
+                let metaSalidaStr = "17:00:00";
+                let metaMinsVal = 480;
+
+                if (cal && cal.hora_entrada_esperada && isLaborable) {
+                    metaEntradaStr = cal.hora_entrada_esperada;
+                    metaSalidaStr = cal.hora_salida_esperada;
+                    let miE = parseLocalTime(metaEntradaStr);
+                    let miS = parseLocalTime(metaSalidaStr);
+                    
+                    // DOBLE VALIDACION PARA META DEL DIA EN FRONT-END
+                    let almM = 0;
+                    let difMeta = miS - miE;
+                    // Deducción Inteligente: Solo si la Meta Bruta es mayor a 6 horas (360 mins)
+                    if (difMeta > 360) {
+                        if (pol.aplicar_descuento_almuerzo === true) {
+                            if (cal && cal.aplica_almuerzo === true) {
+                                if (cal.hora_inicio_almuerzo_esperado && cal.hora_fin_almuerzo_esperado) {
+                                    let almIn = parseLocalTime(cal.hora_inicio_almuerzo_esperado.substring(0, 5));
+                                    let almOut = parseLocalTime(cal.hora_fin_almuerzo_esperado.substring(0, 5));
+                                    let overlapStart = Math.max(miE, almIn);
+                                    let overlapEnd = Math.min(miS, almOut);
+                                    if (overlapStart < overlapEnd) almM = overlapEnd - overlapStart;
+                                } else {
+                                    almM = pol.minutos_almuerzo_esperado ?? 60;
+                                }
+                            } else if (!cal) {
+                                almM = pol.minutos_almuerzo_esperado ?? 60;
+                            }
+                        }
+                    }
+                    
+                    metaMinsVal = difMeta - almM;
+                } else if (!isLaborable) {
+                    metaMinsVal = 0; // No se esperan horas si no es laborable
+                }
+
+                // 2. Valores Iniciales para los Inputs
+                let valEntrada = '';
+                let valIniAlmuerzo = '';
+                let valFinAlmuerzo = '';
+                let valSalida = '';
+                let cerrado = false;
+
+                if (asis) {
+                    valEntrada = safeSubstring(asis.hora_entrada);
+                    valIniAlmuerzo = safeSubstring(asis.hora_inicio_almuerzo);
+                    valFinAlmuerzo = safeSubstring(asis.hora_fin_almuerzo);
+                    valSalida = safeSubstring(asis.hora_salida);
+                    // Consideramos el día cerrado si tiene salida registrada o si es FALTA
+                    if (valSalida || asis.estado === 'FALTA') cerrado = true;
+                }
+
+                // Generación de Inputs (Si está cerrado, se muestran como disabled y en formato badge)
+                let inputHtml_Entrada = '';
+                let inputHtml_IniAlm = '';
+                let inputHtml_FinAlm = '';
+                let inputHtml_Salida = '';
+
+                // Habilitacion de casillas de almuerzo según política y calendario (DOBLE VALIDACIÓN)
+                let almuerzoAplicable = false;
+                if (pol.aplicar_descuento_almuerzo === true) {
+                    if (cal) {
+                        almuerzoAplicable = cal.aplica_almuerzo === true; // Manda el calendario para ese día
+                    } else {
+                        almuerzoAplicable = true; // Si no hay evento en calendario, manda la política global
+                    }
+                }
+
+                if (cerrado) {
+                    if (asis && asis.estado === 'FALTA') {
+                        // Diseño read-only para FALTA completa
+                        inputHtml_Entrada = `<span class="badge-falta flex items-center justify-center w-full col-span-4 py-2">FALTA REGISTRADA</span>`;
+                        inputHtml_IniAlm = '';
+                        inputHtml_FinAlm = '';
+                        inputHtml_Salida = '';
+
+                        let deltaBanco = -Math.round(metaMinsVal); // Deuda total de las horas esperadas
+                        let hrsEfvo = parseFloat(asis.horas_efectivas_calculadas || 0); // Será 0
+                        let efvoText = `0h 0m`;
+                        let kClass = 'text-red-500';
+                        let kText = `${deltaBanco}m de Deuda`;
+
+                        uiAcumulado = `<div class="flex items-center justify-between px-2 w-full gap-2">
+                                         <div class="text-left flex-1">
+                                            <span class="font-bold text-slate-700 text-sm block leading-tight">${efvoText}</span>
+                                            <span class="text-[0.7rem] font-bold ${kClass}">${kText}</span>
+                                         </div>
+                                         <div class="flex items-center gap-1">
+                                            <button onclick="abrirModalEdicion('${p.id}')" class="text-slate-400 hover:text-blue-600 transition-colors py-2 px-1 rounded hover:bg-blue-50" title="Editar jornada cerrada">
+                                                <i class="fas fa-pen"></i>
+                                            </button>
+                                            <button onclick="abrirModalLimpiar('${p.id}')" class="text-slate-400 hover:text-red-600 transition-colors py-2 px-1 rounded hover:bg-red-50" title="Limpiar y Revertir Jornada">
+                                                <i class="fas fa-trash-restore"></i>
+                                            </button>
+                                         </div>
+                                       </div>`;
+                    } else {
+                        // Diseño "Read-Only" normal (Asistencia/Tardanza)
+                        let esTardanza = asis.estado === 'TARDANZA';
+                        let esTardanzaSalida = asis.estado === 'TARDANZA y SALIDA ANTICIPADA';
+                        let esSalidaAnt = asis.estado === 'SALIDA ANTICIPADA';
+                        
+                        let tClassEntrada = 'badge-time';
+                        if (esTardanza || esTardanzaSalida) tClassEntrada = 'badge-tardanza';
+                        
+                        let tClassSalida = 'badge-time flex items-center justify-center';
+                        if (esSalidaAnt || esTardanzaSalida) tClassSalida = 'badge-salida-anticipada flex items-center justify-center';
+                        
+                        inputHtml_Entrada = `<span class="${tClassEntrada} flex items-center justify-center">${formatToAMPM(valEntrada)}</span>`;
+
+                        if (almuerzoAplicable) {
+                            inputHtml_IniAlm = `<span class="badge-time bg-white/50 border-0 shadow-none text-slate-500">${valIniAlmuerzo ? formatToAMPM(valIniAlmuerzo) : '--:--'}</span>`;
+                            inputHtml_FinAlm = `<span class="badge-time bg-white/50 border-0 shadow-none text-slate-500">${valFinAlmuerzo ? formatToAMPM(valFinAlmuerzo) : '--:--'}</span>`;
+                        } else {
+                            inputHtml_IniAlm = '<span class="text-xs text-slate-300">N/A</span>';
+                            inputHtml_FinAlm = '<span class="text-xs text-slate-300">N/A</span>';
+                        }
+
+                        inputHtml_Salida = `<span class="${tClassSalida}" title="${asis.estado}">${formatToAMPM(valSalida)}</span>`;
+
+                        let hrsEfvo = parseFloat(asis.horas_efectivas_calculadas || 0);
+                        let efvoText = `${Math.floor(hrsEfvo)}h ${Math.round((hrsEfvo - Math.floor(hrsEfvo)) * 60)}m`;
+
+                        let efvoMinsTotales = Math.round(hrsEfvo * 60);
+                        let deltaBanco = efvoMinsTotales - metaMinsVal;
+                        let kClass = deltaBanco > 0 ? 'text-green-600' : (deltaBanco < 0 ? 'text-red-500' : 'text-slate-400');
+                        let kText = deltaBanco > 0 ? `+${deltaBanco}m al Banco` : (deltaBanco < 0 ? `${deltaBanco}m de Deuda` : `Equilibrio exacto`);
+
+                        uiAcumulado = `<div class="flex items-center justify-between px-2 w-full gap-2">
+                                         <div class="text-left flex-1">
+                                            <span class="font-bold text-slate-700 text-sm block leading-tight">${efvoText}</span>
+                                            <span class="text-[0.7rem] font-bold ${kClass}">${kText}</span>
+                                         </div>
+                                         <div class="flex items-center gap-1">
+                                            <button onclick="abrirModalEdicion('${p.id}')" class="text-slate-400 hover:text-blue-600 transition-colors py-2 px-1 rounded hover:bg-blue-50" title="Editar jornada cerrada">
+                                                <i class="fas fa-pen"></i>
+                                            </button>
+                                            <button onclick="abrirModalLimpiar('${p.id}')" class="text-slate-400 hover:text-red-600 transition-colors py-2 px-1 rounded hover:bg-red-50" title="Limpiar y Revertir Jornada">
+                                                <i class="fas fa-trash-restore"></i>
+                                            </button>
+                                         </div>
+                                       </div>`;
+                    }
+
+                } else if (!isLaborable) {
+                    // Si no es laborable, bloqueamos los inputs a menos que sea un día cerrado pasado (esto es para evitar digitación errónea)
+                    inputHtml_Entrada = '<span class="text-xs text-slate-400 italic">No Laborable</span>';
+                    inputHtml_IniAlm = '<span class="text-xs text-slate-400">-</span>';
+                    inputHtml_FinAlm = '<span class="text-xs text-slate-400">-</span>';
+                    inputHtml_Salida = '<span class="text-xs text-slate-400">-</span>';
+                    uiAcumulado = `<div class="flex items-center justify-between px-2 w-full gap-2">
+                                     <span class="text-xs text-slate-400">Sin meta ni registro</span>
+                                   </div>`;
+                } else {
+                    // MODO INTERACTIVO (Inputs vacios/parciales para rellenar)
+                    inputHtml_Entrada = `<input type="time" id="ent_${p.id}" value="${valEntrada}" required>`;
+
+                    if (almuerzoAplicable) {
+                        inputHtml_IniAlm = `<input type="time" id="inialm_${p.id}" value="${valIniAlmuerzo}">`;
+                        inputHtml_FinAlm = `<input type="time" id="finalm_${p.id}" value="${valFinAlmuerzo}">`;
+                    } else {
+                        inputHtml_IniAlm = `<input type="time" id="inialm_${p.id}" disabled value="" title="Política no exige registrar almuerzo" class="opacity-50">`;
+                        inputHtml_FinAlm = `<input type="time" id="finalm_${p.id}" disabled value="" title="Política no exige registrar almuerzo" class="opacity-50">`;
+                    }
+
+                    inputHtml_Salida = `<input type="time" id="sal_${p.id}" value="${valSalida}">`;
+
+                    uiAcumulado = `<div class="flex flex-col items-center gap-2 relative">
+                                     <span class="text-xs text-slate-400 italic mt-1 block">Pendiente de Guardar</span>
+                                     <button onclick="marcarFalta('${p.id}')" class="text-[0.7rem] bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1 px-3 rounded-md transition-colors font-bold w-full max-w-[120px]">Registrar FALTA</button>
+                                   </div>`;
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-slate-100 transition-colors ${cerrado ? 'row-closed' : 'bg-white'}`;
+                tr.dataset.pid = p.id;
+                tr.dataset.almuerzoAplica = almuerzoAplicable;
+                tr.dataset.laborable = isLaborable;
+                tr.dataset.cerrado = cerrado;
+
+                let metaVisualHtml = '';
+                if (isLaborable) {
+                    metaVisualHtml = `<div class="flex flex-col gap-1.5 w-[160px]">
+                                            <div class="flex items-center justify-between gap-2 bg-slate-100/70 p-2 rounded-lg border border-slate-200/60 w-full">
+                                                <span class="text-[0.85rem] font-medium text-slate-700 whitespace-nowrap">${formatToAMPM(metaEntradaStr)}</span> 
+                                                <i class="fas fa-arrow-right text-[10px] text-slate-400"></i>
+                                                <span class="text-[0.85rem] font-medium text-slate-700 whitespace-nowrap">${formatToAMPM(metaSalidaStr)}</span>
+                                            </div>
+                                            <div class="text-xs text-slate-500 font-medium ml-1">${formatMinutesToHM(metaMinsVal)} hrs netas</div>
+                                       </div>`;
+                } else {
+                    metaVisualHtml = `<div class="w-[160px] text-center">
+                                         ${uiTipoDia}
+                                       </div>`;
+                }
+
+                let tdHorasHtml = '';
+                if (cerrado && asis && asis.estado === 'FALTA') {
+                    tdHorasHtml = `<td class="py-3 px-4 text-center" colspan="4">${inputHtml_Entrada}</td>`;
+                } else {
+                    tdHorasHtml = `
+                    <td class="py-3 px-4 text-center">${inputHtml_Entrada}</td>
+                    <td class="py-3 px-4 text-center">${inputHtml_IniAlm}</td>
+                    <td class="py-3 px-4 text-center">${inputHtml_FinAlm}</td>
+                    <td class="py-3 px-4 text-center">${inputHtml_Salida}</td>
+                    `;
+                }
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 w-48 shrink-0">
+                        <div class="font-bold text-slate-800 text-sm whitespace-nowrap">${p.nombres.split(' ')[0]} ${p.apellidos}</div>
+                        <div class="text-[0.7rem] text-slate-500 uppercase font-semibold">${p.cargo_rol || 'Operativo'}</div>
+                    </td>
+                    <td class="py-3 px-4">
+                        ${metaVisualHtml}
+                    </td>
+                    ${tdHorasHtml}
+                    <td class="py-3 px-4 text-center bg-slate-50/50 min-w-[170px]">${uiAcumulado}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function mostrarCarga(mostrar, texto = "Cargando...") {
+            const tableContainer = document.getElementById('tablaReloj').parentElement;
+            const loader = document.getElementById('loading');
+
+            document.getElementById('loadingText').innerText = texto;
+            if (mostrar) {
+                tableContainer.classList.add('hidden');
+                loader.classList.remove('hidden');
+            } else {
+                loader.classList.add('hidden');
+                tableContainer.classList.remove('hidden');
+            }
+        }
+        function renderVacio() {
+            document.getElementById('tablaReloj').classList.add('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+        }
+
+        // ==========================================
+        // LÓGICA DE PROCESAMIENTO (EL MOTOR)
+        // ==========================================
+        async function procesarTodosLosEmpleados() {
+            mostrarModalLoader("Procesando toda la planilla...");
+            const filas = document.querySelectorAll('#tbodyReloj tr');
+
+            try {
+                // PRIMER PASO: VALIDACIÓN PREVIA (Evitar guardar la planilla incompleta)
+                let hayErroresValidacion = false;
+                let msjError = "";
+
+                for (let fila of filas) {
+                    let pid = fila.dataset.pid;
+                    let isLaborable = fila.dataset.laborable === 'true';
+                    let cerrado = fila.dataset.cerrado === 'true';
+                    let aplicaAlm = fila.dataset.almuerzoAplica === 'true';
+
+                    if (cerrado || !isLaborable) continue;
+
+                    const inEntrada = document.getElementById(`ent_${pid}`).value;
+                    const inSalida = document.getElementById(`sal_${pid}`).value;
+                    let inIniAlm = '';
+                    let inFinAlm = '';
+
+                    if (aplicaAlm) {
+                        inIniAlm = document.getElementById(`inialm_${pid}`).value;
+                        inFinAlm = document.getElementById(`finalm_${pid}`).value;
+                    }
+
+                    // Ignorar la fila si está completamente vacía (entrada normal sin digitar nada)
+                    if (!inEntrada && !inSalida && !inIniAlm && !inFinAlm) continue;
+
+                    // Si hay datos, verificar que estén completos lógicamente
+                    let personaNombre = fila.querySelector('td div.font-bold').innerText;
+
+                    // 1. Entradas y Salidas
+                    if (inEntrada && !inSalida) {
+                        hayErroresValidacion = true;
+                        msjError += `- ${personaNombre}: Tiene hora de entrada pero falta hora de salida.\n`;
+                    }
+                    if (!inEntrada && inSalida) {
+                        hayErroresValidacion = true;
+                        msjError += `- ${personaNombre}: Tiene hora de salida pero falta hora de entrada.\n`;
+                    }
+
+                    // 2. Almuerzos (Si aplica)
+                    if (aplicaAlm) {
+                        if (inIniAlm && !inFinAlm) {
+                            hayErroresValidacion = true;
+                            msjError += `- ${personaNombre}: Tiene inicio de almuerzo pero falta el fin.\n`;
+                        }
+                        if (!inIniAlm && inFinAlm) {
+                            hayErroresValidacion = true;
+                            msjError += `- ${personaNombre}: Tiene fin de almuerzo pero falta el inicio.\n`;
+                        }
+                    }
+                }
+
+                if (hayErroresValidacion) {
+                    ocultarModalLoader();
+                    alert("No se puede guardar la planilla debido a datos incompletos en los siguientes trabajadores:\n\n" + msjError + "\nPor favor, complete los datos o bórrelos si no asistieron e intente guardar nuevamente.");
+                    return; // Detiene la ejecución antes de tocar la BD
+                }
+
+                // SEGUNDO PASO: GUARDADO (Si todo está validado)
+                // Iteramos sobre las filas para procesar cada una
+                for (let fila of filas) {
+                    let pid = fila.dataset.pid;
+                    let isLaborable = fila.dataset.laborable === 'true';
+                    let cerrado = fila.dataset.cerrado === 'true';
+                    let aplicaAlm = fila.dataset.almuerzoAplica === 'true';
+
+                    // Si ya está cerrado o no es laborable, lo saltamos silenciosamente
+                    if (cerrado || !isLaborable) continue;
+
+                    const inEntrada = document.getElementById(`ent_${pid}`).value;
+
+                    // A estas alturas, si no hay inEntrada, es porque la fila entera estaba en blanco (ver validación arriba)
+                    if (!inEntrada) continue;
+
+                    // El silent-flag es true para que no esconda el modal ni recargue (procesamiento masivo background)
+                    await procesarEmpleado(pid, aplicaAlm, true); 
+                }
+
+                // Al terminar todo, recargar una sola vez
+                await cargarDatosDelDia();
+                ocultarModalLoader();
+            } catch (err) {
+                console.error(err);
+                alert("Ocurrió un error general procesando la planilla.");
+                ocultarModalLoader();
+            }
+        }
+
+        async function procesarEmpleado(personalId, almuerzoAplica, isSilent = false) {
+            const fechaStr = document.getElementById('inputFecha').value;
+
+            // Recoger data del DOM
+            const inEntrada = document.getElementById(`ent_${personalId}`).value;
+            const inSalida = document.getElementById(`sal_${personalId}`).value;
+
+            let inIniAlm = null;
+            let inFinAlm = null;
+
+            if (almuerzoAplica) {
+                inIniAlm = document.getElementById(`inialm_${personalId}`).value;
+                inFinAlm = document.getElementById(`finalm_${personalId}`).value;
+            }
+
+            // Validaciones básicas UX
+            if (!inEntrada && inSalida) {
+                alert("Debe ingresar la hora de entrada si va a registrar una salida.");
+                return;
+            }
+            if (!inEntrada) {
+                // Si no puso NADA, y le da a guardar, podríamos guardarlo como ausente, 
+                // pero como estamos procesando manualmente, exigimos al menos entrada.
+                alert("Ingrese al menos la hora de entrada.");
+                return;
+            }
+
+            if (almuerzoAplica && inIniAlm && !inFinAlm) {
+                alert("Si registra inicio de almuerzo debe registrar también el fin de almuerzo.");
+                return;
+            }
+            if (almuerzoAplica && !inIniAlm && inFinAlm) {
+                alert("Falta el inicio de almuerzo.");
+                return;
+            }
+
+            const asisExistente = asistenciasHoy.find(a => a.personal_id === personalId);
+            const pol = politicasCache[personalId] || politicasCache['GLOBAL'] || {};
+
+            // Meta Calendar
+            const cals = await window.supabaseClient.from('calendario_personal').select('*').eq('fecha', fechaStr).eq('personal_id', personalId);
+            const cal = (cals.data && cals.data.length > 0) ? cals.data[0] : null;
+            let metaEntradaMins = parseLocalTime(cal ? cal.hora_entrada_esperada : "08:00:00");
+            let metaSalidaMins = parseLocalTime(cal ? cal.hora_salida_esperada : "17:00:00");
+
+            mostrarModalLoader(`Procesando registro...`);
+
+            try {
+
+                // Formatear tiempos SQL (ej: "08:30" => "08:30:00")
+                let tEntrada = inEntrada ? `${inEntrada}:00` : null;
+                let tSalida = inSalida ? `${inSalida}:00` : null;
+                let tIniAlm = inIniAlm ? `${inIniAlm}:00` : null;
+                let tFinAlm = inFinAlm ? `${inFinAlm}:00` : null;
+
+                // Si no existe el registro, lo creamos base primero
+                let asisIdSQL = asisExistente ? asisExistente.id : null;
+                let asisDbCopy = asisExistente ? { ...asisExistente } : null; // Para pasar a la func de Salida
+
+                // Evaluar Tardanza Solo Base en la Entrada
+                let realEntMins = parseLocalTime(tEntrada);
+                let esTardanza = false;
+                let difMins = realEntMins - metaEntradaMins;
+
+                if (difMins > (pol.minutos_gracia_tardanza ?? 15)) {
+                    esTardanza = true;
+                }
+
+                // Calcular mins almuerzo efectivo si llenó almuerzo
+                let efvoAlmuerzo = 0;
+                if (tIniAlm && tFinAlm) {
+                    efvoAlmuerzo = parseLocalTime(tFinAlm) - parseLocalTime(tIniAlm);
+                }
+
+                const payloadUpdateInsert = {
+                    empresa_id: pDataEmpresaId,
+                    personal_id: personalId,
+                    fecha: fechaStr,
+                    hora_entrada: tEntrada,
+                    hora_inicio_almuerzo: tIniAlm,
+                    hora_fin_almuerzo: tFinAlm,
+                    minutos_almuerzo_efectivo: (tIniAlm && tFinAlm) ? efvoAlmuerzo : null,
+                    estado: esTardanza ? 'TARDANZA' : 'ASISTIO'
+                };
+
+                if (!asisIdSQL) {
+                    // INSERT
+                    const { data: numData, error: insErr } = await window.supabaseClient.from('asistencia_diaria').insert([payloadUpdateInsert]).select();
+                    if (insErr) throw insErr;
+                    asisIdSQL = numData[0].id;
+                    asisDbCopy = numData[0]; // Actualizar objeto mem
+                } else {
+                    // UPDATE parcial antes del motor (para que la fila tenga todo)
+                    const { error: updErr } = await window.supabaseClient.from('asistencia_diaria').update(payloadUpdateInsert).eq('id', asisIdSQL);
+                    if (updErr) throw updErr;
+                    // Actualizar mem local para el motor
+                    asisDbCopy = { ...asisDbCopy, ...payloadUpdateInsert };
+                }
+
+                // Múltiples flujos: Si hay SALIDA, se ejecuta el MOTOR que liquida e inyecta al banco.
+                if (tSalida) {
+                    await ejecutarMotorCierreDia(asisDbCopy, tSalida, pol, metaEntradaMins, metaSalidaMins, cal);
+                }
+
+                // Recargar Vista (Solo si no es procesado en bloque)
+                if (!isSilent) {
+                    await cargarDatosDelDia();
+                    ocultarModalLoader();
+                }
+
+            } catch (err) {
+                console.error(err);
+                if (!isSilent) {
+                    alert("Error al procesar: " + err.message);
+                    ocultarModalLoader();
+                } else {
+                    throw err; // Burbujear error al loop
+                }
+            }
+        }
+
+        async function ejecutarMotorCierreDia(asis, horaSalidaSql, pol, metaEntradaMins, metaSalidaMins, cal) {
+            // Algoritmo central del Banco de Horas
+            document.getElementById('mlDesc').innerText = "Ejecutando motor de cálculos...";
+
+            let minE = parseLocalTime(asis.hora_entrada);
+            let minS = parseLocalTime(horaSalidaSql);
+
+            // 1. Calculo Tiempo Efectivo Bruto
+            let tiempoPlantaMins = minS - minE;
+            let minsAlmuerzoReal = asis.minutos_almuerzo_efectivo || 0;
+
+            // Definimos Meta Neta (DOBLE VALIDACIÓN)
+            let minAlmuerzoEsperado = 0;
+            let difMeta = metaSalidaMins - metaEntradaMins;
+            // Deducción Inteligente: Solo si la Meta Bruta es mayor a 6 horas (360 mins)
+            if (difMeta > 360) {
+                if (pol.aplicar_descuento_almuerzo === true) {
+                    if (cal && cal.aplica_almuerzo === true) {
+                        if (cal.hora_inicio_almuerzo_esperado && cal.hora_fin_almuerzo_esperado) {
+                            let almIn = parseLocalTime(cal.hora_inicio_almuerzo_esperado.substring(0, 5));
+                            let almOut = parseLocalTime(cal.hora_fin_almuerzo_esperado.substring(0, 5));
+                            let overlapStart = Math.max(metaEntradaMins, almIn);
+                            let overlapEnd = Math.min(metaSalidaMins, almOut);
+                            if (overlapStart < overlapEnd) minAlmuerzoEsperado = overlapEnd - overlapStart;
+                        } else {
+                            minAlmuerzoEsperado = pol.minutos_almuerzo_esperado ?? 60;
+                        }
+                    } else if (!cal) {
+                        minAlmuerzoEsperado = pol.minutos_almuerzo_esperado ?? 60;
+                    }
+                }
+            }
+            // IMPORTANTE: Según revisión de reglas - La meta neta esperada resta el almuerzo proporcional a su solapamiento
+            let metaNetaTarget = difMeta - minAlmuerzoEsperado;
+
+            // 2. Penalizaciones por Tardanza
+            let penalizacionAAplicarMins = 0;
+            let tardanzaDiff = minE - metaEntradaMins;
+
+            if (tardanzaDiff > (pol.minutos_gracia_tardanza ?? 15) && pol.aplicar_penalizaciones_tardanza !== false) {
+                // Algoritmos de Castigo
+                if (pol.penalizacion_tipo === 'DESCUENTO_TIEMPO_DOBLE') {
+                    penalizacionAAplicarMins = tardanzaDiff * 1; // Extra 1x (Total: 2x ya que el tiempo físico absorbe otra 1x)
+                } else if (pol.penalizacion_tipo === 'ESCALONADA_DURA') {
+                    let escalas = pol.escalas_penalizacion || [];
+                    for (let esc of escalas) { // Array of {de, hasta, penalizacion_minutos}
+                        if (tardanzaDiff >= esc.de && tardanzaDiff <= esc.hasta) {
+                            penalizacionAAplicarMins = esc.penalizacion_minutos - tardanzaDiff; // Extra inyectado que permite compensar la tardanza
+                            break; // Se detiene en su tramo
+                        }
+                    }
+                    if (penalizacionAAplicarMins === 0 && escalas.length > 0) {
+                        // Si se pasó la escala máxima, tomamos la ultima
+                        let lastEscala = escalas[escalas.length - 1];
+                        if (tardanzaDiff > lastEscala.hasta) penalizacionAAplicarMins = lastEscala.penalizacion_minutos - tardanzaDiff;
+                    }
+                }
+            }
+
+            // 3. Calculo Final de Horas Efectivas para Asistencia
+            // Tiempo Planta - Tiempo Almuerzo Real - Penalizaciones aplicadas
+            let minutosEfectivosCalculados = tiempoPlantaMins - minsAlmuerzoReal - penalizacionAAplicarMins;
+            if (minutosEfectivosCalculados < 0) minutosEfectivosCalculados = 0; // Proteccion
+
+            let hrsDbl = (minutosEfectivosCalculados / 60).toFixed(2);
+
+            // 4. Calcular Delta para Inyectar en Banco
+            let deltaMins = minutosEfectivosCalculados - metaNetaTarget;
+            let deltaHoras = parseFloat((deltaMins / 60).toFixed(2));
+
+            // Evaluar Salida Anticipada y re-evaluar Tardanza para el estado final del día completo
+            let esTardanzaFinal = tardanzaDiff > (pol.minutos_gracia_tardanza ?? 15);
+            let esSalidaAnticipadaFinal = minS < metaSalidaMins;
+            let finalEstado = 'ASISTIO';
+
+            if (esTardanzaFinal && esSalidaAnticipadaFinal) {
+                 finalEstado = 'TARDANZA y SALIDA ANTICIPADA';
+            } else if (esTardanzaFinal) {
+                 finalEstado = 'TARDANZA';
+            } else if (esSalidaAnticipadaFinal) {
+                 finalEstado = 'SALIDA ANTICIPADA';
+            }
+
+            // a) Update asistencia Final
+            const { error: asErr } = await window.supabaseClient.from('asistencia_diaria').update({
+                hora_salida: horaSalidaSql,
+                horas_efectivas_calculadas: hrsDbl,
+                estado: finalEstado
+            }).eq('id', asis.id);
+            if (asErr) throw asErr;
+
+            // b) Insertar a Banco si hay diferencia material (se registra toda diferencia a favor o en contra)
+            if (Math.abs(deltaMins) > 0) {
+
+                // Obtener ultimo snapshot del banco
+                const { data: bData } = await window.supabaseClient.from('banco_horas')
+                    .select('saldo_acumulado').eq('personal_id', asis.personal_id).order('created_at', { ascending: false }).limit(1);
+
+                let saldoAcum = 0;
+                if (bData && bData.length > 0) saldoAcum = parseFloat(bData[0].saldo_acumulado);
+
+                let nuevoSaldo = saldoAcum + deltaHoras;
+                let tipoTrx = deltaHoras > 0 ? 'EXCEDENTE_GENERADO' : 'DEUDA_GENERADA';
+
+                let obs = `Cierre Asistencia auto. Meta:${(metaNetaTarget / 60).toFixed(1)}h | EfvoReal:${(minutosEfectivosCalculados / 60).toFixed(1)}h`;
+                if (penalizacionAAplicarMins > 0) obs += ` (Castigo de -${penalizacionAAplicarMins}m aplicado)`;
+
+                const payloadBanco = {
+                    empresa_id: pDataEmpresaId,
+                    personal_id: asis.personal_id,
+                    fecha_movimiento: document.getElementById('inputFecha').value,
+                    tipo_movimiento: tipoTrx,
+                    cantidad_horas: deltaHoras,
+                    saldo_acumulado: nuevoSaldo,
+                    documento_referencia: `ASIS-${asis.id.split('-')[0]}`,
+                    observacion: obs
+                };
+
+                const { error: bErr } = await window.supabaseClient.from('banco_horas').insert([payloadBanco]);
+                if (bErr) throw bErr;
+            }
+        }
+
+        // ==========================================
+        // LÓGICA DE INASISTENCIAS (FALTA)
+        // ==========================================
+        async function marcarFalta(personalId) {
+            const fechaStr = document.getElementById('inputFecha').value;
+
+            // Confirmación UX
+            if (!confirm("¿Está seguro de querer registrar una FALTA para este colaborador?\n\nEsto inyectará una deuda total por las horas esperadas en el Banco de Horas.")) {
+                return;
+            }
+
+            mostrarModalLoader("Procesando Inasistencia (FALTA)...");
+
+            try {
+                // 1. Obtener la meta del calendario para calcular la deuda
+                const pol = politicasCache[personalId] || politicasCache['GLOBAL'] || {};
+                const cals = await window.supabaseClient.from('calendario_personal')
+                    .select('*')
+                    .eq('fecha', fechaStr)
+                    .eq('personal_id', personalId);
+
+                const cal = (cals.data && cals.data.length > 0) ? cals.data[0] : null;
+
+                let metaEntradaMins = parseLocalTime(cal ? cal.hora_entrada_esperada : "08:00:00");
+                let metaSalidaMins = parseLocalTime(cal ? cal.hora_salida_esperada : "17:00:00");
+                
+                // DOBLE VALIDACION
+                let minAlmuerzoEsperado = 0;
+                let difMeta = metaSalidaMins - metaEntradaMins;
+                // Deducción Inteligente: Solo si la Meta Bruta es mayor a 6 horas (360 mins)
+                if (difMeta > 360) {
+                    if (pol.aplicar_descuento_almuerzo === true) {
+                        if (cal && cal.aplica_almuerzo === true) {
+                            if (cal.hora_inicio_almuerzo_esperado && cal.hora_fin_almuerzo_esperado) {
+                                let almIn = parseLocalTime(cal.hora_inicio_almuerzo_esperado.substring(0, 5));
+                                let almOut = parseLocalTime(cal.hora_fin_almuerzo_esperado.substring(0, 5));
+                                let overlapStart = Math.max(metaEntradaMins, almIn);
+                                let overlapEnd = Math.min(metaSalidaMins, almOut);
+                                if (overlapStart < overlapEnd) minAlmuerzoEsperado = overlapEnd - overlapStart;
+                            } else {
+                                minAlmuerzoEsperado = pol.minutos_almuerzo_esperado ?? 60;
+                            }
+                        } else if (!cal) {
+                            minAlmuerzoEsperado = pol.minutos_almuerzo_esperado ?? 60;
+                        }
+                    }
+                }
+
+                // Meta neta en minutos a deber
+                let metaNetaTargetMins = difMeta - minAlmuerzoEsperado;
+                if (metaNetaTargetMins < 0) metaNetaTargetMins = 0;
+
+                let deudaHoras = parseFloat((metaNetaTargetMins / 60).toFixed(2));
+
+                // 2. Verificar existencia del registro previo
+                const asisExistente = asistenciasHoy.find(a => a.personal_id === personalId);
+                let asisIdSQL = asisExistente ? asisExistente.id : null;
+
+                const payloadAsis = {
+                    empresa_id: pDataEmpresaId,
+                    personal_id: personalId,
+                    fecha: fechaStr,
+                    hora_entrada: null,
+                    hora_inicio_almuerzo: null,
+                    hora_fin_almuerzo: null,
+                    hora_salida: null,  // Marcamos todo como nulo para limpiar rastros de digitación parcial
+                    minutos_almuerzo_efectivo: 0,
+                    horas_efectivas_calculadas: 0, // 0 horas trabajadas
+                    estado: 'FALTA' // Nuevo Estado
+                };
+
+                // 3. Upsert Asistencia
+                if (!asisIdSQL) {
+                    const { data: numData, error: insErr } = await window.supabaseClient.from('asistencia_diaria').insert([payloadAsis]).select();
+                    if (insErr) throw insErr;
+                    asisIdSQL = numData[0].id;
+                } else {
+                    const { error: updErr } = await window.supabaseClient.from('asistencia_diaria').update(payloadAsis).eq('id', asisIdSQL);
+                    if (updErr) throw updErr;
+                }
+
+                // 4. Inyección en Banco de Horas
+                if (deudaHoras > 0) {
+                    // Obtener saldo previo
+                    const { data: bData } = await window.supabaseClient.from('banco_horas')
+                        .select('saldo_acumulado')
+                        .eq('personal_id', personalId)
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+
+                    let saldoAcum = 0;
+                    if (bData && bData.length > 0) saldoAcum = parseFloat(bData[0].saldo_acumulado);
+
+                    let nuevoSaldo = saldoAcum - deudaHoras; // Se resta porque es deuda (delta negativo)
+
+                    const payloadBanco = {
+                        empresa_id: pDataEmpresaId,
+                        personal_id: personalId,
+                        fecha_movimiento: fechaStr,
+                        tipo_movimiento: 'DEUDA_GENERADA',
+                        cantidad_horas: -deudaHoras, // Guardamos la transacción en negativo
+                        saldo_acumulado: nuevoSaldo,
+                        documento_referencia: `INASIST-${asisIdSQL.split('-')[0]}`,
+                        observacion: `FALTA registrada. Deducción total de meta (${deudaHoras.toFixed(2)}h)`
+                    };
+
+                    const { error: bErr } = await window.supabaseClient.from('banco_horas').insert([payloadBanco]);
+                    if (bErr) throw bErr;
+                }
+
+                // 5. Refrescar vista
+                await cargarDatosDelDia();
+                ocultarModalLoader();
+
+            } catch (err) {
+                console.error(err);
+                alert("Error al registrar falta: " + err.message);
+                ocultarModalLoader();
+            }
+        }
+
+        // ==========================================
+        // LÓGICA DE EDICIÓN DE CERRADAS (SAFE APPEND)
+        // ==========================================
+        let edicionPersonalIdActivo = null;
+
+        function abrirModalEdicion(personalId) {
+            edicionPersonalIdActivo = personalId;
+            const p = personalList.find(x => x.id === personalId);
+            const asis = asistenciasHoy.find(a => a.personal_id === personalId);
+            const pol = politicasCache[personalId] || politicasCache['GLOBAL'] || {};
+            const almuerzoAplicable = pol.aplicar_descuento_almuerzo === true;
+
+            if (!p || !asis) return;
+
+            document.getElementById('edicionSubtitle').innerText = `${p.nombres} ${p.apellidos} - ${document.getElementById('inputFecha').value}`;
+
+            // Llenar inputs actuales
+            document.getElementById('edit_ent').value = asis.estado === 'FALTA' ? '' : safeSubstring(asis.hora_entrada);
+            document.getElementById('edit_sal').value = asis.estado === 'FALTA' ? '' : safeSubstring(asis.hora_salida);
+
+            const iniAlm = document.getElementById('edit_inialm');
+            const finAlm = document.getElementById('edit_finalm');
+
+            iniAlm.value = asis.estado === 'FALTA' ? '' : safeSubstring(asis.hora_inicio_almuerzo);
+            finAlm.value = asis.estado === 'FALTA' ? '' : safeSubstring(asis.hora_fin_almuerzo);
+
+            iniAlm.disabled = !almuerzoAplicable;
+            finAlm.disabled = !almuerzoAplicable;
+
+            // Resetear validación
+            document.getElementById('edit_confirm_text').value = '';
+            validarTextoConfirmacion();
+
+            // Toggle visibilidad estado Falta vs Normal
+            const btnFalta = document.getElementById('btnEditAInasistencia');
+            if (asis.estado === 'FALTA') {
+                btnFalta.classList.add('hidden'); // Ya está como Falta
+            } else {
+                btnFalta.classList.remove('hidden');
+            }
+
+            document.getElementById('modalEdicion').classList.remove('hidden');
+        }
+
+        function cerrarModalEdicion() {
+            document.getElementById('modalEdicion').classList.add('hidden');
+            edicionPersonalIdActivo = null;
+        }
+
+        function validarTextoConfirmacion() {
+            const txt = document.getElementById('edit_confirm_text').value.trim().toUpperCase();
+            const btnGrabar = document.getElementById('btnGuardarEdicion');
+            if (txt === 'EDITAR') {
+                btnGrabar.disabled = false;
+            } else {
+                btnGrabar.disabled = true;
+            }
+        }
+
+        async function convertirEdicionEnFalta() {
+            const fechaStr = document.getElementById('inputFecha').value;
+            const pid = edicionPersonalIdActivo;
+            cerrarModalEdicion();
+
+            // Aunque ya estaba cerrado normal, si el Admin exige q es INASISTENCIA, usamos la misma lógica transaccional compensatoria
+            // Simplemente llamamos a la función genérica pero con campos nulos para representarla.
+            await ejecutarModificacionFirme(pid, true, null, null, null, null);
+        }
+
+        async function guardarEdicionFirme() {
+            const pid = edicionPersonalIdActivo;
+            const pol = politicasCache[pid] || politicasCache['GLOBAL'] || {};
+            const almuerzoAplica = pol.aplicar_descuento_almuerzo === true;
+
+            const tEnt = document.getElementById('edit_ent').value;
+            const tSal = document.getElementById('edit_sal').value;
+            let tIniM = almuerzoAplica ? document.getElementById('edit_inialm').value : null;
+            let tFinM = almuerzoAplica ? document.getElementById('edit_finalm').value : null;
+
+            if (!tEnt || !tSal) {
+                alert("Para editar a una asistencia normal, de indicar Entrada y Salida.");
+                return;
+            }
+
+            cerrarModalEdicion();
+            await ejecutarModificacionFirme(pid, false, tEnt, tSal, tIniM, tFinM);
+        }
+
+        async function ejecutarModificacionFirme(personalId, convertirAFalta, inEntrada, inSalida, inIniAlm, inFinAlm) {
+            const fechaStr = document.getElementById('inputFecha').value;
+            const asisOriginal = asistenciasHoy.find(a => a.personal_id === personalId);
+            const pol = politicasCache[personalId] || politicasCache['GLOBAL'] || {};
+
+            // Meta Calendar
+            const cals = await window.supabaseClient.from('calendario_personal').select('*').eq('fecha', fechaStr).eq('personal_id', personalId);
+            const cal = (cals.data && cals.data.length > 0) ? cals.data[0] : null;
+            let metaEntradaMins = parseLocalTime(cal ? cal.hora_entrada_esperada : "08:00:00");
+            let metaSalidaMins = parseLocalTime(cal ? cal.hora_salida_esperada : "17:00:00");
+
+            // DOBLE VALIDACION
+            let minAlmuerzoEsperado = 0;
+            // Deducción Inteligente: Solo si la Meta Bruta es mayor a 6 horas (360 mins)
+            if ((metaSalidaMins - metaEntradaMins) > 360) {
+                if (pol.aplicar_descuento_almuerzo === true) {
+                    if (cal) {
+                        if (cal.aplica_almuerzo === true) minAlmuerzoEsperado = pol.minutos_almuerzo_esperado ?? 60;
+                    } else {
+                        minAlmuerzoEsperado = pol.minutos_almuerzo_esperado ?? 60;
+                    }
+                }
+            }
+            let metaNetaTargetMins = (metaSalidaMins - metaEntradaMins) - minAlmuerzoEsperado;
+            if (metaNetaTargetMins < 0) metaNetaTargetMins = 0;
+
+            mostrarModalLoader("Aplicando movimientos compensatorios...");
+
+            try {
+                // Paso 1: Averiguar cuánto se había inyectado en el Banco de Horas previamente por este documento "ASIS-xx" o "INASIST-xx"
+                // En lugar de ir por una bandera, simplemente tomamos la suma global de horas afectadas en base a su origen
+                let prefixOrigin = `ASIS-${asisOriginal.id.split('-')[0]}`;
+                let prefixOriginFalta = `INASIST-${asisOriginal.id.split('-')[0]}`;
+
+                const { data: bDataHist, error: bHErr } = await window.supabaseClient.from('banco_horas')
+                    .select('cantidad_horas, documento_referencia')
+                    .eq('personal_id', personalId)
+                    .or(`documento_referencia.eq.${prefixOrigin},documento_referencia.eq.${prefixOriginFalta}`);
+
+                if (bHErr) throw bHErr;
+
+                let sumDeltaPrevio = 0;
+                if (bDataHist) {
+                    bDataHist.forEach(mv => {
+                        sumDeltaPrevio += parseFloat(mv.cantidad_horas);
+                    });
+                }
+                // sumDeltaPrevio ahora contiene lo que matemáticamente se le dio o quitó en el pasado bruto por LA MISMA FECHA
+
+                let deltaNuevoEsperadoHrs = 0;
+                let payloadUpdateAsis = {};
+                let nuevoEstado = '';
+                let obsTxt = 'Edición de Asistencia';
+
+                // Paso 2: Ejecutar lógica de recálculo (Falso Motor Secundario)
+                if (convertirAFalta) {
+                    // Si lo vuelve FALTA la deuda es total
+                    deltaNuevoEsperadoHrs = -parseFloat((metaNetaTargetMins / 60).toFixed(2));
+                    nuevoEstado = 'FALTA';
+                    obsTxt = 'Edición: Cambiado a FALTA.';
+
+                    payloadUpdateAsis = {
+                        hora_entrada: null,
+                        hora_salida: null,
+                        hora_inicio_almuerzo: null,
+                        hora_fin_almuerzo: null,
+                        minutos_almuerzo_efectivo: 0,
+                        horas_efectivas_calculadas: 0,
+                        estado: nuevoEstado
+                    };
+                } else {
+                    // Si se editaron las horas, aplicamos Motor
+                    let tEntrada = `${inEntrada}:00`;
+                    let tSalida = `${inSalida}:00`;
+                    let tIniAlm = inIniAlm ? `${inIniAlm}:00` : null;
+                    let tFinAlm = inFinAlm ? `${inFinAlm}:00` : null;
+
+                    let minE = parseLocalTime(tEntrada);
+                    let minS = parseLocalTime(tSalida);
+                    let tiempoPlantaMins = minS - minE;
+
+                    let efvoAlmuerzo = 0;
+                    if (tIniAlm && tFinAlm) {
+                        efvoAlmuerzo = parseLocalTime(tFinAlm) - parseLocalTime(tIniAlm);
+                    }
+
+                    // Penalizaciones
+                    let penalizacionMins = 0;
+                    let tardanzaDiff = minE - metaEntradaMins;
+                    if (tardanzaDiff > (pol.minutos_gracia_tardanza ?? 15) && pol.aplicar_penalizaciones_tardanza !== false) {
+                        // Mismo logic motor
+                        if (pol.penalizacion_tipo === 'DESCUENTO_TIEMPO_DOBLE') {
+                            penalizacionMins = tardanzaDiff * 1; // Extra 1x (Total 2x)
+                        } else if (pol.penalizacion_tipo === 'ESCALONADA_DURA') {
+                            let escalas = pol.escalas_penalizacion || [];
+                            for (let esc of escalas) {
+                                if (tardanzaDiff >= esc.de && tardanzaDiff <= esc.hasta) {
+                                    penalizacionMins = esc.penalizacion_minutos - tardanzaDiff; break;
+                                }
+                            }
+                            if (penalizacionMins === 0 && escalas.length > 0) {
+                                let lastEscala = escalas[escalas.length - 1];
+                                if (tardanzaDiff > lastEscala.hasta) penalizacionMins = lastEscala.penalizacion_minutos - tardanzaDiff;
+                            }
+                        }
+                    }
+
+                    let minsEfectivosFinales = tiempoPlantaMins - efvoAlmuerzo - penalizacionMins;
+                    if (minsEfectivosFinales < 0) minsEfectivosFinales = 0;
+
+                    let hrsEfectivasCalculadasNum = parseFloat((minsEfectivosFinales / 60).toFixed(2));
+
+                    let minsDeltaEsperados = minsEfectivosFinales - metaNetaTargetMins;
+                    deltaNuevoEsperadoHrs = parseFloat((minsDeltaEsperados / 60).toFixed(2));
+
+                    let esTardanza = tardanzaDiff > (pol.minutos_gracia_tardanza ?? 15);
+                    let esSalidaAnticipada = minS < metaSalidaMins;
+                    
+                    if (esTardanza && esSalidaAnticipada) {
+                        nuevoEstado = 'TARDANZA y SALIDA ANTICIPADA';
+                    } else if (esTardanza) {
+                        nuevoEstado = 'TARDANZA';
+                    } else if (esSalidaAnticipada) {
+                        nuevoEstado = 'SALIDA ANTICIPADA';
+                    } else {
+                        nuevoEstado = 'ASISTIO';
+                    }
+                    obsTxt = `Corrección Tiempos. Meta:${(metaNetaTargetMins / 60).toFixed(1)}h | Efvo:${hrsEfectivasCalculadasNum}h`;
+
+                    payloadUpdateAsis = {
+                        hora_entrada: tEntrada,
+                        hora_salida: tSalida,
+                        hora_inicio_almuerzo: tIniAlm,
+                        hora_fin_almuerzo: tFinAlm,
+                        minutos_almuerzo_efectivo: efvoAlmuerzo,
+                        horas_efectivas_calculadas: hrsEfectivasCalculadasNum,
+                        estado: nuevoEstado
+                    };
+                }
+
+                // Ejecutamos UPDATE de tabla maestra
+                const { error: asErr } = await window.supabaseClient.from('asistencia_diaria')
+                    .update(payloadUpdateAsis)
+                    .eq('id', asisOriginal.id);
+                if (asErr) throw asErr;
+
+                // Paso 3. Calcular Ajuste Compensatorio
+                let ajuste = parseFloat((deltaNuevoEsperadoHrs - sumDeltaPrevio).toFixed(2));
+
+                // Inyectar Ajuste si es distinto de 0
+                if (Math.abs(ajuste) > 0) {
+
+                    const { data: bdSnapshot } = await window.supabaseClient.from('banco_horas')
+                        .select('saldo_acumulado').eq('personal_id', personalId).order('created_at', { ascending: false }).limit(1);
+
+                    let saldoAnterior = 0;
+                    if (bdSnapshot && bdSnapshot.length > 0) saldoAnterior = parseFloat(bdSnapshot[0].saldo_acumulado);
+
+                    let newSaldo = parseFloat((saldoAnterior + ajuste).toFixed(2));
+
+                    let refUse = `ASIS-${asisOriginal.id.split('-')[0]}`;
+
+                    const payloadCompensatorio = {
+                        empresa_id: pDataEmpresaId,
+                        personal_id: personalId,
+                        fecha_movimiento: fechaStr,
+                        tipo_movimiento: ajuste > 0 ? 'EXCEDENTE_GENERADO' : 'DEUDA_GENERADA',
+                        cantidad_horas: ajuste,
+                        saldo_acumulado: newSaldo,
+                        documento_referencia: refUse,
+                        observacion: `${obsTxt} (Aj. Compensatorio de ${ajuste > 0 ? '+' : ''}${ajuste} hrs)`
+                    };
+
+                    const { error: insbErr } = await window.supabaseClient.from('banco_horas').insert([payloadCompensatorio]);
+                    if (insbErr) throw insbErr;
+                }
+
+                await cargarDatosDelDia();
+                ocultarModalLoader();
+
+            } catch (error) {
+                console.error("Error en Safe Append Edición:", error);
+                alert("Hubo un error inyectando la corrección: " + error.message);
+                ocultarModalLoader();
+            }
+        }
+
+        // ==========================================
+        // LÓGICA DE LIMPIEZA TOTAL (RESET DAY)
+        // ==========================================
+        let limpiarPersonalIdActivo = null;
+
+        function abrirModalLimpiar(personalId) {
+            limpiarPersonalIdActivo = personalId;
+            const p = personalList.find(x => x.id === personalId);
+            if (!p) return;
+
+            document.getElementById('limpiarSubtitle').innerText = `${p.nombres} ${p.apellidos} - ${document.getElementById('inputFecha').value}`;
+            document.getElementById('limpiar_confirm_text').value = '';
+            validarTextoLimpiar();
+
+            document.getElementById('modalLimpiar').classList.remove('hidden');
+        }
+
+        function cerrarModalLimpiar() {
+            document.getElementById('modalLimpiar').classList.add('hidden');
+            limpiarPersonalIdActivo = null;
+        }
+
+        function validarTextoLimpiar() {
+            const txt = document.getElementById('limpiar_confirm_text').value.trim().toUpperCase();
+            const btnConfirm = document.getElementById('btnGuardarLimpieza');
+            if (txt === 'LIMPIAR') {
+                btnConfirm.disabled = false;
+            } else {
+                btnConfirm.disabled = true;
+            }
+        }
+
+        async function ejecutarLimpiezaFirme() {
+            const personalId = limpiarPersonalIdActivo;
+            cerrarModalLimpiar();
+
+            const asisOriginal = asistenciasHoy.find(a => a.personal_id === personalId);
+            if (!asisOriginal) return;
+
+            const fechaStr = document.getElementById('inputFecha').value;
+
+            mostrarModalLoader("Eliminando registros y recalculando saldos...");
+
+            try {
+                // 1. ELIMINAR ASISTENCIA DIARIA FÍSICAMENTE
+                const { error: delAsisErr } = await window.supabaseClient.from('asistencia_diaria')
+                    .delete()
+                    .eq('id', asisOriginal.id);
+                if (delAsisErr) throw delAsisErr;
+
+                // 2. ELIMINAR TODOS LOS MOVIMIENTOS EN BANCO DE HORAS DE ESE DÍA (Puro, como el script SQL)
+                const { error: delBhErr } = await window.supabaseClient.from('banco_horas')
+                    .delete()
+                    .eq('personal_id', personalId)
+                    .eq('fecha_movimiento', fechaStr);
+
+                if (delBhErr) throw delBhErr;
+
+                // 3. RECONSTRUIR SALDO_ACUMULADO (RUNNING BALANCE) PARA MANTENER LA MATEMÁTICA PURA
+                // Traemos todos los registros de ese empleado en orden cronológico
+                const { data: mvts, error: errMvts } = await window.supabaseClient.from('banco_horas')
+                    .select('id, cantidad_horas, saldo_acumulado')
+                    .eq('personal_id', personalId)
+                    .order('created_at', { ascending: true });
+
+                if (!errMvts && mvts) {
+                    let runningBalance = 0;
+                    for (let mv of mvts) {
+                        runningBalance += parseFloat(mv.cantidad_horas);
+                        let correctBalStr = runningBalance.toFixed(2);
+                        // Solo actualizamos si el saldo acumulado real salvado no coincide con el nuevo recalculado
+                        if (parseFloat(mv.saldo_acumulado).toFixed(2) !== correctBalStr) {
+                            await window.supabaseClient.from('banco_horas')
+                                .update({ saldo_acumulado: parseFloat(correctBalStr) })
+                                .eq('id', mv.id);
+                        }
+                    }
+                }
+
+                // 4. Recargar UI Local
+                await cargarDatosDelDia();
+                ocultarModalLoader();
+
+            } catch (error) {
+                console.error("Error en Limpieza Dura:", error);
+                alert("Hubo un error al limpiar físicamente los registros: " + error.message);
+                ocultarModalLoader();
+            }
+        }
+
+        // ==========================================
+        // HELPERS UI
+        // ==========================================
+        function mostrarModalLoader(texto) {
+            document.getElementById('mlTitle').innerText = texto;
+            document.getElementById('modalLoading').classList.remove('hidden');
+        }
+        function ocultarModalLoader() {
+            document.getElementById('modalLoading').classList.add('hidden');
+        }
+
+        // ==========================================
+        // LÓGICA DE IMPRESIÓN MENSUAL EN PDF
+        // ==========================================
+        
+        function prepararImpresionMensualGeneral() {
+            document.getElementById('printSelectorSubtitle').innerText = `Opciones de Impresión`;
+            
+            // Sugerir el mes actual
+            const fechaControlStr = document.getElementById('inputFecha').value; 
+            if(fechaControlStr) {
+                const parts = fechaControlStr.split('-');
+                document.getElementById('printSelectMes').value = `${parts[0]}-${parts[1]}`;
+            }
+
+            // Llenar el combo de personal
+            const selectCombo = document.getElementById('printSelectPid');
+            selectCombo.innerHTML = '';
+            if(personalList.length > 0) {
+                personalList.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.text = `${p.apellidos}, ${p.nombres}`;
+                    selectCombo.appendChild(option);
+                });
+            } else {
+                selectCombo.innerHTML = '<option value="">Sin personal activo</option>';
+            }
+
+            document.getElementById('modalPrintMesSelector').classList.remove('hidden');
+        }
+
+        function cerrarPrintSelector() {
+            document.getElementById('modalPrintMesSelector').classList.add('hidden');
+        }
+
+        function cerrarModalReporteAsistencia() {
+            document.getElementById('modalReporteAsistencia').classList.add('hidden');
+            document.body.classList.remove('print-reporte');
+        }
+
+        function ejecutarImpresionReporte() {
+            document.body.classList.add('print-reporte');
+            window.print();
+            setTimeout(() => {
+                document.body.classList.remove('print-reporte');
+            }, 500);
+        }
+
+        async function generarYMostrarReportePdf() {
+            const personalId = document.getElementById('printSelectPid').value;
+            const mesStr = document.getElementById('printSelectMes').value; 
+            const comboEl = document.getElementById('printSelectPid');
+            const subtitulo = comboEl.options.length > 0 ? comboEl.options[comboEl.selectedIndex].text : '';
+
+            if(!personalId || !mesStr) {
+                alert("Seleccione un colaborador y un mes válido a imprimir.");
+                return;
+            }
+
+            cerrarPrintSelector();
+            mostrarModalLoader("Generando reporte...");
+
+            try {
+                // Fechas inicio y fin del mes
+                const [yyyy, mm] = mesStr.split('-');
+                const fechaInicio = `${yyyy}-${mm}-01`;
+                const dateFin = new Date(yyyy, mm, 0);
+                const fechaFin = `${yyyy}-${mm}-${String(dateFin.getDate()).padStart(2, '0')}`;
+
+                // 1. OBTENER INFORMACIÓN DEL TRABAJADOR
+                const { data: pData } = await window.supabaseClient.from('personal').select('documento_identidad, cargo_rol').eq('id', personalId).single();
+                const docIdentidad = pData ? pData.documento_identidad : '-';
+                const cargo = pData ? pData.cargo_rol : 'Operativo';
+
+                // 2. OBTENER ASISTENCIA DEL MES
+                const { data: asistencias } = await window.supabaseClient.from('asistencia_diaria')
+                    .select('*')
+                    .eq('personal_id', personalId)
+                    .gte('fecha', fechaInicio)
+                    .lte('fecha', fechaFin)
+                    .order('fecha', { ascending: true });
+
+                const listaAsistencias = asistencias || [];
+                let totalMinutosEfvosMes = 0;
+                let diasAsistidos = 0;
+                let diasFalta = 0;
+                let diasTardanza = 0;
+
+                // 3. OBTENER MOVIMIENTOS BANCO DE HORAS DEL MES
+                const { data: bancos } = await window.supabaseClient.from('banco_horas')
+                    .select('*')
+                    .eq('personal_id', personalId)
+                    .gte('fecha_movimiento', fechaInicio)
+                    .lte('fecha_movimiento', fechaFin)
+                    .order('fecha_movimiento', { ascending: true })
+                    .order('created_at', { ascending: true });
+
+                const listaBancos = bancos || [];
+                let saldoInicial = 0; 
+                let saldoFinal = 0;
+                
+                // Determinar saldo inicial (saldo acumulado del último movimiento antes del mes evaluado)
+                const { data: prevBanco } = await window.supabaseClient.from('banco_horas')
+                    .select('saldo_acumulado')
+                    .eq('personal_id', personalId)
+                    .lt('fecha_movimiento', fechaInicio)
+                    .order('fecha_movimiento', { ascending: false })
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                
+                if(prevBanco && prevBanco.length > 0) {
+                    saldoInicial = parseFloat(prevBanco[0].saldo_acumulado);
+                }
+
+                // --------- INYECCIÓN DE COMPACTACIÓN VISUAL (Sincronizado con banco_horas.html) ---------
+                let agrupadosMapPdf = new Map();
+                listaBancos.forEach(m => {
+                    if (!m.documento_referencia || m.documento_referencia.trim() === '') {
+                        agrupadosMapPdf.set(m.id, { ...m });
+                    } else {
+                        const key = m.fecha_movimiento + '_' + m.documento_referencia;
+                        if (!agrupadosMapPdf.has(key)) {
+                            agrupadosMapPdf.set(key, { ...m, _cantidad_neta: parseFloat(m.cantidad_horas || 0) });
+                        } else {
+                            let existente = agrupadosMapPdf.get(key);
+                            existente._cantidad_neta += parseFloat(m.cantidad_horas || 0);
+                            existente.cantidad_horas = existente._cantidad_neta;
+                            if (m.observacion) {
+                                existente.observacion = m.observacion.replace(/\s*\(Aj\. Compensatorio de [+-]?[\d.]+ hrs\)/i, '');
+                            }
+                            if (existente._cantidad_neta > 0) existente.tipo_movimiento = 'EXCEDENTE_GENERADO';
+                            else if (existente._cantidad_neta < 0) existente.tipo_movimiento = 'DEUDA_GENERADA';
+                            else existente.tipo_movimiento = 'MOVIMIENTO_NEUTRO';
+                        }
+                    }
+                });
+
+                let compactBancosPdf = Array.from(agrupadosMapPdf.values());
+
+                // Forward Calculation Visual
+                let saldoRealPdf = saldoInicial;
+                compactBancosPdf.forEach(m => {
+                    let cantActual = m._cantidad_neta !== undefined ? m._cantidad_neta : parseFloat(m.cantidad_horas || 0);
+                    saldoRealPdf += cantActual;
+                    m.saldo_visual = saldoRealPdf;
+                    m.requiere_asterisco = Math.abs(parseFloat(m.saldo_acumulado || 0) - m.saldo_visual) > 0.001;
+                });
+
+                if(compactBancosPdf.length > 0) {
+                    saldoFinal = compactBancosPdf[compactBancosPdf.length - 1].saldo_visual !== undefined ? 
+                                 parseFloat(compactBancosPdf[compactBancosPdf.length - 1].saldo_visual) : 
+                                 parseFloat(compactBancosPdf[compactBancosPdf.length - 1].saldo_acumulado);
+                } else {
+                    saldoFinal = saldoInicial;
+                }
+
+                // --------- CONSTRUCCION DE LA TABLA HTML DE ASISTENCIA ---------
+                let tbodyAsisHtml = '';
+                if(listaAsistencias.length === 0) {
+                    tbodyAsisHtml = `<tr><td colspan="7" style="padding: 12px; text-align: center; color: #64748b;">No hay registros de marcación en este mes.</td></tr>`;
+                } else {
+                    listaAsistencias.forEach(a => {
+                        const dateObj = new Date(a.fecha + 'T00:00:00'); // Evitar timezone offset issue
+                        const opt = { element: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short'};
+                        // Ej: "lun, 01/05"
+                        const dayStr = dateObj.toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: '2-digit' }).toUpperCase();
+                        
+                        let badgeEstado = '';
+                        let colorHoraExtra = 'color: #334155;'; // default
+
+                        if(a.estado === 'ASISTIO') {
+                            badgeEstado = '<strong style="color: #10b981;">ASISTIÓ</strong>';
+                            diasAsistidos++;
+                        } else if(a.estado === 'TARDANZA') {
+                            badgeEstado = '<strong style="color: #f59e0b;">TARDANZA</strong>';
+                            diasTardanza++;
+                            diasAsistidos++; // Se considera asistido
+                        } else if(a.estado === 'TARDANZA y SALIDA ANTICIPADA') {
+                            badgeEstado = '<strong style="color: #ea580c; font-size:10px;">TARDANZA Y SALIDA ANT.</strong>';
+                            diasTardanza++;
+                            diasAsistidos++; // Asistió pero parcial
+                        } else if(a.estado === 'SALIDA ANTICIPADA') {
+                            badgeEstado = '<strong style="color: #ea580c; font-size:10px;">SALIDA ANTICIPADA</strong>';
+                            diasAsistidos++;
+                        } else if(a.estado === 'FALTA') {
+                            badgeEstado = '<strong style="color: #ef4444;">FALTA</strong>';
+                            diasFalta++;
+                        }
+
+                        // Calcular efvo
+                        const he = parseFloat(a.horas_efectivas_calculadas || 0);
+                        totalMinutosEfvosMes += (Math.round(he * 60));
+                        
+                        let efvoText = '-';
+                        if(a.estado !== 'FALTA' && a.estado !== 'DESCANSO') {
+                             efvoText = `${Math.floor(he)}h ${Math.round((he - Math.floor(he))*60)}m`;
+                        }
+
+                        let tEnt = safeSubstring(a.hora_entrada) || '-';
+                        let tSal = safeSubstring(a.hora_salida) || '-';
+                        let tiA = safeSubstring(a.hora_inicio_almuerzo) || '-';
+                        let tfA = safeSubstring(a.hora_fin_almuerzo) || '-';
+
+                        if(a.estado === 'FALTA') {
+                            tbodyAsisHtml += `
+                                <tr>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${dayStr}</td>
+                                    <td colspan="4" style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: center; color: #ef4444; font-weight: bold;">INASISTENCIA</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: center;">${badgeEstado}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: right;">-</td>
+                                </tr>
+                            `;
+                        } else {
+                            tbodyAsisHtml += `
+                                <tr>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${dayStr}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: center;">${tEnt}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: center;">${tiA}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: center;">${tfA}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: center;">${tSal}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: center;">${badgeEstado}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: right; font-weight: bold; ${colorHoraExtra}">${efvoText}</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                }
+
+                // --------- CONSTRUCCION DE LA TABLA HTML DE BANCO DE HORAS ---------
+                let tbodyBancoHtml = '';
+                if(compactBancosPdf.length === 0) {
+                     tbodyBancoHtml = `<tr><td colspan="3" style="padding: 8px 12px; text-align: center; color: #64748b; font-size: 13px;">Sin variaciones en el mes</td></tr>`;
+                } else {
+                    compactBancosPdf.forEach(b => {
+                        const dateParts = b.fecha_movimiento.split('-');
+                        const fechaB = `${dateParts[2]}/${dateParts[1]}`;
+                        
+                        let tipoLabel = b.tipo_movimiento.replace(/_/g, ' ');
+                        let colorAmt = '';
+                        let signAmt = ''; 
+                        
+                        if(b.tipo_movimiento === 'EXCEDENTE_GENERADO') { colorAmt = 'color: #10b981;'; signAmt = '+'; }
+                        else if(b.tipo_movimiento === 'DEUDA_GENERADA') { colorAmt = 'color: #ef4444;'; }
+                        
+                        const amtNum = b._cantidad_neta !== undefined ? parseFloat(b._cantidad_neta) : parseFloat(b.cantidad_horas);
+                        const amtStr = `${signAmt}${amtNum.toFixed(2)}h`;
+                        
+                        let floatSaldo = b.saldo_visual !== undefined ? parseFloat(b.saldo_visual) : parseFloat(b.saldo_acumulado);
+                        const asterisco = b.requiere_asterisco ? ' <span style="color:#f97316; font-size:10px;">*</span>' : '';
+                        
+                        let desc = b.observacion ? `<br><small style="color:#64748b; font-size:10px;">Org: ${b.documento_referencia} / Obs: ${b.observacion}</small>` : '';
+
+                        tbodyBancoHtml += `
+                            <tr>
+                                <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px;">${fechaB} - <strong>${tipoLabel}</strong>${desc}</td>
+                                <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right; font-weight: bold; ${colorAmt}">${amtStr}</td>
+                                <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right;">${floatSaldo.toFixed(2)}h${asterisco}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                // ENSAMBLE DEL HTML FINAL
+                const totalHorasMensualesEfvas = Math.floor(totalMinutosEfvosMes / 60);
+                const rmMinutos = totalMinutosEfvosMes % 60;
+
+                const colFinalSaldo = saldoFinal > 0 ? '#10b981' : (saldoFinal < 0 ? '#ef4444' : '#334155');
+
+                const reporteHtml = `
+                    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+                        
+                        <!-- Header Documento -->
+                        <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px;">
+                            <h1 style="margin: 0; font-size: 22px; color: #0f172a; text-transform: uppercase;">Récord Individual de Asistencia</h1>
+                            <h3 style="margin: 5px 0 0 0; font-size: 14px; color: #64748b;">PERIODO (AÑO-MES): <strong>${mesStr}</strong></h3>
+                        </div>
+
+                        <!-- Info Empleado -->
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <div>
+                                <p style="margin: 0 0 5px 0; font-size: 14px;"><strong>Colaborador:</strong> <span style="font-size: 16px;">${subtitulo}</span></p>
+                                <p style="margin: 0; font-size: 13px; color: #475569;"><strong>DNI / Ext:</strong> ${docIdentidad}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <p style="margin: 0 0 5px 0; font-size: 14px;"><strong>Cargo:</strong> ${cargo}</p>
+                                <p style="margin: 0; font-size: 13px; color: #475569;"><strong>Mes Impresión:</strong> ${mesStr}</p>
+                            </div>
+                        </div>
+
+                        <!-- Sección: Resumen Rápido -->
+                        <div style="display: flex; gap: 15px; margin-bottom: 25px;">
+                            <div style="flex: 1; background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; text-align: center;">
+                                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 5px;">Total Horas Efectivas Mensuales</div>
+                                <div style="font-size: 20px; font-weight: bold; color: #0f172a;">${totalHorasMensualesEfvas}h ${rmMinutos}m</div>
+                            </div>
+                            <div style="flex: 1; background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; text-align: center;">
+                                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 5px;">Días Trabajados en el Mes</div>
+                                <div style="font-size: 20px; font-weight: bold; color: #0f172a;">${diasAsistidos} días</div>
+                                <div style="font-size: 11px; color: #ef4444; margin-top: 5px;">(${diasFalta} faltas | ${diasTardanza} tardanzas)</div>
+                            </div>
+                        </div>
+
+                        <!-- Detalle Diario -->
+                        <h4 style="margin: 0 0 10px 0; color: #334155; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">1. Detalle de Marcaciones Diarias</h4>
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                            <thead>
+                                <tr style="background-color: #f1f5f9;">
+                                    <th style="padding: 8px 12px; text-align: left; font-size: 12px; color: #475569; border: 1px solid #cbd5e1;">Día / Fecha</th>
+                                    <th style="padding: 8px 12px; text-align: center; font-size: 12px; color: #475569; border: 1px solid #cbd5e1;">Ingreso</th>
+                                    <th style="padding: 8px 12px; text-align: center; font-size: 12px; color: #475569; border: 1px solid #cbd5e1;">Ini. Alm</th>
+                                    <th style="padding: 8px 12px; text-align: center; font-size: 12px; color: #475569; border: 1px solid #cbd5e1;">Fin Alm</th>
+                                    <th style="padding: 8px 12px; text-align: center; font-size: 12px; color: #475569; border: 1px solid #cbd5e1;">Salida</th>
+                                    <th style="padding: 8px 12px; text-align: center; font-size: 12px; color: #475569; border: 1px solid #cbd5e1;">Condición</th>
+                                    <th style="padding: 8px 12px; text-align: right; font-size: 12px; color: #475569; border: 1px solid #cbd5e1;">Efectivas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tbodyAsisHtml}
+                            </tbody>
+                        </table>
+
+                        <!-- Detalle Banco Horas -->
+                        <h4 style="margin: 0 0 10px 0; color: #334155; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">2. Estado del Banco de Horas (Excedentes / Deudas)</h4>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                            <span>Arrastre Mes Anterior: <strong>${saldoInicial > 0 ? '+' : ''}${saldoInicial.toFixed(2)}h</strong></span>
+                            <span>Saldo Final del Periodo <strong>(${mesStr})</strong>: <strong style="font-size: 16px; color: ${colFinalSaldo};">${saldoFinal > 0 ? '+' : ''}${saldoFinal.toFixed(2)} Hrs</strong></span>
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px; border: 1px solid #cbd5e1;">
+                            <thead>
+                                <tr style="background-color: #f1f5f9;">
+                                    <th style="padding: 8px 12px; text-align: left; font-size: 12px; color: #475569; border-bottom: 1px solid #cbd5e1;">Movimiento Generado</th>
+                                    <th style="padding: 8px 12px; text-align: right; font-size: 12px; color: #475569; border-bottom: 1px solid #cbd5e1;">Horas (Cant.)</th>
+                                    <th style="padding: 8px 12px; text-align: right; font-size: 12px; color: #475569; border-bottom: 1px solid #cbd5e1;">Acumulado Nuevo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tbodyBancoHtml}
+                            </tbody>
+                        </table>
+
+                        <!-- Firmas -->
+                        <div style="display: flex; justify-content: center; margin-top: 60px;">
+                            <div style="text-align: center; width: 40%;">
+                                <div style="border-top: 1px solid #000; padding-top: 8px; font-size: 12px; font-weight: bold;">Firma de Conformidad del Trabajador</div>
+                            </div>
+                        </div>
+
+                    </div>
+                `;
+
+                document.getElementById('reporteContent').innerHTML = reporteHtml;
+                document.getElementById('modalReporteAsistencia').classList.remove('hidden');
+
+            } catch(error) {
+                console.error("Error generando reporte:", error);
+                alert("Ocurrió un error al preparar el PDF: " + error.message);
+            } finally {
+                ocultarModalLoader();
+            }
+        }
+
+    </script>
+</body>
+
+</html>
