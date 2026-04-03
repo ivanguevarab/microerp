@@ -169,7 +169,7 @@
             <div class="flex items-center gap-3">
                 <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-gray-50 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition">
                     <span class="pl-3 pr-2 text-gray-500 font-semibold text-sm">S/</span>
-                    <input type="number" step="0.01" id="inputAuditoria" class="bg-white border-none outline-none py-2 px-2 text-right font-bold text-slate-800 w-32" placeholder="0.00">
+                    <input type="text" inputmode="decimal" step="0.01" id="inputAuditoria" class="bg-white border-none outline-none py-2 px-2 text-right font-bold text-slate-800 w-32" placeholder="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');">
                 </div>
                 <!-- Botón dinámico -->
                 <button id="btnCuadre" onclick="ejecutarCuadreDiario()" class="bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center shadow-sm">
@@ -537,7 +537,7 @@
                         btnCuadrar.onclick = ejecutarCuadreDiario;
                     }
                 } else {
-                    inpAuditoria.value = formatMoney(saldoFinal).replace(/,/g,'');
+                    inpAuditoria.value = '';
                     btnCuadrar.className = "bg-slate-800 text-white hover:bg-slate-900 border border-slate-900 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center shadow-sm";
                     btnCuadrar.innerHTML = `<i class="fas fa-lock mr-2 text-lg"></i> SELLAR DÍA`;
                     btnCuadrar.onclick = ejecutarCuadreDiario;
@@ -592,7 +592,7 @@
                 html: `
                     <div class="flex flex-col gap-3 text-left">
                         <select id="swald-cat" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm">${optHTML}</select>
-                        <input id="swald-monto" type="number" step="0.01" min="0.01" class="border border-gray-300 rounded px-3 py-2 outline-none font-bold text-right" placeholder="Monto (Ej. 1500.00)">
+                        <input id="swald-monto" type="text" inputmode="decimal" step="0.01" min="0.01" class="border border-gray-300 rounded px-3 py-2 outline-none font-bold text-right" placeholder="Monto (Ej. 1500.00)" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');">
                         <input id="swald-ref" type="text" class="border border-gray-300 rounded px-3 py-2 outline-none text-sm" placeholder="Ref. / N° Doc">
                     </div>
                 `,
@@ -630,7 +630,7 @@
                 title: 'Fijar Apertura Mensual',
                 html: `
                     <p class="text-sm text-gray-500 mb-4">Ingrese con cuánto efectivo/saldo real inicia la caja del mes de <strong>${desde}</strong>.<br>Esto cortará la suma histórica anterior.</p>
-                    <input id="swal-s-inicial" type="number" step="0.01" min="0" class="border border-gray-300 rounded px-3 py-2 outline-none font-bold text-center text-lg w-full" placeholder="0.00">
+                    <input id="swal-s-inicial" type="text" inputmode="decimal" step="0.01" min="0" class="border border-gray-300 rounded px-3 py-2 outline-none font-bold text-center text-lg w-full" placeholder="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');">
                 `,
                 showCancelButton: true,
                 confirmButtonText: 'Guardar Apertura',
@@ -677,6 +677,11 @@
                 const siTexto = document.getElementById('ui-saldo-inicial').textContent.replace('S/ ','').replace(/,/g,'');
                 
                 const saldoCalc = parseFloat(sfTexto); const diff = realBanco - saldoCalc;
+
+                if (Math.abs(diff) > 0.009) {
+                    Swal.fire('Descuadre Detectado', `El dinero declarado no cuadra con el Saldo Final del sistema. Diferencia: S/ ${Math.abs(diff).toFixed(2)}.<br><br>Registre la pérdida (Egreso por Descuadre) o la sobra (Ingreso Extra) antes de sellar la caja.`, 'error');
+                    return;
+                }
 
                 const pLoad = {
                     empresa_id: currentEmpresaId, fecha: document.getElementById('filtroHasta').value,
