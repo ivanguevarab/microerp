@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cierre de Caja - MICRO ERP</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        .page-wrap { padding: 30px; max-width: 1400px; margin: 0 auto; }
+        
+        .table-calc td, .table-calc th { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+        .table-calc th { text-align: left; font-size: 0.85rem; color: #64748b; text-transform: uppercase; }
+        .table-calc input[type="number"] {
+            border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; text-align: center; width: 70px;
+            font-weight: bold; outline: none; transition: 0.2s;
+        }
+        .table-calc input[type="number"]:focus { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2); }
+        .table-calc .subtotal { font-weight: bold; text-align: right; color: #334155; }
+
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 15mm;
+            }
+            body { 
+                background: #fff !important; 
+                color: #1f2937 !important; /* text-gray-800 */
+                font-family: 'Inter', system-ui, 'Helvetica Neue', Arial, sans-serif !important; 
+                font-size: 10pt !important; 
+                min-height: 0 !important;
+                height: auto !important;
+            }
+            .no-print { display: none !important; }
+            
+            /* Ocultar toda la web en formato print */
+            .page-wrap, header, nav, .sidebar, .submodule-header, #global-spinner { 
+                display: none !important; 
+                margin: 0 !important; 
+                padding: 0 !important; 
+            }
+            
+            /* Mostrar el reporte puro con padding fijo para evitar cortes en bordes */
+            #print-report-container { 
+                display: block !important; 
+                width: 100%; 
+                margin: 0 auto; 
+                padding: 10mm 15mm; 
+                box-sizing: border-box;
+            }
+            
+            /* Estructuras limpias del Documento Físico */
+            .print-header { 
+                text-align: center; 
+                margin-bottom: 30px; 
+                padding-bottom: 20px;
+                border-bottom: 1px solid #d1d5db; /* Gris suave */
+            }
+            .print-header h1 { 
+                font-size: 18pt; 
+                font-weight: 800; 
+                margin: 0 0 8px 0; 
+                letter-spacing: 1px;
+                color: #111827; 
+            }
+            .print-header p { 
+                font-size: 10pt; 
+                margin: 2px 0; 
+                color: #4b5563; 
+            }
+            
+            .print-module-title {
+                font-size: 11pt;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-top: 30px;
+                margin-bottom: 15px;
+                color: #374151;
+                border-left: 4px solid #6b7280;
+                padding-left: 10px;
+            }
+
+            .print-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 10px; 
+            }
+            .print-table th { 
+                background-color: #f3f4f6 !important; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+                color: #374151;
+                text-align: left; 
+                padding: 10px 12px; 
+                font-size: 8pt; 
+                text-transform: uppercase; 
+                border-bottom: 2px solid #9ca3af;
+            }
+            .print-table td { 
+                border-bottom: 1px solid #e5e7eb; 
+                padding: 10px 12px; 
+                font-size: 9.5pt; 
+                color: #1f2937;
+            }
+            .print-table tr:nth-child(even) td {
+                background-color: #f9fafb !important;
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+            }
+            .print-table .align-right { text-align: right; }
+            .print-table .align-center { text-align: center; }
+            
+            .print-total-row { 
+                font-weight: bold; 
+                font-size: 11pt; 
+                background-color: #e5e7eb !important;
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+            }
+            .print-total-row td { 
+                padding: 12px; 
+                border-bottom: none !important; 
+                border-top: 1px solid #9ca3af !important;
+            }
+            
+            .print-final-box { 
+                border: 1px solid #d1d5db; 
+                background-color: #f3f4f6 !important;
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+                border-radius: 8px;
+                padding: 24px; 
+                margin-top: 35px; 
+                text-align: center; 
+            }
+            .print-final-box h2 { 
+                font-size: 20pt; 
+                font-weight: 800;
+                margin: 0 0 8px 0; 
+                color: #111827;
+            }
+            .print-final-box p.subtitle { 
+                font-size: 9pt; 
+                color: #4b5563;
+                margin-bottom: 5px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .print-final-box p.status { 
+                font-size: 10pt; 
+                margin: 0; 
+                text-transform: uppercase; 
+                font-weight: 700; 
+                color: #374151;
+            }
+
+            .print-signatures {
+                margin-top: 60px; 
+                width: 100%; 
+                display: flex; 
+                justify-content: center; 
+                gap: 80px;
+                page-break-inside: avoid;
+            }
+            .signature-block {
+                text-align: center;
+                width: 200px;
+            }
+            .signature-line {
+                border-top: 1px solid #4b5563;
+                padding-top: 8px;
+                margin-bottom: 0;
+            }
+            .signature-block p {
+                font-size: 8.5pt;
+                color: #4b5563;
+                margin: 0;
+            }
+        }
+
+        #print-report-container { display: none; }
+        .print-only { display: none; }
+    </style>
+</head>
+
+<body class="bg-slate-50 font-inter text-slate-800">
+
+    <!-- Header del Submódulo -->
+    <header class="submodule-header no-print">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='ventas_y_facturacion.html'">
+                ← Volver a Ventas
+            </button>
+            <h1>Arqueo de Caja</h1>
+            <div class="submodule-version">MICRO ERP v2.0</div>
+        </div>
+    </header>
+
+    <main class="page-wrap pb-20">
+        <!-- Dato global capturado de BD -->
+        <span id="print-empresa-nombre" style="display: none;"></span>
+        
+        <!-- Dashboard Superior -->
+        <div class="flex justify-between items-center mb-8 no-print">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800">Cierre del Día</h2>
+                <p class="text-slate-500 text-sm">Este módulo se reinicia a las cero horas cada día.</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="generarReporteImpresion(); window.print()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-5 rounded-lg shadow-md transition flex items-center gap-2">
+                    <i class="fas fa-print"></i> Imprimir Reporte
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- COLUMNA IZQUIERDA: MATEMÁTICA Y AJUSTES (6 cols) -->
+            <div class="lg:col-span-6 space-y-6">
+                
+                <!-- CARD: Sistema Core -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-amber-50 px-5 py-4 border-b border-amber-100 flex items-center justify-between">
+                        <h3 class="font-bold text-amber-800 flex items-center gap-2">
+                            <i class="fas fa-desktop"></i> Dinero Esperado
+                        </h3>
+                        <span class="text-xs bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded">HOY</span>
+                    </div>
+                    <div class="p-5 space-y-4 text-sm">
+                        
+                        <div class="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-100">
+                            <span class="text-slate-600">Saldo inicial:</span>
+                            <div class="relative w-32 shrink-0">
+                                <span class="absolute left-2 top-1.5 text-slate-400 font-bold">S/</span>
+                                <input type="text" inputmode="decimal" id="in-fondo-inicial" class="w-full text-right bg-white border border-slate-300 rounded px-2 py-1 outline-none font-bold text-blue-600 pl-6 focus:border-amber-400 no-print" value="0.00" oninput="maskDecimal(this); autoguardarLocal(); recalcularTodo();">
+                                <div class="print-only text-right font-bold pr-2" id="print-fondo-inicial">S/ 0.00</div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center p-2 mb-2">
+                            <span class="text-slate-600">(+) Ventas en Sistema:</span>
+                            <div class="font-bold text-slate-800 w-32 text-right pr-2 shrink-0" id="ui-vta-contado">S/ 0.00</div>
+                        </div>
+
+                        <!-- Integración Dinámica: Otros Movimientos -->
+                        <div class="mt-2 pt-3 border-t border-slate-100">
+                            <div class="flex justify-between items-center p-2 mb-1">
+                                <span class="font-bold text-slate-700 flex items-center gap-2"><i class="fas fa-edit text-slate-400"></i> Otros Movimientos a Considerar</span>
+                            </div>
+                            
+                            <p class="text-xs text-slate-400 mb-3 px-2 no-print">Agrega aquí las otras entradas y salidas de dinero que afectan tu gaveta real antes del cierre.</p>
+                            
+                            <form id="frm-ajuste" class="flex gap-2 mb-4 px-2 no-print" onsubmit="event.preventDefault(); addAjuste();">
+                                <input type="text" id="ajuste-desc" class="flex-1 border border-slate-300 rounded px-3 py-2 text-sm outline-none bg-white" placeholder="Ej. Retiro de caja autorizado" required>
+                                <select id="ajuste-tipo" class="border border-slate-300 rounded px-2 py-2 text-sm outline-none bg-white">
+                                    <option value="INGRESO">Ingreso</option>
+                                    <option value="EGRESO" selected>Retiro</option>
+                                </select>
+                                <input type="text" inputmode="decimal" id="ajuste-monto" class="w-24 text-right border border-slate-300 rounded px-2 py-2 text-sm outline-none bg-white" placeholder="0.00" oninput="maskDecimal(this)" required>
+                                <button type="submit" class="bg-blue-600 text-white px-3 py-2 rounded font-bold hover:bg-blue-700 transition">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </form>
+
+                            <!-- Tabla Transitoria -->
+                            <div class="overflow-x-auto px-2 mb-2">
+                                <table class="w-full text-sm text-left text-slate-600">
+                                    <thead>
+                                        <tr class="bg-slate-50 border-y border-slate-200 uppercase text-xs">
+                                            <th class="px-3 py-2">Detalle de Movimientos</th>
+                                            <th class="px-3 py-2 text-center w-24">Operación</th>
+                                            <th class="px-3 py-2 text-right w-32 border-l border-slate-200">Monto</th>
+                                            <th class="px-3 py-2 w-8 no-print"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbl-ajustes-body" class="border-b border-dashed border-slate-200">
+                                        <!-- Inyectado por JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-700 text-white font-bold text-center py-3 text-lg flex justify-between px-8 mx-5 rounded-md mb-5 shadow-inner" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                        <span>TOTAL ESPERADO EN GAVETA:</span>
+                        <span id="ui-saldo-teorico">S/ 0.00</span>
+                    </div>
+                </div>
+
+            </div>
+
+
+            <!-- COLUMNA DERECHA: CONTEO FÍSICO Y CONCILIACIÓN (6 cols) -->
+            <div class="lg:col-span-6 space-y-6">
+
+                <!-- CARD: Calculadora Monedas -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-blue-50 px-5 py-4 border-b border-blue-100 flex items-center justify-between">
+                        <h3 class="font-bold text-blue-800 flex items-center gap-2">
+                            <i class="fas fa-coins"></i> Dinero en Gaveta
+                        </h3>
+                    </div>
+                    <div class="p-5 flex gap-12">
+                        
+                        <!-- Billetes -->
+                        <div class="flex-1 border-r border-slate-200 pr-6">
+                            <table class="w-full table-calc">
+                                <thead><tr><th colspan="3">Billetes (Soles)</th></tr></thead>
+                                <tbody>
+                                    <tr><td class="text-slate-500 font-bold w-12 text-sm">200</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="200" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-500 font-bold text-sm">100</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="100" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-500 font-bold text-sm">50</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="50" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-500 font-bold text-sm">20</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="20" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-500 font-bold text-sm">10</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="10" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Monedas -->
+                        <div class="flex-1">
+                            <table class="w-full table-calc">
+                                <thead><tr><th colspan="3">Monedas (Soles)</th></tr></thead>
+                                <tbody>
+                                    <tr><td class="text-amber-600 font-bold w-12 text-sm">5.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="5" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-amber-600 font-bold text-sm">2.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="2" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-amber-600 font-bold text-sm">1.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="1" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-gray-500 font-bold text-sm">0.50</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.5" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-gray-500 font-bold text-sm">0.20</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.2" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-gray-500 font-bold text-sm">0.10</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.1" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                    <div class="bg-blue-600 text-white font-bold text-center py-3 text-lg flex justify-between px-8 mx-5 rounded-md mb-5 shadow-inner" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                        <span>TOTAL EFECTIVO FÍSICO:</span>
+                        <span id="ui-total-efectivo">S/ 0.00</span>
+                    </div>
+                </div>
+
+                <!-- CARD: Resultados de Generación de Descuadre (Executive Report) -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                    <div class="p-6">
+                        <h3 class="font-bold text-slate-700 mb-4 pb-2 border-b border-slate-100 uppercase text-xs tracking-wider">Resumen de Cuadre</h3>
+                        <div class="flex justify-between text-slate-500 text-sm mb-2 font-medium">
+                            <span>(+) TOTAL EFECTIVO FÍSICO</span>
+                            <span id="res-fisico" class="text-slate-800 font-bold">S/ 0.00</span>
+                        </div>
+                        <div class="flex justify-between text-slate-500 text-sm mb-5 font-medium">
+                            <span>(-) TOTAL ESPERADO EN GAVETA</span>
+                            <span id="res-teorico" class="text-slate-800 font-bold">S/ 0.00</span>
+                        </div>
+                        
+                        <div id="ui-cuadre-status" class="bg-slate-50 text-center py-5 rounded-lg mt-2 border border-slate-200 transition-colors">
+                            <span class="text-xs font-bold text-slate-500 block mb-1 tracking-wide">DIFERENCIA REAL EN CAJA FÍSICA:</span>
+                            <div class="text-3xl font-black text-slate-700" id="ui-descuadre-monto">S/ 0.00</div>
+                            <div class="text-xs mt-2 font-bold tracking-widest text-slate-500 uppercase px-4 py-1 rounded inline-block bg-white border border-slate-100 shadow-sm" id="ui-cuadre-leyenda">ESPERANDO DATA...</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Contenedor del Reporte Físico Puro (Oculto en Pantalla) -->
+    <div id="print-report-container"></div>
+
+    <!-- Modal Auxiliar Global -->
+    <div id="global-spinner" class="fixed inset-0 bg-slate-900 bg-opacity-80 z-[100] flex flex-col justify-center items-center backdrop-blur-sm hidden no-print">
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-amber-500 border-t-transparent mb-4"></div>
+        <p class="text-white font-inter font-semibold tracking-wide" id="global-spinner-msg">Procesando Matemáticas...</p>
+    </div>
+
+    <!-- Módulo Core de Lógica JS -->
+    <script>
+        let currentEmpresaId = null;
+        let objAjustesLocales = [];
+        let mathSysVentasContado = 0;
+
+        function maskDecimal(input) {
+            input.value = input.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('global-spinner').classList.remove('hidden');
+            await checkAuth(); 
+            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', window.currentUser.id).single();
+            currentEmpresaId = perfil.empresa_id;
+
+            const spanFecha = document.getElementById('print-fecha-hora');
+            const fechaLima = new Intl.DateTimeFormat('es-PE', { 
+                timeZone: 'America/Lima', day: '2-digit', month: '2-digit', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit' 
+            }).format(new Date());
+            if(spanFecha) spanFecha.textContent = `Operación Arqueada del Sistema el: ${fechaLima}`;
+
+            chequearMemoriaAmnesicaDiaria();
+            await extraerVentasBD();
+
+            document.querySelectorAll('.qty-calc').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    inp.value = inp.value.replace(/[^0-9]/g, ''); 
+                    
+                    // Sincronizar el clon de impresion span.qty-print
+                    const pSp = inp.nextElementSibling;
+                    if(pSp && pSp.classList.contains('qty-print')) {
+                        pSp.textContent = inp.value || "0";
+                    }
+
+                    recalcularTodo();
+                    autoguardarLocal();
+                });
+            });
+
+            recalcularTodo();
+            document.getElementById('global-spinner').classList.add('hidden');
+        });
+
+        function asFechaStr() {
+            const lima = new Date().toLocaleString("en-US", { timeZone: "America/Lima" });
+            const p = new Date(lima);
+            return p.getFullYear() + "-" + String(p.getMonth() + 1).padStart(2,'0') + "-" + String(p.getDate()).padStart(2,'0');
+        }
+
+        function getLlaveLocal() {
+            return `arqueo_${currentEmpresaId}_${asFechaStr()}`;
+        }
+
+        function chequearMemoriaAmnesicaDiaria() {
+            const key = getLlaveLocal();
+            const payload = localStorage.getItem(key);
+            if (payload) {
+                try {
+                    const data = JSON.parse(payload);
+                    objAjustesLocales = data.ajustes || [];
+                    document.getElementById('in-fondo-inicial').value = data.fondo || "0.00";
+                    
+                    if(data.monedas) {
+                        document.querySelectorAll('.qty-calc').forEach(inp => {
+                            const val = inp.getAttribute('data-val');
+                            if(data.monedas[val] !== undefined) {
+                                inp.value = data.monedas[val];
+                                const pSp = inp.nextElementSibling;
+                                if(pSp && pSp.classList.contains('qty-print')) pSp.textContent = inp.value;
+                            }
+                        });
+                    }
+                } catch(e) { console.error("Error cache local"); }
+            }
+            dibujarAjustesLocales();
+        }
+
+        function autoguardarLocal() {
+            const key = getLlaveLocal();
+            let monedasSt = {};
+            document.querySelectorAll('.qty-calc').forEach(inp => {
+                monedasSt[inp.getAttribute('data-val')] = inp.value || 0;
+            });
+
+            const fondT = document.getElementById('in-fondo-inicial').value;
+            // Sincroniza al layout visual para imprimir
+            document.getElementById('print-fondo-inicial').textContent = `S/ ${parseFloat(fondT||0).toFixed(2)}`;
+
+            const data = {
+                fondo: fondT,
+                ajustes: objAjustesLocales,
+                monedas: monedasSt
+            };
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        async function extraerVentasBD() {
+            const fStr = asFechaStr();
+
+            try {
+                const { data, error } = await window.supabaseClient.from('ventas')
+                    .select('precio_venta_total')
+                    .eq('empresa_id', currentEmpresaId)
+                    .in('estado', ['REGISTRADO'])
+                    .eq('condicion_pago', 'CONTADO')
+                    .gte('fecha_venta', fStr)
+                    .lte('fecha_venta', fStr);
+
+                if (data) {
+                    mathSysVentasContado = data.reduce((acc, v) => acc + Number(v.precio_venta_total || 0), 0);
+                    document.getElementById('ui-vta-contado').textContent = `S/ ${mathSysVentasContado.toFixed(2)}`;
+                }
+
+                const {data: eData} = await window.supabaseClient.from('empresas').select('nombre').eq('id', currentEmpresaId).single();
+                if(eData) document.getElementById('print-empresa-nombre').textContent = eData.nombre;
+
+            } catch (error) { console.error(error); }
+        }
+
+        function addAjuste() {
+            const desc = document.getElementById('ajuste-desc').value.trim();
+            const tipo = document.getElementById('ajuste-tipo').value;
+            const monto = parseFloat(document.getElementById('ajuste-monto').value);
+
+            if(!desc || isNaN(monto) || monto <= 0) return;
+
+            objAjustesLocales.push({
+                id: Math.random().toString(36).substr(2, 9),
+                desc: desc,
+                tipo: tipo,
+                monto: monto
+            });
+
+            document.getElementById('frm-ajuste').reset();
+            dibujarAjustesLocales();
+            autoguardarLocal();
+            recalcularTodo();
+        }
+
+        function deleteAjuste(id) {
+            objAjustesLocales = objAjustesLocales.filter(x => x.id !== id);
+            dibujarAjustesLocales();
+            autoguardarLocal();
+            recalcularTodo();
+        }
+
+        function dibujarAjustesLocales() {
+            const table = document.getElementById('tbl-ajustes-body');
+            table.innerHTML = "";
+
+            if(objAjustesLocales.length === 0) {
+                table.innerHTML = `<tr><td colspan="4" class="px-3 py-4 text-center text-slate-400 text-xs italic border border-dashed border-slate-200">El día de hoy no registra notas manuales que descuadren la caja base.</td></tr>`;
+                return;
+            }
+
+            objAjustesLocales.forEach(x => {
+                const isI = x.tipo === 'INGRESO';
+                table.innerHTML += `
+                    <tr class="border-b border-slate-100 bg-white">
+                        <td class="px-3 py-2 font-medium">${x.desc}</td>
+                        <td class="px-3 py-2 text-center text-xs">
+                            <span class="${isI ? 'text-emerald-700 bg-emerald-100' : 'text-rose-700 bg-rose-100'} px-2 py-0.5 rounded font-bold" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                ${isI ? '+' : '-'}
+                            </span>
+                        </td>
+                        <td class="px-3 py-2 text-right font-bold tracking-tight text-slate-700">S/ ${parseFloat(x.monto).toFixed(2)}</td>
+                        <td class="px-3 py-2 text-right no-print">
+                            <button onclick="deleteAjuste('${x.id}')" class="text-rose-400 hover:text-rose-600 transition px-1"><i class="fas fa-trash-alt"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function recalcularTodo() {
+            let sumFisico = 0;
+            document.querySelectorAll('.qty-calc').forEach(inp => {
+                let vInt = parseInt(inp.value) || 0;
+                let valMap = parseFloat(inp.getAttribute('data-val'));
+                let prod = vInt * valMap;
+                inp.parentElement.nextElementSibling.textContent = prod.toFixed(2);
+                sumFisico += prod;
+            });
+
+            document.getElementById('ui-total-efectivo').textContent = `S/ ${sumFisico.toFixed(2)}`;
+
+            const fondo = parseFloat(document.getElementById('in-fondo-inicial').value) || 0;
+            let saldoSistema = fondo + mathSysVentasContado;
+            
+            objAjustesLocales.forEach(x => {
+                if(x.tipo === 'INGRESO') saldoSistema += parseFloat(x.monto);
+                else saldoSistema -= parseFloat(x.monto);
+            });
+            
+            document.getElementById('ui-saldo-teorico').textContent = `S/ ${saldoSistema.toFixed(2)}`;
+            document.getElementById('res-fisico').textContent = `S/ ${sumFisico.toFixed(2)}`;
+            document.getElementById('res-teorico').textContent = `S/ ${saldoSistema.toFixed(2)}`;
+
+            const descuadre = sumFisico - saldoSistema;
+            const uiDiv = document.getElementById('ui-cuadre-status');
+            const moDiv = document.getElementById('ui-descuadre-monto');
+            const msgDiv = document.getElementById('ui-cuadre-leyenda');
+
+            uiDiv.classList.remove('bg-rose-50', 'border-rose-200', 'bg-emerald-50', 'border-emerald-200', 'bg-blue-50', 'border-blue-200', 'bg-slate-50', 'border-slate-200');
+            moDiv.classList.remove('text-rose-700', 'text-emerald-700', 'text-blue-700', 'text-slate-700');
+            msgDiv.classList.remove('text-rose-600', 'text-emerald-600', 'text-blue-600', 'text-slate-500');
+
+            if (Math.abs(descuadre) < 0.01) {
+                uiDiv.classList.add('bg-emerald-50', 'border-emerald-200');
+                moDiv.classList.add('text-emerald-700');
+                msgDiv.classList.add('text-emerald-600');
+                moDiv.textContent = `S/ 0.00`;
+                msgDiv.textContent = 'CAJA CUADRADA CORRECTAMENTE';
+            } else if (descuadre < 0) {
+                uiDiv.classList.add('bg-rose-50', 'border-rose-200');
+                moDiv.classList.add('text-rose-700');
+                msgDiv.classList.add('text-rose-600');
+                moDiv.textContent = `S/ ${descuadre.toFixed(2)}`;
+                msgDiv.textContent = 'FALTANTE EN CAJA DETECTADO';
+            } else {
+                uiDiv.classList.add('bg-blue-50', 'border-blue-200');
+                moDiv.classList.add('text-blue-700');
+                msgDiv.classList.add('text-blue-600');
+                moDiv.textContent = `S/ +${descuadre.toFixed(2)}`;
+                msgDiv.textContent = 'SOBRANTE DE CAJA (SOBRA DINERO)';
+            }
+        }
+
+        function generarReporteImpresion() {
+            const dt = new Date();
+            const fechaHoraStr = `${dt.toLocaleDateString('es-PE')} - ${dt.toLocaleTimeString('es-PE')}`;
+            // Intento de tomar el nombre real guardado por extraerVentasBD()
+            const empresaNode = document.getElementById('print-empresa-nombre');
+            const empresaStr = empresaNode && empresaNode.textContent ? empresaNode.textContent : "MicroERP Cloud";
+            
+            const saldoIni = document.getElementById('in-fondo-inicial').value || "0.00";
+            const vtaSist = document.getElementById('ui-vta-contado').textContent;
+            
+            let ajustesHTML = '';
+            
+            // Reparación Quirúrgica: Prevenir lectura en la celda combinada vacía.
+            if (objAjustesLocales && objAjustesLocales.length > 0) {
+                const trs = document.querySelectorAll('#tbl-ajustes-body tr');
+                trs.forEach(tr => {
+                    const desc = tr.children[0].textContent.trim();
+                    const tipo = tr.children[1].textContent.trim();
+                    let monto = tr.children[2].textContent.trim();
+                    
+                    if (tipo === '-') {
+                        monto = monto.replace('S/', '- S/');
+                    }
+                    
+                    ajustesHTML += `<tr><td>${desc}</td><td class="align-right">${monto}</td></tr>`;
+                });
+            } else {
+                ajustesHTML = `<tr><td>Sin movimientos adicionales a validar en el parte</td><td class="align-right">S/ 0.00</td></tr>`;
+            }
+            
+            const totalEsperado = document.getElementById('ui-saldo-teorico').textContent;
+            const totalFisico = document.getElementById('ui-total-efectivo').textContent;
+            
+            const difMonto = document.getElementById('ui-descuadre-monto').textContent;
+            const difLeyenda = document.getElementById('ui-cuadre-leyenda').textContent;
+            
+            let fisicoTabla = '';
+            document.querySelectorAll('.qty-calc').forEach(inp => {
+                const q = parseInt(inp.value) || 0;
+                if (q > 0) {
+                    const val = parseFloat(inp.getAttribute('data-val'));
+                    const sum = (q * val).toFixed(2);
+                    const tipoEtiqueta = val >= 10 ? 'Billetes' : 'Monedas';
+                    const undStr = q > 1 ? 'unds.' : 'und.';
+                    fisicoTabla += `<tr><td>${tipoEtiqueta} de S/${val.toFixed(2)}</td><td class="align-center">${q} ${undStr}</td><td class="align-right">S/ ${sum}</td></tr>`;
+                }
+            });
+            if (fisicoTabla === '') fisicoTabla = `<tr><td>Efectivo no contabilizado o gaveta vacía</td><td class="align-center">0 und.</td><td class="align-right">S/ 0.00</td></tr>`;
+
+            const html = `
+                <div class="print-header">
+                    <h1>ARQUEO DE CAJA</h1>
+                    <p style="font-weight: 800; color: #1f2937;">${empresaStr}</p>
+                    <p>Fecha de arqueo físico: ${fechaHoraStr}</p>
+                </div>
+                
+                <div class="print-module-title">Dinero Esperado</div>
+                <table class="print-table">
+                    <thead>
+                        <tr><th>Concepto Contable</th><th class="align-right">Subtotal</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Saldo Inicial Registrado en Caja</td><td class="align-right">S/ ${parseFloat(saldoIni).toFixed(2)}</td></tr>
+                        <tr><td>(+) Ventas Consolidadas Sistema</td><td class="align-right">${vtaSist}</td></tr>
+                        ${ajustesHTML}
+                        <tr class="print-total-row"><td>Dinero Total Teórico (Esperado)</td><td class="align-right">${totalEsperado}</td></tr>
+                    </tbody>
+                </table>
+                
+                <div class="print-module-title">Dinero en Gaveta</div>
+                <table class="print-table">
+                    <thead>
+                        <tr><th>Denominación Billetes/Monedas</th><th class="align-center">Cantidad</th><th class="align-right">Subtotal</th></tr>
+                    </thead>
+                    <tbody>
+                        ${fisicoTabla}
+                        <tr class="print-total-row"><td>Dinero Total Contabilizado</td><td></td><td class="align-right">${totalFisico}</td></tr>
+                    </tbody>
+                </table>
+                
+                <div class="print-final-box">
+                    <p class="subtitle">Diferencial Estadístico: Físico vs Teórico</p>
+                    <h2>${difLeyenda}</h2>
+                    <p class="status">${difMonto}</p>
+                </div>
+                
+                <div class="print-signatures">
+                    <div class="signature-block">
+                        <div class="signature-line"></div>
+                        <p>Firma Cajero Entregante</p>
+                    </div>
+                    <div class="signature-block">
+                        <div class="signature-line"></div>
+                        <p>Firma Cajero Receptor</p>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('print-report-container').innerHTML = html;
+        }
+    </script>
+
+    <!-- Inyectar Sidebar -->
+    <script src="sidebar.js"></script>
+</body>
+</html>
