@@ -303,24 +303,15 @@
                 // Convertir mapa de nuevo a un array ordenado
                 let compactData = Array.from(agrupadosMap.values());
 
-                // 2. Obtener Saldo Base (Calculo Inverso histórico)
-                const { data: dataAnterior, error: errAnterior } = await window.supabaseClient
-                    .from('banco_horas')
-                    .select('cantidad_horas')
-                    .eq('personal_id', personalId)
-                    .lt('fecha_movimiento', fechaInicio);
-
+                // 2. Obtener Saldo Base (Calculo Inverso histórico) - DESACTIVADO (Mensual)
                 let saldoReal = 0;
-                if (!errAnterior && dataAnterior) {
-                    saldoReal = dataAnterior.reduce((sum, row) => sum + parseFloat(row.cantidad_horas || 0), 0);
-                }
 
                 // 3. Fila a Fila Forward-Calculation sobre la data COMPACTADA
                 compactData.forEach(m => {
                     let cantActual = m._cantidad_neta !== undefined ? m._cantidad_neta : parseFloat(m.cantidad_horas || 0);
                     saldoReal += cantActual;
                     m.saldo_visual = saldoReal;
-                    m.requiere_asterisco = Math.abs(parseFloat(m.saldo_acumulado || 0) - m.saldo_visual) > 0.001;
+                    m.requiere_asterisco = false; // Ya no hay discrepancia histórica porque nace en 0
                 });
 
                 // 4. Re-inversión para Mostrar lo nuevo arriba en la iteración visual
