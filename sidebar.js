@@ -1,7 +1,7 @@
 /**
  * sidebar.js
  * Inyecta dinámicamente la barra de navegación vertical.
- * Estilo: Premium (Slate/Blue Pill).
+ * Estilo: Premium (Slate/Amber Pill) - 0078.
  * Estructura: Estrictamente definida por el usuario.
  */
 
@@ -13,8 +13,6 @@
     // La validación de inyección visual se hará después de exportar la configuración del menú.
 
     // 2. Configuración del Menú (ESTRICTA - No alterar orden)
-    // Título 1: Dashboard
-    // Título 2: Gestión de Inventarios
     const menuConfig = [
         {
             type: 'link',
@@ -24,7 +22,7 @@
         },
         {
             type: 'accordion',
-            label: 'Ventas y Facturación',
+            label: 'Ventas',
             icon: 'fas fa-sack-dollar',
             id: 'menu-facturacion',
             url: 'ventas_y_facturacion.html',
@@ -33,7 +31,8 @@
                 {
                     subtitle: 'Operaciones',
                     items: [
-                        { label: 'Punto de Venta (POS)', url: 'emitir_ticket.html' }
+                        { label: 'Punto de Venta (POS)', url: 'emitir_ticket.html' },
+                        { label: 'Arqueo de Caja Diario', url: 'arqueo_caja.html' }
                     ]
                 },
                 {
@@ -46,7 +45,7 @@
                 {
                     subtitle: 'Configuración',
                     items: [
-                        { label: 'Precios de Venta', url: 'precios_de_venta.html' }
+                        { label: 'Lista de Precios', url: 'precios_de_venta.html' }
                     ]
                 }
             ]
@@ -98,7 +97,7 @@
         },
         {
             type: 'accordion',
-            label: 'Gestión de Relaciones con Clientes (CRM)',
+            label: 'Relaciones con Clientes',
             icon: 'fas fa-handshake',
             id: 'menu-crm',
             url: 'gestion_crm.html',
@@ -114,7 +113,7 @@
         },
         {
             type: 'accordion',
-            label: 'Gestión de Producción y Servicios',
+            label: 'Producción y Servicios',
             icon: 'fas fa-industry', // Icono de fábrica
             id: 'menu-produccion',
             url: 'gestion_produccion_y_servicios.html',
@@ -226,16 +225,82 @@
             document.head.appendChild(faLink);
         }
 
+        // Inyectar Estilos Estructurales Nativos para esta nueva versión dark
+        if (!document.getElementById('sidebar-amber-styles')) {
+            const style = document.createElement('style');
+            style.id = 'sidebar-amber-styles';
+            style.innerHTML = `
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+                
+                .sidebar.collapsed { width: 80px; }
+                .sidebar.collapsed ~ .content-area { margin-left: 80px !important; }
+                .sidebar.collapsed .sidebar-header span,
+                .sidebar.collapsed .nav-text,
+                .sidebar.collapsed .text-\\[10px\\],
+                .sidebar.collapsed .text-\\[9px\\],
+                .sidebar.collapsed .sidebar-accordion-content,
+                .sidebar.collapsed .fa-chevron-down,
+                .sidebar.collapsed .sidebar-footer span {
+                    display: none !important;
+                }
+                .sidebar.collapsed .sidebar-header { padding: 1rem 0; justify-content: center; }
+                .sidebar.collapsed .flex-grow { justify-content: center; margin: 0; }
+                
+                .sidebar {
+                    width: 280px;
+                    height: 100vh;
+                    position: fixed;
+                    left: 0;
+                    top: 0;
+                    background-color: #020617; 
+                    border-right: 1px solid rgba(255, 255, 255, 0.05); 
+                    display: flex;
+                    flex-direction: column;
+                    z-index: 50;
+                    transition: width 0.3s ease;
+                    box-shadow: 5px 0 25px -5px rgba(0, 0, 0, 0.5);
+                }
+                .sidebar-accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-in-out; }
+                .sidebar-sublink {
+                    display: block;
+                    padding: 0.5rem 1rem 0.5rem 2.5rem;
+                    font-size: 0.85rem;
+                    color: #64748b; 
+                    border-radius: 0.5rem;
+                    transition: all 0.2s ease;
+                    text-decoration: none;
+                }
+                .sidebar-sublink:hover {
+                    color: #f59e0b; 
+                    background-color: rgba(30, 41, 59, 0.5); 
+                    padding-left: 2.75rem; 
+                }
+                .sidebar-sublink.active {
+                    color: #f8fafc;
+                    font-weight: 600;
+                    background-color: rgba(245, 158, 11, 0.15); 
+                    border-left: 2px solid #f59e0b;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
         // --- 1. Preparar Layout ---
         const body = document.body;
 
         // Crear wrapper
         const wrapper = document.createElement('div');
-        wrapper.className = 'layout-wrapper';
+        wrapper.className = 'layout-wrapper relative';
 
         // Crear content area
         const contentArea = document.createElement('main');
-        contentArea.className = 'content-area';
+        // Aseguramos que retenga la clase original pero con margin reajustable
+        contentArea.className = 'content-area h-full'; 
+        contentArea.style.marginLeft = '280px';
+        contentArea.style.transition = 'margin-left 0.3s ease';
+
         // Mover contenido existente
         while (body.firstChild) {
             contentArea.appendChild(body.firstChild);
@@ -248,37 +313,38 @@
         // Recuperar memoria de sidebar contraída
         if (localStorage.getItem('sidebar_is_collapsed') === 'true') {
             sidebar.classList.add('collapsed');
+            contentArea.style.marginLeft = '80px'; // Forzar resincronización layout
         }
 
-        // Header del Sidebar (Logo SVG Original) - AHORA CLICKABLE
+        // Header del Sidebar (Logo SVG Amber) - AHORA CLICKABLE
         sidebar.innerHTML = `
-            <div class="sidebar-header" onclick="toggleSidebar()" style="cursor: pointer;" title="Clic para contraer/expandir">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 flex items-center justify-center">
-                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-lg">
+            <div class="sidebar-header flex p-5 border-b border-white/5 transition-all" onclick="toggleSidebar()" style="cursor: pointer;" title="Clic para contraer/expandir">
+                <div class="flex items-center gap-4 w-full">
+                    <div class="w-10 h-10 flex shrink-0 items-center justify-center">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">
                           <defs>
                             <linearGradient id="cubeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" style="stop-color:#0070f2;stop-opacity:1" />
-                              <stop offset="100%" style="stop-color:#00a8ff;stop-opacity:1" />
+                              <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+                              <stop offset="100%" style="stop-color:#b45309;stop-opacity:1" />
                             </linearGradient>
                           </defs>
                           <path d="M50 30 L80 45 L80 70 L50 85 L20 70 L20 45 Z" fill="url(#cubeGradient)" opacity="0.9" />
                           <path d="M50 10 L80 25 L80 45 L50 30 L20 45 L20 25 Z" fill="url(#cubeGradient)" opacity="1" />
-                          <path d="M50 30 L50 85 L80 70 L80 45 Z" fill="#ffffff" opacity="0.3" />
+                          <path d="M50 30 L50 85 L80 70 L80 45 Z" fill="#ffffff" opacity="0.2" />
                         </svg>
                     </div>
-                    <span class="font-bold text-lg tracking-tight text-white">MicroERP</span>
+                    <span class="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">MicroERP</span>
                 </div>
             </div>
-            <nav class="sidebar-scroll">
-                <ul class="sidebar-nav">
+            <nav class="sidebar-scroll py-6 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                <ul class="sidebar-nav px-2">
                     <!-- Dinámico -->
                 </ul>
             </nav>
-            <div class="sidebar-footer">
-                <div class="flex items-center gap-3 mb-2">
-                    <div class="w-2 h-2 rounded-full status-breathing transition-all"></div>
-                    <span class="text-xs text-slate-400">Sistema Conectado</span>
+            <div class="sidebar-footer p-4 border-t border-white/5 bg-slate-950/80 mt-auto">
+                <div class="flex items-center gap-3 pl-1">
+                    <div class="w-2.5 h-2.5 shrink-0 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse transition-all"></div>
+                    <span class="text-[11px] font-bold text-slate-500 tracking-[0.2em]">SISTEMA CONECTADO</span>
                 </div>
             </div>
         `;
@@ -290,13 +356,15 @@
         finalMenu.forEach(itemConfig => {
             if (itemConfig.type === 'link') {
                 const li = document.createElement('li');
-                li.className = 'mb-1 px-3'; // Padding para el efecto Pill
+                li.className = 'mb-2'; 
                 const isActive = page === itemConfig.url;
 
                 li.innerHTML = `
-                    <a href="${itemConfig.url}" class="sidebar-link ${isActive ? 'active' : ''}">
-                        <i class="${itemConfig.icon} w-5 text-center mr-3 ${isActive ? 'text-white' : 'text-slate-400'}"></i>
-                        <span class="font-medium">${itemConfig.label}</span>
+                    <a href="${itemConfig.url}" class="flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-all group no-underline text-slate-400 hover:text-white ${isActive ? 'bg-slate-900 border border-slate-800' : 'hover:bg-slate-900'}">
+                        <div class="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-all ${isActive ? 'bg-slate-950 border-amber-500/50 border text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.15)]' : 'bg-transparent text-slate-500 group-hover:text-amber-500'}">
+                            <i class="${itemConfig.icon}"></i>
+                        </div>
+                        <span class="nav-text font-semibold text-sm whitespace-nowrap transition-colors ${isActive ? 'text-white' : ''}">${itemConfig.label}</span>
                     </a>
                 `;
                 navList.appendChild(li);
@@ -304,7 +372,7 @@
             else if (itemConfig.type === 'accordion') {
                 moduleCounter++;
                 const li = document.createElement('li');
-                li.className = 'nav-section mt-2';
+                li.className = 'nav-section mt-1';
 
                 // Verificar si algún hijo o el módulo padre está activo para forzar apertura del acordeón
                 let hasActiveChild = false;
@@ -331,9 +399,6 @@
                 })();
 
                 // Estructura Dual: Link (Izq) + Toggle (Der)
-                // Usamos clases de Tailwind para alinear y dar estilos
-                const linkUrl = itemConfig.url ? itemConfig.url : '#';
-
                 // Determinamos si es un link o un div basado en si hay URL
                 const isLink = !!itemConfig.url;
                 const tag = isLink ? 'a' : 'div';
@@ -341,26 +406,26 @@
                 const cursorClass = isLink ? 'cursor-pointer' : 'cursor-default';
 
                 li.innerHTML = `
-                    <div class="flex items-center justify-between px-4 py-3 hover:bg-slate-800 transition-colors rounded-lg mx-2 mb-1 group">
+                    <div class="flex items-center justify-between px-3 py-2 rounded-lg mx-1 mb-1 group transition-colors hover:bg-slate-800/40 ${isOpen ? 'bg-slate-900/40' : ''}">
                         <!-- ZONA IZQUIERDA: NAVEGACIÓN (Título e icono) -->
-                        <${tag} ${hrefAttr} class="flex items-center gap-3 flex-grow ${cursorClass} no-underline">
-                             <div class="w-8 h-8 shrink-0 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 border border-slate-700 group-hover:border-blue-500 group-hover:text-blue-400 transition-all">
-                                <i class="${itemConfig.icon} text-xs"></i>
+                        <${tag} ${hrefAttr} class="flex items-center gap-3 flex-grow ${cursorClass} no-underline origin-left" ${!isLink ? `onclick="toggleAccordion('${itemConfig.id}')"` : ''}>
+                             <div class="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-all bg-slate-900/80 border border-slate-800/80 text-slate-500 group-hover:border-amber-500/50 group-hover:text-amber-500 group-hover:shadow-[0_0_10px_rgba(245,158,11,0.1)] ${isOpen ? 'border-amber-500/50 text-amber-500' : ''}">
+                                <i class="${itemConfig.icon} text-[13px]"></i>
                              </div>
-                             <div class="flex flex-col items-start leading-tight">
-                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">MÓDULO ${moduleCounter}</span>
-                                <span class="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">${itemConfig.label}</span>
+                             <div class="flex flex-col items-start leading-tight min-w-0 pr-2">
+                                <span class="text-[9px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-0.5">MÓDULO ${moduleCounter}</span>
+                                <span class="nav-text text-[13px] font-bold text-slate-300 group-hover:text-white transition-colors truncate w-full">${itemConfig.label}</span>
                              </div>
                         </${tag}>
 
                         <!-- ZONA DERECHA: COLAPSO (Solo area del icono) -->
-                        <div class="p-2 -mr-2 cursor-pointer text-slate-500 hover:text-white transition-colors" onclick="toggleAccordion('${itemConfig.id}')" title="Expandir/Contraer">
-                            <i class="fas fa-chevron-down text-xs transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}" id="icon-${itemConfig.id}"></i>
+                        <div class="p-1 -mr-1 pr-2 cursor-pointer text-slate-500 group-hover:text-amber-500 transition-colors shrink-0" onclick="toggleAccordion('${itemConfig.id}')" title="Expandir/Contraer">
+                            <i class="fas fa-chevron-down text-[10px] transition-transform duration-300 ${isOpen ? 'rotate-180 text-amber-500' : ''}" id="icon-${itemConfig.id}"></i>
                         </div>
                     </div>
 
                     <div id="${itemConfig.id}" class="sidebar-accordion-content ${isOpen ? 'expanded' : ''}">
-                        <div class="py-2">
+                        <div class="py-1">
                              <!-- Grupos se insertan aquí -->
                         </div>
                     </div>
@@ -373,14 +438,14 @@
                     if (group.hiddenInSidebar) return;
 
                     const groupDiv = document.createElement('div');
-                    groupDiv.className = 'mb-4'; // Espaciado entre grupos
+                    groupDiv.className = 'mb-3 mt-1'; // Espaciado entre grupos
 
-                    // Subtítulo (Color Azul Premium para destacar secciones)
-                    groupDiv.innerHTML = `<div class="px-6 py-2 text-xs font-bold text-blue-400 uppercase tracking-widest">${group.subtitle}</div>`;
+                    // Subtítulo (Color Amber corporativo)
+                    groupDiv.innerHTML = `<div class="px-5 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-[0.15em] pl-7 mb-1.5">${group.subtitle}</div>`;
 
                     // Items del grupo
                     const ul = document.createElement('ul');
-                    ul.className = 'space-y-1 px-3'; // Espaciado vertical y padding lateral para efectos
+                    ul.className = 'space-y-[2px] mx-2'; 
 
                     group.items.forEach(subItem => {
                         const subLi = document.createElement('li');
@@ -412,16 +477,23 @@
         window.toggleAccordion = function (id) {
             const content = document.getElementById(id);
             const icon = document.getElementById('icon-' + id);
+            const parentDiv = content.previousElementSibling;
 
             if (content.style.maxHeight || content.classList.contains('expanded')) {
                 content.style.maxHeight = null;
                 content.classList.remove('expanded');
-                icon.classList.remove('rotate-180');
+                icon.classList.remove('rotate-180', 'text-amber-500');
+                parentDiv.classList.remove('bg-slate-900/40');
+                const iconDiv = parentDiv.querySelector('.w-8');
+                iconDiv.classList.remove('border-amber-500/50', 'text-amber-500');
                 localStorage.setItem(`sidebar_state_v2_${id}`, 'false'); // Guardar estado cerrado
             } else {
                 content.classList.add('expanded');
                 content.style.maxHeight = content.scrollHeight + "px"; // Animación smooth
-                icon.classList.add('rotate-180');
+                icon.classList.add('rotate-180', 'text-amber-500');
+                parentDiv.classList.add('bg-slate-900/40');
+                const iconDiv = parentDiv.querySelector('.w-8');
+                iconDiv.classList.add('border-amber-500/50', 'text-amber-500');
                 localStorage.setItem(`sidebar_state_v2_${id}`, 'true'); // Guardar estado abierto
             }
         };
@@ -429,7 +501,13 @@
         // Función Global para Colapsar Sidebar
         window.toggleSidebar = function () {
             const sidebar = document.querySelector('.sidebar');
+            const contentArea = document.querySelector('.content-area');
             sidebar.classList.toggle('collapsed');
+            if (sidebar.classList.contains('collapsed')) {
+                contentArea.style.marginLeft = '80px';
+            } else {
+                contentArea.style.marginLeft = '280px';
+            }
             localStorage.setItem('sidebar_is_collapsed', sidebar.classList.contains('collapsed'));
         };
 
@@ -438,6 +516,9 @@
             document.querySelectorAll('.sidebar-accordion-content.expanded').forEach(el => {
                 if (el.scrollHeight > 0) {
                     el.style.maxHeight = el.scrollHeight + "px";
+                    const parentDiv = el.previousElementSibling;
+                    const iconDiv = parentDiv.querySelector('.w-8');
+                    iconDiv.classList.add('border-amber-500/50', 'text-amber-500');
                 }
             });
         }, 100);
