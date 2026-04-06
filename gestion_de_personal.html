@@ -8,15 +8,18 @@
 
     <!-- Tailwind & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'], } } } }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css"> <!-- Nucleo Estético Oficial -->
 
     <!-- Supabase & Auth -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth-guard.js"></script>
 
-    <link rel="stylesheet" href="styles.css">
-
+    <!-- LOGICA PURA (REGLA DE ORO) - Integrada con inyección CSS estandarizada -->
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth(); // Esperar a que supabaseClient y currentEmpresaId existan (vía auth-guard)
@@ -56,20 +59,26 @@
                     .eq('activo', true);
 
                 if (!listado || listado.length === 0) {
-                    const liVacio = '<li style="color: #666; font-style: italic; font-size: 13px;"><i class="fas fa-info-circle mt-1 mr-1 text-slate-400"></i> No hay personal registrado.</li>';
+                    const liVacio = '<li class="text-slate-400 text-sm italic py-2"><i class="fas fa-info-circle mt-1 mr-2 text-slate-500"></i> No hay personal registrado.</li>';
                     document.getElementById('alertListNegativo').innerHTML = liVacio;
                     document.getElementById('alertListPositivo').innerHTML = liVacio;
                     
-                    // Aplicar estilo de Empty State Global
-                    document.getElementById('alertBox').style.borderLeftColor = '#4caf50';
-                    document.getElementById('alertBox').style.backgroundColor = '#e8f5e9';
+                    // Aplicar estilo de Empty State Global (Aura Verde)
+                    const alertBox = document.getElementById('alertBox');
+                    alertBox.className = "mb-14 overflow-hidden rounded-2xl bg-emerald-500/5 backdrop-blur-xl border border-emerald-500/20 shadow-[0_15px_40px_-15px_rgba(16,185,129,0.2)]";
+                    const banner = document.getElementById('alertBanner');
+                    if (banner) banner.className = "bg-emerald-500/10 px-6 py-4 border-b border-emerald-500/20 flex items-center justify-between";
+                    const iconBox = document.getElementById('alertIconBox');
+                    if (iconBox) iconBox.className = "w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/40";
+                    
                     const icon = document.getElementById('alertMainIcon');
                     if(icon) {
-                        icon.style.color = '#4caf50';
-                        icon.className = 'fas fa-check-circle';
+                        icon.className = 'fas fa-check-circle text-emerald-500 text-lg drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]';
                     }
-                    const hText = document.getElementById('alertBox').querySelector('h4');
-                    if (hText) hText.style.color = '#2e7d32';
+                    const hText = document.getElementById('alertTitle');
+                    if (hText) hText.className = 'text-emerald-500 font-bold text-lg m-0 tracking-wide flex items-center gap-2';
+                    const sText = document.getElementById('alertSubtitle');
+                    if (sText) sText.className = 'text-emerald-600/60 text-xs font-bold uppercase tracking-widest mt-0.5';
                     
                     return;
                 }
@@ -103,13 +112,13 @@
                     if (saldo < 0) {
                         alertasNegativas.push({
                             sortKey: p.apellidos + ' ' + p.nombres,
-                            html: `<strong>${p.nombres.split(' ')[0]} ${p.apellidos.split(' ')[0]}</strong> mantiene una deuda de <strong style="color: #d32f2f;">${Math.abs(saldo)} horas</strong>. Se descontará en planilla.`
+                            html: `<strong class="text-slate-200">${p.nombres.split(' ')[0]} ${p.apellidos.split(' ')[0]}</strong> mantiene una deuda de <strong class="text-rose-400 drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]">${Math.abs(saldo)} horas</strong>. Se descontará en planilla.`
                         });
                     } else if (saldo > 0) {
                         const accion = p.pago_horas_extras_habilitado ? "abonará en Efectivo" : "reservará para Canje";
                         alertasPositivas.push({
                             sortKey: p.apellidos + ' ' + p.nombres,
-                            html: `<strong>${p.nombres.split(' ')[0]} ${p.apellidos.split(' ')[0]}</strong> tiene saldo a favor de <strong style="color: #388e3c;">+${saldo} horas</strong>. Se ${accion} según perfil.`
+                            html: `<strong class="text-slate-200">${p.nombres.split(' ')[0]} ${p.apellidos.split(' ')[0]}</strong> tiene saldo a favor de <strong class="text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]">+${saldo} horas</strong>. Se ${accion} según perfil.`
                         });
                     }
                 });
@@ -125,22 +134,22 @@
                 dListPos.innerHTML = '';
 
                 if (alertasNegativas.length === 0) {
-                    dListNeg.innerHTML = '<li style="color: #666; font-style: italic; font-size: 13px;"><i class="fas fa-check mt-1 mr-1 text-slate-400"></i> No hay personal con balance negativo.</li>';
+                    dListNeg.innerHTML = '<li class="text-slate-400 text-sm italic py-2"><i class="fas fa-check mt-1 mr-2 text-slate-500"></i> No hay personal con balance negativo.</li>';
                 } else {
                     alertasNegativas.forEach(item => {
                         const li = document.createElement('li');
-                        li.style.marginBottom = '6px';
+                        li.className = 'mb-2 pb-2 border-b border-rose-500/10 last:border-0 leading-relaxed';
                         li.innerHTML = item.html;
                         dListNeg.appendChild(li);
                     });
                 }
 
                 if (alertasPositivas.length === 0) {
-                    dListPos.innerHTML = '<li style="color: #666; font-style: italic; font-size: 13px;"><i class="fas fa-info-circle mt-1 mr-1 text-slate-400"></i> No hay personal con excedentes.</li>';
+                    dListPos.innerHTML = '<li class="text-slate-400 text-sm italic py-2"><i class="fas fa-info-circle mt-1 mr-2 text-slate-500"></i> No hay personal con excedentes.</li>';
                 } else {
                     alertasPositivas.forEach(item => {
                         const li = document.createElement('li');
-                        li.style.marginBottom = '6px';
+                        li.className = 'mb-2 pb-2 border-b border-emerald-500/10 last:border-0 leading-relaxed';
                         li.innerHTML = item.html;
                         dListPos.appendChild(li);
                     });
@@ -148,334 +157,208 @@
 
                 // Estilo general si todo está en cero absoluto
                 if (alertasNegativas.length === 0 && alertasPositivas.length === 0) {
-                    document.getElementById('alertBox').style.borderLeftColor = '#4caf50';
-                    document.getElementById('alertBox').style.backgroundColor = '#e8f5e9';
+                    const alertBox = document.getElementById('alertBox');
+                    alertBox.className = "mb-14 overflow-hidden rounded-2xl bg-emerald-500/5 backdrop-blur-xl border border-emerald-500/20 shadow-[0_15px_40px_-15px_rgba(16,185,129,0.2)]";
+                    const banner = document.getElementById('alertBanner');
+                    if (banner) banner.className = "bg-emerald-500/10 px-6 py-4 border-b border-emerald-500/20 flex items-center justify-between";
+                    const iconBox = document.getElementById('alertIconBox');
+                    if (iconBox) iconBox.className = "w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/40";
+                    
                     const icon = document.getElementById('alertMainIcon');
                     if(icon) {
-                        icon.style.color = '#4caf50';
-                        icon.className = 'fas fa-check-circle';
+                        icon.className = 'fas fa-check-circle text-emerald-500 text-lg drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]';
                     }
-                    const hText = document.getElementById('alertBox').querySelector('h4');
-                    if (hText) hText.style.color = '#2e7d32';
+                    const hText = document.getElementById('alertTitle');
+                    if (hText) hText.className = 'text-emerald-500 font-bold text-lg m-0 tracking-wide flex items-center gap-2';
+                    const sText = document.getElementById('alertSubtitle');
+                    if (sText) sText.className = 'text-emerald-600/60 text-xs font-bold uppercase tracking-widest mt-0.5';
                 }
 
             } catch (err) {
                 console.error("Error generando alertas: ", err);
-                const errorStr = '<li style="color: red;">No se pudo conectar con la BD de horas.</li>';
+                const errorStr = '<li class="text-rose-500 text-sm font-bold py-2 shadow"><i class="fas fa-times-circle mr-2"></i>No se pudo conectar con la BD de horas.</li>';
                 if(document.getElementById('alertListNegativo')) document.getElementById('alertListNegativo').innerHTML = errorStr;
                 if(document.getElementById('alertListPositivo')) document.getElementById('alertListPositivo').innerHTML = errorStr;
             }
         }
     </script>
-
-    <style>
-        /* Estilos Locales - Grid Module Layout */
-        .container {
-            padding: 30px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .page-header {
-            margin-bottom: 30px;
-        }
-
-        .page-header h2 {
-            color: #2c3e50;
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-
-        .page-header p {
-            color: #7f8c8d;
-            font-size: 16px;
-        }
-
-        .modules-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
-            margin-top: 30px;
-        }
-
-        .module-card {
-            background: white;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            cursor: pointer;
-            transition: all 0.3s;
-            border-left: 4px solid #0070f2;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            text-decoration: none;
-        }
-
-        .module-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #0070f2, #00a8ff);
-            transform: scaleX(0);
-            transition: transform 0.3s;
-        }
-
-        .module-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .module-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-        }
-
-        .module-card.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            border-left-color: #bdc3c7;
-        }
-
-        .module-card.disabled:hover {
-            transform: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .module-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-
-        .module-icon {
-            font-size: 40px;
-            line-height: 1;
-            color: #354a5f;
-        }
-
-        .module-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .badge-core {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        .badge-daily {
-            background: #fff3e0;
-            color: #e65100;
-        }
-
-        .badge-finance {
-            background: #e3f2fd;
-            color: #1565c0;
-        }
-
-        .badge-config {
-            background: #f3e5f5;
-            color: #6a1b9a;
-        }
-
-        .module-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .module-description {
-            color: #7f8c8d;
-            font-size: 14px;
-            line-height: 1.5;
-            flex: 1;
-        }
-
-        .alert-box {
-            background-color: #fff3e0;
-            border-left: 4px solid #f57c00;
-            padding: 16px;
-            border-radius: 0 8px 8px 0;
-            margin-bottom: 30px;
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .alert-box i {
-            font-size: 24px;
-            color: #f57c00;
-            margin-top: 4px;
-        }
-
-        .alert-content h4 {
-            color: #e65100;
-            font-weight: 600;
-            margin-bottom: 4px;
-            font-size: 15px;
-        }
-
-        .alert-content p {
-            color: #b26a00;
-            font-size: 14px;
-        }
-
-        .alert-content ul {
-            color: #b26a00;
-            font-size: 13px;
-            margin-top: 8px;
-            padding-left: 20px;
-            list-style-type: disc;
-        }
-    </style>
 </head>
 
-<body>
-    <!-- Header Standarizado del Módulo -->
+<body class="bg-slate-950 text-slate-200">
+    <!-- Header Standarizado del Módulo (Garantía styles.css) -->
     <header class="submodule-header">
         <div class="submodule-header-content">
             <button class="btn-back-std" onclick="window.location.href='dashboard.html'">
-                ← Volver al Panel
+                <i class="fa-solid fa-arrow-left"></i> Volver al Panel
             </button>
-            <h1>Gestión de Personal</h1>
+            <h1 class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Gestión de Personal</h1>
             <div class="submodule-version">MICRO ERP v2.0</div>
         </div>
     </header>
 
-    <main class="container">
+    <main class="max-w-[1400px] mx-auto px-6 py-10 pt-12">
 
-        <!-- Alerta Dinámica de Fin de Mes -->
-        <div class="alert-box" id="alertBox" style="display: block;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                <i class="fas fa-exclamation-triangle" id="alertMainIcon" style="margin: 0; font-size: 24px;"></i>
-                <div class="alert-content" style="width: 100%;">
-                    <h4 style="margin: 0;">Alertas de Fin de Mes (<span id="alertMesText">Cargando...</span>)</h4>
+        <!-- Alerta Dinámica de Fin de Mes (Glassmorphism + Neon Semántico) -->
+        <div class="mb-14 overflow-hidden rounded-2xl bg-amber-500/5 backdrop-blur-xl border border-amber-500/20 shadow-[0_15px_40px_-15px_rgba(245,158,11,0.2)]" id="alertBox">
+            <!-- Barra Superior Titular -->
+            <div id="alertBanner" class="bg-amber-500/10 px-6 py-4 border-b border-amber-500/20 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="alertIconBox" class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border border-amber-500/40">
+                        <i class="fas fa-exclamation-triangle text-amber-500 text-lg drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" id="alertMainIcon"></i>
+                    </div>
+                    <div>
+                        <h4 id="alertTitle" class="text-amber-500 font-bold text-lg m-0 tracking-wide flex items-center gap-2">
+                             Alertas de Fin de Mes
+                        </h4>
+                        <p id="alertSubtitle" class="text-amber-600/60 text-xs font-bold uppercase tracking-widest mt-0.5">Corte Evaluativo: <span class="text-amber-500" id="alertMesText">Cargando...</span></p>
+                    </div>
                 </div>
             </div>
-            <div class="alert-content">
-                <p style="margin-bottom: 16px;">Resumen de saldos del Banco de Horas al momento:</p>
+            
+            <div class="px-6 py-6">
+                <p class="text-slate-400 text-sm mb-5 font-medium">Resumen consolidado de saldos del Banco de Horas al momento presente:</p>
                 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
-                    <!-- Columna Izquierda: Deudas -->
-                    <div style="background: rgba(255,255,255,0.7); padding: 16px; border-radius: 8px; border-left: 4px solid #d32f2f; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        <h5 style="color: #c62828; font-weight: 700; font-size: 13px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-arrow-down mr-1"></i> Balance Negativo (Para Corregir)</h5>
-                        <ul id="alertListNegativo" style="margin-top:0; max-height: 120px; overflow-y: auto; padding-right: 5px;" class="custom-scrollbar">
-                            <li><i class="fas fa-spinner fa-spin"></i> Consultando...</li>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Columna Izquierda: Deudas (Rose Neon) -->
+                    <div class="bg-slate-900/60 rounded-xl p-5 border-l-4 border-rose-500 shadow-inner group transition-all duration-300 hover:bg-slate-900/80 hover:shadow-[0_0_20px_rgba(244,63,94,0.05)] border-y border-r border-slate-800">
+                        <h5 class="text-rose-500 font-bold text-xs mb-4 uppercase tracking-[0.1em] flex items-center gap-2 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]">
+                             <i class="fas fa-arrow-down-long"></i> Balance Negativo (Descuentos)
+                        </h5>
+                        <ul id="alertListNegativo" class="text-slate-400 text-sm m-0 list-none max-h-[140px] overflow-y-auto pr-2 custom-scrollbar">
+                            <li><i class="fas fa-spinner fa-spin text-slate-600"></i> Consultando...</li>
                         </ul>
                     </div>
                     
-                    <!-- Columna Derecha: Excedentes -->
-                    <div style="background: rgba(255,255,255,0.7); padding: 16px; border-radius: 8px; border-left: 4px solid #388e3c; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        <h5 style="color: #2e7d32; font-weight: 700; font-size: 13px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-arrow-up mr-1" style="color: #388e3c;"></i> Balance Positivo (Para Felicitar)</h5>
-                        <ul id="alertListPositivo" style="margin-top:0; max-height: 120px; overflow-y: auto; padding-right: 5px;" class="custom-scrollbar">
-                            <li><i class="fas fa-spinner fa-spin"></i> Consultando...</li>
+                    <!-- Columna Derecha: Excedentes (Emerald Neon) -->
+                    <div class="bg-slate-900/60 rounded-xl p-5 border-l-4 border-emerald-500 shadow-inner group transition-all duration-300 hover:bg-slate-900/80 hover:shadow-[0_0_20px_rgba(16,185,129,0.05)] border-y border-r border-slate-800">
+                        <h5 class="text-emerald-500 font-bold text-xs mb-4 uppercase tracking-[0.1em] flex items-center gap-2 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+                            <i class="fas fa-arrow-up-long"></i> Balance Positivo (Liquidaciones)
+                        </h5>
+                        <ul id="alertListPositivo" class="text-slate-400 text-sm m-0 list-none max-h-[140px] overflow-y-auto pr-2 custom-scrollbar">
+                            <li><i class="fas fa-spinner fa-spin text-slate-600"></i> Consultando...</li>
                         </ul>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="page-header">
-            <h2>Gestión de Recursos Humanos</h2>
-            <p>Administra colaboradores, turnos, registros de asistencia y generación de liquidaciones mensuales.</p>
+        <div class="mb-12">
+            <h2 class="text-3xl lg:text-4xl font-extrabold text-white tracking-tight mb-3">Recursos Humanos</h2>
+            <p class="text-slate-400 text-sm lg:text-base tracking-wide">Administra colaboradores, turnos, registros de asistencia y generación de liquidaciones de planillas.</p>
         </div>
 
         <!-- GRUPO: CONTROL -->
-        <h3
-            class="text-lg font-bold text-slate-700 mt-8 mb-4 tracking-wide border-b border-slate-200 pb-2 flex items-center gap-2">
-            <i class="fas fa-tasks text-blue-500"></i> CONTROL</h3>
-        <div class="modules-grid" style="margin-top: 0;">
+        <h3 class="text-amber-500 font-bold text-sm mt-8 mb-5 tracking-[0.15em] uppercase border-b border-slate-800/80 pb-3 flex items-center gap-3">
+            <i class="fas fa-tasks text-slate-500"></i> Control Operativo
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
 
-            <a href="asistencia_reloj.html" class="module-card">
-                <div class="module-header">
-                    <div class="module-icon"><i class="fas fa-calendar-check"></i></div>
-                    <span class="module-badge badge-daily">Diario</span>
+            <a href="asistencia_reloj.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="flex justify-between items-start z-10 w-full pl-2">
+                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                         <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <!-- Badge Corporate -->
+                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Registro Diario</span>
                 </div>
-                <div class="module-title">Asistencia y Reloj</div>
-                <div class="module-description">
-                    Control diario de entradas y salidas. Gestión de almuerzos flexibles y alimentación automática del
-                    Banco de Horas.
+                <div class="z-10 pl-2">
+                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Asistencia y Reloj</div>
+                   <div class="text-slate-500 text-sm leading-relaxed">
+                       Control diario de entradas y salidas. Gestión de almuerzos flexibles y alimentación automática del Banco de Horas.
+                   </div>
                 </div>
             </a>
 
-            <a href="banco_de_horas.html" class="module-card">
-                <div class="module-header">
-                    <div class="module-icon"><i class="fas fa-hourglass-half"></i></div>
-                    <span class="module-badge badge-core">Trazabilidad</span>
+            <a href="banco_de_horas.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="flex justify-between items-start z-10 w-full pl-2">
+                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                         <i class="fas fa-hourglass-half"></i>
+                    </div>
+                    <!-- Badge Corporate -->
+                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Trazabilidad Central</span>
                 </div>
-                <div class="module-title">Banco de Horas</div>
-                <div class="module-description">
-                    Visualiza el saldo exacto de cada trabajador. Trazabilidad de cómo se acumularon deudas o excedentes
-                    minuto a minuto.
+                <div class="z-10 pl-2">
+                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Banco de Horas</div>
+                   <div class="text-slate-500 text-sm leading-relaxed">
+                       Visualiza el saldo exacto de cada trabajador. Trazabilidad de cómo se acumularon deudas o excedentes minuto a minuto.
+                   </div>
                 </div>
             </a>
 
-            <a href="liquidaciones.html" class="module-card">
-                <div class="module-header">
-                    <div class="module-icon"><i class="fas fa-money-check-alt"></i></div>
-                    <span class="module-badge badge-finance">Finanzas</span>
+            <a href="liquidaciones.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="flex justify-between items-start z-10 w-full pl-2">
+                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                         <i class="fas fa-money-check-alt"></i>
+                    </div>
+                    <!-- Badge Corporate -->
+                    <span class="px-3 py-1 bg-slate-950 border border-emerald-900 rounded-full text-[10px] font-bold text-emerald-500 uppercase tracking-widest shadow-inner">Hub Financiero</span>
                 </div>
-                <div class="module-title">Planillas y Liquidaciones</div>
-                <div class="module-description">
-                    Cierre de mes. Emisión de boletas A4. Gestión de Adelantos de Sueldo y Bonificaciones/Descuentos
-                    manuales de libre concepto.
+                <div class="z-10 pl-2">
+                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Planillas y Liquidaciones</div>
+                   <div class="text-slate-500 text-sm leading-relaxed">
+                       Cierre de mes. Emisión de boletas A4. Gestión de Adelantos de Sueldo y Bonificaciones/Descuentos manuales de libre concepto.
+                   </div>
                 </div>
             </a>
 
         </div>
 
         <!-- GRUPO: CONFIGURACIÓN -->
-        <h3
-            class="text-lg font-bold text-slate-700 mt-10 mb-4 tracking-wide border-b border-slate-200 pb-2 flex items-center gap-2">
-            <i class="fas fa-cogs text-purple-600"></i> CONFIGURACIÓN</h3>
-        <div class="modules-grid" style="margin-top: 0;">
+        <h3 class="text-amber-500 font-bold text-sm mt-10 mb-5 tracking-[0.15em] uppercase border-b border-slate-800/80 pb-3 flex items-center gap-3">
+            <i class="fas fa-sliders-h text-slate-500"></i> Parámetros Analíticos
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-            <!-- ACTIVO: Calendario Esperado -->
-            <a href="calendario_esperado_de_trabajadores.html" class="module-card">
-                <div class="module-header">
-                    <div class="module-icon"><i class="fas fa-calendar-alt"></i></div>
-                    <span class="module-badge badge-config">Programación</span>
+            <a href="calendario_esperado_de_trabajadores.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="flex justify-between items-start z-10 w-full pl-2">
+                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                         <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Programación</span>
                 </div>
-                <div class="module-title">Calendario Esperado</div>
-                <div class="module-description">
-                    Define los días laborables, feriados y descansos de cada trabajador. Configura sus horarios meta de
-                    entrada, salida y almuerzo para calcular saldos del Banco de Horas.
+                <div class="z-10 pl-2">
+                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Calendario Esperado</div>
+                   <div class="text-slate-500 text-sm leading-relaxed">
+                       Define los días laborables, feriados y descansos de cada trabajador. Configura sus horarios meta de entrada, salida y almuerzo para calcular saldos del Banco de Horas.
+                   </div>
                 </div>
             </a>
 
-            <!-- ACTIVO: Padrón de Personal -->
-            <a href="padron_personal.html" class="module-card">
-                <div class="module-header">
-                    <div class="module-icon"><i class="fas fa-users-cog"></i></div>
-                    <span class="module-badge badge-core">Maestro</span>
+            <a href="padron_personal.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="flex justify-between items-start z-10 w-full pl-2">
+                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                         <i class="fas fa-users-cog"></i>
+                    </div>
+                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Base Maestra</span>
                 </div>
-                <div class="module-title">Padrón de Personal</div>
-                <div class="module-description">
-                    Registra nuevos trabajadores, asigna Funciones Clave, salarios base/KPI y establece políticas de
-                    horas.
+                <div class="z-10 pl-2">
+                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Padrón de Personal</div>
+                   <div class="text-slate-500 text-sm leading-relaxed">
+                       Registra nuevos trabajadores, asigna Funciones Clave, salarios base/KPI y establece políticas de horas.
+                   </div>
                 </div>
             </a>
 
-            <!-- ACTIVO: Políticas de la Empresa -->
-            <a href="politicas_empresa.html" class="module-card">
-                <div class="module-header">
-                    <div class="module-icon"><i class="fas fa-sliders-h"></i></div>
-                    <span class="module-badge badge-config">Configuración</span>
+            <a href="politicas_empresa.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="flex justify-between items-start z-10 w-full pl-2">
+                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                         <i class="fas fa-cogs"></i>
+                    </div>
+                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Regulación Global</span>
                 </div>
-                <div class="module-title">Políticas de la Empresa</div>
-                <div class="module-description">
-                    Ajusta reglas de tolerancia cero, escalas de penalización dura por tardanzas y tiempos esperados de
-                    almuerzo.
+                <div class="z-10 pl-2">
+                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Políticas de la Empresa</div>
+                   <div class="text-slate-500 text-sm leading-relaxed">
+                       Ajusta reglas de tolerancia cero, escalas de penalización dura por tardanzas y tiempos esperados de almuerzo.
+                   </div>
                 </div>
             </a>
 
