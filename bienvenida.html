@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MicroERP - Sala de Bienvenida</title>
 
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
     <!-- Supabase JS Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
@@ -13,235 +20,199 @@
     <script src="auth-guard.js"></script>
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #354a5f 0%, #2c3e50 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            color: #2c3e50;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #020617; /* Slate 950 */
+            color: #f8fafc;
         }
 
-        .container {
-            max-width: 900px;
-            width: 100%;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-            text-align: center;
-            padding: 50px;
-            position: relative;
-        }
-
-        .header-icon {
-            font-size: 60px;
-            margin-bottom: 20px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        h1 {
-            font-size: 32px;
-            font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 15px;
-        }
-
-        .subtitle {
-            font-size: 18px;
-            color: #7f8c8d;
-            margin-bottom: 40px;
-            line-height: 1.6;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
-            text-align: left;
-        }
-
-        .feature-card {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 25px;
-            border-left: 4px solid #0070f2;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-        }
-
-        .feature-icon {
-            font-size: 30px;
-            margin-bottom: 15px;
-        }
-
-        .feature-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: #354a5f;
-        }
-
-        .feature-desc {
-            font-size: 14px;
-            color: #7f8c8d;
-            line-height: 1.5;
-        }
-
-        .status-box {
-            background: #fff8e1;
-            border: 1px solid #ffe082;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 0 auto 30px auto;
-            max-width: 600px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-        }
-
-        .status-icon {
-            font-size: 24px;
-            color: #f39c12;
-        }
-
-        .status-text {
-            color: #d68910;
-            font-weight: 500;
-            font-size: 15px;
-            text-align: left;
-        }
-
-        .action-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-        }
-
-        .btn {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
+        .glass-card {
+            background-color: rgba(15, 23, 42, 0.6); /* Slate 900 con opacidad */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
         }
 
-        .btn-primary {
-            background: #0070f2;
-            color: white;
-            box-shadow: 0 4px 15px rgba(0, 112, 242, 0.3);
+        .glass-card:hover {
+            border-color: rgba(245, 158, 11, 0.3); /* Amber subtil en hover */
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px -10px rgba(245, 158, 11, 0.15);
         }
 
-        .btn-primary:hover {
-            background: #005bb5;
+        .text-gradient {
+            background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .glow-button {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .glow-button:hover {
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.6);
             transform: translateY(-2px);
         }
 
-        .btn-secondary {
-            background: #ecf0f1;
-            color: #7f8c8d;
+        /* Ambient Light Blobs */
+        .blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .blob-1 {
+            width: 500px;
+            height: 500px;
+            background: rgba(245, 158, 11, 0.15); /* Amber */
+            top: -100px;
+            left: -100px;
+        }
+        
+        .blob-2 {
+            width: 600px;
+            height: 600px;
+            background: rgba(37, 99, 235, 0.15); /* Blue */
+            bottom: -200px;
+            right: -100px;
         }
 
-        .btn-secondary:hover {
-            background: #dfe4e6;
+        /* Reveal Animation */
+        .reveal-up {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: revealUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
 
-        @media (max-width: 768px) {
-            .container {
-                padding: 30px 20px;
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+
+        @keyframes revealUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
-            .action-buttons {
-                flex-direction: column;
-            }
+        }
+
+        /* Header icon pulse glow */
+        .header-icon-glow {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% { text-shadow: 0 0 10px rgba(245, 158, 11, 0.5); transform: scale(1); }
+            50% { text-shadow: 0 0 25px rgba(245, 158, 11, 0.8); transform: scale(1.05); }
+            100% { text-shadow: 0 0 10px rgba(245, 158, 11, 0.5); transform: scale(1); }
         }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <div class="header-icon">👋</div>
-        <h1>¡Bienvenido a Micro ERP!</h1>
-        <p class="subtitle">
-            El sistema integral diseñado específicamente para llevar tu microempresa al siguiente nivel. 
-            Actualmente tu cuenta ha sido autenticada con éxito, pero **estamos esperando que el administrador te asigne una empresa y los permisos correspondientes**.
-        </p>
+<body class="min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden">
+    
+    <!-- Ambient Lights -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
 
-        <div class="status-box">
-            <div class="status-icon">⏳</div>
-            <div class="status-text">
-                Tu perfil está en sala de espera. Por favor comunicate con el administrador para que te otorgue el nivel de acceso en la plataforma.
+    <div class="w-full max-w-5xl mx-auto py-10 relative z-10">
+        
+        <!-- Header -->
+        <div class="text-center mb-10 reveal-up">
+            <div class="text-5xl text-amber-500 mb-6 header-icon-glow inline-block">
+                <i class="fa-solid fa-microchip"></i>
+            </div>
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 text-gradient">¡Bienvenido a Micro ERP!</h1>
+            <p class="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
+                El sistema integral diseñado específicamente para llevar tu microempresa al siguiente nivel. 
+                Actualmente tu cuenta ha sido autenticada con éxito, pero <strong class="text-slate-300">estamos esperando que el administrador te asigne una empresa y los permisos correspondientes.</strong>
+            </p>
+        </div>
+
+        <!-- Status Box -->
+        <div class="max-w-3xl mx-auto mb-16 reveal-up delay-100">
+            <div class="glass-card rounded-2xl p-6 md:p-8 flex items-center gap-6 border border-amber-500/30 bg-slate-900/80">
+                <div class="text-4xl text-amber-500 flex-shrink-0">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <div class="text-left">
+                    <h3 class="text-amber-500 font-semibold text-lg mb-1">Tu perfil está en sala de espera</h3>
+                    <p class="text-slate-300 text-sm md:text-base leading-relaxed">
+                        Por favor comunícate con el administrador para que te otorgue el nivel de acceso en la plataforma y puedas activar el flujo de trabajo.
+                    </p>
+                </div>
             </div>
         </div>
 
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">📦</div>
-                <div class="feature-title">Inventario Inteligente</div>
-                <div class="feature-desc">Controla tus existencias al milímetro. Rastrea entradas, salidas y recibe notificaciones cuando tu stock esté bajo.</div>
+        <!-- Features Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16 reveal-up delay-200">
+            
+            <div class="glass-card rounded-xl p-6 group">
+                <div class="text-2xl text-amber-500 mb-4 transition-transform duration-300 group-hover:scale-110">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
+                <h4 class="text-slate-200 font-semibold text-lg mb-2">Inventario Inteligente</h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Controla tus existencias al milímetro. Rastrea entradas, salidas y recibe notificaciones cuando tu stock esté bajo.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🤝</div>
-                <div class="feature-title">Gestión de Clientes (CRM)</div>
-                <div class="feature-desc">Construye relaciones duraderas. Administra tus ventas, cotizaciones y ofrece un servicio al cliente excepcional.</div>
+
+            <div class="glass-card rounded-xl p-6 group">
+                <div class="text-2xl text-amber-500 mb-4 transition-transform duration-300 group-hover:scale-110">
+                    <i class="fa-solid fa-handshake-angle"></i>
+                </div>
+                <h4 class="text-slate-200 font-semibold text-lg mb-2">Gestión de Clientes (CRM)</h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Construye relaciones duraderas. Administra tus ventas, cotizaciones y ofrece un servicio excepcional.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🏭</div>
-                <div class="feature-title">Producción y Servicios</div>
-                <div class="feature-desc">Optimiza tus horas hombre, realiza seguimientos de órdenes de trabajo y transforma materias primas con total trazabilidad.</div>
+
+            <div class="glass-card rounded-xl p-6 group">
+                <div class="text-2xl text-amber-500 mb-4 transition-transform duration-300 group-hover:scale-110">
+                    <i class="fa-solid fa-industry"></i>
+                </div>
+                <h4 class="text-slate-200 font-semibold text-lg mb-2">Producción y Servicios</h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Optimiza horas hombre, sigue órdenes de trabajo y transforma materias primas con total trazabilidad.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">👥</div>
-                <div class="feature-title">Recursos Humanos</div>
-                <div class="feature-desc">Lleva el control exacto de asistencia, horas extra, faltas y liquidaciones de manera automática y sin errores.</div>
+
+            <div class="glass-card rounded-xl p-6 group">
+                <div class="text-2xl text-amber-500 mb-4 transition-transform duration-300 group-hover:scale-110">
+                    <i class="fa-solid fa-users-gear"></i>
+                </div>
+                <h4 class="text-slate-200 font-semibold text-lg mb-2">Recursos Humanos</h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Control exacto de asistencia, horas extra, faltas y liquidaciones de manera automática y sin errores.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <div class="feature-title">Análisis Financiero</div>
-                <div class="feature-desc">Reportes detallados y control total de finanzas para evaluar la rentabilidad del negocio de un vistazo.</div>
+
+            <div class="glass-card rounded-xl p-6 group">
+                <div class="text-2xl text-amber-500 mb-4 transition-transform duration-300 group-hover:scale-110">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <h4 class="text-slate-200 font-semibold text-lg mb-2">Análisis Financiero</h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Reportes detallados y control total de finanzas para evaluar la rentabilidad del negocio de un vistazo.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🧾</div>
-                <div class="feature-title">Ventas y Facturación</div>
-                <div class="feature-desc">Control de cotizaciones y emisión rápida de facturación electrónica e inventario.</div>
+
+            <div class="glass-card rounded-xl p-6 group">
+                <div class="text-2xl text-amber-500 mb-4 transition-transform duration-300 group-hover:scale-110">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <h4 class="text-slate-200 font-semibold text-lg mb-2">Ventas y Facturación</h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Control de cotizaciones y emisión rápida de facturación electrónica e inventario.</p>
             </div>
+
         </div>
 
-        <div class="action-buttons">
-            <button class="btn btn-primary" onclick="checkStatus()">
-                🔄 Actualizar Estado
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-5 reveal-up delay-300">
+            <button onclick="checkStatus()" class="w-full sm:w-auto bg-amber-500 text-slate-950 font-bold py-3 px-8 rounded-lg glow-button flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate"></i> Actualizar Estado
             </button>
-            <button class="btn btn-secondary" onclick="logout()">
-                🚪 Cerrar Sesión
+            <button onclick="logout()" class="w-full sm:w-auto bg-transparent border-2 border-slate-700 text-slate-300 font-semibold py-3 px-8 rounded-lg hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-center gap-2">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar Sesión
             </button>
         </div>
+
     </div>
 
     <script>
