@@ -1,559 +1,212 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MicroERP - Inicio de Sesión</title>
+  <title>Micro ERP | Acceso Seguro</title>
 
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Supabase JS Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      --bg-dark: #020617;
+      --card-bg: #0f172a;
     }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #354a5f 0%, #2c3e50 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-dark);
+      color: #f8fafc;
+      overflow-x: hidden;
     }
-
-    .container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      max-width: 1200px;
-      width: 100%;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      overflow: hidden;
-      min-height: 600px;
+    .text-gradient {
+      background: linear-gradient(to right, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
-
-    /* Sección Izquierda - Información */
-    .info-section {
-      background: linear-gradient(135deg, #354a5f 0%, #456178 100%);
-      color: white;
-      padding: 60px 50px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
+    .glass-card {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
-
-    .logo-container {
-      margin-bottom: 40px;
-    }
-
-    .logo {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 20px;
-      animation: float 3s ease-in-out infinite;
-    }
-
-    @keyframes float {
-
-      0%,
-      100% {
-        transform: translateY(0px);
-      }
-
-      50% {
-        transform: translateY(-10px);
-      }
-    }
-
-    .logo svg {
-      width: 100%;
-      height: 100%;
-    }
-
-    .brand-name {
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 10px;
-      letter-spacing: 2px;
-    }
-
-    .brand-tagline {
-      font-size: 16px;
-      opacity: 0.9;
-      line-height: 1.6;
-    }
-
-    .features {
-      margin-top: 40px;
-    }
-
-    .feature {
-      display: flex;
-      align-items: start;
-      margin-bottom: 24px;
-      opacity: 0;
-      animation: fadeInUp 0.6s forwards;
-    }
-
-    .feature:nth-child(1) {
-      animation-delay: 0.2s;
-    }
-
-    .feature:nth-child(2) {
-      animation-delay: 0.4s;
-    }
-
-    .feature:nth-child(3) {
-      animation-delay: 0.6s;
-    }
-
-    .feature:nth-child(4) {
-      animation-delay: 0.8s;
-    }
-
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .feature-icon {
-      font-size: 24px;
-      margin-right: 16px;
-      flex-shrink: 0;
-    }
-
-    .feature-text h3 {
-      font-size: 16px;
-      margin-bottom: 4px;
-      font-weight: 600;
-    }
-
-    .feature-text p {
-      font-size: 14px;
-      opacity: 0.85;
-      line-height: 1.5;
-    }
-
-    /* Sección Derecha - Login */
-    .login-section {
-      padding: 60px 50px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    .login-header {
-      margin-bottom: 40px;
-    }
-
-    .login-header h2 {
-      font-size: 28px;
-      color: #2c3e50;
-      margin-bottom: 8px;
-    }
-
-    .login-header p {
-      color: #7f8c8d;
-      font-size: 15px;
-    }
-
-    .login-form {
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* Contenedor para el botón de Google */
-    #googleButtonContainer {
-      margin: 0 auto;
-      width: 100%;
-      max-width: 300px;
-    }
-
-    .divider {
-      display: flex;
-      align-items: center;
-      margin: 30px 0;
-      color: #bdc3c7;
-      font-size: 14px;
-    }
-
-    .divider::before,
-    .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: #e0e0e0;
-    }
-
-    .divider span {
-      padding: 0 16px;
-    }
-
-    .info-box {
-      background: #f8f9fa;
-      border-left: 4px solid #0070f2;
-      padding: 16px;
-      border-radius: 6px;
-      margin-top: 24px;
-    }
-
-    .info-box.warning {
-      border-left-color: #f39c12;
-      background: #fff8e1;
-    }
-
-    .info-box.error {
-      border-left-color: #e74c3c;
-      background: #ffebee;
-    }
-
-    .info-box h4 {
-      color: #354a5f;
-      font-size: 14px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .info-box p {
-      color: #7f8c8d;
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    .footer-info {
-      margin-top: 30px;
-      text-align: center;
-      font-size: 13px;
-      color: #95a5a6;
-    }
-
-    /* Usuario logueado */
-    .user-profile {
-      display: none;
-      text-align: center;
-    }
-
-    .user-profile.active {
-      display: block;
-    }
-
-    .user-avatar {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      margin: 0 auto 20px;
-      border: 3px solid #0070f2;
-    }
-
-    .user-name {
-      font-size: 24px;
-      font-weight: 600;
-      color: #2c3e50;
-      margin-bottom: 8px;
-    }
-
-    .user-email {
-      color: #7f8c8d;
-      margin-bottom: 10px;
-    }
-
-    .user-role {
-      display: inline-block;
-      background: #0070f2;
-      color: white;
-      padding: 6px 16px;
-      border-radius: 20px;
-      font-size: 14px;
-      margin-bottom: 24px;
-    }
-
-    .action-buttons {
-      display: flex;
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .btn {
-      flex: 1;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 500;
-      cursor: pointer;
+    .glow-button {
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
       transition: all 0.3s ease;
     }
-
-    .btn-primary {
-      background: #0070f2;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #0060d8;
+    .glow-button:hover {
+      box-shadow: 0 0 40px rgba(245, 158, 11, 0.6);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 112, 242, 0.3);
     }
-
-    .btn-secondary {
-      background: #ecf0f1;
-      color: #7f8c8d;
+    .reveal {
+      animation: reveal 1s ease-out forwards;
     }
-
-    .btn-secondary:hover {
-      background: #dfe4e6;
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-
-    /* Animación de carga */
-    .loading {
-      display: none;
-      margin-top: 20px;
-      text-align: center;
-    }
-
-    .loading.active {
-      display: block;
-    }
-
     .spinner {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #0070f2;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top: 3px solid #f59e0b; /* Amber */
       border-radius: 50%;
       width: 40px;
       height: 40px;
       animation: spin 1s linear infinite;
       margin: 0 auto;
     }
-
     @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* Responsive */
-    @media (max-width: 968px) {
-      .container {
-        grid-template-columns: 1fr;
-      }
-
-      .info-section {
-        padding: 40px 30px;
-      }
-
-      .login-section {
-        padding: 40px 30px;
-      }
-
-      .brand-name {
-        font-size: 28px;
-      }
-
-      .login-header h2 {
-        font-size: 24px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      body {
-        padding: 10px;
-      }
-
-      .info-section,
-      .login-section {
-        padding: 30px 20px;
-      }
-
-      .feature {
-        margin-bottom: 20px;
-      }
-
-      .action-buttons {
-        flex-direction: column;
-      }
-
-      .logo-container {
-        text-align: center;
-      }
-
-      .logo {
-        margin-left: auto;
-        margin-right: auto;
-      }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
+<body class="relative min-h-screen flex items-center justify-center p-4">
 
-<body>
-  <div class="container">
-    <!-- Sección de Información -->
-    <div class="info-section">
-      <div>
-        <div class="logo-container">
-          <div class="logo">
-            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="cubeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#0070f2;stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:#00a8ff;stop-opacity:1" />
-                </linearGradient>
-              </defs>
-              <path d="M50 30 L80 45 L80 70 L50 85 L20 70 L20 45 Z" fill="url(#cubeGradient)" opacity="0.9" />
-              <path d="M50 10 L80 25 L80 45 L50 30 L20 45 L20 25 Z" fill="url(#cubeGradient)" opacity="1" />
-              <path d="M50 30 L50 85 L80 70 L80 45 Z" fill="#ffffff" opacity="0.3" />
-            </svg>
+  <!-- Ambient Light Blobs -->
+  <div class="fixed inset-0 z-0 pointer-events-none">
+      <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px]"></div>
+      <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-600/20 rounded-full blur-[120px]"></div>
+  </div>
+
+  <!-- Top Pricing Tab -->
+  <a href="planes_precios_microerp.html" class="fixed top-6 right-6 z-50 text-slate-300 font-semibold px-4 py-2 border border-slate-700/50 rounded-lg hover:text-white hover:bg-white/5 transition-all outline-none">
+    Ver Planes
+  </a>
+
+  <!-- Contenedor Principal -->
+  <div class="relative z-10 w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+    
+    <!-- Sección Izquierda: Branding -->
+    <div class="reveal px-4 lg:px-0 text-center lg:text-left">
+      <div class="inline-flex items-center gap-3 py-1 px-4 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-widest mb-6">
+        <i class="fas fa-shield-halved"></i>
+        <span>Acceso Corporativo Seguro</span>
+      </div>
+      <h1 class="text-4xl md:text-6xl font-extrabold tracking-tighter mb-6 leading-tight">
+        TU <span class="text-gradient">BÚNKER</span><br> FINANCIERO.
+      </h1>
+      <p class="text-lg md:text-xl text-slate-400 mb-10 font-light leading-relaxed max-w-lg mx-auto lg:mx-0">
+        Bienvenido a Micro ERP. Ingresa para gestionar tu negocio con precisión clínica, inventarios en tiempo real y rentabilidad bajo control total.
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-left max-w-lg mx-auto lg:mx-0">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-lock"></i>
           </div>
-          <div class="brand-name">MICRO ERP</div>
-          <div class="brand-tagline">Sistema de Gestión Empresarial Integral</div>
+          <div>
+            <h3 class="text-white font-bold mb-1">Privacidad Total</h3>
+            <p class="text-sm text-slate-400">Encriptación OAuth 2.0. Tus datos son solo tuyos.</p>
+          </div>
         </div>
-
-        <div class="features">
-          <div class="feature">
-            <div class="feature-icon">📦</div>
-            <div class="feature-text">
-              <h3>Control de Inventarios</h3>
-              <p>Gestiona tu stock en tiempo real con alertas automáticas</p>
-            </div>
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-500 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-bolt"></i>
           </div>
-          <div class="feature">
-            <div class="feature-icon">🏭</div>
-            <div class="feature-text">
-              <h3>Gestión de Producción</h3>
-              <p>Optimiza procesos de fabricación y seguimiento de órdenes</p>
-            </div>
-          </div>
-          <div class="feature">
-            <div class="feature-icon">💰</div>
-            <div class="feature-text">
-              <h3>Ventas y CRM</h3>
-              <p>Administra clientes, cotizaciones y ventas integradas</p>
-            </div>
-          </div>
-          <div class="feature">
-            <div class="feature-icon">📊</div>
-            <div class="feature-text">
-              <h3>Análisis Financiero</h3>
-              <p>Reportes detallados y control total de finanzas</p>
-            </div>
+          <div>
+            <h3 class="text-white font-bold mb-1">Respuesta Rápida</h3>
+            <p class="text-sm text-slate-400">Sincronización en la nube sin tiempos de espera.</p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Sección de Login -->
-    <div class="login-section">
-      <!-- Formulario de Login -->
-      <div id="loginForm" class="login-form">
-        <div class="login-header">
-          <h2>Iniciar Sesión</h2>
-          <p>Accede a tu cuenta con Google de forma segura</p>
+    <!-- Sección Derecha: Login Panel -->
+    <div class="reveal glass-card rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative" style="animation-delay: 0.2s;">
+      
+      <!-- Login Form -->
+      <div id="loginForm" class="flex flex-col">
+        <div class="text-center mb-10">
+          <div class="w-20 h-20 bg-slate-800 rounded-2xl mx-auto mb-6 flex items-center justify-center border border-slate-700 shadow-inner">
+            <i class="fas fa-fingerprint text-4xl text-amber-500"></i>
+          </div>
+          <h2 class="text-3xl font-bold mb-2">Iniciar Sesión</h2>
+          <p class="text-slate-400 text-sm">Validación de cuentas autorizadas</p>
         </div>
 
-        <!-- El botón de Google se renderizará aquí -->
-        <div id="googleButtonContainer"></div>
-
-        <div class="divider">
-          <span>Acceso seguro</span>
+        <!-- Botón de Google Container -->
+        <div class="mb-8 flex justify-center">
+          <div id="googleButtonContainer" class="w-full max-w-[300px] overflow-hidden rounded-md"></div>
         </div>
 
-        <div class="info-box">
-          <h4>🔒 Seguridad Garantizada</h4>
-          <p>Tu información está protegida con OAuth 2.0. No almacenamos contraseñas y tu sesión está cifrada de extremo
-            a extremo.</p>
+        <div class="flex items-center gap-4 text-slate-500 text-sm mb-8">
+          <hr class="flex-grow border-slate-800">
+          <span class="uppercase tracking-widest text-xs font-semibold">Integridad de Acceso</span>
+          <hr class="flex-grow border-slate-800">
         </div>
 
-        <div class="footer-info">
-          Al continuar, aceptas nuestros términos de servicio
+        <div class="bg-blue-900/20 border-l-4 border-l-blue-500 p-4 rounded-r-xl">
+          <h4 class="text-blue-400 font-bold text-sm mb-1"><i class="fas fa-shield-check mr-2"></i>Seguridad Confirmada</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">No almacenamos contraseñas. Tu inicio de sesión se procesa externamente mediante los protocolos OAuth 2.0 de Google.</p>
         </div>
       </div>
 
-      <!-- Perfil de Usuario (oculto inicialmente) -->
-      <div id="userProfile" class="user-profile">
-        <img id="userAvatar" class="user-avatar" src="" alt="User" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'50\' fill=\'%230070f2\'/><text x=\'50\' y=\'65\' font-family=\'Arial\' font-size=\'40\' font-weight=\'bold\' fill=\'white\' text-anchor=\'middle\'>U</text></svg>';">
-        <div class="user-name" id="userName"></div>
-        <div class="user-email" id="userEmail"></div>
-        <div class="user-role" id="userRole">Rol: Socio</div>
+      <!-- User Profile (Hidden Initially) -->
+      <div id="userProfile" class="hidden flex-col items-center text-center">
+        <img id="userAvatar" src="" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-amber-500 p-1 mb-4 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+        <h3 id="userName" class="text-2xl font-bold mb-1"></h3>
+        <p id="userEmail" class="text-slate-400 text-sm mb-3"></p>
+        
+        <span id="userRole" class="inline-block py-1 px-4 bg-slate-800 text-amber-500 border border-amber-500/30 rounded-full text-xs font-bold uppercase tracking-widest mb-8">
+          Obteniendo rol...
+        </span>
 
-        <div id="actionInfoBox" class="info-box">
-          <h4>✅ Sesión Iniciada</h4>
-          <p>Tu información ha sido verificada correctamente. Puedes acceder al dashboard o cerrar sesión.</p>
+        <div id="actionInfoBox" class="w-full mb-8 text-left bg-emerald-500/10 border-l-4 border-l-emerald-500 p-4 rounded-r-xl">
+          <!-- Text Injected dynamically -->
         </div>
 
-        <div class="action-buttons">
-          <button id="primaryActionButton" class="btn btn-primary" onclick="goToDashboard()">
-            Ir al Dashboard →
+        <div class="w-full space-y-4">
+          <button id="primaryActionButton" onclick="goToDashboard()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-black rounded-xl font-bold text-lg glow-button uppercase tracking-widest transition-all hover:scale-[1.02]">
+            <!-- Text Injected dynamically -->
           </button>
-          <button class="btn btn-secondary" onclick="logout()">
+          <button onclick="logout()" class="w-full py-3 bg-transparent hover:bg-white/5 border border-slate-700 text-slate-400 rounded-xl font-semibold transition-colors">
             Cerrar Sesión
           </button>
         </div>
       </div>
 
-      <!-- Indicador de carga -->
-      <div id="loading" class="loading">
-        <div class="spinner"></div>
-        <p style="margin-top: 12px; color: #7f8c8d;">Verificando credenciales...</p>
+      <!-- Loading State -->
+      <div id="loading" class="hidden flex-col items-center justify-center py-10">
+        <div class="spinner mb-6"></div>
+        <p class="text-amber-500 font-semibold tracking-wider animate-pulse uppercase text-sm">Verificando Encriptación...</p>
       </div>
 
-      <!-- Mensaje de acceso denegado -->
-      <div id="accessDenied" class="login-form" style="display: none;">
-        <div class="login-header">
-          <h2>Acceso Denegado</h2>
-          <p>Tu correo no está autorizado para acceder</p>
+      <!-- Access Denied -->
+      <div id="accessDenied" class="hidden flex-col text-center">
+        <div class="w-20 h-20 bg-red-900/20 rounded-2xl mx-auto mb-6 flex items-center justify-center border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+            <i class="fas fa-ban text-4xl text-red-500"></i>
+        </div>
+        <h2 class="text-3xl font-bold mb-2">Acceso Restringido</h2>
+        <p class="text-slate-400 mb-8">Credenciales no vinculadas.</p>
+
+        <div class="bg-red-900/20 border-l-4 border-l-red-500 p-4 rounded-r-xl text-left mb-8">
+          <h4 class="text-red-400 font-bold text-sm mb-1">Inquilino No Encontrado</h4>
+          <p class="text-xs text-slate-400">El correo <strong id="deniedEmail" class="text-white"></strong> no pertenece a ningún Tenant. Contacta a Soporte Micro ERP.</p>
         </div>
 
-        <div class="info-box error">
-          <h4>⛔ Acceso Restringido</h4>
-          <p>El correo electrónico <strong id="deniedEmail"></strong> no está en la lista de usuarios autorizados.
-            Contacta al administrador del sistema para solicitar acceso.</p>
-        </div>
-
-        <button class="btn btn-secondary" onclick="resetLogin()" style="margin-top: 20px; width: 100%;">
+        <button onclick="resetLogin()" class="w-full py-3 bg-transparent hover:bg-white/5 border border-slate-700 text-slate-300 rounded-xl font-semibold transition-colors">
           ← Volver al inicio
         </button>
       </div>
+
     </div>
   </div>
 
   <script>
     // ============================================
-    // CONFIGURACIÓN SUPABASE & GOOGLE
+    // LÓGICA INTACTA - DO NOT MODIFY (De index.html original + Ajustes UI Tailwind)
     // ============================================
 
-    // 1. IMPORTANTE: Credenciales de Supabase
-    // (Copiadas de tu archivo de configuración existente)
     const supabaseUrl = 'https://snyfzenjapyybbfqrnku.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
     const googleClientId = '906286679746-lu4lpsg07b7ctaujvmfo042ofae1lqc5.apps.googleusercontent.com';
 
-    // 2. Inicializar Cliente Supabase
-    // Usamos la variable global 'supabase' expuesta por el CDN que agregaremos al HEAD
     let supabaseClient;
-
-    // ============================================
-    // INICIALIZACIÓN
-    // ============================================
 
     function initSupabase() {
       if (typeof supabase !== 'undefined') {
@@ -566,7 +219,6 @@
       }
     }
 
-    // Inicializar Google Sign-In
     function initializeGoogleSignIn() {
       if (!google || !google.accounts || !google.accounts.id) return;
 
@@ -584,43 +236,38 @@
           size: 'large',
           text: 'continue_with',
           shape: 'rectangular',
-          logo_alignment: 'left',
+          logo_alignment: 'center',
           width: 300
         }
       );
     }
 
-    // ============================================
-    // MANEJO DE LOGIN (NÚCLEO)
-    // ============================================
-
     async function handleCredentialResponse(response) {
       const loading = document.getElementById('loading');
       const loginForm = document.getElementById('loginForm');
 
-      loginForm.style.display = 'none';
-      loading.classList.add('active');
+      loginForm.classList.add('hidden');
+      loginForm.classList.remove('flex'); 
+      loading.classList.remove('hidden');
+      loading.classList.add('flex');
 
       try {
         console.log("🔄 Conectando con Supabase Auth...");
-
-        // 1. Intercambiar Token de Google por Sesión de Supabase
         const { data, error } = await supabaseClient.auth.signInWithIdToken({
           provider: 'google',
           token: response.credential,
         });
 
         if (error) throw error;
-
         console.log('✅ Login Exitoso en Supabase:', data);
-
-        // 2. Guardar Sesión (Supabase lo hace automágicamente, pero actualizamos UI)
         await handleSuccessfulLogin(data.user);
 
       } catch (error) {
         console.error('❌ Error Login:', error);
-        loading.classList.remove('active');
-        loginForm.style.display = 'flex';
+        loading.classList.add('hidden');
+        loading.classList.remove('flex');
+        loginForm.classList.remove('hidden');
+        loginForm.classList.add('flex');
         alert('Error al conectar con el servidor: ' + error.message);
       }
     }
@@ -628,7 +275,6 @@
     async function handleSuccessfulLogin(user) {
       const loading = document.getElementById('loading');
       
-      // PARCHE DE ADMISIÓN DESDE EL INDEX
       console.log("🔄 Verificando vinculación de usuario en Base de Datos...");
       const { data: profile, error } = await supabaseClient
         .from('perfiles_usuario')
@@ -637,10 +283,9 @@
         .single();
       
       const isAssigned = (profile && !error);
-      
-      loading.classList.remove('active');
+      loading.classList.add('hidden');
+      loading.classList.remove('flex');
 
-      // Construir objeto para UI
       const uiUser = {
         id: user.id,
         email: user.email,
@@ -650,22 +295,17 @@
         isAssigned: isAssigned
       };
 
-      // Guardar respaldo en localStorage (opcional, para compatibilidad legacy)
       localStorage.setItem('microerp_session', JSON.stringify(uiUser));
-
       showUserProfile(uiUser);
       console.log('🎉 Sesión Iniciada para:', uiUser.email);
     }
 
     async function checkSession() {
-      // Verificar sesión activa en Supabase
       const { data: { session } } = await supabaseClient.auth.getSession();
-
       if (session) {
         console.log("Sesión recuperada:", session.user.email);
         handleSuccessfulLogin(session.user);
       } else {
-        // Inicializar botón Google si no hay sesión
         if (typeof google !== 'undefined') initializeGoogleSignIn();
         else {
           const checkGoogle = setInterval(() => {
@@ -678,52 +318,49 @@
       }
     }
 
-    // ============================================
-    // GESTIÓN UI & NAVEGACIÓN
-    // ============================================
-
     function showUserProfile(userData) {
-      document.getElementById('loginForm').style.display = 'none';
-      document.getElementById('loading').classList.remove('active');
-      document.getElementById('accessDenied').style.display = 'none';
+      const loginForm = document.getElementById('loginForm');
+      loginForm.classList.add('hidden');
+      loginForm.classList.remove('flex');
+      
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('accessDenied').classList.add('hidden');
 
       const profile = document.getElementById('userProfile');
-      document.getElementById('userAvatar').src = userData.picture;
+      document.getElementById('userAvatar').src = userData.picture || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23f59e0b'/><text x='50' y='65' font-family='Arial' font-size='40' font-weight='bold' fill='black' text-anchor='middle'>U</text></svg>";
       document.getElementById('userName').textContent = userData.name;
       document.getElementById('userEmail').textContent = userData.email;
+      document.getElementById('userRole').textContent = userData.isAssigned ? 'Conectado a Empresa' : 'Sin Asignar (Guest)';
 
-      // Mostrar status basado en asignación
-      document.getElementById('userRole').textContent = userData.isAssigned ? 'Conectado a Empresa' : 'Conectado a Supabase (Sin Asignar)';
-
-      // Actualizar dinámicamente UI del CTA basado en asignación
       const actionButton = document.getElementById('primaryActionButton');
       const actionInfoBox = document.getElementById('actionInfoBox');
       
       if (userData.isAssigned) {
-          actionButton.textContent = 'Ir al Dashboard →';
+          actionButton.textContent = 'Ingresar al Panel →';
           actionButton.onclick = () => window.location.href = 'dashboard.html';
           
           actionInfoBox.innerHTML = `
-            <h4>✅ Sesión Iniciada</h4>
-            <p>Tu información ha sido verificada correctamente. Puedes acceder al dashboard o cerrar sesión.</p>
+            <h4 class="text-emerald-400 font-bold text-sm mb-1"><i class="fas fa-check-circle mr-2"></i>Acceso Autorizado</h4>
+            <p class="text-xs text-slate-400">Tus datos han sido validados. Procediendo al entorno seguro.</p>
           `;
-          actionInfoBox.className = 'info-box';
+          actionInfoBox.className = 'w-full mb-8 text-left bg-emerald-500/10 border-l-4 border-l-emerald-500 p-4 rounded-r-xl';
       } else {
-          actionButton.textContent = 'Ir a Sala de Bienvenida →';
+          actionButton.textContent = 'Ir a Sala de Espera →';
           actionButton.onclick = () => window.location.href = 'bienvenida.html';
           
           actionInfoBox.innerHTML = `
-            <h4>⏳ Perfil en Espera</h4>
-            <p>Has iniciado sesión correctamente pero tu cuenta aún no ha sido vinculada por un administrador del sistema.</p>
+            <h4 class="text-amber-400 font-bold text-sm mb-1"><i class="fas fa-user-clock mr-2"></i>Perfil en Espera</h4>
+            <p class="text-xs text-slate-400">Debes ser asignado a una empresa por tu administrador para continuar.</p>
           `;
-          actionInfoBox.className = 'info-box warning';
+          actionInfoBox.className = 'w-full mb-8 text-left bg-amber-500/10 border-l-4 border-l-amber-500 p-4 rounded-r-xl';
       }
 
-      profile.classList.add('active');
+      profile.classList.remove('hidden');
+      profile.classList.add('flex');
     }
 
     async function logout() {
-      if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+      if (confirm('¿Cerrar sesión segura de Micro ERP?')) {
         await supabaseClient.auth.signOut();
         localStorage.removeItem('microerp_session');
         window.location.reload();
@@ -731,18 +368,28 @@
     }
 
     function goToDashboard() {
-      // Redirigir al dashboard
       window.location.href = 'dashboard.html';
     }
 
-    // ============================================
-    // ARRANQUE
-    // ============================================
+    function resetLogin() {
+      document.getElementById('accessDenied').classList.add('hidden');
+      document.getElementById('accessDenied').classList.remove('flex');
+      
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('loading').classList.remove('flex');
+      
+      document.getElementById('userProfile').classList.add('hidden');
+      document.getElementById('userProfile').classList.remove('flex');
+      
+      const loginForm = document.getElementById('loginForm');
+      loginForm.classList.remove('hidden');
+      loginForm.classList.add('flex');
+    }
+
     window.addEventListener('load', () => {
       initSupabase();
     });
 
   </script>
 </body>
-
 </html>
