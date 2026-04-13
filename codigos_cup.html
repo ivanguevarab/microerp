@@ -1102,11 +1102,26 @@
                 const personalId = trabaInput.value;
                 const mes = fechaInput.value; 
 
-                // 1. Obtener salario real (Base + KPI)
+                // 1. Obtener salario real historizado (Base + KPI)
                 const empleado = moEmpleadosData.find(e => e.id === personalId);
                 if(!empleado) continue; // safety fallback
 
-                const salarioTotal = (empleado.monto_salario_base || 0) + (empleado.monto_salario_kpi || 0);
+                let salBase = 0;
+                let salKpi = 0;
+                
+                if (empleado.personal_salarios && empleado.personal_salarios.length > 0) {
+                    const salHistorico = empleado.personal_salarios.find(s => s.anio_mes === mes);
+                    if (salHistorico) {
+                        salBase = salHistorico.monto_salario_base || 0;
+                        salKpi = salHistorico.monto_salario_kpi || 0;
+                    } else {
+                        const lastSal = empleado.personal_salarios[empleado.personal_salarios.length - 1];
+                        salBase = lastSal.monto_salario_base || 0;
+                        salKpi = lastSal.monto_salario_kpi || 0;
+                    }
+                }
+
+                const salarioTotal = salBase + salKpi;
                 
                 // 2. Obtener minutos laborables de calendario_personal
                 const year = mes.split('-')[0];
@@ -1332,8 +1347,15 @@
                     .select('*, personal(nombres, apellidos)')
                     .eq('cup_id', id);
 
-                if ((!movs || movs.length === 0) && (!moTrace || moTrace.length === 0)) {
-                    list.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Sin movimientos ni mano de obra</td></tr>';
+                // Traer Gastos Financieros (Flujo de Caja)
+                const { data: fcMovs } = await window.supabaseClient
+                    .from('fc_movimientos')
+                    .select('fecha_movimiento, monto, referencia, fc_fuentes_categorias!inner(nombre)')
+                    .eq('codigo_unico_id', id)
+                    .eq('estado', 'APROBADO');
+
+                if ((!movs || movs.length === 0) && (!moTrace || moTrace.length === 0) && (!fcMovs || fcMovs.length === 0)) {
+                    list.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Sin movimientos, mano de obra ni gastos directos</td></tr>';
                 } else {
                     // Agrupar por categoría
                     const grouped = (movs||[]).reduce((acc, current) => {
@@ -1352,6 +1374,19 @@
                             horas: parseFloat(mo.horas_invertidas),
                             costo_total: parseFloat(mo.subtotal_costo || 0)
                         }));
+                    }
+
+                    if(fcMovs && fcMovs.length > 0) {
+                        fcMovs.forEach(fc => {
+                            const catName = '💳 ' + (fc.fc_fuentes_categorias?.nombre || 'Gasto Financiero/Operativo');
+                            if (!grouped[catName]) grouped[catName] = [];
+                            grouped[catName].push({
+                                isFc: true,
+                                fecha_movimiento: fc.fecha_movimiento,
+                                referencia: fc.referencia || 'Generado en Flujo de Caja',
+                                monto: parseFloat(fc.monto)
+                            });
+                        });
                     }
 
                     let htmlOutput = '';
@@ -1379,6 +1414,17 @@
                                  <td>${m.responsabilidad} <br><small style="color:#64748b;">(${m.personal})</small></td>
                                  <td style="text-align:right;">${m.horas} hrs</td>
                                  <td style="text-align:right;">S/ ${m.costo_total.toFixed(2)}</td>
+                               </tr>`;
+                            } else if(m.isFc) {
+                                tCost += m.monto;
+                                subtotalCat += m.monto;
+                                let dateStr = m.fecha_movimiento ? formatDate(m.fecha_movimiento) : '';
+                                htmlOutput += `<tr>
+                                 <td>${dateStr}</td>
+                                 <td>CAJA</td>
+                                 <td>${m.referencia}</td>
+                                 <td style="text-align:right;">1 PAGO</td>
+                                 <td style="text-align:right; color:#ef4444;">S/ ${m.monto.toFixed(2)}</td>
                                </tr>`;
                             } else {
                                 tCost += m.costo_total;
@@ -1535,7 +1581,7 @@
                 const catIds = conf.map(c => c.categoria_id);
 
                 const { data: personal } = await window.supabaseClient.from('personal')
-                    .select('id, nombres, apellidos, monto_salario_base, monto_salario_kpi, categoria_id, activo')
+                    .select('id, nombres, apellidos, categoria_id, activo, personal_salarios(anio_mes, monto_salario_base, monto_salario_kpi)')
                     .eq('empresa_id', window.currentEmpresaId)
                     .eq('activo', true)
                     .in('categoria_id', catIds)
