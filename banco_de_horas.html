@@ -71,10 +71,50 @@
             cursor: pointer;
             filter: invert(0.5);
         }
+    
+        /* THE ULTIMATE CSS OVERRIDE BLOCK FOR DARK MODE */
+
+        /* Target the summary boxes specifically */
+        html.dark .summary-box {
+            background-color: rgba(30, 41, 59, 0.4) !important;
+            border-color: rgba(71, 85, 105, 0.5) !important;
+        }
+
+        /* Light mode inputs should stay pristinely white/slate */
+        input[type="month"], select {
+            background-color: #ffffff !important;
+            color: #334155 !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        /* Dark mode generic styling for inputs */
+        html.dark input[type="month"], html.dark select {
+            background-color: rgba(15, 23, 42, 0.8) !important;
+            color: #f8fafc !important;
+            border-color: #475569 !important;
+        }
+
+        /* Adjust input icons for dark mode using the technique from memory */
+        html.dark input[type="month"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8) !important;
+        }
+        
+        html.dark .val-neutral { color: #94a3b8 !important; }
+        html.dark .val-positive { color: #34d399 !important; }
+        html.dark .val-negative { color: #f87171 !important; }
+
     </style>
+
+    <!-- Tailwind CSS config for Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    
 </head>
 
-<body class="bg-slate-50">
+<body class="bg-slate-50 dark:bg-slate-950">
 
     <header class="submodule-header">
         <div class="submodule-header-content">
@@ -82,29 +122,36 @@
                 ← Volver al Panel
             </button>
             <h1>Banco de Horas</h1>
-            <div class="submodule-version">Control de Trazabilidad Mensual</div>
+            
+
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
+            <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+            <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+            <span class="text-sm font-bold tracking-wide">TEMA</span>
+        </button>
+    
         </div>
     </header>
 
     <main class="page-container">
 
         <!-- Controles Superiores -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700/50 p-6 mb-6">
             <div class="flex flex-col md:flex-row gap-4 items-end">
                 <div class="flex-grow w-full md:w-auto">
                     <label
-                        class="text-xs text-slate-500 font-bold mb-1 uppercase tracking-wider block">Colaborador</label>
+                        class="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1 uppercase tracking-wider block">Colaborador</label>
                     <select id="selectPersonal"
-                        class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-700 bg-white shadow-sm focus:border-blue-500 focus:outline-none font-medium h-[42px]"
+                        class="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 shadow-sm focus:border-blue-500 focus:outline-none font-medium h-[42px]"
                         onchange="filtrarDatos()">
                         <option value="">Cargando personal...</option>
                     </select>
                 </div>
                 <div class="w-full md:w-48 shrink-0">
-                    <label class="text-xs text-slate-500 font-bold mb-1 uppercase tracking-wider block">Mes de
+                    <label class="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1 uppercase tracking-wider block">Mes de
                         Consulta</label>
                     <input type="month" id="inputMes"
-                        class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-700 bg-white shadow-sm focus:border-blue-500 focus:outline-none font-medium h-[42px]"
+                        class="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 shadow-sm focus:border-blue-500 focus:outline-none font-medium h-[42px]"
                         onchange="filtrarDatos()">
                 </div>
             </div>
@@ -113,45 +160,45 @@
         <!-- Tarjetas de Resumen -->
         <div class="summary-grid">
             <div class="summary-box relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-4 opacity-10">
-                    <i class="fas fa-wallet text-5xl"></i>
+                <div class="absolute top-0 right-0 p-4 opacity-20 dark:opacity-10">
+                    <i class="fas fa-wallet text-5xl text-slate-400 dark:text-slate-500"></i>
                 </div>
-                <div class="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Saldo Actual (Fin del Mes)
+                <div class="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-wider mb-1">Saldo Actual (Fin del Mes)
                 </div>
                 <div id="saldoActual" class="summary-value val-neutral">-- hrs</div>
-                <div id="saldoSubtext" class="text-xs font-semibold mt-2 text-slate-400">Seleccione un mes</div>
+                <div id="saldoSubtext" class="text-xs font-semibold mt-2 text-slate-500 dark:text-slate-400">Seleccione un mes</div>
             </div>
 
             <div class="summary-box relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-4 opacity-10">
+                <div class="absolute top-0 right-0 p-4 opacity-20 dark:opacity-10">
                     <i class="fas fa-arrow-up text-5xl text-green-500"></i>
                 </div>
-                <div class="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Total Excedentes</div>
+                <div class="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-wider mb-1">Total Excedentes</div>
                 <div id="totalExcedentes" class="summary-value val-positive">-- hrs</div>
-                <div class="text-xs font-semibold mt-2 text-slate-400">A favor del colaborador</div>
+                <div class="text-xs font-semibold mt-2 text-slate-500 dark:text-slate-400">A favor del colaborador</div>
             </div>
 
             <div class="summary-box relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-4 opacity-10">
+                <div class="absolute top-0 right-0 p-4 opacity-20 dark:opacity-10">
                     <i class="fas fa-arrow-down text-5xl text-red-500"></i>
                 </div>
-                <div class="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Total Deudas</div>
+                <div class="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-wider mb-1">Total Deudas</div>
                 <div id="totalDeudas" class="summary-value val-negative">-- hrs</div>
-                <div class="text-xs font-semibold mt-2 text-slate-400">Descuentos o tiempo a reponer</div>
+                <div class="text-xs font-semibold mt-2 text-slate-500 dark:text-slate-400">Descuentos o tiempo a reponer</div>
             </div>
         </div>
 
         <!-- Tabla Detallada -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h3 class="font-bold text-slate-800"><i class="fas fa-history mr-2 text-slate-400"></i>Historial de
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700/50 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 dark:text-slate-200"><i class="fas fa-history mr-2 text-slate-500 dark:text-slate-400"></i>Historial de
                     Movimientos</h3>
                 <span class="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-200"
                     id="contadorMovimientos">0 registros</span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left" id="tablaBanco">
-                    <thead class="bg-white border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
+                    <thead class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                         <tr>
                             <th class="py-3 px-6 font-bold">Fecha Doc.</th>
                             <th class="py-3 px-6 font-bold">Documento / Origen</th>
@@ -161,21 +208,21 @@
                             <th class="py-3 px-6 font-bold text-right">Saldo Acumulado</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 text-slate-700" id="tbodyBanco">
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50 text-slate-700 dark:text-slate-300" id="tbodyBanco">
                         <!-- Render via JS -->
                     </tbody>
                 </table>
 
                 <div id="loading"
-                    class="hidden py-12 flex flex-col items-center justify-center text-slate-500 bg-white">
+                    class="hidden py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
                     <i class="fas fa-circle-notch fa-spin text-3xl text-blue-500 mb-3"></i>
                     <p>Cargando trazabilidad...</p>
                 </div>
 
                 <div id="empty-state"
-                    class="hidden py-16 flex flex-col items-center justify-center text-slate-500 bg-white">
-                    <i class="fas fa-file-invoice text-5xl mb-4 text-slate-300"></i>
-                    <p class="text-lg font-medium text-slate-600">No hay movimientos registrados</p>
+                    class="hidden py-16 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
+                    <i class="fas fa-file-invoice text-5xl mb-4 text-slate-400 dark:text-slate-500"></i>
+                    <p class="text-lg font-medium text-slate-600 dark:text-slate-400">No hay movimientos registrados</p>
                     <p class="text-sm mt-1">El trabajador no tiene historial en este mes.</p>
                 </div>
             </div>
@@ -354,15 +401,15 @@
             if (saldoMes > 0) {
                 uiSaldo.className = 'summary-value val-positive';
                 uiSaldoSubtext.innerText = 'Saldo acumulado a favor';
-                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-green-600';
+                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-green-600 dark:text-green-400';
             } else if (saldoMes < 0) {
                 uiSaldo.className = 'summary-value val-negative';
                 uiSaldoSubtext.innerText = 'Deuda global. Descuento si no repone.';
-                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-red-600';
+                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-red-600 dark:text-red-400';
             } else {
                 uiSaldo.className = 'summary-value val-neutral';
                 uiSaldoSubtext.innerText = 'Equilibrio exacto';
-                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-slate-400';
+                uiSaldoSubtext.className = 'text-xs font-semibold mt-2 text-slate-500 dark:text-slate-400 dark:text-slate-400';
             }
 
             document.getElementById('totalExcedentes').innerText = '+' + totalExc.toFixed(2) + ' Hrs';
@@ -394,15 +441,15 @@
                 let valStr = parseFloat(m.cantidad_horas || 0).toFixed(2) + 'h';
 
                 if (m.tipo_movimiento === 'EXCEDENTE_GENERADO') {
-                    badgeTipo = '<span class="bg-green-50 text-green-700 text-[0.7rem] font-bold px-2 py-1 rounded border border-green-200">EXCEDENTE GENERADO</span>';
+                    badgeTipo = '<span class="bg-green-50 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-[0.7rem] font-bold px-2 py-1 rounded border border-green-200 dark:border-green-800/50">EXCEDENTE GENERADO</span>';
                     tClass = 'val-positive';
                     valStr = '+' + valStr;
                 } else if (m.tipo_movimiento === 'DEUDA_GENERADA') {
-                    badgeTipo = '<span class="bg-red-50 text-red-700 text-[0.7rem] font-bold px-2 py-1 rounded border border-red-200">DEUDA GENERADA</span>';
+                    badgeTipo = '<span class="bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[0.7rem] font-bold px-2 py-1 rounded border border-red-200 dark:border-red-800/50">DEUDA GENERADA</span>';
                     tClass = 'val-negative';
                     if (!valStr.startsWith('-')) valStr = '-' + valStr;
                 } else {
-                    badgeTipo = '<span class="bg-slate-100 text-slate-600 text-[0.7rem] font-bold px-2 py-1 rounded border border-slate-200">' + m.tipo_movimiento.replace(/_/g, ' ') + '</span>';
+                    badgeTipo = '<span class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 dark:text-slate-300 text-[0.7rem] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700/50 dark:border-slate-700/50">' + m.tipo_movimiento.replace(/_/g, ' ') + '</span>';
                     tClass = 'val-neutral';
                 }
 
@@ -412,17 +459,17 @@
                 let floatSaldo = m.saldo_visual !== undefined ? parseFloat(m.saldo_visual) : parseFloat(m.saldo_acumulado || 0);
                 const asterisco = m.requiere_asterisco ? ' <i class="fas fa-asterisk text-orange-400 text-[0.6rem] align-top cursor-help" title="Saldo recalculado cronológicamente por edición retroactiva"></i>' : '';
                 const saldoAcumStr = (floatSaldo > 0 ? '+' : '') + floatSaldo.toFixed(2) + 'h' + asterisco;
-                const sClass = floatSaldo < 0 ? 'text-red-500' : (floatSaldo > 0 ? 'text-green-500' : 'text-slate-500');
+                const sClass = floatSaldo < 0 ? 'text-red-500' : (floatSaldo > 0 ? 'text-green-500' : 'text-slate-500 dark:text-slate-400');
 
                 const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 transition-colors bg-white';
+                tr.className = 'hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800/50 transition-colors bg-transparent border-b border-slate-100 dark:border-slate-800/50';
 
                 // Observación se renderiza como subtítulo del origen del documento
-                let obsHtml = m.observacion ? '<div class="text-[0.65rem] text-slate-500 mt-1 leading-tight border-l-2 border-slate-200 pl-2 bg-slate-50/50 py-0.5">' + m.observacion + '</div>' : '';
+                let obsHtml = m.observacion ? '<div class="text-[0.65rem] text-slate-500 dark:text-slate-400 dark:text-slate-400 mt-1 leading-tight border-l-2 border-slate-200 dark:border-slate-700/50 dark:border-slate-700 pl-2 bg-slate-50 dark:bg-slate-950/50 dark:bg-slate-800/30 py-0.5">' + m.observacion + '</div>' : '';
                 tr.innerHTML = `
-                    <td class="py-4 px-6 text-sm font-medium text-slate-600">${fechaDoc}</td>
+                    <td class="py-4 px-6 text-sm font-medium text-slate-600 dark:text-slate-400 dark:text-slate-300">${fechaDoc}</td>
                     <td class="py-4 px-6 max-w-sm">
-                        <div class="font-mono text-[0.85rem] font-bold text-slate-700">${m.documento_referencia || '-'}</div>
+                        <div class="font-mono text-[0.85rem] font-bold text-slate-700 dark:text-slate-300 dark:text-slate-200">${m.documento_referencia || '-'}</div>
                         ${obsHtml}
                     </td>
                     <td class="py-4 px-6">${badgeTipo}</td>
@@ -457,6 +504,39 @@
         }
 
     </script>
-</body>
+
+    <script>
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('themeToggleBtn');
+            if(btn) {
+                if(isDark) {
+                    btn.querySelector('.fa-sun').classList.add('hidden');
+                    btn.querySelector('.fa-moon').classList.remove('hidden');
+                } else {
+                    btn.querySelector('.fa-sun').classList.remove('hidden');
+                    btn.querySelector('.fa-moon').classList.add('hidden');
+                }
+            }
+        }
+
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                updateThemeIcon(document.documentElement.classList.contains('dark'));
+            });
+        })();
+    </script>
+    </body>
 
 </html>
