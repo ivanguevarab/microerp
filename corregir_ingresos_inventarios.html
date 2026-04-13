@@ -2220,6 +2220,30 @@
                         };
                     }));
                     renderizarGastos();
+                } else {
+                    // 🚨 RADAR DE ORFANDAD: Mitigación de Pérdida de Gastos
+                    // Calcular si los detalles históricos tienen flete atrapado
+                    const fleteAsignadoHuerfano = detalles.reduce((sum, d) => sum + Number(d.otros_egresos_total || 0), 0);
+                    
+                    if (fleteAsignadoHuerfano > 0) {
+                        console.warn('Radar de Orfandad Detectó Flete Atrapado:', fleteAsignadoHuerfano);
+                        gastosIngreso = [{
+                            id: null,
+                            tipo: 'OTROS',
+                            descripcion: 'Gasto Huérfano Recuperado (Autogenerado)',
+                            conFactura: false,
+                            proveedorId: null,
+                            proveedorNombre: '',
+                            serie: '',
+                            numero: '',
+                            fecha: '',
+                            monto: fleteAsignadoHuerfano,
+                            valor: fleteAsignadoHuerfano,
+                            igv: 0
+                        }];
+                        renderizarGastos();
+                        mostrarToast('Se recuperó un flete histórico no especificado', 'warning');
+                    }
                 }
 
                 // VALIDACIÓN DE INTEGRIDAD "INTACTA"
@@ -2303,7 +2327,7 @@
 
             // Armar payload gastos
             const payloadGastos = gastosIngreso.map(g => ({
-                tipo_gasto: g.tipo,
+                tipo_gasto: g.tipo || 'OTROS',
                 descripcion: g.descripcion,
                 con_factura_gasto: g.conFactura,
                 proveedor_id: g.proveedorId || null,
