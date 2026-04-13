@@ -896,7 +896,7 @@
 
                 if (catIds.length === 0) return; // No hay categorias habilitadas
 
-                const { data: pers } = await window.supabaseClient.from('personal').select('id, nombres, apellidos, monto_salario_base, monto_salario_kpi').eq('empresa_id', window.currentEmpresaId).in('categoria_id', catIds).eq('activo', true).order('nombres');
+                const { data: pers } = await window.supabaseClient.from('personal').select('id, nombres, apellidos, personal_salarios(anio_mes, monto_salario_base, monto_salario_kpi)').eq('empresa_id', window.currentEmpresaId).in('categoria_id', catIds).eq('activo', true).order('nombres');
                 
                 arrEmpleadosMO = pers || [];
             } catch (error) {
@@ -1123,11 +1123,26 @@
                         return;
                     }
                     
-                    // 1. Obtener salario real (Base + KPI)
+                    // 1. Obtener salario real historizado (Base + KPI)
                     const empleado = arrEmpleadosMO.find(e => e.id === empId);
                     if(!empleado) continue; // safety fallback
 
-                    const salarioTotal = (empleado.monto_salario_base || 0) + (empleado.monto_salario_kpi || 0);
+                    let salBase = 0;
+                    let salKpi = 0;
+                    
+                    if (empleado.personal_salarios && empleado.personal_salarios.length > 0) {
+                        const salHistorico = empleado.personal_salarios.find(s => s.anio_mes === mes);
+                        if (salHistorico) {
+                            salBase = salHistorico.monto_salario_base || 0;
+                            salKpi = salHistorico.monto_salario_kpi || 0;
+                        } else {
+                            const lastSal = empleado.personal_salarios[empleado.personal_salarios.length - 1];
+                            salBase = lastSal.monto_salario_base || 0;
+                            salKpi = lastSal.monto_salario_kpi || 0;
+                        }
+                    }
+
+                    const salarioTotal = salBase + salKpi;
                     
                     // 2. Obtener minutos laborables de calendario_personal
                     const year = mes.split('-')[0];
@@ -1387,8 +1402,29 @@
                     }));
                 }
 
+                // 3. Traer Gastos Financieros (Flujo de Caja)
+                const { data: fcMovs } = await window.supabaseClient
+                    .from('fc_movimientos')
+                    .select('fecha_movimiento, monto, referencia, fc_fuentes_categorias!inner(nombre)')
+                    .eq('codigo_unico_id', id)
+                    .eq('estado', 'APROBADO');
+
+                if (fcMovs && fcMovs.length > 0) {
+                    hasMovements = true;
+                    fcMovs.forEach(fc => {
+                        const catName = '💳 ' + (fc.fc_fuentes_categorias?.nombre || 'Gasto Financiero/Operativo');
+                        if (!grouped[catName]) grouped[catName] = [];
+                        grouped[catName].push({
+                            isFc: true,
+                            fecha: fc.fecha_movimiento,
+                            referencia: fc.referencia || 'Generado en Flujo de Caja',
+                            monto: parseFloat(fc.monto)
+                        });
+                    });
+                }
+
                 if (!hasMovements) {
-                    list.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Sin insumos ni horas hombre registradas</td></tr>';
+                    list.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Sin insumos, mano de obra ni gastos directos registrados</td></tr>';
                 } else {
                     let htmlOutput = '';
 
@@ -1416,6 +1452,17 @@
                                  <td style="text-align:right;">S/ ${m.subtotal.toFixed(2)}</td>
                                </tr>`;
                                subtotalCat += m.subtotal;
+                            } else if(m.isFc) {
+                                tCost += m.monto;
+                                subtotalCat += m.monto;
+                                let dateStr = m.fecha ? formatDate(m.fecha) : '';
+                                htmlOutput += `<tr>
+                                 <td>${dateStr}</td>
+                                 <td>CAJA</td>
+                                 <td>${m.referencia}</td>
+                                 <td style="text-align:right;">1 PAGO</td>
+                                 <td style="text-align:right; color:#ef4444;">S/ ${m.monto.toFixed(2)}</td>
+                               </tr>`;
                             } else {
                                 tCost += m.costo_total;
                                 tItems += m.cantidad;
