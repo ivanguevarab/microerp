@@ -73,7 +73,7 @@
           </div>
           <div class="flex flex-col relative z-10 w-full min-w-0">
             <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">Total Inventario</h4>
-            <div class="text-2xl font-bold text-slate-200 truncate">S/ 98,756</div>
+            <div id="kpi-inventario" class="text-2xl font-bold text-slate-200 truncate">Cargando...</div>
           </div>
         </div>
         
@@ -85,7 +85,7 @@
           </div>
           <div class="flex flex-col relative z-10 w-full min-w-0">
             <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">Ventas del Mes</h4>
-            <div class="text-2xl font-bold text-slate-200 truncate">S/ 45,780</div>
+            <div id="kpi-ventas" class="text-2xl font-bold text-slate-200 truncate">Cargando...</div>
           </div>
         </div>
 
@@ -96,20 +96,20 @@
             <i class="fa-solid fa-industry"></i>
           </div>
           <div class="flex flex-col relative z-10 w-full min-w-0">
-            <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">Órdenes (Prod)</h4>
-            <div class="text-2xl font-bold text-slate-200 truncate">23</div>
+            <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">Órdenes de Producción</h4>
+            <div id="kpi-produccion" class="text-2xl font-bold text-slate-200 truncate">...</div>
           </div>
         </div>
 
-        <!-- Tarjeta 4: CRM -->
+        <!-- Tarjeta 4: Flujo de Caja -->
         <div class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-slate-600 transition-all duration-300 relative overflow-hidden group hover:bg-slate-900/80 flex items-center gap-5 shadow-xl">
           <div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all"></div>
           <div class="w-14 h-14 shrink-0 rounded-xl flex items-center justify-center text-2xl bg-slate-950 border border-slate-800 shadow-inner group-hover:border-slate-600 transition-colors text-slate-400 group-hover:text-amber-500">
-            <i class="fa-solid fa-handshake"></i>
+            <i class="fa-solid fa-money-bill-trend-up"></i>
           </div>
           <div class="flex flex-col relative z-10 w-full min-w-0">
-            <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">Clientes Activos</h4>
-            <div class="text-2xl font-bold text-slate-200 truncate">156</div>
+            <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">Flujo de Caja</h4>
+            <div id="kpi-flujo-caja" class="text-2xl font-bold text-slate-200 truncate">...</div>
           </div>
         </div>
 
@@ -377,6 +377,10 @@
               }
             }
           }
+
+          // Carga los KPIs dinámicamente usando las métricas maestras
+          loadDashboardKPIs();
+
           console.log('✅ Perfil Empresa cargado:', userData.company, userData.role, '| Exclusivo Comercial:', userData.isOnlyCommercial);
         }
       } catch (err) {
@@ -401,6 +405,83 @@
         avatarDiv.textContent = (userData.name || 'U').charAt(0).toUpperCase();
       }
       updateHeaderInfo(userData);
+    }
+
+    async function loadDashboardKPIs() {
+      // 1. Fechas del mes en curso UTC Local
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0, 23, 59, 59);
+
+      const firstDayStr = firstDay.toISOString().split('T')[0];
+      const lastDayStr = lastDay.toISOString().split('T')[0];
+
+      const formatCurrency = (val) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(val);
+
+      // --- KPI 1: TOTAL INVENTARIO ---
+      try {
+        const { data, error } = await window.supabaseClient.rpc('fn_dashboard_inventario_total');
+        if (!error && data !== undefined && data !== null) {
+          const valor = Number(data);
+          document.getElementById('kpi-inventario').textContent = isNaN(valor) ? 'S/ 0.00' : formatCurrency(valor);
+        } else {
+          document.getElementById('kpi-inventario').textContent = 'S/ 0.00';
+          if(error) console.error('Error KPI Inventario desde Supabase:', error);
+        }
+      } catch (err) { console.error('Error Fatal KPI Inventario:', err); }
+
+      // --- KPI 2: VENTAS DEL MES ---
+      try {
+        const { data, error } = await window.supabaseClient
+          .from('ventas')
+          .select('precio_venta_total')
+          .eq('estado', 'REGISTRADO')
+          .gte('fecha_venta', firstDayStr)
+          .lte('fecha_venta', lastDayStr);
+
+        let totalVentas = 0;
+        if (!error && data) {
+          totalVentas = data.reduce((acc, curr) => acc + Number(curr.precio_venta_total || 0), 0);
+        }
+        document.getElementById('kpi-ventas').textContent = formatCurrency(totalVentas);
+      } catch (err) { console.error('Error KPI Ventas', err); }
+
+      // --- KPI 3: ORDENES DE PRODUCCIÓN ---
+      try {
+        const { count, error } = await window.supabaseClient
+          .from('codigos_unicos')
+          .select('id', { count: 'exact', head: true })
+          .eq('tipo', 'PRODUCCION')
+          .neq('estado', 'TERMINADO')
+          .gte('fecha_inicio', firstDayStr)
+          .lte('fecha_inicio', lastDayStr);
+
+        document.getElementById('kpi-produccion').textContent = !error && count !== null ? count : '0';
+      } catch (err) { console.error('Error KPI Producción', err); }
+
+      // --- KPI 4: FLUJO DE CAJA ---
+      try {
+        const { data, error } = await window.supabaseClient.rpc('fn_dashboard_flujo_caja_mes', {
+            p_inicio: firstDay.toISOString(),
+            p_fin: lastDay.toISOString()
+        });
+
+        let varNeta = 0;
+        if (!error && data !== null && data !== undefined) {
+            varNeta = Number(data);
+        } else {
+            if(error) console.error('Error KPI Flujo Caja desde Supabase:', error);
+        }
+
+        const elFluja = document.getElementById('kpi-flujo-caja');
+        if (varNeta >= 0) {
+          elFluja.innerHTML = `<span class="text-green-500 font-extrabold">+ ${formatCurrency(varNeta)}</span>`;
+        } else {
+          elFluja.innerHTML = `<span class="text-red-500 font-extrabold">- ${formatCurrency(Math.abs(varNeta))}</span>`;
+        }
+      } catch (err) { console.error('Error KPI Flujo Caja', err); }
     }
 
     function updateHeaderInfo(userData) {
