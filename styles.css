@@ -134,3 +134,26 @@ body {
     justify-content: center;
     z-index: 9999;
 }
+
+/* ==========================================================================
+   3. CORRECCIÓN ESTÉTICA GLOBAL - LIENZOS CLAROS (Modales y Cards)
+   Protege formularios frente al Dark Theme global en Chrome/Brave/Edge
+   ========================================================================== */
+
+/* Apunta exclusivamente a contenedores claros (.modal-content y .card) */
+.modal-content select, 
+.modal-content input, 
+.modal-content textarea,
+.card select,
+.card input,
+.card textarea {
+    color: #0f172a; /* Forzamos texto oscuro (Slate-900) */
+    background-color: #ffffff; /* Forzamos fondo blanco puro */
+}
+
+/* Forzar explícitamente el color de las opciones internas para WebView/Chromium */
+.modal-content option,
+.card option {
+    color: #0f172a;
+    background-color: #ffffff;
+}
