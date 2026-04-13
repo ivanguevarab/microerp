@@ -595,10 +595,10 @@
                     <div class="form-grid">
                         <!-- Código -->
                         <div class="form-group">
-                            <label for="codigo">Código *</label>
+                            <label for="codigo">Código del Item</label>
                             <div class="input-group">
-                                <input type="text" id="codigo" required placeholder="Ej: ITEM-2026-000001" maxlength="50">
-                                <button type="button" class="btn-secondary-action" onclick="generarCodigo()">
+                                <input type="text" id="codigo" required placeholder="Ej: ITEM-2026-000001" maxlength="50" readonly>
+                                <button type="button" class="btn-secondary-action" onclick="generarCodigo()" style="display: none;">
                                     Generar
                                 </button>
                             </div>
@@ -612,14 +612,14 @@
 
                         <!-- Descripción (Detalles) -->
                         <div class="form-group full-width">
-                            <label for="descripcion">Descripción (Detalles) *</label>
+                            <label for="descripcion">Descripción (Formato sugerido: ¿Qué es? | Marca | Detalles)</label>
                             <textarea id="descripcion" required placeholder="Descripción detallada del producto..."
-                                maxlength="500"></textarea>
+                                maxlength="500" onkeydown="if(event.key === 'Enter') { event.preventDefault(); return false; }" oninput="this.value = this.value.replace(/[\r\n]+/g, ' ');"></textarea>
                         </div>
 
                         <!-- Categoría -->
                         <div class="form-group">
-                            <label for="categoriaId">Categoría *</label>
+                            <label for="categoriaId">Categoría</label>
                             <div class="input-group">
                                 <select id="categoriaId" required>
                                     <option value="">Seleccionar...</option>
@@ -631,7 +631,7 @@
 
                         <!-- Unidad de Medida -->
                         <div class="form-group">
-                            <label for="unidadMedidaId">Unidad de Medida *</label>
+                            <label for="unidadMedidaId">Unidad de Medida</label>
                             <div class="input-group">
                                 <select id="unidadMedidaId" required>
                                     <option value="">Seleccionar...</option>
