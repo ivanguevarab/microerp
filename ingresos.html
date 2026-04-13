@@ -296,6 +296,12 @@
             border-bottom: none;
         }
 
+        .result-item.active {
+            background-color: #eff6ff;
+            border-left: 3px solid #3b82f6;
+            padding-left: 17px;
+        }
+
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -566,6 +572,12 @@
             border-bottom: none;
         }
 
+        .result-item.active {
+            background-color: #eff6ff;
+            border-left: 3px solid #3b82f6;
+            padding-left: 17px;
+        }
+
         .item-code {
             font-size: 12px;
             color: #7f8c8d;
@@ -666,7 +678,185 @@
     <link rel="stylesheet" href="styles.css">
     <script src="sidebar.js"></script>
 
-</head>
+<style>
+
+        /* THE ULTIMATE CSS OVERRIDE BLOCK FOR DARK MODE */
+
+        /* EXPLICIT LIGHT MODE FIXES FOR INVISIBLE TEXT */
+
+        html:not(.dark) table td, html:not(.dark) table th {
+            color: #334155 !important; /* slate-700 */
+        }
+        html:not(.dark) .modal-content, html:not(.dark) .modal-header h3 {
+            color: #1e293b !important; /* slate-800 */
+        }
+        html:not(.dark) .modal-body p {
+            color: #475569 !important; /* slate-600 */
+        }
+        html:not(.dark) .col-number.highlight {
+            color: #1e40af !important; /* blue-800 */
+            background-color: #eff6ff !important;
+        }
+
+        html:not(.dark) .result-item {
+            color: #334155 !important; /* text-slate-700 */
+        }
+        html:not(.dark) .search-input {
+            color: #334155 !important;
+        }
+        html:not(.dark) .search-input:disabled {
+            color: #64748b !important; /* text-slate-500 */
+        }
+        html:not(.dark) .toast {
+            color: #334155 !important;
+        }
+        
+        html.dark .toast {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+            border: 1px solid rgba(71,85,105, 0.5) !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+        }
+
+
+        /* Card elements */
+        html.dark .card {
+            background-color: #0f172a !important; /* slate-900 */
+            border-color: rgba(255,255,255,0.05) !important;
+            box-shadow: none !important;
+        }
+        html.dark .card-header {
+            border-bottom-color: rgba(255,255,255,0.05) !important;
+            background-color: transparent !important;
+        }
+        html.dark .card-title {
+            color: #e2e8f0 !important;
+        }
+        
+        /* Forms */
+        html.dark .form-group label {
+            color: #94a3b8 !important; /* slate-400 */
+        }
+        html.dark input[type="date"], html.dark input[type="text"], html.dark select, html.dark input[type="number"] {
+            background-color: #1e293b !important; /* slate-800 */
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important; /* slate-50 */
+        }
+        html.dark input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8) !important;
+        }
+        html.dark input[readonly], html.dark input:disabled {
+            background-color: #0f172a !important; 
+            border-color: rgba(71, 85, 105, 0.5) !important;
+            color: #94a3b8 !important;
+        }
+
+        /* Buttons */
+        html.dark .btn-secondary {
+            background-color: rgba(30, 41, 59, 0.5) !important;
+            border-color: rgba(71, 85, 105, 0.5) !important;
+            color: #e2e8f0 !important;
+        }
+        html.dark .btn-secondary:hover {
+            background-color: rgba(51, 65, 85, 0.8) !important;
+        }
+        
+        /* Tables */
+        html.dark table th {
+            background-color: #0f172a !important; /* slate-900 */
+            border-bottom: 2px solid rgba(71, 85, 105, 0.5) !important;
+            color: #94a3b8 !important; /* slate-400 */
+        }
+        html.dark table td {
+            border-bottom: 1px solid rgba(71, 85, 105, 0.5) !important;
+            color: #e2e8f0 !important; /* slate-200 */
+        }
+        html.dark tbody tr:hover {
+            background-color: rgba(51, 65, 85, 0.3) !important;
+        }
+
+        /* Totals Area */
+        html.dark .totals-card {
+            background-color: #0f172a !important;
+            border-color: rgba(71, 85, 105, 0.5) !important;
+        }
+        html.dark .total-row span {
+            color: #94a3b8 !important;
+        }
+        html.dark .total-row span:last-child {
+            color: #e2e8f0 !important;
+        }
+        html.dark .total-row.final {
+            border-top-color: rgba(71, 85, 105, 0.5) !important;
+            color: #f59e0b !important;
+        }
+        html.dark hr {
+            border-color: rgba(71, 85, 105, 0.5) !important;
+        }
+        html.dark .highlight {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            border-color: rgba(59, 130, 246, 0.2) !important;
+            color: #60a5fa !important;  
+        }
+
+        /* Modals Focus */
+        html.dark .modal-content {
+            background-color: #0f172a !important;
+            border: 1px solid rgba(71,85,105, 0.5) !important;
+            color: #f8fafc !important;
+        }
+        html.dark .modal-header {
+            border-bottom-color: rgba(71,85,105, 0.5) !important;
+        }
+        html.dark .modal-footer {
+            border-top-color: rgba(71,85,105, 0.5) !important;
+        }
+        html.dark .modal-body p {
+            color: #cbd5e1 !important;
+        }
+        
+        /* Dropdown Search Specifics */
+        html.dark .search-input {
+            background-color: #1e293b !important;
+            border-color: rgba(71, 85, 105, 0.5) !important;
+            color: #f8fafc !important;
+        }
+        html.dark .search-input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2) !important;
+        }
+        html.dark .search-results {
+            background-color: #1e293b !important; /* slate-800 */
+            border-color: rgba(71, 85, 105, 0.5) !important;
+        }
+        html.dark .result-item {
+            border-bottom-color: rgba(71, 85, 105, 0.2) !important;
+            color: #cbd5e1 !important;
+        }
+        html.dark .result-item:hover {
+            background-color: rgba(51, 65, 85, 0.6) !important; /* slate-700 */
+        }
+        html.dark .result-item.active {
+            background-color: rgba(15, 23, 42, 0.8) !important; /* slate-900 */
+            border-left-color: #f59e0b !important;
+        }
+        html.dark .item-code {
+            background-color: #0f172a !important; /* slate-900 */
+            color: #94a3b8 !important; /* slate-400 */
+        }
+        html.dark .item-stock {
+            color: #4ade80 !important; /* green-400 */
+        }
+
+</style>
+
+    <!-- Tailwind CSS config for Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    </head>
 
 <body>
     <!-- Header -->
@@ -676,7 +866,14 @@
                 ← Volver
             </button>
             <h1>Registrar Entrada a Inventario</h1>
-            <div id="fechaActual" class="submodule-version"></div>
+            
+        <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-500 dark:text-slate-400 mt-2"></div>
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
+            <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+            <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+            <span class="text-sm font-bold tracking-wide">TEMA</span>
+        </button>
+    
         </div>
     </header>
 
@@ -746,16 +943,15 @@
 
                 <!-- Campos Crédito (Condicionales) -->
                 <div class="form-group-row" id="containerCredito"
-                    style="display: none; background: #fff7ed; padding: 1rem; border-radius: 8px; border: 1px solid #ffedd5; grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    class="bg-orange-50/50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-lg p-4" style="display: none; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
                     <div class="form-group">
                         <label for="montoInicial">Pago Inicial (S/)</label>
-                        <input type="number" id="montoInicial" min="0" step="0.01" value="0.00"
-                            oninput="calcularSaldo()">
+                        <input type="text" inputmode="decimal" id="montoInicial" min="0" step="0.01" value="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); calcularSaldo();">
                     </div>
                     <div class="form-group">
                         <label for="saldoPendiente">Saldo Pendiente (S/)</label>
-                        <input type="number" id="saldoPendiente" readonly
-                            style="background-color: #f1f5f9; font-weight: bold;">
+                        <input type="text" inputmode="decimal" id="saldoPendiente" readonly
+                            class="bg-slate-100 dark:bg-slate-900 font-bold border-transparent dark:border-slate-700/50" style="">
                     </div>
                     <div class="form-group">
                         <label for="fechaVencimiento">Fecha Vencimiento *</label>
@@ -819,7 +1015,7 @@
                 <div class="form-group cantidad-group">
                     <label for="cantidadInput">Cantidad <span id="unidadMedidaDisplay"
                             style="font-weight: normal; color: var(--secondary-color); font-size: 0.9em;"></span></label>
-                    <input type="number" id="cantidadInput" min="0.01" step="0.01" value="1">
+                    <input type="text" inputmode="decimal" id="cantidadInput" min="0.01" step="0.01" value="1" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');">
                 </div>
 
                 <!-- 3. Modo de Ingreso (Span 1) - Row 2 -->
@@ -836,8 +1032,7 @@
                 <!-- 4. Monto (Span 1) - Row 2 -->
                 <div class="form-group monto-group">
                     <label for="montoInput">Monto</label>
-                    <input type="number" id="montoInput" min="0" step="0.0001" placeholder="0.00"
-                        oninput="recalcularPrecioUnitarioVisual()">
+                    <input type="text" inputmode="decimal" id="montoInput" min="0" step="0.0001" placeholder="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); recalcularPrecioUnitarioVisual();">
                     <!-- Input Oculto que usa el sistema (Precio Unitario Final) -->
                     <input type="hidden" id="precioInput">
                 </div>
@@ -896,7 +1091,7 @@
                 </div>
                 <div class="form-group">
                     <label for="gastoMonto">Monto Total</label>
-                    <input type="number" id="gastoMonto" min="0" step="0.01" placeholder="0.00">
+                    <input type="text" inputmode="decimal" id="gastoMonto" min="0" step="0.01" placeholder="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');">
                 </div>
                 <div class="form-group">
                     <label for="gastoConFactura">¿Con Factura?</label>
@@ -913,8 +1108,7 @@
             </div>
 
             <!-- Fila 2: Datos de Factura (Oculto por defecto) -->
-            <div class="form-grid" id="gastoDatosFactura"
-                style="display: none; margin-bottom: 1rem; background: #f8fafc; padding: 1rem; border-radius: 8px;">
+            <div class="form-grid bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 mb-4 border border-transparent dark:border-slate-800" id="gastoDatosFactura" style="display: none;">
                 <div class="form-group" style="flex: 2;">
                     <label for="gastoProveedor">Proveedor del Servicio</label>
                     <select id="gastoProveedor">
@@ -987,6 +1181,12 @@
                     <span>Costo de Adquisición Total:</span>
                     <span id="lblCostoTotal" style="margin-left: 1rem;">S/ 0.00</span>
                 </div>
+                <!-- Botón de Ajuste Inteligente -->
+                <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="abrirModalAjuste()" style="font-size: 0.85rem; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.5rem; background-color: #f1f5f9; border: 1px solid #cbd5e1; color: var(--secondary-color);">
+                        <i class="fas fa-magic"></i> ¿Difiere por céntimos? Ajuste Inteligente
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1041,6 +1241,34 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="cerrarModalCostos()">Corregir</button>
                 <button class="btn btn-primary" onclick="confirmarGuardado()">✅ Aprobar y Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Ajuste Inteligente -->
+    <div id="modalAjusteInteligente" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-magic" style="color: var(--primary-color);"></i> Ajuste Inteligente de Totales</h3>
+                <button class="btn-icon" onclick="cerrarModalAjuste()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: var(--secondary-color); font-size: 0.95rem;">
+                    Ingrese el <strong>Total General Exacto de su Comprobante en Físico</strong>. El sistema calculará la diferencia de céntimos en el Total Items y ajustará un ítem automáticamente.
+                </p>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="totalFacturaFisica">Total Exacto según Comprobante en Físico (S/)</label>
+                    <input type="text" inputmode="decimal" id="totalFacturaFisica" placeholder="Ej: 1540.23" autocomplete="off" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" onkeyup="verificarAjuste()">
+                </div>
+
+                <div id="resultadoAjuste" style="display: none; padding: 1rem; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1rem;">
+                    <!-- Contenido inyectado dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModalAjuste()">Cancelar</button>
+                <button id="btnAplicarAjuste" class="btn btn-primary" onclick="aplicarAjusteSugerido()" disabled>Aplicar Ajuste Automático</button>
             </div>
         </div>
     </div>
@@ -1296,12 +1524,45 @@
         // LÓGICA DE BÚSQUEDA Y SELECCIÓN (GOOGLE STYLE)
         // ============================================
 
+        let indiceNavegacion = -1;
+
         // Inicializar Buscador
         document.addEventListener('DOMContentLoaded', () => {
             const buscador = document.getElementById('productoBusqueda');
 
+            // Navegación con Teclado
+            buscador.addEventListener('keydown', (e) => {
+                const resultadosDiv = document.getElementById('resultadosBusqueda');
+                const items = resultadosDiv.querySelectorAll('.result-item');
+
+                if (items.length === 0 || resultadosDiv.style.display === 'none') {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') e.preventDefault();
+                    return;
+                }
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    indiceNavegacion++;
+                    if (indiceNavegacion >= items.length) indiceNavegacion = 0;
+                    actualizarFocoBusqueda(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    indiceNavegacion--;
+                    if (indiceNavegacion < 0) indiceNavegacion = items.length - 1;
+                    actualizarFocoBusqueda(items);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (indiceNavegacion >= 0 && indiceNavegacion < items.length) {
+                        items[indiceNavegacion].click();
+                    } else if (items.length > 0) {
+                        items[0].click(); // Elige el primero por default
+                    }
+                }
+            });
+
             // Evento Input con Debounce
             buscador.addEventListener('input', debounce(async (e) => {
+                indiceNavegacion = -1;
                 // Limpiar selección previa al escribir para evitar inconsistencias
                 e.target.dataset.id = '';
                 itemSeleccionadoActual = null;
@@ -1332,6 +1593,17 @@
                 clearTimeout(timeout);
                 timeout = setTimeout(() => func.apply(this, args), wait);
             };
+        }
+
+        function actualizarFocoBusqueda(items) {
+            items.forEach((item, i) => {
+                if (i === indiceNavegacion) {
+                    item.classList.add('active');
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.classList.remove('active');
+                }
+            });
         }
 
         async function buscarProductos(termino) {
@@ -1394,8 +1666,10 @@
             // Lógica existente de verificación
             verificarProveedorItem(producto);
 
-            // Foco a cantidad
-            document.getElementById('cantidadInput').focus();
+            // Foco a cantidad con Sombreado de auto-tipado
+            const inputCant = document.getElementById('cantidadInput');
+            inputCant.focus();
+            inputCant.select();
         }
 
         function agregarProducto() {
@@ -1413,6 +1687,10 @@
             const productoId = document.getElementById('productoBusqueda').dataset.id;
             const cantidad = parseFloat(document.getElementById('cantidadInput').value);
             const precioUnitario = parseFloat(document.getElementById('precioInput').value); // PRECIO COMPRA (Inc. IGV si aplica)
+            
+            // Guardar contexto original digitado por el usuario
+            const modoPrecioOriginal = document.getElementById('modoPrecio').value;
+            const montoOriginal = document.getElementById('montoInput').value;
 
             if (!productoId || !cantidad || isNaN(precioUnitario)) {
                 mostrarToast('Complete todos los campos del item', 'warning');
@@ -1435,6 +1713,8 @@
                 unidad: producto.unidad_medida?.codigo || 'UND',
                 cantidad,
                 precioUnitario, // Guardamos el input original
+                modoPrecioOriginal, // Guardado para restaurar al editar
+                montoOriginal, // Guardado para restaurar al editar
                 // Valores calculados:
                 valorUnitario: 0,
                 igvUnitario: 0,
@@ -1838,12 +2118,12 @@
 
             document.getElementById('cantidadInput').value = item.cantidad;
 
-            // Cargar el monto visual (montoInput) y el precio unitario (precioInput)
-            // Asumimos que el usuario quiere ver el precio unitario por defecto al editar
-            // O idealmente, deberíamos guardar qué "modo" usó, pero por ahora cargaremos el precio unitario
+            // Restaurar el contexto visual original brindado por el usuario:
+            document.getElementById('modoPrecio').value = item.modoPrecioOriginal || 'PRECIO_UNITARIO';
+            document.getElementById('montoInput').value = item.montoOriginal || item.precioUnitario;
+            
+            // Reasignar la variable interna del sistema para que no se pierda nada si da click a "Agregar Item" de inmediato.
             document.getElementById('precioInput').value = item.precioUnitario;
-            document.getElementById('montoInput').value = item.precioUnitario;
-            document.getElementById('modoPrecio').value = 'PRECIO_UNITARIO'; // Resetear modo a precio unitario para consistencia
 
             // Eliminar de la lista
             eliminarFila(index);
@@ -1877,6 +2157,100 @@
             document.getElementById('cantidadInput').value = '1';
             document.getElementById('precioInput').value = '';
             document.getElementById('productoBusqueda').focus();
+        }
+
+        // ============================================
+        // AJUSTE INTELIGENTE DE CÉNTIMOS
+        // ============================================
+        let itemSugeridoAjuste = null;
+        let montoSugeridoAjuste = 0;
+
+        function abrirModalAjuste() {
+            if (detalleIngreso.length === 0) {
+                mostrarToast('Debe agregar al menos un item antes de usar el Ajuste Inteligente', 'warning');
+                return;
+            }
+            document.getElementById('totalFacturaFisica').value = '';
+            document.getElementById('resultadoAjuste').style.display = 'none';
+            document.getElementById('btnAplicarAjuste').disabled = true;
+            document.getElementById('modalAjusteInteligente').style.display = 'flex';
+            setTimeout(() => document.getElementById('totalFacturaFisica').focus(), 100);
+        }
+
+        function cerrarModalAjuste() {
+            document.getElementById('modalAjusteInteligente').style.display = 'none';
+        }
+
+        function verificarAjuste() {
+            const inputVal = document.getElementById('totalFacturaFisica').value;
+            const totalFisica = parseFloat(inputVal);
+            const resDiv = document.getElementById('resultadoAjuste');
+            const btnAplicar = document.getElementById('btnAplicarAjuste');
+            
+            if (isNaN(totalFisica) || totalFisica <= 0) {
+                resDiv.style.display = 'none';
+                btnAplicar.disabled = true;
+                return;
+            }
+
+            const totalActual = detalleIngreso.reduce((sum, i) => sum + i.total, 0);
+            
+            // Meta de Total Items = Total Ingresado (Evaluación directa al Total Items)
+            const metaTotalItems = totalFisica;
+
+            const diferencia = metaTotalItems - totalActual; // positivo: falta, negativo: sobra
+
+            if (Math.abs(diferencia) > 1.00) {
+                resDiv.innerHTML = `<div style="color: var(--danger-color); font-weight: 500;">
+                    <i class="fas fa-exclamation-triangle"></i> La diferencia algorítmica (S/ ${Math.abs(diferencia).toFixed(2)}) es muy grande (> 1 Sol). Revise los precios unitarios y cantidades antes de usar el ajuste inteligente.
+                </div>`;
+                resDiv.style.display = 'block';
+                btnAplicar.disabled = true;
+                return;
+            }
+
+            if (Math.abs(diferencia) < 0.009) {
+                resDiv.innerHTML = `<div style="color: var(--success-color); font-weight: 500;">
+                    <i class="fas fa-check-circle"></i> Los montos cuadran perfectamente. No requiere ajuste.
+                </div>`;
+                resDiv.style.display = 'block';
+                btnAplicar.disabled = true;
+                return;
+            }
+
+            // Buscar en qué item es mejor absorber la diferencia (idealmente el de mayor precio total)
+            const itemsOrdenados = detalleIngreso.map((item, index) => ({...item, originalIndex: index}))
+                                                 .sort((a, b) => b.total - a.total);
+            const itemMayor = itemsOrdenados[0];
+            
+            itemSugeridoAjuste = itemMayor.originalIndex;
+            montoSugeridoAjuste = itemMayor.total + diferencia;
+
+            resDiv.innerHTML = `
+                <div style="font-size: 0.9rem;">
+                    <p style="margin-bottom: 0.5rem;"><strong>Análisis Completado:</strong></p>
+                    <p style="color: var(--secondary-color); margin-bottom: 0.25rem;">Diferencia a cuadrar: <strong>S/ ${diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}</strong></p>
+                    <p style="color: var(--primary-color);">Solución a Aplicar: Asignar de forma subyacente matemáticamente <strong>S/ ${montoSugeridoAjuste.toFixed(2)}</strong> como equivalente a <em>Precio Total</em> en el ítem:<br><span style="font-weight: 600;">${itemMayor.codigo} - ${itemMayor.descripcion}</span>.</p>
+                </div>
+            `;
+            resDiv.style.display = 'block';
+            btnAplicar.disabled = false;
+        }
+
+        function aplicarAjusteSugerido() {
+            if (itemSugeridoAjuste === null || isNaN(montoSugeridoAjuste)) return;
+
+            const item = detalleIngreso[itemSugeridoAjuste];
+            // Matemática inversa limpia y exacta para lograr que: item.precioUnitario * item.cantidad = montoSugeridoAjuste
+            item.precioUnitario = montoSugeridoAjuste / item.cantidad;
+            
+            // Actualizar su registro original para conservar el Ajuste en caso pulse "Lápiz" luego
+            item.modoPrecioOriginal = 'PRECIO_TOTAL';
+            item.montoOriginal = montoSugeridoAjuste;
+            
+            mostrarToast('Ajuste quirúrgico aplicado con éxito. Revisa el cuadro de totales.', 'success');
+            cerrarModalAjuste();
+            recalcularTodo();
         }
 
         // ============================================
@@ -2110,105 +2484,74 @@
 
                 if (errorNum) throw new Error("Error generando número de ingreso: " + errorNum.message);
 
-                // 1. Cabecera
-                const { data: ingresoData, error: errorIngreso } = await supabaseApp
-                    .from('ingresos')
-                    .insert([{
-                        tipo_ingreso_id: tipoIngreso,
-                        proveedor_id: proveedor,
-                        almacen_destino_id: almacen,
-                        fecha_ingreso: fecha,
-                        numero_ingreso: numeroIngresoGenerado,
-                        estado: 'REGISTRADO',
-                        con_factura: conFactura,
-                        tipo_documento: tipoDocumento, // Nuevo campo específico
-                        serie_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : serie,
-                        numero_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : numero,
-                        fecha_documento: tipoDocumento === 'SIN_COMPROBANTE' ? null : fechaDocumento,
-                        subtotal: subtotalGlobal,
-                        igv_credito_fiscal_total: igvGlobal,
-                        costo_adquisicion_total: costoTotal, // INCLUYE GASTOS
-                        otros_egresos_total: totalGastos,
-                        monto_segun_documentos: totalItems, // Solo lo que se paga al proveedor principal
 
-                        // Campos de Pago
-                        forma_pago: formaPago,
-                        medio_pago: formaPago === 'CONTADO' ? medioPago : null, // Solo si es contado tiene medio de pago inmediato
-                        referencia_pago: (formaPago === 'CONTADO' && ['TRANSFERENCIA', 'BILLETERA_DIGITAL', 'NOTA_CREDITO'].includes(medioPago)) ? referenciaPago : null,
-                        pago_inicial: montoInicial,
-                        saldo_credito: saldoCredito,
-                        egreso_real_pagado: egresoReal,
-                        fecha_vencimiento: formaPago === 'CREDITO' ? fechaVencimiento : null
-                    }])
-                    .select()
-                    .single();
+                // 1. Empaquetamiento Atómico: Cabecera, Detalles y Gastos
+                const payload = {
+                    tipo_ingreso_id: tipoIngreso,
+                    proveedor_id: proveedor,
+                    almacen_destino_id: almacen,
+                    fecha_ingreso: fecha,
+                    numero_ingreso: numeroIngresoGenerado,
+                    estado: 'REGISTRADO',
+                    con_factura: conFactura,
+                    tipo_documento: tipoDocumento,
+                    serie_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : serie,
+                    numero_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : numero,
+                    fecha_documento: tipoDocumento === 'SIN_COMPROBANTE' ? null : fechaDocumento,
+                    subtotal: subtotalGlobal,
+                    igv_credito_fiscal_total: igvGlobal,
+                    costo_adquisicion_total: costoTotal,
+                    otros_egresos_total: totalGastos,
+                    monto_segun_documentos: totalItems,
+                    forma_pago: formaPago,
+                    medio_pago: formaPago === 'CONTADO' ? medioPago : null,
+                    referencia_pago: (formaPago === 'CONTADO' && ['TRANSFERENCIA', 'BILLETERA_DIGITAL', 'NOTA_CREDITO'].includes(medioPago)) ? referenciaPago : null,
+                    pago_inicial: montoInicial,
+                    saldo_credito: saldoCredito,
+                    egreso_real_pagado: egresoReal,
+                    fecha_vencimiento: formaPago === 'CREDITO' ? fechaVencimiento : null,
+                    
+                    detalles: detalleIngreso.map(item => ({
+                        item_id: item.productoId,
+                        cantidad: item.cantidad,
+                        cantidad_disponible: item.cantidad,
+                        precio_compra_unitario: item.precioUnitario,
+                        precio_compra_total: item.total,
+                        valor_compra_unitario: item.valorUnitario,
+                        valor_compra_total: item.subtotal,
+                        igv_credito_fiscal_unitario: item.igvUnitario,
+                        igv_credito_fiscal_producto: item.igvTotal,
+                        con_factura_producto: conFactura,
+                        costo_adquisicion_unitario: item.costoAdquisicionUnitario,
+                        costo_adquisicion_total: item.costoAdquisicionTotal,
+                        fecha_vencimiento: item.esPerecible ? item.fechaVencimiento : null,
+                        otros_egresos_unitario: item.gastoAsignado / item.cantidad,
+                        otros_egresos_total: item.gastoAsignado
+                    })),
 
-                if (errorIngreso) throw errorIngreso;
-
-                const ingresoId = ingresoData.id;
-
-                // 2. Detalle Items
-                const detalleParaInsertar = detalleIngreso.map(item => ({
-                    ingreso_id: ingresoId,
-                    item_id: item.productoId,
-                    cantidad: item.cantidad,
-                    cantidad_disponible: item.cantidad, // Inicializar stock disponible
-
-                    // Precios de Compra (Input original)
-                    precio_compra_unitario: item.precioUnitario,
-                    precio_compra_total: item.total,
-
-                    // Valores (Sin IGV)
-                    valor_compra_unitario: item.valorUnitario,
-                    valor_compra_total: item.subtotal,
-
-                    // IGV
-                    igv_credito_fiscal_unitario: item.igvUnitario,
-                    igv_credito_fiscal_producto: item.igvTotal,
-                    con_factura_producto: conFactura,
-
-                    // Costos Finales (CON GASTOS DISTRIBUIDOS)
-                    costo_adquisicion_unitario: item.costoAdquisicionUnitario,
-                    costo_adquisicion_total: item.costoAdquisicionTotal,
-
-                    // Gestión de Perecibles
-                    fecha_vencimiento: item.esPerecible ? item.fechaVencimiento : null,
-
-                    // Otros egresos asignados
-                    otros_egresos_unitario: item.gastoAsignado / item.cantidad,
-                    otros_egresos_total: item.gastoAsignado
-                }));
-
-                const { error: errorDetalle } = await supabaseApp
-                    .from('ingresos_detalle')
-                    .insert(detalleParaInsertar);
-
-                if (errorDetalle) throw errorDetalle;
-
-                // 3. Insertar Gastos Asociados
-                if (gastosIngreso.length > 0) {
-                    const gastosParaInsertar = gastosIngreso.map(gasto => ({
-                        ingreso_id: ingresoId,
-                        tipo_gasto: 'OTROS', // O el tipo que corresponda
+                    gastos: gastosIngreso.length > 0 ? gastosIngreso.map(gasto => ({
+                        tipo_gasto: 'OTROS',
                         descripcion: gasto.descripcion,
                         precio_gasto: gasto.monto,
                         con_factura_gasto: gasto.conFactura,
                         valor_gasto: gasto.valor,
                         igv_credito_fiscal_gasto: gasto.igv,
-
-                        // Nuevas columnas para trazabilidad completa
                         proveedor_id: gasto.proveedorId || null,
                         serie_factura: gasto.serie || null,
                         numero_factura: gasto.numero || null,
                         fecha_emision: gasto.fecha || null
-                    }));
+                    })) : []
+                };
 
-                    const { error: errorGastos } = await supabaseApp
-                        .from('gastos_ingreso')
-                        .insert(gastosParaInsertar);
+                // 2. Ejecución Atómica de BD mediante RPC
+                const { data: resultRegistro, error: errorRegistro } = await supabaseApp
+                    .rpc('fn_registrar_ingreso', { p_payload: payload });
 
-                    if (errorGastos) throw errorGastos;
+                if (errorRegistro) throw errorRegistro;
+                if (!resultRegistro || !resultRegistro.success) {
+                    throw new Error(resultRegistro ? resultRegistro.message : 'Error desconocido en el registro atómico');
                 }
+
 
                 // 4. Actualizar Stock y Kardex
                 // SE ELIMINÓ LA LÓGICA MANUAL DE FRONTEND.
@@ -2247,6 +2590,39 @@
         }
     </script>
 
-</body>
+
+    <script>
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('themeToggleBtn');
+            if(btn) {
+                if(isDark) {
+                    btn.querySelector('.fa-sun').classList.add('hidden');
+                    btn.querySelector('.fa-moon').classList.remove('hidden');
+                } else {
+                    btn.querySelector('.fa-sun').classList.remove('hidden');
+                    btn.querySelector('.fa-moon').classList.add('hidden');
+                }
+            }
+        }
+
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                updateThemeIcon(document.documentElement.classList.contains('dark'));
+            });
+        })();
+    </script>
+    </body>
 
 </html>
