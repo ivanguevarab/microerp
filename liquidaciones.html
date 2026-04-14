@@ -609,16 +609,14 @@
                     .lte('fecha', fechaFin)
                     .eq('tipo_dia', 'LABORABLE');
 
-                // Paso 3: Obtener saldos de banco de horas al final del mes
-                // (Para esto extraemos todos los bancos de horas y nos quedamos con el último registro por persona)
+                // Paso 3: Obtener movimientos de banco de horas del mes
+                // (Para homologar los saldos visuales frente a ediciones Safe-Append, sumaremos matemáticamente todas las transacciones)
                 const { data: bancos } = await window.supabaseClient
                     .from('banco_horas')
-                    .select('personal_id, saldo_acumulado, fecha_movimiento, created_at')
+                    .select('personal_id, cantidad_horas')
                     .eq('empresa_id', currentEmpresaId)
                     .gte('fecha_movimiento', fechaInicio)
-                    .lte('fecha_movimiento', fechaFin)
-                    .order('fecha_movimiento', { ascending: false })
-                    .order('created_at', { ascending: false });
+                    .lte('fecha_movimiento', fechaFin);
 
                 // Preprocesar calendarios -> Horas Esperadas por Personal
                 const horasEsperadasMap = {};
@@ -654,12 +652,11 @@
                     }
                 });
 
-                // Preprocesar Banco Horas -> Saldo final
-                const saldoBancoMap = {}; // Guarda el mas reciente
+                // Preprocesar Banco Horas -> Saldo final sumando absolutos transaccionales
+                const saldoBancoMap = {}; 
                 (bancos || []).forEach(bh => {
-                    if (saldoBancoMap[bh.personal_id] === undefined) {
-                        saldoBancoMap[bh.personal_id] = parseFloat(bh.saldo_acumulado || 0);
-                    }
+                    if (saldoBancoMap[bh.personal_id] === undefined) saldoBancoMap[bh.personal_id] = 0;
+                    saldoBancoMap[bh.personal_id] += parseFloat(bh.cantidad_horas || 0);
                 });
 
                 // Recuperar Planillas Existentes para no chancar datos transaccionales cerrados
