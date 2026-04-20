@@ -147,8 +147,16 @@
             <!-- PANEL IZQUIERDO: Búsqueda y Catálogo -->
             <div class="panel" style="min-height: 600px;">
                 <div class="panel-header">
-                    <div><i class="fas fa-barcode text-blue-500 mr-2"></i> Búsqueda de Productos u Órdenes</div>
-                    
+                    <div class="flex items-center gap-4">
+                        <div><i class="fas fa-barcode text-blue-500 mr-2"></i> Búsqueda de Productos u Órdenes</div>
+                        <div class="flex items-center gap-2" title="Permite vender productos sin inventario. No se descontará del almacén.">
+                            <span class="text-xs font-semibold text-slate-500">Búsqueda Sin Stock:</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="toggleModoVerde" class="sr-only peer">
+                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                            </label>
+                        </div>
+                    </div>
                     <!-- Selector de Almacén (Crucial para Stock FIFO de Items) -->
                     <div id="almacenesContainer" class="flex gap-2 flex-wrap" style="display:none;"></div>
                     <input type="hidden" id="almacenOrigen">
@@ -187,7 +195,7 @@
                             <i class="fas fa-user absolute left-3 text-slate-400"></i>
                             <input type="text" id="clienteSearchInput" class="w-full border border-gray-300 rounded py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none" placeholder="Buscar Cliente..." autocomplete="off">
                             <input type="hidden" id="clienteSelect" value="NN">
-                            <button onclick="window.location.href='clientes.html?action=new_client&return_to=emitir_ticket.html'" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded text-sm transition-colors flex-shrink-0 border border-blue-200" title="Nuevo Cliente" type="button">
+                            <button onclick="respaldarYRedirigir()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded text-sm transition-colors flex-shrink-0 border border-blue-200" title="Nuevo Cliente" type="button">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
@@ -397,15 +405,37 @@
             const { data: te } = await window.supabaseClient.from('tipos_egresos').select('id, nombre');
             tipoEgresosDisponibles = te || [];
 
-            // 5. Configurar Buscador de Clientes y Auto-selección por Redirección
+            // 5. HIDRATACIÓN (Recuperar backup de SessionStorage antes de auto-seleccionar)
+            const backupStr = sessionStorage.getItem('tpvBackup');
+            if (backupStr) {
+                try {
+                    const backup = JSON.parse(backupStr);
+                    carrito = backup.carrito || [];
+                    if(backup.tipoComprobante) document.getElementById('tipoComprobante').value = backup.tipoComprobante;
+                    if(backup.condicionPago) document.getElementById('condicionPago').value = backup.condicionPago;
+                    if(backup.filtroActivo) setFiltroGiro(backup.filtroActivo);
+                    if(backup.toggleModoVerde && document.getElementById('toggleModoVerde')) {
+                        document.getElementById('toggleModoVerde').checked = true;
+                        // Forzamos el despache de evento con setTimeout para asegurar que se escuche y deshabilite almacenes
+                        setTimeout(() => document.getElementById('toggleModoVerde').dispatchEvent(new Event('change')), 100);
+                    }
+                    if(backup.clienteSelect && backup.clienteSearchInput) {
+                        seleccionarClienteAuto(backup.clienteSelect, backup.clienteSearchInput);
+                    }
+                    renderizarCarrito();
+                } catch(e) { console.error('Error restaurando backup TPV', e); }
+                sessionStorage.removeItem('tpvBackup');
+            } else {
+                seleccionarClienteAuto('NN', '-- Cliente No Identificado (NN) --');
+            }
+
+            // 6. Configurar Buscador de Clientes y Auto-selección por Redirección de Nuevo Cliente
             const urlParams = new URLSearchParams(window.location.search);
             const ncId = urlParams.get('new_client_id');
             if(ncId) {
                 const pre = todosLosClientes.find(c => c.id == ncId);
                 if(pre) seleccionarClienteAuto(pre.id, pre.razon_social);
                 window.history.replaceState({}, document.title, window.location.pathname);
-            } else {
-                seleccionarClienteAuto('NN', '-- Cliente No Identificado (NN) --');
             }
         }
 
@@ -419,6 +449,28 @@
         }
 
         function configurarEventos() {
+            // Evento para el Toggle Modo Verde (limpiar búsqueda y deshabilitar almacenes)
+            document.getElementById('toggleModoVerde')?.addEventListener('change', (e) => {
+                document.getElementById('buscadorGeneral').value = '';
+                document.getElementById('resultadosBusqueda').style.display = 'none';
+                document.getElementById('buscadorGeneral').focus();
+                
+                // Deshabilitar botones de almacén
+                const btnAlmacenes = document.querySelectorAll('#almacenesContainer button');
+                btnAlmacenes.forEach(btn => {
+                    btn.disabled = e.target.checked;
+                    if(e.target.checked) {
+                        btn.style.opacity = '0.5';
+                        btn.style.cursor = 'not-allowed';
+                        btn.title = 'Deshabilitado en Búsqueda Sin Stock';
+                    } else {
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                        btn.removeAttribute('title');
+                    }
+                });
+            });
+
             // Buscador Autocomplete y Navegación por Teclado
             const inputBuscador = document.getElementById('buscadorGeneral');
             inputBuscador.addEventListener('input', debounce(buscarElemento, 300));
@@ -586,46 +638,73 @@
                 let resultadosDOM = '';
                 
                 if(filtroActivo === 'ITEMS') {
+                    const modoVerdeActivo = document.getElementById('toggleModoVerde').checked;
                     const almacenId = document.getElementById('almacenOrigen').value;
-                    if(!almacenId) {
+                    if(!almacenId && !modoVerdeActivo) {
                         resDiv.innerHTML = '<div class="p-4 text-center text-red-500">Por favor seleccione un almacén origen primero.</div>';
                         return;
                     }
 
+                    // Blindaje del query contra comas y pipes: reemplazar comillas dobles y envolver en comillas dobles para Supabase
+                    const safeTerm = term.replace(/"/g, ''); // Remover comillas dobles si el usuario tipeó alguna accidentalmente
+                    
                     // Buscar Items y corroborar stock FIFO (Misma lógica probada de egresos.html)
                     const { data: items } = await window.supabaseClient.from('items')
                         .select('id, codigo, descripcion, precio_venta, unidad_medida')
                         .eq('empresa_id', currentEmpresaId)
                         .eq('activo', true)
-                        .or(`descripcion.ilike.%${term}%,codigo.ilike.%${term}%`).limit(10);
+                        .or(`descripcion.ilike."%${safeTerm}%",codigo.ilike."%${safeTerm}%"`).limit(10);
                     
-                    if(!items || items.length === 0) { resDiv.innerHTML = '<div class="p-4">No se hallaron productos.</div>'; return; }
+                    if(!items || items.length === 0) { resDiv.innerHTML = '<div class="p-4 text-slate-500">No se hallaron registros en el catálogo con ese texto. Revise si hay errores de tipeo.</div>'; return; }
 
                     // Por cada item, calcular stock disponible
                     for(let prod of items) {
-                        const { data: lotes } = await window.supabaseClient.from('ingresos_detalle')
-                            .select('cantidad_disponible, ingresos!inner(almacen_destino_id, fecha_ingreso)')
-                            .eq('item_id', prod.id)
-                            .eq('ingresos.almacen_destino_id', almacenId)
-                            .gt('cantidad_disponible', 0);
-                        
-                        const stockActual = lotes ? lotes.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
-                        if(stockActual > 0) {
-                            resultadosDOM += renderizarFilaBusqueda(prod, 'ITEMS', stockActual);
+                        if (!modoVerdeActivo) {
+                            // MODO NORMAL: Busca stock en el almacén seleccionado
+                            const { data: lotes } = await window.supabaseClient.from('ingresos_detalle')
+                                .select('cantidad_disponible, ingresos!inner(almacen_destino_id)')
+                                .eq('item_id', prod.id)
+                                .eq('ingresos.almacen_destino_id', almacenId)
+                                .gt('cantidad_disponible', 0);
+                            
+                            const stockActual = lotes ? lotes.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
+                            
+                            // Solo muestra si tiene stock
+                            if(stockActual > 0) {
+                                resultadosDOM += renderizarFilaBusqueda(prod, 'ITEMS', stockActual);
+                            }
+                        } else {
+                            // MODO BÚSQUEDA SIN STOCK: Calcula el stock global (todos los almacenes)
+                            const { data: lotesGlobales } = await window.supabaseClient.from('ingresos_detalle')
+                                .select('cantidad_disponible')
+                                .eq('item_id', prod.id)
+                                .gt('cantidad_disponible', 0);
+                            
+                            const stockGlobal = lotesGlobales ? lotesGlobales.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
+                            
+                            // EXCLUSIVAMENTE muestra si el stock total de la empresa es 0
+                            if(stockGlobal === 0) {
+                                resultadosDOM += renderizarFilaBusqueda(prod, 'ITEMS', 0);
+                            }
                         }
                     }
-                    if(!resultadosDOM) resultadosDOM = '<div class="p-4">Sin stock en este almacén.</div>';
+                    if(!resultadosDOM) {
+                        resultadosDOM = modoVerdeActivo 
+                            ? '<div class="p-4 text-orange-500">No se hallaron productos con stock global cero.</div>' 
+                            : '<div class="p-4 text-slate-500">Sin stock en este almacén. Active "Búsqueda Sin Stock" si desea vender a pedido.</div>';
+                    }
 
                 } else {
                     // Buscar CUS o CUP
+                    const safeTerm = term.replace(/"/g, '');
                     const { data: cods } = await window.supabaseClient.from('codigos_unicos')
                         .select('id, codigo, descripcion, precio_venta, tipo, cliente_id')
                         .eq('empresa_id', currentEmpresaId)
                         .eq('tipo', filtroActivo)
                         .neq('estado', 'ANULADO') // Permite facturar o cobrar en cualquier estado excepto anulado
-                        .or(`descripcion.ilike.%${term}%,codigo.ilike.%${term}%`).limit(10);
+                        .or(`descripcion.ilike."%${safeTerm}%",codigo.ilike."%${safeTerm}%"`).limit(10);
                     
-                    if(!cods || cods.length === 0) { resDiv.innerHTML = '<div class="p-4">No se hallaron registros.</div>'; return; }
+                    if(!cods || cods.length === 0) { resDiv.innerHTML = '<div class="p-4 text-slate-500">No se hallaron registros en el catálogo con ese texto. Revise si hay errores de tipeo.</div>'; return; }
                     cods.forEach(c => resultadosDOM += renderizarFilaBusqueda(c, filtroActivo, null));
                 }
 
@@ -639,9 +718,13 @@
             // Empaquetar datos para la función onclick
             const dataStr = encodeURIComponent(JSON.stringify({...obj, paramTipo: tipo, paramStock: stock, paramClienteId: obj.cliente_id}));
             
-            const badgeExtra = tipo === 'ITEMS' 
-                ? `<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-bold">Stock: ${stock} ${obj.unidad_medida}</span>`
-                : `<span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-bold">${tipo}</span>`;
+            let badgeExtra = '';
+            if (tipo === 'ITEMS') {
+                if (stock > 0) badgeExtra = `<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-bold">Stock: ${stock} ${obj.unidad_medida}</span>`;
+                else badgeExtra = `<span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full font-bold">Stock: 0 ${obj.unidad_medida} (A Pedido)</span>`;
+            } else {
+                badgeExtra = `<span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-bold">${tipo}</span>`;
+            }
 
             return `
                 <div class="ac-item" onclick="agregarAlCarrito('${dataStr}')">
@@ -675,10 +758,23 @@
 
             // Validación dura de Stock Logístico para ITEMS
             let lotesSeleccionados = [];
+            const modoVerdeActivo = document.getElementById('toggleModoVerde')?.checked;
+
             if(obj.paramTipo === 'ITEMS') {
                 if(cantidadReq > obj.paramStock) {
-                    Swal.fire('Stock Insuficiente', `Solo tienes ${obj.paramStock} unidades dispobibles.`, 'error');
-                    return;
+                    if (!modoVerdeActivo) {
+                        Swal.fire('Stock Insuficiente', `Solo tienes ${obj.paramStock} unidades disponibles. Activa el Modo A Pedido para omitir esta restricción.`, 'error');
+                        return;
+                    } else {
+                        // Advertencia visual suave pero permitiendo continuar
+                        await Swal.fire({
+                            title: 'Venta A Pedido',
+                            text: `Faltan ${cantidadReq - obj.paramStock} unidades. La venta se registrará comercialmente pero NO se descontará del Kardex la parte faltante.`,
+                            icon: 'info',
+                            timer: 5500,
+                            showConfirmButton: false
+                        });
+                    }
                 }
                 const almacenId = document.getElementById('almacenOrigen').value;
                 try {
@@ -698,7 +794,7 @@
                         lotesSeleccionados.push({ lotId: l.id, qty: aTomar, costo_unit_usado: l.costo_adquisicion_unitario });
                         pendiente -= aTomar;
                     }
-                    if(pendiente > 0) throw new Error("Descuadre transaccional FIFO durante la selección.");
+                    if(pendiente > 0 && !modoVerdeActivo) throw new Error("Descuadre transaccional FIFO durante la selección.");
                 } catch(e) {
                     console.error("Error resolviendo lotes:", e);
                     Swal.fire('Error Interno', 'No se pudo resolver el FIFO.', 'error');
@@ -1096,6 +1192,22 @@
                 console.error("Transacción fallida:", fatal);
                 Swal.fire('Error Crítico', 'La transacción fue revertida en frontend ante falla de comunicación. Revisar consola.', 'error');
             }
+        }
+
+        // ==== FUNCIÓN PARA HIDRATACIÓN ====
+        function respaldarYRedirigir() {
+            const backup = {
+                carrito,
+                almacenOrigen: document.getElementById('almacenOrigen').value,
+                clienteSelect: document.getElementById('clienteSelect').value,
+                clienteSearchInput: document.getElementById('clienteSearchInput').value,
+                tipoComprobante: document.getElementById('tipoComprobante').value,
+                condicionPago: document.getElementById('condicionPago').value,
+                toggleModoVerde: document.getElementById('toggleModoVerde')?.checked,
+                filtroActivo
+            };
+            sessionStorage.setItem('tpvBackup', JSON.stringify(backup));
+            window.location.href = 'clientes.html?action=new_client&return_to=emitir_ticket.html';
         }
 
     </script>
