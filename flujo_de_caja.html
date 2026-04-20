@@ -453,7 +453,7 @@
 
                 // 2. VENTAS CREDITO (COBROS/ADELANTOS)
                 const { data: cobrosCredito } = await window.supabaseClient.from('ventas_credito_pagos')
-                    .select('id, created_at, fecha_pago, monto')
+                    .select('id, created_at, fecha_pago, monto, ventas(numero_ticket, clientes(razon_social))')
                     .eq('empresa_id', currentEmpresaId)
                     .eq('estado', 'PAGADO')
                     .gte('fecha_pago', isoDesde)
@@ -464,7 +464,10 @@
                 (cobrosCredito || []).forEach(v => {
                     const val = Number(v.monto);
                     sumCobrosCredito += val;
-                    detCobrosCredito.push({ fecha: v.created_at || v.fecha_pago, ref: 'Amortización de Deuda Cliente', monto: val });
+                    const ticketStr = v.ventas ? v.ventas.numero_ticket : 'Ticket Desconocido';
+                    const clienteStr = (v.ventas && v.ventas.clientes) ? v.ventas.clientes.razon_social : 'Cliente Anónimo';
+                    const refAmortizacion = `Cobro de ${ticketStr} - ${clienteStr}`;
+                    detCobrosCredito.push({ fecha: v.created_at || v.fecha_pago, ref: refAmortizacion, monto: val });
                 });
                 if(sumCobrosCredito > 0) {
                     objIngresos.push({ cat: 'Ventas al Crédito (Pagos Recibidos)', monto: sumCobrosCredito, sys: true, detalles: detCobrosCredito });
@@ -635,8 +638,12 @@
                         let detHTML = '';
                         if (x.detalles && x.detalles.length > 0) {
                             x.detalles.sort((d1, d2) => new Date(d2.fecha) - new Date(d1.fecha)).forEach(mini => {
-                                const fecObj = new Date(mini.fecha);
-                                const hHora = isNaN(fecObj) ? '' : fecObj.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit'});
+                                // Forzar UTC para evitar el desfase de la BD
+                                let fStr = mini.fecha;
+                                if (fStr && !fStr.endsWith('Z') && !fStr.includes('+') && fStr.length > 10) fStr += 'Z';
+                                
+                                const fecObj = new Date(fStr);
+                                const hHora = isNaN(fecObj) ? '' : fecObj.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit', timeZone: 'America/Lima'});
                                 detHTML += `
                                     <tr class="border-b border-gray-100/50 hover:bg-slate-100">
                                         <td class="py-2 pl-4 text-[11px] text-slate-400 font-mono w-24">${hHora}</td>
@@ -670,35 +677,13 @@
         }
 
         async function abrirModalMovimiento(tipo) {
-            let catDisponibles = categoriasList.filter(c => c.tipo_movimiento === tipo);
+            let catDisponibles = categoriasList.filter(c => c.tipo_movimiento === tipo && c.nombre !== 'Ventas al Crédito (Recepción de Pagos)');
             catDisponibles.sort((a, b) => a.nombre.localeCompare(b.nombre));
             let optHTML = '<option value="">-- Seleccione Categoría --</option>';
             catDisponibles.forEach(c => { optHTML += `<option value="${c.id}">${c.nombre}</option>` });
 
-            // Preparación contextual si eligiera 'Ventas al Crédito (Recepción de Pagos)'
+            // La opción de Ventas al Crédito fue eliminada de este modal por reglas de negocio centralizadas en Histórico.
             let deudoresHTML = '';
-            let debtMap = {};
-            if (tipo === 'INGRESO') {
-                const { data: deudas } = await window.supabaseClient.from('ventas')
-                    .select('cliente_id, clientes(nombre, numero_documento), saldo_pendiente')
-                    .eq('empresa_id', currentEmpresaId)
-                    .eq('condicion_pago', 'CREDITO')
-                    .gt('saldo_pendiente', 0);
-                
-                (deudas || []).forEach(v => {
-                    if(!v.cliente_id) return;
-                    const cid = v.cliente_id;
-                    if(!debtMap[cid]) debtMap[cid] = { nombre: v.clientes?.nombre || 'Cliente Anónimo', doc: v.clientes?.numero_documento || '', total: 0 };
-                    debtMap[cid].total += Number(v.saldo_pendiente);
-                });
-                
-                deudoresHTML = '<select id="swald-cliente" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm hidden w-full"><option value="">-- Seleccione Cliente Deudor --</option>';
-                Object.keys(debtMap).forEach(cid => {
-                    deudoresHTML += `<option value="${cid}" data-max="${debtMap[cid].total}">${debtMap[cid].nombre} (Deuda: S/ ${formatMoney(debtMap[cid].total)})</option>`;
-                });
-                deudoresHTML += '</select>';
-                deudoresHTML += '</select>';
-            }
 
             // Preparación contextual si eligiera inyección/retiro de Accionistas
             let sociosHTML = '';
@@ -752,7 +737,6 @@
                 reverseButtons: true,
                 focusConfirm: true,
                 didOpen: () => {
-                    const catTargetId = catDisponibles.find(c => c.nombre === 'Ventas al Crédito (Recepción de Pagos)')?.id || null;
                     const catSociosNombres = [
                         'Préstamo a la Empresa (Proveniente de Accionistas)', 
                         'Incremento de Capital',
@@ -781,9 +765,7 @@
                         if(sOrd) { sOrd.classList.add('hidden'); sOrd.value = ""; }
                         document.getElementById('swald-alert').classList.add('hidden');
 
-                        if(val === catTargetId) {
-                            if(sCli) sCli.classList.remove('hidden');
-                        } else if (catSociosNombres.includes(selCatName)) {
+                        if (catSociosNombres.includes(selCatName)) {
                             if(sSoc) sSoc.classList.remove('hidden');
                             if(sSocAlert) sSocAlert.classList.remove('hidden');
                         } else if (catOrdenesNombres.includes(selCatName)) {
@@ -882,7 +864,8 @@
                         const payload = {
                             empresa_id: currentEmpresaId, categoria_id: formValues.cat,
                             monto: formValues.monto.toFixed(2), fecha_movimiento: document.getElementById('filtroHasta').value,
-                            referencia: formValues.ref || null, created_by: window.currentUser.email
+                            referencia: formValues.ref || null, created_by: window.currentUser.email,
+                            created_at: new Date().toISOString()
                         };
                         if (formValues.ordenId) payload.codigo_unico_id = formValues.ordenId;
                         
@@ -1023,8 +1006,12 @@
 
             if (dataObj.detalles && dataObj.detalles.length > 0) {
                 dataObj.detalles.sort((d1, d2) => new Date(d2.fecha) - new Date(d1.fecha)).forEach(mini => {
-                    const fecObj = new Date(mini.fecha);
-                    const dh = isNaN(fecObj) ? '' : fecObj.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit'});
+                    // Forzar UTC para evitar el desfase de la BD
+                    let fStr = mini.fecha;
+                    if (fStr && !fStr.endsWith('Z') && !fStr.includes('+') && fStr.length > 10) fStr += 'Z';
+                    
+                    const fecObj = new Date(fStr);
+                    const dh = isNaN(fecObj) ? '' : fecObj.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit', timeZone: 'America/Lima'});
                     
                     let refContent = mini.ref;
                     if (mini.correlativo) {
@@ -1136,7 +1123,7 @@
                         const dets = [...catData.detalles].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
                         dets.forEach(d => {
                             const fecObj = new Date(d.fecha);
-                            const ds = isNaN(fecObj) ? d.fecha : fecObj.toLocaleString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
+                            const ds = isNaN(fecObj) ? d.fecha : fecObj.toLocaleString('es-PE', {timeZone: 'America/Lima', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
                             wsData.push([ds, d.ref, Number(d.monto) || 0]);
                         });
                         
@@ -1161,7 +1148,7 @@
                         const dets = [...catData.detalles].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
                         dets.forEach(d => {
                             const fecObj = new Date(d.fecha);
-                            const ds = isNaN(fecObj) ? d.fecha : fecObj.toLocaleString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
+                            const ds = isNaN(fecObj) ? d.fecha : fecObj.toLocaleString('es-PE', {timeZone: 'America/Lima', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
                             wsData.push([ds, d.ref, Number(d.monto) || 0]);
                         });
 
