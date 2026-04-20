@@ -75,6 +75,16 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
         const { data: det, error: eD } = await window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
         if (eD) throw new Error("No se encontraron detalles de la venta: " + eD.message);
 
+        // 1.2 Recuperar pago inicial si es crédito y estamos reimprimiendo
+        if (v.condicion_pago === 'CREDITO' && montoRecibido === 0) {
+            const { data: pIni } = await window.supabaseClient.from('ventas_credito_pagos')
+                .select('monto')
+                .eq('venta_id', ventaId)
+                .eq('tipo_pago', 'INICIAL')
+                .maybeSingle();
+            if (pIni) montoRecibido = Number(pIni.monto);
+        }
+
         // 1.5 Obtener datos de la empresa por separado para evitar el error de cache de PostgREST
         const { data: emp } = await window.supabaseClient.from('empresas')
             .select('*').eq('id', v.empresa_id).single();
