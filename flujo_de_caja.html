@@ -718,6 +718,58 @@
                 }
             }
 
+            // Preparación de Trabajadores para Egresos (Almuerzo y Remuneraciones)
+            let trabajadorAlmuerzoHTML = '';
+            let trabajadorTodosHTML = '';
+            
+            if (tipo === 'EGRESO') {
+                // 1. Obtener todos los trabajadores activos
+                const { data: todosTrabajadores } = await window.supabaseClient.from('personal')
+                    .select('id, nombres, apellidos')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('activo', true)
+                    .order('nombres', { ascending: true });
+                
+                // 2. Obtener políticas de asistencia para almuerzos
+                const { data: politicas } = await window.supabaseClient.from('politicas_asistencia')
+                    .select('personal_id, aplicar_descuento_almuerzo')
+                    .eq('empresa_id', currentEmpresaId);
+
+                if (todosTrabajadores && todosTrabajadores.length > 0) {
+                    let globalAplica = true;
+                    const paramGlobal = (politicas || []).find(p => !p.personal_id);
+                    if (paramGlobal) globalAplica = paramGlobal.aplicar_descuento_almuerzo;
+
+                    const trabajadoresAlmuerzo = todosTrabajadores.filter(t => {
+                        const pIndiv = (politicas || []).find(p => p.personal_id === t.id);
+                        if (pIndiv) return pIndiv.aplicar_descuento_almuerzo;
+                        return globalAplica;
+                    });
+
+                    // Generar HTML para "Beneficio a los Trabajadores" (Almuerzo)
+                    if (trabajadoresAlmuerzo.length > 0) {
+                        trabajadorAlmuerzoHTML = '<select id="swald-trab-almuerzo" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm hidden w-full mb-2"><option value="">-- Seleccionar Trabajador (Opcional) --</option>';
+                        trabajadoresAlmuerzo.forEach(t => {
+                            trabajadorAlmuerzoHTML += `<option value="${t.nombres} ${t.apellidos}">${t.nombres} ${t.apellidos}</option>`;
+                        });
+                        trabajadorAlmuerzoHTML += '</select>';
+                    } else {
+                        trabajadorAlmuerzoHTML = '<div id="swald-trab-almuerzo-alert" class="hidden text-xs text-amber-600 mb-2 font-bold"><i class="fas fa-info-circle"></i> No hay trabajadores con política de almuerzo habilitada.</div>';
+                    }
+
+                    // Generar HTML para "Pago de Remuneraciones" (Todos)
+                    trabajadorTodosHTML = '<select id="swald-trab-todos" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm hidden w-full mb-2"><option value="">-- Seleccionar Trabajador (Opcional) --</option>';
+                    todosTrabajadores.forEach(t => {
+                        trabajadorTodosHTML += `<option value="${t.nombres} ${t.apellidos}">${t.nombres} ${t.apellidos}</option>`;
+                    });
+                    trabajadorTodosHTML += '</select>';
+                } else {
+                    const noTrabMsg = '<div id="swald-trab-alert" class="hidden text-xs text-amber-600 mb-2 font-bold"><i class="fas fa-info-circle"></i> No hay trabajadores activos registrados.</div>';
+                    trabajadorAlmuerzoHTML = noTrabMsg;
+                    trabajadorTodosHTML = noTrabMsg;
+                }
+            }
+
             const { value: formValues } = await Swal.fire({
                 title: `Añadir Variante de ${tipo}`,
                 html: `
@@ -726,6 +778,8 @@
                         ${deudoresHTML}
                         ${sociosHTML}
                         ${ordenesHTML}
+                        ${trabajadorAlmuerzoHTML}
+                        ${trabajadorTodosHTML}
                         <input id="swald-monto" type="text" inputmode="decimal" step="0.01" min="0.01" class="border border-gray-300 rounded px-3 py-2 outline-none font-bold text-right" placeholder="Monto (Ej. 1500.00)" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1').replace(/(\\.\\d{2})\\d+/g, '$1'); if(window.checkMontoLimites) window.checkMontoLimites();">
                         <div id="swald-alert" class="text-[11px] text-rose-500 font-bold hidden px-1"><i class="fas fa-exclamation-triangle"></i> El cobro excede la deuda total del cliente (S/ <span id="swald-max-val">0.00</span>).</div>
                         <input id="swald-ref" type="text" class="border border-gray-300 rounded px-3 py-2 outline-none text-sm" placeholder="Comentarios">
@@ -748,12 +802,24 @@
                         'Gasto de Ventas',
                         'Beneficio a los Trabajadores'
                     ];
+                    const catAlmuerzoNombres = [
+                        'Beneficio a los Trabajadores'
+                    ];
+                    const catPlanillaNombres = [
+                        'Pago Remuneraciones y Beneficios', 
+                        'Pago de Remuneraciones',
+                        'Pago Remuneraciones'
+                    ];
 
                     window.checkCategoriaFC = function(val) {
                         const sCli = document.getElementById('swald-cliente');
                         const sSoc = document.getElementById('swald-socio');
                         const sSocAlert = document.getElementById('swald-socio-alert');
                         const sOrd = document.getElementById('swald-orden');
+                        const sTrabAlmuerzo = document.getElementById('swald-trab-almuerzo');
+                        const sTrabAlmuerzoAlert = document.getElementById('swald-trab-almuerzo-alert');
+                        const sTrabTodos = document.getElementById('swald-trab-todos');
+                        const sTrabAlert = document.getElementById('swald-trab-alert');
                         
                         const selCatObj = catDisponibles.find(x => x.id === val);
                         const selCatName = selCatObj ? selCatObj.nombre : '';
@@ -763,13 +829,30 @@
                         if(sSoc) { sSoc.classList.add('hidden'); sSoc.value = ""; }
                         if(sSocAlert) sSocAlert.classList.add('hidden');
                         if(sOrd) { sOrd.classList.add('hidden'); sOrd.value = ""; }
+                        if(sTrabAlmuerzo) { sTrabAlmuerzo.classList.add('hidden'); sTrabAlmuerzo.value = ""; }
+                        if(sTrabAlmuerzoAlert) sTrabAlmuerzoAlert.classList.add('hidden');
+                        if(sTrabTodos) { sTrabTodos.classList.add('hidden'); sTrabTodos.value = ""; }
+                        if(sTrabAlert) sTrabAlert.classList.add('hidden');
                         document.getElementById('swald-alert').classList.add('hidden');
 
                         if (catSociosNombres.includes(selCatName)) {
                             if(sSoc) sSoc.classList.remove('hidden');
                             if(sSocAlert) sSocAlert.classList.remove('hidden');
-                        } else if (catOrdenesNombres.includes(selCatName)) {
+                        } 
+                        
+                        if (catOrdenesNombres.includes(selCatName)) {
                             if(sOrd) sOrd.classList.remove('hidden');
+                        }
+                        
+                        if (catAlmuerzoNombres.includes(selCatName)) {
+                            if(sTrabAlmuerzo) sTrabAlmuerzo.classList.remove('hidden');
+                            if(sTrabAlmuerzoAlert) sTrabAlmuerzoAlert.classList.remove('hidden');
+                            if(sTrabAlert && !sTrabAlmuerzoAlert) sTrabAlert.classList.remove('hidden');
+                        }
+
+                        if (catPlanillaNombres.includes(selCatName)) {
+                            if(sTrabTodos) sTrabTodos.classList.remove('hidden');
+                            if(sTrabAlert) sTrabAlert.classList.remove('hidden');
                         }
                     }
 
@@ -812,6 +895,8 @@
                     const m = parseFloat(document.getElementById('swald-monto').value);
                     const cliField = document.getElementById('swald-cliente');
                     const socField = document.getElementById('swald-socio');
+                    const trabAlmuerzoField = document.getElementById('swald-trab-almuerzo');
+                    const trabTodosField = document.getElementById('swald-trab-todos');
                     
                     if(!c || isNaN(m) || m <= 0) return false;
 
@@ -827,10 +912,20 @@
                          return false;
                     }
 
-                    // Componer comentario si hay socio
+                    // Componer comentario si hay socio o trabajador
                     let recRef = document.getElementById('swald-ref').value;
                     if (isSocio) {
                          recRef = recRef ? `${recRef} | Accionista(s): ${socField.value}` : `Accionista(s): ${socField.value}`;
+                    }
+                    
+                    const isTrabAlmuerzo = trabAlmuerzoField && !trabAlmuerzoField.classList.contains('hidden') && trabAlmuerzoField.value;
+                    if (isTrabAlmuerzo) {
+                         recRef = recRef ? `${recRef} | Personal: ${trabAlmuerzoField.value}` : `Personal: ${trabAlmuerzoField.value}`;
+                    }
+
+                    const isTrabTodos = trabTodosField && !trabTodosField.classList.contains('hidden') && trabTodosField.value;
+                    if (isTrabTodos) {
+                         recRef = recRef ? `${recRef} | Personal: ${trabTodosField.value}` : `Personal: ${trabTodosField.value}`;
                     }
                     
                     const ordField = document.getElementById('swald-orden');
