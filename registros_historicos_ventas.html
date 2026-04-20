@@ -124,6 +124,16 @@
             document.getElementById('filtroFechaFin').value = hoy.toISOString().split('T')[0];
 
             await cargarContextoInicial();
+
+            // Leer parámetros URL para auto-filtros (Ej. desde cuentas por cobrar)
+            const urlParams = new URLSearchParams(window.location.search);
+            const searchParam = urlParams.get('search');
+            if (searchParam) {
+                document.getElementById('filtroBuscador').value = searchParam;
+                document.getElementById('filtroFechaInc').value = '';
+                document.getElementById('filtroFechaFin').value = '';
+            }
+
             await cargarVentashistoricas();
         });
 
@@ -170,6 +180,14 @@
                 }
 
                 renderTabla(filtrados);
+
+                // Auto-apertura si viene en URL y encontró 1 solo resultado exacto
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('autoopen') === 'true' && filtrados.length === 1) {
+                    setTimeout(() => { verDetalle(filtrados[0].id); }, 500);
+                    // Limpiar url para que si recarga no se vuelva a abrir y quitar el parámetro visualmente
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
 
             } catch (e) {
                 console.error("Error cargas:", e);
