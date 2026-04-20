@@ -166,7 +166,7 @@
                     subtitle: 'Operaciones y Liquidez',
                     items: [
                         { label: 'Flujo de Caja', url: 'flujo_de_caja.html' },
-                        { label: 'Cuentas por Cobrar', url: 'cuentas_cobrar.html' },
+                        { label: 'Cuentas por Cobrar', url: 'cuentas_por_cobrar.html' },
                         { label: 'Deudas por Pagar', url: 'deudas_pagar.html' }
                     ]
                 },
