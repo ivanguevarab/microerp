@@ -238,6 +238,15 @@
                     <input type="date" id="fechaEgreso"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
                 </div>
+                
+                <!-- Observaciones (NUEVO) -->
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="Útil para enlazar con Tickets emitidos sin stock (Venta en Verde)">
+                        Observaciones / Ref. Ticket
+                    </label>
+                    <input type="text" id="observacionesRef" placeholder="Ej: Por ticket TCK-2026-000001"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10">
+                </div>
             </div>
         </div>
 
@@ -995,7 +1004,8 @@
                     tipo_egreso_id: tipoEgresoId,
                     fecha_egreso: fechaEgreso,
                     estado: 'CONFIRMADO',
-                    usuario_id: usuarioActual.id
+                    usuario_id: usuarioActual.id,
+                    observaciones: document.getElementById('observacionesRef')?.value || null
                 };
 
                 if (isProduccion) payloadEgreso.cup_id = cupIdVal;
