@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Precios - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        .container {
+            padding: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Tabs Style */
+        .tabs-container {
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            font-weight: 600;
+            color: #64748b;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: -2px;
+            display: none; /* Hidden by default, shown by JS based on company profile */
+        }
+
+        .tab-btn:hover {
+            color: #3b82f6;
+        }
+
+        .tab-btn.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+        }
+
+        /* Table Style (MicroERP Standard) */
+        .tabla-std {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tabla-std th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+
+        .tabla-std td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        .tabla-std tr:last-child td {
+            border-bottom: none;
+        }
+
+        .tabla-std tr:hover {
+            background-color: #f8fafc;
+        }
+
+        /* Inputs de Precio */
+        .input-precio {
+            width: 100px;
+            text-align: right;
+            padding: 6px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-weight: 500;
+            color: #0f172a;
+            transition: border-color 0.2s;
+        }
+
+        .input-precio:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .input-precio.changed {
+            border-color: #f59e0b;
+            background-color: #fef3c7;
+        }
+
+        /* Barra herramientas */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            position: relative;
+            width: 300px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .search-box input:focus {
+            border-color: #3b82f6;
+        }
+
+        .btn-save-all {
+            background-color: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .btn-save-all.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .btn-save-all.active:hover {
+            background-color: #059669;
+        }
+
+    </style>
+</head>
+
+<body>
+    <!-- Header Standarizado del Módulo -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='ventas_y_facturacion.html'">
+                ← Volver a Ventas
+            </button>
+            <h1>Maestro de Listas de Precios</h1>
+            <div class="submodule-version">MICRO ERP v2.0</div>
+        </div>
+    </header>
+
+    <main class="container">
+        
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mb-6 flex gap-4">
+            <i class="fas fa-info-circle text-blue-500 mt-1 text-xl"></i>
+            <div>
+                <h4 class="text-blue-800 font-bold mb-1">Pre-configuración de Tarifas</h4>
+                <p class="text-blue-700 text-sm">Establece el "Precio de Venta" estándar de tus productos y servicios. Estos precios se auto-completarán al momento de emitir un ticket de venta, agilizando el proceso.</p>
+            </div>
+        </div>
+
+        <!-- TABS DINÁMICOS -->
+        <div class="tabs-container" id="tabsContainer">
+            <div class="tab-btn" id="tabItems" onclick="switchTab('ITEMS')"><i class="fas fa-box"></i> Productos (Items)</div>
+            <div class="tab-btn" id="tabCUS" onclick="switchTab('CUS')"><i class="fas fa-concierge-bell"></i> Servicios (CUS)</div>
+            <div class="tab-btn" id="tabCUP" onclick="switchTab('CUP')"><i class="fas fa-industry"></i> Producción (CUP)</div>
+        </div>
+
+        <!-- BARRA DE HERRAMIENTAS -->
+        <div class="toolbar">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Buscar por código o descripción..." autocomplete="off">
+            </div>
+            
+            <button class="btn-save-all" id="btnSaveAll" onclick="guardarCambios()">
+                <i class="fas fa-save"></i> Guardar Cambios
+            </button>
+        </div>
+
+        <!-- CONTENEDOR DE TABLA -->
+        <div class="overflow-x-auto bg-white rounded-lg shadow-sm border border-slate-200">
+            <table class="tabla-std" id="mainTable">
+                <thead>
+                    <tr>
+                        <th width="15%">Código</th>
+                        <th width="50%">Descripción</th>
+                        <th width="15%" id="thMedida">Unidad</th>
+                        <th width="20%" class="text-right">Precio de Venta ($)</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="4" class="text-center py-8 text-slate-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>Cargando información...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </main>
+
+    <!-- Inyectar Sidebar -->
+    <script src="sidebar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        // Variables globales
+        let currentEmpresaId = null;
+        let empresaPerfil = null;
+        let activeTab = '';
+        let currentData = [];
+        let modifiedRecords = {}; // Forma: { id: nuevoPrecio }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+
+            // Obtenemos el perfil de la empresa para habilitar los TABS
+            try {
+                const { data: perfil } = await window.supabaseClient
+                    .from('perfiles_usuario')
+                    .select('empresa_id')
+                    .eq('id', window.currentUser.id)
+                    .single();
+                
+                if(!perfil) throw new Error("Sin perfil");
+                currentEmpresaId = perfil.empresa_id;
+
+                const { data: empresa } = await window.supabaseClient
+                    .from('empresas')
+                    .select('*')
+                    .eq('id', currentEmpresaId)
+                    .single();
+                
+                empresaPerfil = empresa;
+
+                configurarTabsPorGiro();
+
+            } catch(e) {
+                console.error("Error cargando perfil:", e);
+                Swal.fire('Error', 'No se pudo cargar la configuración de la empresa.', 'error');
+            }
+
+            // Event listener de búsqueda
+            document.getElementById('searchInput').addEventListener('input', renderTable);
+        });
+
+        function configurarTabsPorGiro() {
+            let primerTab = null;
+
+            if (empresaPerfil.es_comercializadora) {
+                document.getElementById('tabItems').style.display = 'block';
+                primerTab = primerTab || 'ITEMS';
+            }
+            if (empresaPerfil.es_servicios) {
+                document.getElementById('tabCUS').style.display = 'block';
+                primerTab = primerTab || 'CUS';
+            }
+            if (empresaPerfil.es_industrial) {
+                document.getElementById('tabCUP').style.display = 'block';
+                primerTab = primerTab || 'CUP';
+            }
+
+            if(primerTab) {
+                switchTab(primerTab);
+            } else {
+                document.getElementById('tableBody').innerHTML = '<tr><td colspan="4" class="text-center text-red-500 py-8">La empresa no tiene configurado ningún giro comercial en Administración.</td></tr>';
+            }
+        }
+
+        async function switchTab(tabName) {
+            // Guardar confirmación si hay cambios sin guardar?
+            if (Object.keys(modifiedRecords).length > 0) {
+                const conf = await Swal.fire({
+                    title: 'Hay cambios sin guardar',
+                    text: 'Si cambias de pestaña perderás los precios que editaste. ¿Deseas descartarlos?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, descartar',
+                    cancelButtonText: 'No, quedarme aquí'
+                });
+                if(!conf.isConfirmed) return;
+            }
+
+            // Visual toggle
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab' + (tabName === 'ITEMS'? 'Items' : tabName)).classList.add('active');
+            
+            // Header config
+            document.getElementById('thMedida').innerText = tabName === 'ITEMS' ? 'Und. Medida' : 'Estado';
+            
+            // State resets
+            activeTab = tabName;
+            currentData = [];
+            modifiedRecords = {};
+            document.getElementById('searchInput').value = '';
+            checkSaveButton();
+            
+            await cargarDatosBD();
+        }
+
+        async function cargarDatosBD() {
+            document.getElementById('tableBody').innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-500"><i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>Cargando información...</td></tr>';
+            
+            try {
+                if(activeTab === 'ITEMS') {
+                    const { data, error } = await window.supabaseClient
+                        .from('items')
+                        .select('id, codigo, descripcion, unidad_medida, precio_venta')
+                        .eq('empresa_id', currentEmpresaId)
+                        .eq('activo', true)
+                        .order('descripcion', { ascending: true });
+                    
+                    if(error) throw error;
+                    currentData = data || [];
+                } else if(activeTab === 'CUS' || activeTab === 'CUP') {
+                    const { data, error } = await window.supabaseClient
+                        .from('codigos_unicos')
+                        .select('id, codigo, descripcion, estado, precio_venta')
+                        .eq('empresa_id', currentEmpresaId)
+                        .eq('tipo', activeTab)
+                        .order('descripcion', { ascending: true });
+                    
+                    if(error) throw error;
+                    currentData = data || [];
+                }
+                
+                renderTable();
+
+            } catch (err) {
+                console.error("Error BD:", err);
+                document.getElementById('tableBody').innerHTML = '<tr><td colspan="4" class="text-center text-red-500 py-8"><i class="fas fa-exclamation-triangle"></i> Error al cargar los datos.</td></tr>';
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            const term = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            tbody.innerHTML = '';
+            
+            let filtered = currentData;
+            if(term) {
+                filtered = currentData.filter(x => 
+                    (x.codigo && x.codigo.toLowerCase().includes(term)) || 
+                    (x.descripcion && x.descripcion.toLowerCase().includes(term))
+                );
+            }
+
+            if(filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-8">No se encontraron registros de ' + activeTab + '.</td></tr>';
+                return;
+            }
+
+            filtered.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                const colExtra = activeTab === 'ITEMS' ? (row.unidad_medida || '-') : (row.estado || '-');
+                
+                // Si el registro está en modifiedRecords, usamos ese valor, sino el de BD
+                const currentVal = modifiedRecords[row.id] !== undefined ? modifiedRecords[row.id] : (row.precio_venta || 0);
+                const isChanged = modifiedRecords[row.id] !== undefined;
+
+                tr.innerHTML = `
+                    <td class="font-medium text-slate-700">${row.codigo || 'S/C'}</td>
+                    <td>${row.descripcion}</td>
+                    <td>${colExtra}</td>
+                    <td class="text-right">
+                        S/ <input type="text" inputmode="decimal" class="input-precio ${isChanged ? 'changed' : ''}" 
+                               data-id="${row.id}" 
+                               value="${parseFloat(currentVal).toFixed(2)}"
+                               onchange="marcarModificacion('${row.id}', this)"
+                               oninput="limpiarErrores(this)">
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function marcarModificacion(id, inputObj) {
+            let val = parseFloat(inputObj.value);
+            if(isNaN(val) || val < 0) {
+                val = 0;
+                inputObj.value = "0.00";
+            } else {
+                inputObj.value = val.toFixed(2);
+            }
+
+            // Buscar valor original
+            const originalRow = currentData.find(x => x.id === id);
+            const originalVal = parseFloat(originalRow.precio_venta || 0).toFixed(2);
+            
+            if(val.toFixed(2) === originalVal) {
+                // Volvio a su estado original, borrar de modificados
+                delete modifiedRecords[id];
+            } else {
+                modifiedRecords[id] = val;
+            }
+
+            // Repintar color
+            if(modifiedRecords[id] !== undefined) {
+                inputObj.classList.add('changed');
+            } else {
+                inputObj.classList.remove('changed');
+            }
+
+            checkSaveButton();
+        }
+
+        function limpiarErrores(inputObj) {
+            // Elimina basura visual y fuerza el uso exclusivo de punto decimal
+            inputObj.value = inputObj.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+        }
+
+        function checkSaveButton() {
+            const btn = document.getElementById('btnSaveAll');
+            if(Object.keys(modifiedRecords).length > 0) {
+                btn.classList.add('active');
+                btn.innerHTML = `<i class="fas fa-save"></i> Guardar Cambios (${Object.keys(modifiedRecords).length})`;
+            } else {
+                btn.classList.remove('active');
+                btn.innerHTML = `<i class="fas fa-save"></i> Guardar Cambios`;
+            }
+        }
+
+        async function guardarCambios() {
+            if(Object.keys(modifiedRecords).length === 0) return;
+
+            const tableToUpdate = activeTab === 'ITEMS' ? 'items' : 'codigos_unicos';
+            
+            // Confirmación
+            const count = Object.keys(modifiedRecords).length;
+            const cf = await Swal.fire({
+                title: 'Confirmar Actualización',
+                text: `Vas a actualizar el precio de venta de ${count} elemento(s). Esto aplicará inmediatamente en el Punto de Venta.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                confirmButtonText: 'Sí, Guardar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if(!cf.isConfirmed) return;
+
+            Swal.fire({
+                title: 'Guardando...',
+                text: 'Actualizando base de datos central.',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                // Supabase JS v2 -> we can't easily upsert only specific columns of multiple dynamic rows without fetching full row, 
+                // OR looping thru updates. Since the user might update 5-10 records at a time, a loop is safe enough.
+                const promesas = Object.keys(modifiedRecords).map(id => {
+                    return window.supabaseClient
+                        .from(tableToUpdate)
+                        .update({ precio_venta: modifiedRecords[id] })
+                        .eq('id', id);
+                });
+
+                await Promise.all(promesas);
+
+                Swal.fire({
+                    title: '¡Éxito!',
+                    text: 'Los precios se han actualizado correctamente.',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+
+                // Limpiar listado y recargar
+                modifiedRecords = {};
+                checkSaveButton();
+                await cargarDatosBD();
+
+            } catch (error) {
+                console.error("Error guardando:", error);
+                Swal.fire('Error', 'No se pudieron guardar los precios.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

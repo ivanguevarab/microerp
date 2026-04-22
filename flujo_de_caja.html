@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flujo de Caja - MICRO ERP</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- Supabase & Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+
+    <!-- SheetJS (Excel Multitab Export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        
+        .card-stat {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card-final {
+            background-color: #1e293b; 
+            color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            padding: 1.25rem;
+        }
+
+        .tbl-header {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .tbl-row {
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .tbl-row:hover { background-color: #f8fafc; }
+
+        .btn-variante {
+            background-color: transparent;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s;
+        }
+
+        .btn-ingreso { color: #10b981; border: 1px solid #10b981; }
+        .btn-ingreso:hover { background-color: #ecfdf5; }
+        
+        .btn-egreso { color: #f43f5e; border: 1px solid #f43f5e; }
+        .btn-egreso:hover { background-color: #fff1f2; }
+
+    </style>
+</head>
+
+<body>
+    <!-- Cabecera exigida por el usuario gobernada por styles.css -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='finanzas.html'">
+                ← Volver a Finanzas
+            </button>
+            <h1 class="flex items-center gap-2"><i class="fas fa-wallet text-emerald-400"></i> Hub Financiero</h1>
+            <div class="submodule-version" id="fechaActualCaja"></div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 relative">
+        
+        <!-- TOP: Títulos y Filtros (Réplica de Maqueta) -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h2 class="text-3xl font-bold text-slate-800 tracking-tight">Flujo de Caja Diario</h2>
+                <p class="text-sm text-slate-500 mt-1">Control de Liquidez y Cuadre de Bancos Corporativo</p>
+            </div>
+
+            <div class="flex flex-col items-end gap-2">
+                <div class="flex items-center gap-4">
+                    <label class="text-xs font-semibold text-slate-500 cursor-pointer select-none flex items-center gap-2">
+                        <input type="checkbox" id="toggleRango" class="form-checkbox h-4 w-4 text-blue-600 rounded" onchange="toggleFiltroRango()">
+                        FILTRAR RANGO DE FECHAS
+                    </label>
+                    <button onclick="exportarFlujoCajaExcel()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition flex items-center">
+                        <i class="fas fa-file-excel mr-2"></i> Exportar a Sheets
+                    </button>
+                </div>
+                <div class="flex flex-col items-end">
+                    <div class="flex items-center bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm relative">
+                        <i class="far fa-calendar-alt text-gray-400 mr-3"></i>
+                        <div class="flex flex-col text-xs text-slate-400 mr-2" id="lblDesdeContainer">
+                            <span id="lblDesde" class="font-semibold uppercase tracking-wide">Día en revisión</span>
+                            <input type="date" id="filtroDesde" class="text-sm font-bold border-none outline-none text-slate-700 bg-transparent cursor-pointer" onchange="manejarCambioFecha()">
+                        </div>
+                        
+                        <div id="contenedorHasta" class="hidden items-center ml-2 border-l border-gray-200 pl-3">
+                            <div class="flex flex-col text-xs text-slate-400">
+                                <span class="font-semibold uppercase tracking-wide">Hasta</span>
+                                <input type="date" id="filtroHasta" class="text-sm font-bold border-none outline-none text-slate-700 bg-transparent cursor-pointer" onchange="manejarCambioFecha()">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="fechaLargaText" class="text-xs text-slate-500 italic mt-2 font-medium mr-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 1: Tarjetas Principales (Réplica de Maqueta) -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            
+            <div class="card-stat border-l-4 border-slate-300">
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex justify-between items-center">
+                    <span>Saldo Inicial</span>
+                    <button id="btn-edit-apertura" class="hidden text-blue-500 hover:text-blue-700 transition" onclick="editarSaldoInicialMensual()" title="Fijar Apertura de Mes"><i class="fas fa-edit"></i></button>
+                </div>
+                <div class="text-2xl font-bold text-slate-800" id="ui-saldo-inicial">S/ 0.00</div>
+            </div>
+
+            <div class="card-stat border-l-4 border-emerald-500">
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Ingresos (+)</div>
+                <div class="text-2xl font-bold text-emerald-500" id="ui-tot-ingresos">S/ 0.00</div>
+            </div>
+
+            <div class="card-stat border-l-4 border-rose-500">
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Egresos (-)</div>
+                <div class="text-2xl font-bold text-rose-500" id="ui-tot-egresos">S/ 0.00</div>
+            </div>
+
+            <div class="card-final">
+                <div class="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1">Saldo Final (Sistema)</div>
+                <div class="text-3xl font-bold font-mono tracking-tight" id="ui-saldo-final">S/ 0.00</div>
+            </div>
+
+        </div>
+
+        <!-- ROW 2: Conciliación Bancaria -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 text-lg">
+                    <i class="fas fa-university"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Conciliación Bancaria</h3>
+                    <p class="text-xs text-slate-500">Saldo real al cierre del día (Efectivo físico + Cuentas Bancarias).</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-gray-50 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition">
+                    <span class="pl-3 pr-2 text-gray-500 font-semibold text-sm">S/</span>
+                    <input type="text" inputmode="decimal" step="0.01" id="inputAuditoria" class="bg-white border-none outline-none py-2 px-2 text-right font-bold text-slate-800 w-32" placeholder="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');">
+                </div>
+                <!-- Botón dinámico -->
+                <button id="btnCuadre" onclick="ejecutarCuadreDiario()" class="bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center shadow-sm">
+                    <i class="fas fa-check-circle mr-2"></i> SALDO CUADRADO
+                </button>
+            </div>
+        </div>
+
+        <!-- ROW 3: Tablas de Flujo (Ingresos y Egresos) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+            
+            <!-- COLS 1: Ingresos -->
+            <div class="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
+                <div class="p-4 flex justify-between items-center border-b border-gray-100">
+                    <h3 class="font-bold text-emerald-600 text-lg flex items-center"><i class="fas fa-arrow-down mr-2 text-sm text-emerald-400"></i> Fuentes de Ingreso</h3>
+                    <button onclick="abrirModalMovimiento('INGRESO')" class="btn-variante btn-ingreso"><i class="fas fa-plus mr-1"></i> Añadir Variante</button>
+                </div>
+                <div class="p-0">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr>
+                                <th class="tbl-header pl-5 py-3">Concepto Contable</th>
+                                <th class="tbl-header text-right">Monto Procesado</th>
+                                <th class="tbl-header text-center pr-5">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-body-ingresos">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- COLS 2: Egresos -->
+            <div class="bg-white rounded-xl shadow-sm border border-rose-100 overflow-hidden">
+                <div class="p-4 flex justify-between items-center border-b border-gray-100">
+                    <h3 class="font-bold text-rose-600 text-lg flex items-center"><i class="fas fa-arrow-up mr-2 text-sm text-rose-400"></i> Fuentes de Egreso</h3>
+                    <button onclick="abrirModalMovimiento('EGRESO')" class="btn-variante btn-egreso"><i class="fas fa-plus mr-1"></i> Añadir Variante</button>
+                </div>
+                <div class="p-0">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr>
+                                <th class="tbl-header pl-5 py-3">Concepto Contable</th>
+                                <th class="tbl-header text-right">Monto Procesado</th>
+                                <th class="tbl-header text-center pr-5">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-body-egresos">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Sidebar Script -->
+    <script src="sidebar.js"></script>
+
+    <script>
+        let currentEmpresaId = null;
+        let categoriasList = [];
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            
+            const hoyStr = obtenerFechaLima();
+            document.getElementById('fechaActualCaja').textContent = formatFechaTopBar(hoyStr);
+            
+            // Default: Flujo Diario (Desde HOY hasta HOY) en armonía con la visión del usuario
+            document.getElementById('filtroDesde').value = hoyStr;
+            document.getElementById('filtroHasta').value = hoyStr;
+            actualizarTextoFechaLarga();
+
+            if (typeof renderErpSidebar === 'function') {
+                renderErpSidebar(window.currentUser);
+            }
+
+            await cargarContextoInicial();
+            await asegurarCategoriasBase();
+            await cargarTablero();
+        });
+
+        function obtenerFechaLima() {
+            return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        }
+
+        function formatFechaTopBar(fechaStr) {
+            const dateObj = new Date(fechaStr + 'T12:00:00Z');
+            return new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(dateObj);
+        }
+
+        function manejarCambioFecha() {
+            const isRange = document.getElementById('toggleRango').checked;
+            const desde = document.getElementById('filtroDesde');
+            const hasta = document.getElementById('filtroHasta');
+
+            if (!isRange) {
+                hasta.value = desde.value;
+            }
+
+            actualizarTextoFechaLarga();
+            cargarTablero();
+        }
+
+        function toggleFiltroRango() {
+            const isRange = document.getElementById('toggleRango').checked;
+            const lblDesde = document.getElementById('lblDesde');
+            const contenedorHasta = document.getElementById('contenedorHasta');
+            const hasta = document.getElementById('filtroHasta');
+            const desde = document.getElementById('filtroDesde');
+
+            if (isRange) {
+                lblDesde.textContent = "Desde";
+                contenedorHasta.classList.remove('hidden');
+                contenedorHasta.classList.add('flex');
+            } else {
+                lblDesde.textContent = "Día en revisión";
+                contenedorHasta.classList.remove('flex');
+                contenedorHasta.classList.add('hidden');
+                hasta.value = desde.value; // Forzar un solo día
+            }
+
+            actualizarTextoFechaLarga();
+            cargarTablero();
+        }
+
+        function formatearFechaStrLargo(fechaStr, hoyLimaStr, formateador) {
+            if(!fechaStr) return '';
+            const dateObj = new Date(fechaStr + 'T12:00:00Z'); 
+            let texto = formateador.format(dateObj);
+            texto = texto.charAt(0).toUpperCase() + texto.slice(1); 
+            
+            if (fechaStr === hoyLimaStr) {
+                return `Hoy: ${texto}`;
+            }
+            return texto;
+        }
+
+        function actualizarTextoFechaLarga() {
+            const isRange = document.getElementById('toggleRango').checked;
+            const desdeVal = document.getElementById('filtroDesde').value;
+            const hastaVal = document.getElementById('filtroHasta').value;
+            const divFechaLarga = document.getElementById('fechaLargaText');
+
+            const hoyLimaStr = obtenerFechaLima();
+            const formateador = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            const txtDesde = formatearFechaStrLargo(desdeVal, hoyLimaStr, formateador);
+
+            if (isRange && desdeVal !== hastaVal) {
+                const txtHasta = formatearFechaStrLargo(hastaVal, hoyLimaStr, formateador);
+                divFechaLarga.textContent = `Del ${txtDesde} al ${txtHasta}`;
+            } else {
+                divFechaLarga.textContent = txtDesde;
+            }
+        }
+
+        async function cargarContextoInicial() {
+            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', window.currentUser.id).single();
+            currentEmpresaId = perfil.empresa_id;
+        }
+
+        async function asegurarCategoriasBase() {
+            try {
+                const { count } = await window.supabaseClient.from('fc_fuentes_categorias').select('id', { count: 'exact', head: true }).eq('empresa_id', currentEmpresaId);
+                if (count === 0) {
+                    await window.supabaseClient.rpc('fn_poblar_categorias_fc_base'); 
+                }
+                const { data } = await window.supabaseClient.from('fc_fuentes_categorias').select('*').eq('empresa_id', currentEmpresaId);
+                categoriasList = data || [];
+            } catch(e) { console.error("No se pudo cargar categorias", e); }
+        }
+
+        function formatMoney(amount) {
+            return Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // ==========================================
+        //  MOTOR MATEMÁTICO DEL FLUJO CON CÁLCULO HISTÓRICO PARA "SALDO INICIAL"
+        // ==========================================
+        async function calcularSaldoApertura(desdeLim) {
+            let limiteInferiorMatematico = '2000-01-01'; // Alba de los tiempos por defecto
+            let totalIn = 0;
+            let totalOut = 0;
+
+            // 1. Buscar si hay Corte de Caja Manual Mensual <= desdeLim
+            const { data: cortes } = await window.supabaseClient.from('fc_saldos_diarios')
+                .select('fecha, saldo_inicial')
+                .eq('empresa_id', currentEmpresaId)
+                .like('updated_by', '%|APERTURA_MANUAL')
+                .lte('fecha', desdeLim)
+                .order('fecha', { ascending: false })
+                .limit(1);
+
+            if (cortes && cortes.length > 0) {
+                limiteInferiorMatematico = cortes[0].fecha;
+                totalIn = Number(cortes[0].saldo_inicial);
+                
+                // Si justo la consulta es sobre el día del corte, el saldo inicial es directamente el corte guardado.
+                if (limiteInferiorMatematico === desdeLim) {
+                    return totalIn;
+                }
+            }
+
+            // 2. Sumamos la matemática cronológica ÚNICAMENTE entre limiteInferiorMatematico y desdeLim
+            const {data:vC} = await window.supabaseClient.from('ventas').select('precio_venta_total').eq('empresa_id', currentEmpresaId).eq('estado', 'REGISTRADO').eq('condicion_pago', 'CONTADO').gte('fecha_recepcion_pago', limiteInferiorMatematico).lt('fecha_recepcion_pago', desdeLim);
+            (vC||[]).forEach(x => totalIn += Number(x.precio_venta_total));
+
+            const dateLimite = limiteInferiorMatematico === '2000-01-01' ? '2000-01-01T05:00:00Z' : new Date(limiteInferiorMatematico + 'T00:00:00-05:00').toISOString();
+            const isoDesdeLim = new Date(desdeLim + 'T00:00:00-05:00').toISOString();
+
+            const {data:vP} = await window.supabaseClient.from('ventas_credito_pagos').select('monto').eq('empresa_id', currentEmpresaId).eq('estado', 'PAGADO').gte('fecha_pago', dateLimite).lt('fecha_pago', isoDesdeLim);
+            (vP||[]).forEach(x => totalIn += Number(x.monto));
+
+            const {data:cL} = await window.supabaseClient.from('ingresos').select('egreso_real_pagado').eq('empresa_id', currentEmpresaId).in('estado', ['REGISTRADO', 'CONFIRMADO']).gte('fecha_pago', limiteInferiorMatematico).lt('fecha_pago', desdeLim);
+            (cL||[]).forEach(x => {
+                totalOut += Number(x.egreso_real_pagado || 0);
+            });
+
+            // Sumar Gastos Asociados con su propia fecha_pago
+            const {data: gL} = await window.supabaseClient.from('gastos_ingreso').select('precio_gasto, ingresos!inner(empresa_id, estado)').eq('ingresos.empresa_id', currentEmpresaId).in('ingresos.estado', ['REGISTRADO', 'CONFIRMADO']).gte('fecha_pago', limiteInferiorMatematico).lt('fecha_pago', desdeLim);
+            (gL||[]).forEach(x => {
+                totalOut += Number(x.precio_gasto || 0);
+            });
+
+            const {data:mL} = await window.supabaseClient.from('fc_movimientos').select('monto, fc_fuentes_categorias!inner(tipo_movimiento)').eq('empresa_id', currentEmpresaId).eq('estado', 'APROBADO').gte('fecha_movimiento', limiteInferiorMatematico).lt('fecha_movimiento', desdeLim);
+            (mL||[]).forEach(x => { if(x.fc_fuentes_categorias?.tipo_movimiento === 'INGRESO') totalIn += Number(x.monto); else totalOut += Number(x.monto); });
+
+            return totalIn - totalOut;
+        }
+
+        async function cargarTablero() {
+            Swal.fire({ title: 'Analizando Flujo...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+
+            const desde = document.getElementById('filtroDesde').value;
+            const hasta = document.getElementById('filtroHasta').value;
+
+            // ESTABLECER FRONTERA UTC-5 (LIMA) INTIMA PARA TIMESTAMPS
+            const isoDesde = new Date(desde + 'T00:00:00-05:00').toISOString();
+            const isoHasta = new Date(hasta + 'T23:59:59.999-05:00').toISOString();
+
+            // UI del botón de apertura (Solo visible si "desde" cae un día '01')
+            const btnApertura = document.getElementById('btn-edit-apertura');
+            if (btnApertura) {
+                if (desde && desde.endsWith('-01')) btnApertura.classList.remove('hidden');
+                else btnApertura.classList.add('hidden');
+            }
+
+            try {
+                // ESTRUCTURA CONTENEDORA UI MOCKUP
+                let objIngresos = [];
+                let objEgresos = [];
+                let totIngreso = 0;
+                let totEgreso = 0;
+
+                // 0. CALCULAR SALDO INICIAL EXACTO MATEMÁTICAMENTE (Todo lo ocurrido antes de "desde")
+                const saldoInicial = await calcularSaldoApertura(desde);
+
+                // 1. VENTAS CONTADO
+                const { data: vtaContado } = await window.supabaseClient.from('ventas')
+                    .select('id, created_at, fecha_venta, fecha_recepcion_pago, numero_ticket, precio_venta_total')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('estado', 'REGISTRADO')
+                    .eq('condicion_pago', 'CONTADO')
+                    .gte('fecha_recepcion_pago', desde)
+                    .lte('fecha_recepcion_pago', hasta);
+                
+                let sumVtaContado = 0;
+                let detVtaContado = [];
+                (vtaContado || []).forEach(v => {
+                    const val = Number(v.precio_venta_total);
+                    sumVtaContado += val;
+                    detVtaContado.push({ fecha: v.created_at || v.fecha_recepcion_pago, ref: 'Ticket/Factura: ' + (v.numero_ticket || 'S/N'), monto: val });
+                });
+                if(sumVtaContado > 0) {
+                    objIngresos.push({ cat: 'Ventas al Contado', monto: sumVtaContado, sys: true, detalles: detVtaContado });
+                    totIngreso += sumVtaContado;
+                }
+
+                // 2. VENTAS CREDITO (COBROS/ADELANTOS)
+                const { data: cobrosCredito } = await window.supabaseClient.from('ventas_credito_pagos')
+                    .select('id, created_at, fecha_pago, monto, ventas(numero_ticket, clientes(razon_social))')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('estado', 'PAGADO')
+                    .gte('fecha_pago', isoDesde)
+                    .lte('fecha_pago', isoHasta);
+
+                let sumCobrosCredito = 0;
+                let detCobrosCredito = [];
+                (cobrosCredito || []).forEach(v => {
+                    const val = Number(v.monto);
+                    sumCobrosCredito += val;
+                    const ticketStr = v.ventas ? v.ventas.numero_ticket : 'Ticket Desconocido';
+                    const clienteStr = (v.ventas && v.ventas.clientes) ? v.ventas.clientes.razon_social : 'Cliente Anónimo';
+                    const refAmortizacion = `Cobro de ${ticketStr} - ${clienteStr}`;
+                    detCobrosCredito.push({ fecha: v.created_at || v.fecha_pago, ref: refAmortizacion, monto: val });
+                });
+                if(sumCobrosCredito > 0) {
+                    objIngresos.push({ cat: 'Ventas al Crédito (Pagos Recibidos)', monto: sumCobrosCredito, sys: true, detalles: detCobrosCredito });
+                    totIngreso += sumCobrosCredito;
+                }
+
+                // 3. COMPRAS LOGISTICA (CONTADO Y CRÉDITO)
+                const { data: cmLogistica } = await window.supabaseClient.from('ingresos')
+                    .select('id, created_at, fecha_pago, numero_ingreso, egreso_real_pagado, forma_pago') 
+                    .eq('empresa_id', currentEmpresaId)
+                    .in('estado', ['REGISTRADO', 'CONFIRMADO']) 
+                    .gte('fecha_pago', desde)
+                    .lte('fecha_pago', hasta);
+                
+                let sumComprasContado = 0;
+                let sumComprasCredito = 0;
+                let detComprasContado = [];
+                let detComprasCredito = [];
+
+                (cmLogistica || []).forEach(v => {
+                    const monto = Number(v.egreso_real_pagado || 0);
+                    const docInfo = v.numero_ingreso || 'Ingreso de Almacén';
+
+                    if (monto > 0) {
+                        if (v.forma_pago === 'CREDITO') {
+                            sumComprasCredito += monto;
+                            detComprasCredito.push({ fecha: v.created_at || v.fecha_pago, ref: docInfo, monto: monto });
+                        } else {
+                            sumComprasContado += monto;
+                            detComprasContado.push({ fecha: v.created_at || v.fecha_pago, ref: docInfo, monto: monto });
+                        }
+                    }
+                });
+
+                // 3.5 OTROS EGRESOS ASOCIADOS (OEA)
+                const { data: oeaList } = await window.supabaseClient.from('gastos_ingreso')
+                    .select('id, created_at, fecha_pago, precio_gasto, descripcion, ingresos!inner(empresa_id, numero_ingreso, estado)')
+                    .eq('ingresos.empresa_id', currentEmpresaId)
+                    .in('ingresos.estado', ['REGISTRADO', 'CONFIRMADO'])
+                    .gte('fecha_pago', desde)
+                    .lte('fecha_pago', hasta);
+
+                let sumOtrosEgresos = 0;
+                let detOtrosEgresos = [];
+
+                (oeaList || []).forEach(g => {
+                    const otrosG = Number(g.precio_gasto || 0);
+                    if (otrosG > 0) {
+                        sumOtrosEgresos += otrosG;
+                        const docInfo = g.ingresos ? g.ingresos.numero_ingreso : 'N/A';
+                        detOtrosEgresos.push({ fecha: g.created_at || g.fecha_pago, ref: `${g.descripcion} (${docInfo})`, monto: otrosG });
+                    }
+                });
+
+                if(sumComprasContado > 0) {
+                    objEgresos.push({ cat: 'Compras al Contado (Logística)', monto: sumComprasContado, sys: true, detalles: detComprasContado });
+                    totEgreso += sumComprasContado;
+                }
+
+                if(sumOtrosEgresos > 0) {
+                    objEgresos.push({ cat: 'Otros Egresos Asociados (Logística)', monto: sumOtrosEgresos, sys: true, detalles: detOtrosEgresos });
+                    totEgreso += sumOtrosEgresos;
+                }
+                
+                if(sumComprasCredito > 0) {
+                    objEgresos.push({ cat: 'Compras al Crédito (Logística / Pago Inicial)', monto: sumComprasCredito, sys: true, detalles: detComprasCredito });
+                    totEgreso += sumComprasCredito;
+                }
+
+                // 4. FC MOVIMIENTOS
+                const { data: mf } = await window.supabaseClient.from('fc_movimientos')
+                    .select('id, created_at, fecha_movimiento, referencia, monto, categoria_id, codigo_correlativo, codigos_unicos(codigo, descripcion), fc_fuentes_categorias!inner(nombre, es_sistema, tipo_movimiento)')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('estado', 'APROBADO')
+                    .gte('fecha_movimiento', desde)
+                    .lte('fecha_movimiento', hasta);
+                
+                let agru = {};
+                (mf || []).forEach(m => {
+                    const cNombre = m.fc_fuentes_categorias?.nombre || 'Categoría Genérica';
+                    const cSys = m.fc_fuentes_categorias?.es_sistema || false;
+                    const cTipo = m.fc_fuentes_categorias?.tipo_movimiento || 'INGRESO';
+                    const key = `${cTipo}_${cNombre}`;
+                    if(!agru[key]) agru[key] = { tipo: cTipo, nombre: cNombre, sys: cSys, monto: 0, detalles: [] };
+                    agru[key].monto += Number(m.monto);
+                    agru[key].detalles.push({ 
+                        fecha: m.created_at || m.fecha_movimiento, 
+                        ref: m.referencia || 'Generado manualmente', 
+                        monto: Number(m.monto),
+                        correlativo: m.codigo_correlativo,
+                        orden: m.codigos_unicos ? `${m.codigos_unicos.codigo} - ${m.codigos_unicos.descripcion}` : null
+                    });
+                });
+
+                Object.values(agru).forEach(g => {
+                    if(g.tipo === 'INGRESO') { objIngresos.push({ cat: g.nombre, monto: g.monto, sys: g.sys, detalles: g.detalles }); totIngreso += g.monto; } 
+                    else { objEgresos.push({ cat: g.nombre, monto: g.monto, sys: g.sys, detalles: g.detalles }); totEgreso += g.monto; }
+                });
+
+                // Caché Global para ser usado por el Modal
+                window.memoriaIngresosCaja = objIngresos;
+                window.memoriaEgresosCaja = objEgresos;
+
+
+                // ===================================
+                // RENDERIZADO VISUAL
+                // ===================================
+                document.getElementById('ui-saldo-inicial').textContent = `S/ ${formatMoney(saldoInicial)}`;
+                document.getElementById('ui-tot-ingresos').textContent = `S/ ${formatMoney(totIngreso)}`;
+                document.getElementById('ui-tot-egresos').textContent = `S/ ${formatMoney(totEgreso)}`;
+                
+                const saldoFinal = saldoInicial + totIngreso - totEgreso;
+                document.getElementById('ui-saldo-final').textContent = `S/ ${formatMoney(saldoFinal)}`;
+
+                // Validar si concuerda con lo auditado en FC_SALDOS_DIARIOS de "hasta" (Día final seleccionado)
+                const {data: cDia} = await window.supabaseClient.from('fc_saldos_diarios').select('saldo_bancos_declarado, estado_cuadre').eq('empresa_id', currentEmpresaId).eq('fecha', hasta).maybeSingle();
+                
+                const btnCuadrar = document.getElementById('btnCuadre');
+                const inpAuditoria = document.getElementById('inputAuditoria');
+                
+                if (cDia && cDia.saldo_bancos_declarado !== null) {
+                    inpAuditoria.value = Number(cDia.saldo_bancos_declarado).toFixed(2);
+                    if(cDia.estado_cuadre === 'CUADRADO') {
+                        btnCuadrar.className = "bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold px-4 py-2 rounded-lg text-sm flex items-center shadow-sm cursor-default";
+                        btnCuadrar.innerHTML = `<i class="fas fa-check-circle mr-2 text-lg"></i> CAJA CUADRADA`;
+                        btnCuadrar.onclick = () => { Swal.fire('Día Cuadrado', `El día ${hasta} fue sellado y cuadrado en caja.`, 'info'); };
+                    } else {
+                        btnCuadrar.className = "bg-rose-50 text-rose-600 border border-rose-200 font-bold px-4 py-2 rounded-lg text-sm flex items-center shadow-sm cursor-default";
+                        btnCuadrar.innerHTML = `<i class="fas fa-exclamation-triangle mr-2 text-lg"></i> DESCUADRE REPORTADO`;
+                        btnCuadrar.onclick = ejecutarCuadreDiario;
+                    }
+                } else {
+                    inpAuditoria.value = '';
+                    btnCuadrar.className = "bg-slate-800 text-white hover:bg-slate-900 border border-slate-900 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center shadow-sm";
+                    btnCuadrar.innerHTML = `<i class="fas fa-lock mr-2 text-lg"></i> SELLAR DÍA`;
+                    btnCuadrar.onclick = ejecutarCuadreDiario;
+                }
+
+                const pintarFilas = (arr, selector, isIngreso) => {
+                    const tbody = document.getElementById(selector);
+                    tbody.innerHTML = '';
+                    if(arr.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-sm text-gray-400 italic">No hubieron movimientos en este rango.</td></tr>`;
+                    }
+                    // Generar estructura jerárquica
+                    arr.sort((a,b) => b.monto - a.monto).forEach((x, idx) => {
+                        const trPrincipal = document.createElement('tr');
+                        trPrincipal.className = 'tbl-row';
+                        const colorClass = isIngreso ? 'text-emerald-500' : 'text-rose-500';
+                        
+                        // Action Icons: Bloqueos / Ediciones + Visualización y Acordeón
+                        const iconBlockEdit = x.sys ? `<i class="fas fa-lock text-gray-300 mx-1" title="Calculado por Sistema"></i>` 
+                            : `<i class="fas fa-edit text-blue-400 hover:text-blue-600 cursor-pointer mx-1"></i>
+                               <i class="fas fa-trash text-rose-400 hover:text-rose-600 cursor-pointer mx-1"></i>`;
+                        
+                        const iconOjo = `<i class="fas fa-eye text-indigo-400 hover:text-indigo-600 cursor-pointer mx-1" onclick="verDetallesModal(${idx}, ${isIngreso})" title="Ver Detalles"></i>`;
+                        const iconAcordeon = `<i class="fas fa-chevron-down text-slate-400 hover:text-slate-600 cursor-pointer mx-1" onclick="toggleAcordeonP(this, '${selector}_det_${idx}')" title="Expandir Lista"></i>`;
+
+                        trPrincipal.innerHTML = `
+                            <td class="pl-5 py-3 font-semibold text-sm text-slate-700">
+                                <span class="bg-gray-100 w-2 h-2 rounded-full inline-block mr-2 border border-gray-300"></span> ${x.cat}
+                            </td>
+                            <td class="text-right py-3 font-bold text-sm">
+                                <span class="text-slate-400 font-normal mr-1">S/</span><span class="${colorClass}">${formatMoney(x.monto)}</span>
+                            </td>
+                            <td class="text-center pr-5 py-3 flex items-center justify-center gap-1">
+                                ${iconBlockEdit}
+                                <div class="w-px h-4 bg-gray-200 mx-1"></div>
+                                ${iconOjo}
+                                ${iconAcordeon}
+                            </td>
+                        `;
+                        tbody.appendChild(trPrincipal);
+
+                        // Crear la fila Ascensor Acordeón (oculta por defecto)
+                        const trDetalle = document.createElement('tr');
+                        trDetalle.id = `${selector}_det_${idx}`;
+                        trDetalle.className = 'hidden bg-slate-50 border-b border-gray-100';
+                        
+                        let detHTML = '';
+                        if (x.detalles && x.detalles.length > 0) {
+                            x.detalles.sort((d1, d2) => new Date(d2.fecha) - new Date(d1.fecha)).forEach(mini => {
+                                // Forzar UTC para evitar el desfase de la BD
+                                let fStr = mini.fecha;
+                                if (fStr && !fStr.endsWith('Z') && !fStr.includes('+') && fStr.length > 10) fStr += 'Z';
+                                
+                                const fecObj = new Date(fStr);
+                                const hHora = isNaN(fecObj) ? '' : fecObj.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit', timeZone: 'America/Lima'});
+                                detHTML += `
+                                    <tr class="border-b border-gray-100/50 hover:bg-slate-100">
+                                        <td class="py-2 pl-4 text-[11px] text-slate-400 font-mono w-24">${hHora}</td>
+                                        <td class="py-2 text-xs text-slate-600">${mini.ref}</td>
+                                        <td class="py-2 pr-4 text-xs font-semibold text-slate-700 text-right w-24">S/ ${formatMoney(mini.monto)}</td>
+                                    </tr>
+                                `;
+                            });
+                        } else {
+                            detHTML = `<tr><td colspan="3" class="text-center py-3 text-xs text-slate-400">Sin historial detallado.</td></tr>`;
+                        }
+
+                        trDetalle.innerHTML = `
+                            <td colspan="3" class="p-0">
+                                <div class="max-h-48 overflow-y-auto custom-scrollbar my-2 mx-5 border border-slate-200 rounded-lg bg-white shadow-inner">
+                                    <table class="w-full text-left">
+                                        <tbody>${detHTML}</tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(trDetalle);
+                    });
+                };
+
+                pintarFilas(objIngresos, 'tbl-body-ingresos', true);
+                pintarFilas(objEgresos, 'tbl-body-egresos', false);
+
+                Swal.close();
+            } catch(e) { console.error(e); Swal.fire('Error Critico', 'No se pudo consolidar el Flujo de Caja', 'error'); }
+        }
+
+        async function abrirModalMovimiento(tipo) {
+            let catDisponibles = categoriasList.filter(c => c.tipo_movimiento === tipo && c.nombre !== 'Ventas al Crédito (Recepción de Pagos)');
+            catDisponibles.sort((a, b) => a.nombre.localeCompare(b.nombre));
+            let optHTML = '<option value="">-- Seleccione Categoría --</option>';
+            catDisponibles.forEach(c => { optHTML += `<option value="${c.id}">${c.nombre}</option>` });
+
+            // La opción de Ventas al Crédito fue eliminada de este modal por reglas de negocio centralizadas en Histórico.
+            let deudoresHTML = '';
+
+            // Preparación contextual si eligiera inyección/retiro de Accionistas
+            let sociosHTML = '';
+            const { data: socios } = await window.supabaseClient.from('personal')
+                .select('id, nombres, apellidos, categorias_personal!inner(nombre)')
+                .eq('empresa_id', currentEmpresaId)
+                .eq('categorias_personal.nombre', 'Socio / Accionista');
+            
+            if (socios && socios.length > 0) {
+                sociosHTML = '<select id="swald-socio" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm hidden w-full mb-2"><option value="">-- Seleccione Accionista --</option>';
+                socios.forEach(s => {
+                    sociosHTML += `<option value="${s.nombres} ${s.apellidos}">${s.nombres} ${s.apellidos}</option>`;
+                });
+                sociosHTML += '</select>';
+            } else {
+                sociosHTML = '<div id="swald-socio-alert" class="hidden text-xs text-amber-600 mb-2 font-bold"><i class="fas fa-info-circle"></i> No hay Socios/Accionistas registrados en el Padrón de Personal.</div>';
+            }
+
+            let ordenesHTML = '';
+            if (tipo === 'EGRESO') {
+                const { data: ordenes } = await window.supabaseClient.from('codigos_unicos')
+                    .select('id, codigo, descripcion')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('estado', 'EN_PROCESO');
+                
+                if (ordenes && ordenes.length > 0) {
+                    ordenesHTML = '<select id="swald-orden" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm hidden w-full mb-2"><option value="">-- Asociar a Orden (Opcional) --</option>';
+                    ordenes.forEach(o => {
+                        ordenesHTML += `<option value="${o.id}">${o.codigo} - ${o.descripcion}</option>`;
+                    });
+                    ordenesHTML += '</select>';
+                }
+            }
+
+            // Preparación de Trabajadores para Egresos (Almuerzo y Remuneraciones)
+            let trabajadorAlmuerzoHTML = '';
+            let trabajadorTodosHTML = '';
+            
+            if (tipo === 'EGRESO') {
+                // 1. Obtener todos los trabajadores activos
+                const { data: todosTrabajadores } = await window.supabaseClient.from('personal')
+                    .select('id, nombres, apellidos')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('activo', true)
+                    .order('nombres', { ascending: true });
+                
+                // 2. Obtener políticas de asistencia para almuerzos
+                const { data: politicas } = await window.supabaseClient.from('politicas_asistencia')
+                    .select('personal_id, aplicar_descuento_almuerzo')
+                    .eq('empresa_id', currentEmpresaId);
+
+                if (todosTrabajadores && todosTrabajadores.length > 0) {
+                    let globalAplica = true;
+                    const paramGlobal = (politicas || []).find(p => !p.personal_id);
+                    if (paramGlobal) globalAplica = paramGlobal.aplicar_descuento_almuerzo;
+
+                    const trabajadoresAlmuerzo = todosTrabajadores.filter(t => {
+                        const pIndiv = (politicas || []).find(p => p.personal_id === t.id);
+                        if (pIndiv) return pIndiv.aplicar_descuento_almuerzo;
+                        return globalAplica;
+                    });
+
+                    // Generar HTML para "Beneficio a los Trabajadores" (Almuerzo)
+                    if (trabajadoresAlmuerzo.length > 0) {
+                        trabajadorAlmuerzoHTML = '<select id="swald-trab-almuerzo" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm hidden w-full mb-2"><option value="">-- Seleccionar Trabajador (Opcional) --</option>';
+                        trabajadoresAlmuerzo.forEach(t => {
+                            trabajadorAlmuerzoHTML += `<option value="${t.nombres} ${t.apellidos}">${t.nombres} ${t.apellidos}</option>`;
+                        });
+                        trabajadorAlmuerzoHTML += '</select>';
+                    } else {
+                        trabajadorAlmuerzoHTML = '<div id="swald-trab-almuerzo-alert" class="hidden text-xs text-amber-600 mb-2 font-bold"><i class="fas fa-info-circle"></i> No hay trabajadores con política de almuerzo habilitada.</div>';
+                    }
+
+                    // Generar HTML para "Pago de Remuneraciones" (Todos)
+                    trabajadorTodosHTML = '<select id="swald-trab-todos" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm hidden w-full mb-2"><option value="">-- Seleccionar Trabajador (Opcional) --</option>';
+                    todosTrabajadores.forEach(t => {
+                        trabajadorTodosHTML += `<option value="${t.nombres} ${t.apellidos}">${t.nombres} ${t.apellidos}</option>`;
+                    });
+                    trabajadorTodosHTML += '</select>';
+                } else {
+                    const noTrabMsg = '<div id="swald-trab-alert" class="hidden text-xs text-amber-600 mb-2 font-bold"><i class="fas fa-info-circle"></i> No hay trabajadores activos registrados.</div>';
+                    trabajadorAlmuerzoHTML = noTrabMsg;
+                    trabajadorTodosHTML = noTrabMsg;
+                }
+            }
+
+            const { value: formValues } = await Swal.fire({
+                title: `Añadir Variante de ${tipo}`,
+                html: `
+                    <div class="flex flex-col gap-3 text-left">
+                        <select id="swald-cat" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm" onchange="if(window.checkCategoriaFC) window.checkCategoriaFC(this.value)">${optHTML}</select>
+                        ${deudoresHTML}
+                        ${sociosHTML}
+                        ${ordenesHTML}
+                        ${trabajadorAlmuerzoHTML}
+                        ${trabajadorTodosHTML}
+                        <input id="swald-monto" type="text" inputmode="decimal" step="0.01" min="0.01" class="border border-gray-300 rounded px-3 py-2 outline-none font-bold text-right" placeholder="Monto (Ej. 1500.00)" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1').replace(/(\\.\\d{2})\\d+/g, '$1'); if(window.checkMontoLimites) window.checkMontoLimites();">
+                        <div id="swald-alert" class="text-[11px] text-rose-500 font-bold hidden px-1"><i class="fas fa-exclamation-triangle"></i> El cobro excede la deuda total del cliente (S/ <span id="swald-max-val">0.00</span>).</div>
+                        <input id="swald-ref" type="text" class="border border-gray-300 rounded px-3 py-2 outline-none text-sm" placeholder="Comentarios">
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Registrar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                focusConfirm: true,
+                didOpen: () => {
+                    const catSociosNombres = [
+                        'Préstamo a la Empresa (Proveniente de Accionistas)', 
+                        'Incremento de Capital',
+                        'Devolución de Préstamo (Dirigido a Accionistas)',
+                        'Retiro Anticipado con Cargo en Dividendos',
+                        'Pago de Dividendos'
+                    ];
+                    const catOrdenesNombres = [
+                        'Gasto de Ventas',
+                        'Beneficio a los Trabajadores'
+                    ];
+                    const catAlmuerzoNombres = [
+                        'Beneficio a los Trabajadores'
+                    ];
+                    const catPlanillaNombres = [
+                        'Pago Remuneraciones y Beneficios', 
+                        'Pago de Remuneraciones',
+                        'Pago Remuneraciones'
+                    ];
+
+                    window.checkCategoriaFC = function(val) {
+                        const sCli = document.getElementById('swald-cliente');
+                        const sSoc = document.getElementById('swald-socio');
+                        const sSocAlert = document.getElementById('swald-socio-alert');
+                        const sOrd = document.getElementById('swald-orden');
+                        const sTrabAlmuerzo = document.getElementById('swald-trab-almuerzo');
+                        const sTrabAlmuerzoAlert = document.getElementById('swald-trab-almuerzo-alert');
+                        const sTrabTodos = document.getElementById('swald-trab-todos');
+                        const sTrabAlert = document.getElementById('swald-trab-alert');
+                        
+                        const selCatObj = catDisponibles.find(x => x.id === val);
+                        const selCatName = selCatObj ? selCatObj.nombre : '';
+
+                        // Reset states
+                        if(sCli) { sCli.classList.add('hidden'); sCli.value = ""; }
+                        if(sSoc) { sSoc.classList.add('hidden'); sSoc.value = ""; }
+                        if(sSocAlert) sSocAlert.classList.add('hidden');
+                        if(sOrd) { sOrd.classList.add('hidden'); sOrd.value = ""; }
+                        if(sTrabAlmuerzo) { sTrabAlmuerzo.classList.add('hidden'); sTrabAlmuerzo.value = ""; }
+                        if(sTrabAlmuerzoAlert) sTrabAlmuerzoAlert.classList.add('hidden');
+                        if(sTrabTodos) { sTrabTodos.classList.add('hidden'); sTrabTodos.value = ""; }
+                        if(sTrabAlert) sTrabAlert.classList.add('hidden');
+                        document.getElementById('swald-alert').classList.add('hidden');
+
+                        if (catSociosNombres.includes(selCatName)) {
+                            if(sSoc) sSoc.classList.remove('hidden');
+                            if(sSocAlert) sSocAlert.classList.remove('hidden');
+                        } 
+                        
+                        if (catOrdenesNombres.includes(selCatName)) {
+                            if(sOrd) sOrd.classList.remove('hidden');
+                        }
+                        
+                        if (catAlmuerzoNombres.includes(selCatName)) {
+                            if(sTrabAlmuerzo) sTrabAlmuerzo.classList.remove('hidden');
+                            if(sTrabAlmuerzoAlert) sTrabAlmuerzoAlert.classList.remove('hidden');
+                            if(sTrabAlert && !sTrabAlmuerzoAlert) sTrabAlert.classList.remove('hidden');
+                        }
+
+                        if (catPlanillaNombres.includes(selCatName)) {
+                            if(sTrabTodos) sTrabTodos.classList.remove('hidden');
+                            if(sTrabAlert) sTrabAlert.classList.remove('hidden');
+                        }
+                    }
+
+                    window.checkMontoLimites = function() {
+                        const catSel = document.getElementById('swald-cat').value;
+                        const sCli = document.getElementById('swald-cliente');
+                        const mInput = document.getElementById('swald-monto');
+                        const alertDiv = document.getElementById('swald-alert');
+
+                        if (catSel === catTargetId && sCli && sCli.value) {
+                            const opt = sCli.options[sCli.selectedIndex];
+                            const max = parseFloat(opt.getAttribute('data-max'));
+                            const m = parseFloat(mInput.value);
+                            
+                            if (!isNaN(m) && m > max) {
+                                document.getElementById('swald-max-val').textContent = max.toFixed(2);
+                                alertDiv.classList.remove('hidden');
+                                Swal.disableButtons();
+                            } else {
+                                alertDiv.classList.add('hidden');
+                                Swal.enableButtons();
+                            }
+                        } else {
+                            alertDiv.classList.add('hidden');
+                            Swal.enableButtons();
+                        }
+                    }
+
+                    const cliDoc = document.getElementById('swald-cliente');
+                    if (cliDoc) cliDoc.addEventListener('change', window.checkMontoLimites);
+
+                    const inputs = document.querySelectorAll('.swal2-container input, .swal2-container select');
+                    inputs.forEach(el => el.addEventListener('keypress', e => {
+                        if (e.key === 'Enter' && !Swal.getConfirmButton().disabled) { Swal.clickConfirm(); }
+                    }));
+                },
+                preConfirm: () => {
+                    const cField = document.getElementById('swald-cat');
+                    const c = cField.value;
+                    const m = parseFloat(document.getElementById('swald-monto').value);
+                    const cliField = document.getElementById('swald-cliente');
+                    const socField = document.getElementById('swald-socio');
+                    const trabAlmuerzoField = document.getElementById('swald-trab-almuerzo');
+                    const trabTodosField = document.getElementById('swald-trab-todos');
+                    
+                    if(!c || isNaN(m) || m <= 0) return false;
+
+                    const isCredit = cliField && !cliField.classList.contains('hidden');
+                    if (isCredit && !cliField.value) {
+                         Swal.showValidationMessage('Debe seleccionar el cliente deudor');
+                         return false;
+                    }
+
+                    const isSocio = socField && !socField.classList.contains('hidden');
+                    if (isSocio && !socField.value) {
+                         Swal.showValidationMessage('Debe seleccionar al Accionista');
+                         return false;
+                    }
+
+                    // Componer comentario si hay socio o trabajador
+                    let recRef = document.getElementById('swald-ref').value;
+                    if (isSocio) {
+                         recRef = recRef ? `${recRef} | Accionista(s): ${socField.value}` : `Accionista(s): ${socField.value}`;
+                    }
+                    
+                    const isTrabAlmuerzo = trabAlmuerzoField && !trabAlmuerzoField.classList.contains('hidden') && trabAlmuerzoField.value;
+                    if (isTrabAlmuerzo) {
+                         recRef = recRef ? `${recRef} | Personal: ${trabAlmuerzoField.value}` : `Personal: ${trabAlmuerzoField.value}`;
+                    }
+
+                    const isTrabTodos = trabTodosField && !trabTodosField.classList.contains('hidden') && trabTodosField.value;
+                    if (isTrabTodos) {
+                         recRef = recRef ? `${recRef} | Personal: ${trabTodosField.value}` : `Personal: ${trabTodosField.value}`;
+                    }
+                    
+                    const ordField = document.getElementById('swald-orden');
+                    const isOrden = ordField && !ordField.classList.contains('hidden');
+
+                    return { 
+                        cat: c, monto: m, ref: recRef,
+                        isCredit: isCredit, clienteId: isCredit ? cliField.value : null,
+                        ordenId: (isOrden && ordField.value) ? ordField.value : null
+                    }
+                }
+            });
+
+            if (formValues) {
+                Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+                try {
+                    if (formValues.isCredit) {
+                        // Flujo Opción A: Afectación Estructural Contable Real mediante RPC
+                        const payloadRpc = {
+                            p_empresa_id: currentEmpresaId,
+                            p_cliente_id: formValues.clienteId,
+                            p_monto: formValues.monto.toFixed(2),
+                            p_fecha_pago: document.getElementById('filtroHasta').value,
+                            p_referencia: formValues.ref || '',
+                            p_created_by: window.currentUser.email
+                        };
+                        const pCall = window.supabaseClient.rpc('fn_amortizar_credito_cliente', payloadRpc);
+                        pCall.then(({error}) => { if(error) throw error; });
+                    } else {
+                        // Flujo Regular: Variante libre
+                        const payload = {
+                            empresa_id: currentEmpresaId, categoria_id: formValues.cat,
+                            monto: formValues.monto.toFixed(2), fecha_movimiento: document.getElementById('filtroHasta').value,
+                            referencia: formValues.ref || null, created_by: window.currentUser.email,
+                            created_at: new Date().toISOString()
+                        };
+                        if (formValues.ordenId) payload.codigo_unico_id = formValues.ordenId;
+                        
+                        // Generar correlativo
+                        const isIngresoCat = (tipo === 'INGRESO'); 
+                        const yearStr = (document.getElementById('filtroHasta').value ? new Date(document.getElementById('filtroHasta').value).getFullYear() : new Date().getFullYear()).toString();
+                        const prefix = isIngresoCat ? `VAR_INGRESO_${yearStr}_` : `VAR_EGRESO_${yearStr}_`;
+                        
+                        const { data: ultVar } = await window.supabaseClient.from('fc_movimientos')
+                            .select('codigo_correlativo')
+                            .ilike('codigo_correlativo', `${prefix}%`)
+                            .order('codigo_correlativo', { ascending: false })
+                            .limit(1);
+
+                        let sec = 1;
+                        if (ultVar && ultVar.length > 0 && ultVar[0].codigo_correlativo) {
+                            const partes = ultVar[0].codigo_correlativo.split('_');
+                            const valStr = partes[partes.length - 1]; // NNNNNN
+                            if(!isNaN(valStr)) {
+                                sec = parseInt(valStr, 10) + 1;
+                            }
+                        }
+                        payload.codigo_correlativo = `${prefix}${String(sec).padStart(6, '0')}`;
+
+                        const { error } = await window.supabaseClient.from('fc_movimientos').insert([payload]);
+                        if(error) throw error;
+                    }
+                    
+                    // Esperar 1 segundo sutilmente si es RPC para que dispare el backend
+                    setTimeout(()=> cargarTablero(), formValues.isCredit ? 1000 : 0);
+                } catch(e) { console.error(e); Swal.fire('Error', 'Fallo de registro', 'error'); }
+            }
+        }
+
+        async function editarSaldoInicialMensual() {
+            const desde = document.getElementById('filtroDesde').value;
+            if (!desde.endsWith('-01')) return;
+
+            const { value: formMonto } = await Swal.fire({
+                title: 'Fijar Apertura Mensual',
+                html: `
+                    <p class="text-sm text-gray-500 mb-4">Ingrese con cuánto efectivo/saldo real inicia la caja del mes de <strong>${desde}</strong>.<br>Esto cortará la suma histórica anterior.</p>
+                    <input id="swal-s-inicial" type="text" inputmode="decimal" step="0.01" min="0" class="border border-gray-300 rounded px-3 py-2 outline-none font-bold text-center text-lg w-full" placeholder="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');">
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Guardar Apertura',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const val = parseFloat(document.getElementById('swal-s-inicial').value);
+                    if (isNaN(val) || val < 0) return false;
+                    return val;
+                }
+            });
+
+            if (formMonto !== undefined) {
+                Swal.fire({ title: 'Guardando Corte...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+                try {
+                    const payload = {
+                        empresa_id: currentEmpresaId,
+                        fecha: desde,
+                        saldo_inicial: formMonto,
+                        updated_by: window.currentUser.email + '|APERTURA_MANUAL'
+                    };
+
+                    const { error } = await window.supabaseClient.from('fc_saldos_diarios').upsert(payload, { onConflict: 'empresa_id, fecha' });
+                    if (error) throw error;
+                    
+                    Swal.fire('Guardado', 'La apertura mensual ha sido fijada con éxito.', 'success').then(() => cargarTablero());
+                } catch(e) {
+                    Swal.fire('Error', 'Fallo al asentar la apertura mensual', 'error');
+                }
+            }
+        }
+
+        async function ejecutarCuadreDiario() {
+            const auditStr = document.getElementById('inputAuditoria').value;
+            const realBanco = parseFloat(auditStr);
+            if(isNaN(realBanco) || realBanco < 0) {
+                Swal.fire('Atención', 'Ingresa una conciliación bancaria válida.', 'warning'); return;
+            }
+
+            Swal.fire({ title: 'Sellando Caja...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+            try {
+                const sfTexto = document.getElementById('ui-saldo-final').textContent.replace('S/ ','').replace(/,/g,'');
+                const iTexto = document.getElementById('ui-tot-ingresos').textContent.replace('S/ ','').replace(/,/g,'');
+                const eTexto = document.getElementById('ui-tot-egresos').textContent.replace('S/ ','').replace(/,/g,'');
+                const siTexto = document.getElementById('ui-saldo-inicial').textContent.replace('S/ ','').replace(/,/g,'');
+                
+                const saldoCalc = parseFloat(sfTexto); const diff = realBanco - saldoCalc;
+
+                if (Math.abs(diff) > 0.009) {
+                    Swal.fire('Descuadre Detectado', `El dinero declarado no cuadra con el Saldo Final del sistema. Diferencia: S/ ${Math.abs(diff).toFixed(2)}.<br><br>Registre la pérdida (Egreso por Descuadre) o la sobra (Ingreso Extra) antes de sellar la caja.`, 'error');
+                    return;
+                }
+
+                const pLoad = {
+                    empresa_id: currentEmpresaId, fecha: document.getElementById('filtroHasta').value,
+                    saldo_inicial: parseFloat(siTexto), total_ingresos: parseFloat(iTexto), total_egresos: parseFloat(eTexto),
+                    saldo_final_sistema: saldoCalc, saldo_bancos_declarado: realBanco,
+                    estado_cuadre: diff === 0 ? 'CUADRADO' : 'DESCUADRADO', diferencia: diff,
+                    updated_by: window.currentUser.email
+                };
+
+                const { error } = await window.supabaseClient.from('fc_saldos_diarios').upsert(pLoad, { onConflict: 'empresa_id, fecha' });
+                if(error) throw error;
+                
+                Swal.fire('Cuadre Listo', diff === 0 ? 'Día sellado exitosamente.' : `Día sellado con desviación de S/ ${diff.toFixed(2)}`, diff === 0 ? 'success' : 'warning').then(()=>cargarTablero());
+            } catch(e) { Swal.fire('Error', 'Fallo al asentar cierre', 'error'); }
+        }
+
+        // ===================================
+        // UTILS: VISOR DE DETALLES
+        // ===================================
+        function toggleAcordeonP(btnIcon, targetId) {
+            const trTarget = document.getElementById(targetId);
+            if (!trTarget) return;
+
+            if (trTarget.classList.contains('hidden')) {
+                trTarget.classList.remove('hidden');
+                btnIcon.classList.remove('fa-chevron-down');
+                btnIcon.classList.add('fa-chevron-up');
+                btnIcon.classList.add('text-indigo-500');
+            } else {
+                trTarget.classList.add('hidden');
+                btnIcon.classList.remove('fa-chevron-up');
+                btnIcon.classList.add('fa-chevron-down');
+                btnIcon.classList.remove('text-indigo-500');
+            }
+        }
+
+        function verDetallesModal(idx, isIngreso) {
+            const coleccion = isIngreso ? window.memoriaIngresosCaja : window.memoriaEgresosCaja;
+            if (!coleccion || !coleccion[idx]) return;
+            const dataObj = coleccion[idx];
+            
+            let filasHTML = '';
+            let totalAcumuladoModal = 0;
+
+            if (dataObj.detalles && dataObj.detalles.length > 0) {
+                dataObj.detalles.sort((d1, d2) => new Date(d2.fecha) - new Date(d1.fecha)).forEach(mini => {
+                    // Forzar UTC para evitar el desfase de la BD
+                    let fStr = mini.fecha;
+                    if (fStr && !fStr.endsWith('Z') && !fStr.includes('+') && fStr.length > 10) fStr += 'Z';
+                    
+                    const fecObj = new Date(fStr);
+                    const dh = isNaN(fecObj) ? '' : fecObj.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit', timeZone: 'America/Lima'});
+                    
+                    let refContent = mini.ref;
+                    if (mini.correlativo) {
+                        refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider mb-1">${mini.correlativo}</div>${refContent}`;
+                    }
+                    if (mini.orden) {
+                        refContent += `<div class="mt-1"><span class="inline-block bg-slate-100 border border-slate-200 text-slate-600 text-[10px] px-2 py-0.5 rounded font-bold"><i class="fas fa-link mr-1"></i>Asociado a: ${mini.orden}</span></div>`;
+                    }
+
+                    filasHTML += `
+                        <tr class="border-b border-gray-100 hover:bg-slate-50">
+                            <td class="py-2 px-3 text-[11px] text-slate-500 font-mono w-24 text-left align-top">${dh}</td>
+                            <td class="py-2 px-3 text-xs text-slate-700 text-left align-top">${refContent}</td>
+                            <td class="py-2 px-3 text-xs font-bold text-slate-800 text-right w-24 align-top" style="color: ${isIngreso ? '#059669' : '#e11d48'}">S/ ${formatMoney(mini.monto)}</td>
+                        </tr>
+                    `;
+                    totalAcumuladoModal += mini.monto;
+                });
+            } else {
+                filasHTML = `<tr><td colspan="3" class="text-center py-6 text-sm text-gray-400 italic">No hay historial para imprimir.</td></tr>`;
+            }
+
+            Swal.fire({
+                title: `<div class="text-lg font-bold text-slate-800 flex items-center justify-center gap-2"><i class="fas fa-list-ul ${isIngreso ? 'text-emerald-500' : 'text-rose-500'}"></i> ${dataObj.cat}</div>`,
+                html: `
+                    <div class="mt-4 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                        <div class="max-h-64 overflow-y-auto custom-scrollbar bg-white">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50 border-b border-gray-200 sticky top-0">
+                                    <tr>
+                                        <th class="py-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Hora</th>
+                                        <th class="py-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Asunto / Ref.</th>
+                                        <th class="py-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Amplitud</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${filasHTML}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-between items-center rounded-b-lg">
+                            <span class="text-xs font-bold text-slate-500 uppercase">Subtotal Mostrado</span>
+                            <span class="text-sm font-black ${isIngreso ? 'text-emerald-600' : 'text-rose-600'}">S/ ${formatMoney(totalAcumuladoModal)}</span>
+                        </div>
+                    </div>
+                `,
+                showCloseButton: true,
+                showConfirmButton: false,
+                width: '600px',
+                customClass: {
+                    htmlContainer: '!m-0 !mt-2 overflow-hidden'
+                }
+            });
+        }
+
+        async function exportarFlujoCajaExcel() {
+            if (!window.memoriaIngresosCaja || !window.memoriaEgresosCaja || 
+                (window.memoriaIngresosCaja.length === 0 && window.memoriaEgresosCaja.length === 0)) {
+                Swal.fire('Atención', 'No hay movimientos históricos en las fechas seleccionadas para exportar.', 'info');
+                return;
+            }
+
+            try {
+                Swal.fire({ title: 'Generando Documento...', text: 'Estructurando Libros Mayores', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+
+                const isRange = document.getElementById('toggleRango').checked;
+                const desde = document.getElementById('filtroDesde').value;
+                const hasta = document.getElementById('filtroHasta').value;
+                const fechaLargaStr = document.getElementById('fechaLargaText').textContent;
+                const nombreArchivo = isRange ? `FlujoCaja_${desde}_al_${hasta}` : `FlujoCaja_${desde}`;
+
+                const wb = XLSX.utils.book_new();
+
+                // 1. PESTAÑA "RESUMEN MAESTRO"
+                const sInicial = document.getElementById('ui-saldo-inicial').textContent;
+                const totIng = document.getElementById('ui-tot-ingresos').textContent;
+                const totEgr = document.getElementById('ui-tot-egresos').textContent;
+                const sFinal = document.getElementById('ui-saldo-final').textContent;
+
+                const wsResumenData = [
+                    ["REPORTE GERENCIAL: FLUJO DE CAJA"],
+                    ["Fecha de Extracción", new Date().toLocaleString('es-PE')],
+                    ["Periodo Analizado", fechaLargaStr],
+                    [],
+                    ["MÉTRICA DE BALANCE", "VALOR (S/)"]
+                ];
+                
+                wsResumenData.push(["Saldo Inicial de Caja", Number(sInicial.replace('S/ ', '').replace(/,/g, ''))]);
+                wsResumenData.push(["Ingresos Captados (+)", Number(totIng.replace('S/ ', '').replace(/,/g, ''))]);
+                wsResumenData.push(["Egresos Registrados (-)", Number(totEgr.replace('S/ ', '').replace(/,/g, ''))]);
+                wsResumenData.push(["SALDO NETO ESPERADO", Number(sFinal.replace('S/ ', '').replace(/,/g, ''))]);
+                
+                const wsResumen = XLSX.utils.aoa_to_sheet(wsResumenData);
+                XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen Maestro");
+
+                // Helper para nombres seguros de pestañas (Excel max 31 caracteres)
+                const cleanSheetName = (str) => {
+                    return str.replace(/[\\\/\?\*\[\]:]/g, '_').substring(0, 27).trim();
+                };
+
+                // 2. PESTAÑAS LIBROS MAYORES - INGRESOS
+                window.memoriaIngresosCaja.sort((a,b) => b.monto - a.monto).forEach((catData, i) => {
+                    if(catData.detalles && catData.detalles.length > 0) {
+                        const wsData = [
+                            ["LIBRO MAYOR DE INGRESOS", catData.cat.toUpperCase()],
+                            ["FECHA Y HORA", "CONCEPTO DOCUMENTARIO O REFERENCIA", "ABONO (S/)"]
+                        ];
+                        
+                        const dets = [...catData.detalles].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+                        dets.forEach(d => {
+                            const fecObj = new Date(d.fecha);
+                            const ds = isNaN(fecObj) ? d.fecha : fecObj.toLocaleString('es-PE', {timeZone: 'America/Lima', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
+                            wsData.push([ds, d.ref, Number(d.monto) || 0]);
+                        });
+                        
+                        wsData.push(["", "TOTAL INGRESOS", Number(catData.monto)]);
+                        
+                        let sName = `I-${cleanSheetName(catData.cat)}`;
+                        if (wb.SheetNames.includes(sName)) sName = `I-${i}-${cleanSheetName(catData.cat).substring(0, 24)}`;
+                        
+                        const ws = XLSX.utils.aoa_to_sheet(wsData);
+                        XLSX.utils.book_append_sheet(wb, ws, sName);
+                    }
+                });
+
+                // 3. PESTAÑAS LIBROS MAYORES - EGRESOS
+                window.memoriaEgresosCaja.sort((a,b) => b.monto - a.monto).forEach((catData, i) => {
+                    if(catData.detalles && catData.detalles.length > 0) {
+                        const wsData = [
+                            ["LIBRO MAYOR DE EGRESOS", catData.cat.toUpperCase()],
+                            ["FECHA Y HORA", "CONCEPTO DOCUMENTARIO O REFERENCIA", "CARGO (S/)"]
+                        ];
+                        
+                        const dets = [...catData.detalles].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+                        dets.forEach(d => {
+                            const fecObj = new Date(d.fecha);
+                            const ds = isNaN(fecObj) ? d.fecha : fecObj.toLocaleString('es-PE', {timeZone: 'America/Lima', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
+                            wsData.push([ds, d.ref, Number(d.monto) || 0]);
+                        });
+
+                        wsData.push(["", "TOTAL EGRESOS", Number(catData.monto)]);
+                        
+                        let sName = `E-${cleanSheetName(catData.cat)}`;
+                        if (wb.SheetNames.includes(sName)) sName = `E-${i}-${cleanSheetName(catData.cat).substring(0, 24)}`;
+                        
+                        const ws = XLSX.utils.aoa_to_sheet(wsData);
+                        XLSX.utils.book_append_sheet(wb, ws, sName);
+                    }
+                });
+
+                // Cierre y descarga
+                XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
+                Swal.close();
+
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error Critico', 'Hubo un error procesando el archivo de Excel. El bloque histórico podría estar corrupto.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
