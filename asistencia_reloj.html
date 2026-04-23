@@ -428,9 +428,17 @@
                     <div class="flex flex-col items-end">
                         <label class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-400 font-bold mb-1 uppercase tracking-wider">Fecha a registrar
                             o auditar</label>
-                        <input type="date" id="inputFecha"
-                            class="border border-slate-300 dark:border-slate-700 rounded px-4 py-2 text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 shadow-sm focus:border-amber-500 focus:outline-none font-medium"
-                            onchange="cambiarFecha()">
+                        <div class="flex items-center gap-1">
+                            <button onclick="moverFecha(-1)" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2 px-3 rounded-lg shadow-sm transition-colors h-[40px] flex items-center justify-center" title="Día Anterior">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <input type="date" id="inputFecha"
+                                class="border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 shadow-sm focus:border-amber-500 focus:outline-none font-medium h-[40px]"
+                                onchange="cambiarFecha()">
+                            <button onclick="moverFecha(1)" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2 px-3 rounded-lg shadow-sm transition-colors h-[40px] flex items-center justify-center" title="Día Siguiente">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="prepararImpresionMensualGeneral()" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-700 text-slate-700 font-medium dark:text-slate-300 dark:font-normal font-bold py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center gap-2 h-[40px]" title="Imprimir Récord Mensual de Asistencia" id="btnImprimirGlobal">
@@ -786,6 +794,16 @@
             mostrarCarga(false);
         }
 
+        function moverFecha(dias) {
+            const input = document.getElementById('inputFecha');
+            if (!input.value) return;
+            const date = new Date(input.value + "T12:00:00"); // Usar mediodía para evitar problemas de zona horaria
+            date.setDate(date.getDate() + dias);
+            const formatter = new Intl.DateTimeFormat('en-CA');
+            input.value = formatter.format(date);
+            cambiarFecha();
+        }
+
         async function precargarPoliticasGenerales() {
             // Trae las políticas de la empresa y políticas de excepción
             const { data, error } = await window.supabaseClient.from('politicas_asistencia').select('*');
@@ -803,11 +821,10 @@
         async function cargarDatosDelDia() {
             const fechaSeleccionada = document.getElementById('inputFecha').value;
 
-            // 1. Traer Todo el personal que exige marcación
+            // 1. Traer Todo el personal que exige marcación (Filtrado por periodos en el render)
             const { data: pData, error: pErr } = await window.supabaseClient
                 .from('personal')
-                .select('id, nombres, apellidos, cargo_rol, requiere_marcacion, categorias_personal(nombre)')
-                .eq('activo', true)
+                .select('id, nombres, apellidos, cargo_rol, requiere_marcacion, periodos_contratacion, categorias_personal(nombre)')
                 .eq('requiere_marcacion', true)
                 .order('apellidos');
 
@@ -887,7 +904,31 @@
             const filtrados = personalList.filter(p => {
                 const catNombre = p.categorias_personal ? p.categorias_personal.nombre : '';
                 if (currentMacroArea !== 'Todas' && catNombre !== currentMacroArea) return false;
-                return true;
+                
+                // Filtro Dinámico por Periodo de Contratación
+                let esVigente = false;
+                if (!p.periodos_contratacion || p.periodos_contratacion.length === 0) {
+                    esVigente = true; // Retrocompatibilidad de seguridad
+                } else {
+                    const selDate = new Date(fechaStr + "T00:00:00");
+                    for (const per of p.periodos_contratacion) {
+                        const iniDate = new Date(per.ingreso + "T00:00:00");
+                        if (selDate >= iniDate) {
+                            if (!per.cese) {
+                                esVigente = true;
+                                break;
+                            } else {
+                                const endDate = new Date(per.cese + "T23:59:59");
+                                if (selDate <= endDate) {
+                                    esVigente = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                return esVigente;
             });
 
             if (filtrados.length === 0) {
