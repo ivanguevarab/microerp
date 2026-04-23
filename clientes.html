@@ -694,6 +694,16 @@
                                     placeholder="maria@empresa.com" maxlength="100"></div>
                         </div>
                     </div>
+                    <!-- SECCIÓN: UBICACIONES -->
+                    <div class="form-section" id="sectionUbicaciones">
+                        <div class="form-section-title" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>📍 Ubicaciones (Plus Codes)</span>
+                            <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 13px;" onclick="agregarFilaUbicacion()">+ Añadir Ubicación</button>
+                        </div>
+                        <div id="contenedorUbicaciones" style="display: flex; flex-direction: column; gap: 10px;">
+                            <!-- Filas dinámicas aquí -->
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer"><button class="btn-secondary" onclick="cerrarModal()">Cancelar</button><button
@@ -918,7 +928,42 @@
                     </div>`;
                 }
 
-                if (!contactInfo) contactInfo = '<span style="color:#bdc3c7; font-size:12px">Sin datos de contacto</span>';
+                // Agregar Ubicaciones Desplegables
+                let ubicacionesHtml = '';
+                if (c.ubicaciones && Array.isArray(c.ubicaciones) && c.ubicaciones.length > 0) {
+                    let itemsHtml = c.ubicaciones.map(u => {
+                        return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px dashed #e0e0e0; padding-bottom: 6px; margin-bottom: 2px;">
+                                <div style="font-size: 11px; color: #555; flex: 1; word-break: break-word;">
+                                    <strong style="color: #2c3e50;">${u.referencia || 'Sin Dirección, Descripción o Referencia'}</strong><br>
+                                    <span style="color: #7f8c8d;">${u.plusCode}</span>
+                                </div>
+                                <a href="https://www.google.com/maps/search/${encodeURIComponent(u.plusCode)}" target="_blank" class="btn-contact-action" style="background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; white-space: nowrap; text-decoration: none;">
+                                    🗺️ Mapa
+                                </a>
+                            </div>
+                        `;
+                    }).join('');
+
+                    ubicacionesHtml = `
+                    <div style="margin-top: 8px;">
+                        <details style="background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0;">
+                            <summary style="padding: 6px 10px; font-size: 12px; color: #2e7d32; font-weight: 500; cursor: pointer; user-select: none;">
+                                📍 Ver Ubicaciones (${c.ubicaciones.length})
+                            </summary>
+                            <div style="padding: 8px 10px; border-top: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 6px;">
+                                ${itemsHtml}
+                            </div>
+                        </details>
+                    </div>
+                    `;
+                }
+
+                if (!contactInfo && !ubicacionesHtml) {
+                    contactInfo = '<span style="color:#bdc3c7; font-size:12px">Sin datos de contacto</span>';
+                }
+                
+                contactInfo += ubicacionesHtml;
 
                 html += `
                     <tr>
@@ -979,6 +1024,7 @@
                 contacto_cargo: document.getElementById('contactoCargo').value.trim() || null,
                 contacto_celular: document.getElementById('contactoCelular').value.trim() || null,
                 contacto_email: document.getElementById('contactoEmail').value.trim() || null,
+                ubicaciones: extraerUbicacionesDOM(),
 
                 activo: true
             };
@@ -1055,6 +1101,13 @@
             setValue('contactoCelular', cliente.contacto_celular);
             setValue('contactoEmail', cliente.contacto_email);
 
+            // Cargar ubicaciones
+            const contenedorUbic = document.getElementById('contenedorUbicaciones');
+            contenedorUbic.innerHTML = '';
+            if (cliente.ubicaciones && Array.isArray(cliente.ubicaciones)) {
+                cliente.ubicaciones.forEach(u => agregarFilaUbicacion(u.plusCode, u.referencia));
+            }
+
             document.getElementById('modalTitle').innerText = 'Editar Cliente';
             document.getElementById('modal').classList.add('active');
         }
@@ -1083,6 +1136,57 @@
         // UTILIDADES UI
         // ============================================
 
+        function agregarFilaUbicacion(plusCode = '', referencia = '') {
+            const contenedor = document.getElementById('contenedorUbicaciones');
+            const rowId = 'ubic_' + Date.now() + Math.random().toString(36).substr(2, 9);
+            
+            const div = document.createElement('div');
+            div.className = 'form-row';
+            div.id = rowId;
+            div.style.marginBottom = '0';
+            div.style.alignItems = 'flex-end';
+            
+            div.innerHTML = `
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="font-size: 12px; color: #7f8c8d; margin-bottom: 4px;">Plus Code / Ubicación</label>
+                    <input type="text" class="input-pluscode" value="${plusCode}" placeholder="Ej: R8GC+44W Piura" maxlength="100">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="font-size: 12px; color: #7f8c8d; margin-bottom: 4px;">Dirección, Descripción y Referencia (Opcional)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" class="input-referencia" value="${referencia}" placeholder="Ej: Frente al parque" maxlength="200" style="flex: 1;">
+                        <button type="button" class="btn-icon btn-edit" title="Ver en Google Maps" onclick="verGoogleMaps(this)" style="background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;">🗺️</button>
+                        <button type="button" class="btn-icon btn-delete" title="Eliminar" onclick="document.getElementById('${rowId}').remove()">🗑️</button>
+                    </div>
+                </div>
+            `;
+            
+            contenedor.appendChild(div);
+        }
+
+        function verGoogleMaps(btn) {
+            const row = btn.closest('.form-row');
+            const inputPlusCode = row.querySelector('.input-pluscode').value.trim();
+            if (!inputPlusCode) {
+                mostrarToast('Ingrese un Plus Code primero', 'warning');
+                return;
+            }
+            window.open('https://www.google.com/maps/search/' + encodeURIComponent(inputPlusCode), '_blank');
+        }
+
+        function extraerUbicacionesDOM() {
+            const ubicaciones = [];
+            const filas = document.querySelectorAll('#contenedorUbicaciones .form-row');
+            filas.forEach(fila => {
+                const pc = fila.querySelector('.input-pluscode').value.trim();
+                const ref = fila.querySelector('.input-referencia').value.trim();
+                if (pc || ref) {
+                    ubicaciones.push({ plusCode: pc, referencia: ref });
+                }
+            });
+            return ubicaciones;
+        }
+
         function setValue(id, val) {
             document.getElementById(id).value = val || '';
         }
@@ -1091,6 +1195,7 @@
             clienteEditando = null;
             document.getElementById('clienteForm').reset();
             document.getElementById('clienteId').value = '';
+            document.getElementById('contenedorUbicaciones').innerHTML = '';
             document.getElementById('modalTitle').innerText = 'Nuevo Cliente';
             document.getElementById('modal').classList.add('active');
 
