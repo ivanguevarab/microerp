@@ -382,6 +382,14 @@
                             <input type="text" id="apellidos" required autocomplete="off">
                         </div>
 
+                        <div class="form-section-title flex justify-between items-center" style="grid-column: 1 / -1;">
+                            <span>Historial de Contratación (Altas y Bajas)</span>
+                            <button type="button" onclick="agregarPeriodoContratacion()" class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition"><i class="fas fa-plus"></i> Añadir Periodo</button>
+                        </div>
+                        <div id="container-periodos" style="grid-column: 1 / -1;" class="flex flex-col gap-2">
+                            <!-- Filas de periodos inyectadas via JS -->
+                        </div>
+
                         <div class="form-section-title">Rol en la Empresa</div>
 
                         <div class="input-group">
@@ -983,6 +991,7 @@
             document.getElementById('apellidos').value = ''; // Clear Apellidos
             document.getElementById('categoriaSelect').value = ''; // Clear categoria
             document.getElementById('cargoRol').value = ''; // Clear cargoRol
+            renderPeriodosContratacion([]); // Clear and add one default
             document.getElementById('mesSalario').value = getDefaultMonth();
             document.getElementById('montoBase').value = '0.00';
             document.getElementById('montoKpi').value = '0.00';
@@ -1011,6 +1020,7 @@
             document.getElementById('apellidos').value = target.apellidos;
             document.getElementById('categoriaSelect').value = target.categoria_id;
             document.getElementById('cargoRol').value = target.cargo_rol;
+            renderPeriodosContratacion(target.periodos_contratacion || []);
 
             const currentMonth = getDefaultMonth();
             document.getElementById('mesSalario').value = currentMonth;
@@ -1079,6 +1089,59 @@
         }
 
         // ==========================================
+        // GESTIÓN DE PERIODOS DE CONTRATACIÓN
+        // ==========================================
+        function renderPeriodosContratacion(periodos) {
+            const container = document.getElementById('container-periodos');
+            container.innerHTML = '';
+            if (!periodos || periodos.length === 0) {
+                agregarPeriodoContratacion(); // Al menos un periodo por defecto
+                return;
+            }
+            periodos.forEach((p) => agregarPeriodoContratacion(p.ingreso, p.cese));
+        }
+
+        function agregarPeriodoContratacion(ingreso = '', cese = '') {
+            const container = document.getElementById('container-periodos');
+            const rowId = 'periodo_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            
+            const row = document.createElement('div');
+            row.className = 'flex items-end gap-3 bg-white p-3 rounded border border-slate-200';
+            row.id = rowId;
+            row.innerHTML = `
+                <div class="flex-1">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Fecha Ingreso (Alta)</label>
+                    <input type="date" class="input-ingreso w-full p-2 border border-slate-300 rounded text-sm focus:border-blue-500 focus:outline-none" value="${ingreso}" title="Si se deja vacío, este periodo se omitirá al guardar.">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Fecha Cese (Baja)</label>
+                    <input type="date" class="input-cese w-full p-2 border border-slate-300 rounded text-sm focus:border-blue-500 focus:outline-none" value="${cese}">
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        function obtenerPeriodosContratacion() {
+            const container = document.getElementById('container-periodos');
+            const rows = container.querySelectorAll('div[id^="periodo_"]');
+            const periodos = [];
+            
+            rows.forEach(row => {
+                const ingreso = row.querySelector('.input-ingreso').value;
+                const cese = row.querySelector('.input-cese').value;
+                if (ingreso) {
+                    periodos.push({
+                        ingreso: ingreso,
+                        cese: cese ? cese : null
+                    });
+                }
+            });
+            
+            // Ordenar por fecha de ingreso
+            return periodos.sort((a, b) => new Date(a.ingreso) - new Date(b.ingreso));
+        }
+
+        // ==========================================
         // GUARDAR TRABAJADOR (CREAR / EDITAR)
         // ==========================================
         async function guardarTrabajador() {
@@ -1108,7 +1171,8 @@
                     categoria_id: document.getElementById('categoriaSelect').value,
                     cargo_rol: document.getElementById('cargoRol').value.trim(),
                     requiere_marcacion: document.getElementById('requiereMarcacion').checked,
-                    pago_horas_extras_habilitado: document.getElementById('pagoHorasExtras').checked
+                    pago_horas_extras_habilitado: document.getElementById('pagoHorasExtras').checked,
+                    periodos_contratacion: obtenerPeriodosContratacion()
                 };
 
                 // Validaciones Básicas
