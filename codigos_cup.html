@@ -605,7 +605,7 @@
 
     <!-- MODAL PRINCIPAL (CREAR/EDITAR) -->
     <div id="modal-cup" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content" style="max-width: 1000px;">
             <div class="modal-header">
                 <h3 id="modal-title">Nueva Orden</h3>
                 <button onclick="closeModal()" class="btn-icon"><i class="fas fa-times"></i></button>
@@ -660,7 +660,7 @@
                         </div>
                         <div class="form-group">
                             <label>Estado</label>
-                            <select id="estado" onchange="toggleFechaFin()">
+                            <select id="estado" onchange="toggleFechas()">
                                 <option value="NO_INICIADO">No Iniciado</option>
                                 <option value="EN_PROCESO">En Proceso</option>
                                 <option value="TERMINADO">Terminado</option>
@@ -688,7 +688,7 @@
                                     <tr>
                                         <th style="padding: 8px;">Trabajador</th>
                                         <th style="padding: 8px; width: 130px;">Fecha Labor</th>
-                                        <th style="padding: 8px; width: 100px;">Horas</th>
+                                        <th style="padding: 8px; width: 140px;">Horas</th>
                                         <th style="padding: 8px;">Responsabilidad / Tarea</th>
                                         <th style="padding: 8px; width: 50px; text-align: center;"></th>
                                     </tr>
@@ -866,6 +866,53 @@
         </div>
     </div>
 
+    <!-- MODAL CALCULADORA HORAS -->
+    <div id="modal-calculadora-horas" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="display: flex; align-items: center; gap: 8px;">
+                        ⏱️ Calculadora de Horas
+                    </h3>
+                    <p id="calc-worker-name" style="font-size: 0.85rem; color: var(--secondary-color); margin-top: 4px;">...</p>
+                </div>
+                <button type="button" onclick="closeCalculadoraHoras()" class="btn-icon"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-container" style="max-height: 300px; overflow-y: auto; overflow-x: visible;">
+                    <table style="min-width: 500px;">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Inicio</th>
+                                <th>Fin</th>
+                                <th style="text-align: right;">Total Hrs</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="calc-horas-list">
+                            <!-- JS injected -->
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button type="button" onclick="addTramoCalcFila()" class="btn-icon" style="color: var(--primary-color); background: #f1f5f9; width: auto; padding: 0 10px; font-size: 0.85rem;">
+                        <i class="fas fa-plus"></i> Añadir Lapso
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 1.1rem; font-weight: bold; color: var(--primary-color);">
+                    Total: <span id="calc-total-horas">0.00</span> hrs
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" onclick="closeCalculadoraHoras()" style="background: white; border: 1px solid #cbd5e1; color: #475569; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Cancelar</button>
+                    <button type="button" onclick="confirmarTramosHoras()" class="btn-primary">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- LOGICA IMPORTADA Y ADAPTADA ---
 
@@ -998,8 +1045,8 @@
             document.getElementById('modal-title').innerText = 'Nueva Orden';
             generarNuevoCodigo().then(code => document.getElementById('codigo').value = code);
 
-            document.getElementById('fecha_inicio').valueAsDate = new Date();
             document.getElementById('estado').value = 'NO_INICIADO';
+            toggleFechas();
 
             // Default Stock
             const radios = document.getElementsByName('tipo_produccion');
@@ -1030,15 +1077,26 @@
             }
         }
 
-        function toggleFechaFin() {
+        function toggleFechas() {
             const estado = document.getElementById('estado').value;
+            const inicio = document.getElementById('fecha_inicio');
             const fin = document.getElementById('fecha_fin');
-            if (estado === 'TERMINADO' || estado === 'ANULADO') {
-                fin.disabled = false;
-                if (!fin.value) fin.valueAsDate = new Date();
-            } else {
+            
+            if (estado === 'NO_INICIADO') {
+                inicio.disabled = true;
+                inicio.value = '';
                 fin.disabled = true;
                 fin.value = '';
+            } else if (estado === 'EN_PROCESO') {
+                inicio.disabled = false;
+                if (!inicio.value) inicio.valueAsDate = new Date();
+                fin.disabled = true;
+                fin.value = '';
+            } else if (estado === 'TERMINADO' || estado === 'ANULADO') {
+                inicio.disabled = false;
+                if (!inicio.value) inicio.valueAsDate = new Date();
+                fin.disabled = false;
+                if (!fin.value) fin.valueAsDate = new Date();
             }
         }
 
@@ -1093,10 +1151,16 @@
                 const fechaInput = r.querySelector('.mo-fecha');
                 const horasInput = r.querySelector('.mo-horas');
                 const respInput = r.querySelector('.mo-resp');
+                const tramosJsonInput = r.querySelector('.mo-tramos-json');
 
                 if (!trabaInput || !trabaInput.value || !fechaInput.value || !horasInput.value || !respInput.value) {
                     alert('Por favor, complete todos los campos de los participantes agregados en la Mano de Obra.');
                     return;
+                }
+
+                let tramosArr = [];
+                if (tramosJsonInput && tramosJsonInput.value) {
+                    try { tramosArr = JSON.parse(tramosJsonInput.value); } catch(e) {}
                 }
 
                 const personalId = trabaInput.value;
@@ -1169,7 +1233,8 @@
                     fecha_labor: `${mes}-01`, // YYYY-MM-01 referencial
                     horas_invertidas: parseFloat(horasInput.value),
                     responsabilidad: respInput.value,
-                    costo_hora_efectiva: parseFloat(costoHora)
+                    costo_hora_efectiva: parseFloat(costoHora),
+                    detalle_tramos: tramosArr
                 });
             }
 
@@ -1240,7 +1305,8 @@
                         nombreTemp: nombre,
                         fecha_labor: mesLabor,
                         horas_invertidas: md.horas_invertidas,
-                        responsabilidad: md.responsabilidad
+                        responsabilidad: md.responsabilidad,
+                        detalle_tramos: md.detalle_tramos
                     });
                 }
             }
@@ -1255,7 +1321,7 @@
                 radios[0].checked = true; // Stock
                 toggleClientField(false);
             }
-            toggleFechaFin();
+            toggleFechas();
             document.getElementById('modal-cup').classList.add('active');
         }
 
@@ -1409,7 +1475,7 @@
                                 tCost += m.costo_total;
                                 subtotalCat += m.costo_total;
                                 htmlOutput += `<tr>
-                                 <td>${m.fecha_labor}</td>
+                                 <td>${m.fecha_labor.substring(0, 7)}</td>
                                  <td>HORAS</td>
                                  <td>${m.responsabilidad} <br><small style="color:#64748b;">(${m.personal})</small></td>
                                  <td style="text-align:right;">${m.horas} hrs</td>
@@ -1628,7 +1694,13 @@
                     <input type="month" class="mo-fecha" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;" value="${mesActual}" required>
                 </td>
                 <td style="padding: 4px;">
-                    <input type="number" step="0.5" min="0.5" class="mo-horas" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;" placeholder="Ej. 1.5" value="${data ? data.horas_invertidas : ''}" required>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <input type="text" class="mo-horas" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; background: #f8fafc;" value="${data ? parseFloat(data.horas_invertidas).toFixed(2) : ''}" readonly required>
+                        <button type="button" class="btn-icon" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; width: 34px; height: 34px; padding: 0; flex-shrink: 0;" title="Calculadora de Horas" onclick="abrirCalculadoraHoras(this)">
+                            ⏱️
+                        </button>
+                    </div>
+                    <input type="hidden" class="mo-tramos-json" value='${data && data.detalle_tramos ? JSON.stringify(data.detalle_tramos) : "[]"}'>
                 </td>
                 <td style="padding: 4px;">
                     <input type="text" class="mo-resp" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;" placeholder="Ej. Ensamble final" value="${data ? data.responsabilidad : ''}" required>
@@ -1745,6 +1817,169 @@
             } finally {
                 btn.innerText = originalText;
             }
+        }
+
+        // --- LOGICA CALCULADORA HORAS ---
+        let currentCalcRow = null;
+
+        function abrirCalculadoraHoras(btn) {
+            currentCalcRow = btn.closest('tr');
+            const workerSelect = currentCalcRow.querySelector('.mo-trabajador-id');
+            if(!workerSelect.value) {
+                return alert("Seleccione un trabajador primero.");
+            }
+            const workerName = workerSelect.options[workerSelect.selectedIndex].text;
+            document.getElementById('calc-worker-name').innerText = "Trabajador: " + workerName;
+            
+            const tbody = document.getElementById('calc-horas-list');
+            tbody.innerHTML = '';
+            
+            const jsonInput = currentCalcRow.querySelector('.mo-tramos-json');
+            let tramos = [];
+            if(jsonInput && jsonInput.value) {
+                try { tramos = JSON.parse(jsonInput.value); } catch(e){}
+            }
+            
+            if(tramos.length === 0) {
+                addTramoCalcFila();
+            } else {
+                tramos.forEach(t => addTramoCalcFila(t));
+            }
+            
+            recalcularTotalCalc();
+            document.getElementById('modal-calculadora-horas').classList.add('active');
+        }
+
+        function closeCalculadoraHoras() {
+            document.getElementById('modal-calculadora-horas').classList.remove('active');
+            currentCalcRow = null;
+        }
+
+        function addTramoCalcFila(data = null) {
+            const tbody = document.getElementById('calc-horas-list');
+            const tr = document.createElement('tr');
+            
+            const hoy = new Date().toISOString().split('T')[0];
+            
+            tr.innerHTML = `
+                <td style="padding: 4px;">
+                    <input type="date" class="calc-fecha" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px;" value="${data ? data.fecha : hoy}" onchange="recalcularTotalCalc()">
+                </td>
+                <td style="padding: 4px;">
+                    <input type="time" class="calc-inicio" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px;" value="${data ? data.inicio : '08:00'}" onchange="recalcularTotalCalc()">
+                </td>
+                <td style="padding: 4px;">
+                    <input type="time" class="calc-fin" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px;" value="${data ? data.fin : '12:00'}" onchange="recalcularTotalCalc()">
+                </td>
+                <td style="padding: 4px; text-align: right; font-weight: bold; color: var(--primary-color);" class="calc-subtotal">
+                    0.00
+                </td>
+                <td style="padding: 4px; text-align: center;">
+                    <button type="button" onclick="this.closest('tr').remove(); recalcularTotalCalc();" class="btn-icon" style="color: var(--danger-color); margin: 0 auto; width: 28px; height: 28px;"><i class="fas fa-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            recalcularTotalCalc();
+        }
+
+        function recalcularTotalCalc() {
+            const tbody = document.getElementById('calc-horas-list');
+            const rows = tbody.querySelectorAll('tr');
+            let total = 0;
+            
+            rows.forEach(row => {
+                const inicio = row.querySelector('.calc-inicio').value;
+                const fin = row.querySelector('.calc-fin').value;
+                let subtotal = 0;
+                
+                if(inicio && fin) {
+                    const [h1, m1] = inicio.split(':').map(Number);
+                    const [h2, m2] = fin.split(':').map(Number);
+                    
+                    const min1 = (h1 * 60) + m1;
+                    let min2 = (h2 * 60) + m2;
+                    
+                    if(min2 < min1) min2 += 24 * 60; 
+                    
+                    subtotal = (min2 - min1) / 60;
+                }
+                
+                row.querySelector('.calc-subtotal').innerText = subtotal.toFixed(2);
+                total += subtotal;
+            });
+            
+            document.getElementById('calc-total-horas').innerText = total.toFixed(2);
+        }
+
+        function confirmarTramosHoras() {
+            const tbody = document.getElementById('calc-horas-list');
+            const rows = tbody.querySelectorAll('tr');
+            let tramosPorMes = {};
+            
+            for(const row of rows) {
+                const fecha = row.querySelector('.calc-fecha').value;
+                const inicio = row.querySelector('.calc-inicio').value;
+                const fin = row.querySelector('.calc-fin').value;
+                if(!fecha || !inicio || !fin) continue;
+
+                const [h1, m1] = inicio.split(':').map(Number);
+                const [h2, m2] = fin.split(':').map(Number);
+                const min1 = (h1 * 60) + m1;
+                let min2 = (h2 * 60) + m2;
+                if(min2 < min1) min2 += 24 * 60;
+                const subtotal = (min2 - min1) / 60;
+                
+                const mes = fecha.substring(0, 7);
+                
+                if(!tramosPorMes[mes]) tramosPorMes[mes] = { totalHoras: 0, tramos: [] };
+                
+                tramosPorMes[mes].tramos.push({ fecha, inicio, fin, horas: subtotal });
+                tramosPorMes[mes].totalHoras += subtotal;
+            }
+            
+            const mesesEncontrados = Object.keys(tramosPorMes);
+            if(mesesEncontrados.length === 0) {
+                alert("Debe ingresar al menos un lapso válido.");
+                return;
+            }
+            
+            const personalId = currentCalcRow.querySelector('.mo-trabajador-id').value;
+            const empleado = moEmpleadosData.find(e => e.id === personalId);
+            
+            for(const mes of mesesEncontrados) {
+                let hasSalary = false;
+                if (empleado && empleado.personal_salarios && empleado.personal_salarios.length > 0) {
+                    hasSalary = empleado.personal_salarios.some(s => s.anio_mes === mes);
+                }
+                if(!hasSalary) {
+                    alert(`BLOQUEADO: El trabajador no tiene una "Estructura Remunerativa" definida para el mes de ${mes}. Por favor actualice el Padrón de Personal antes de registrar horas en este mes.`);
+                    return;
+                }
+            }
+            
+            const respValue = currentCalcRow.querySelector('.mo-resp').value;
+            
+            let isFirst = true;
+            for(const mes of mesesEncontrados) {
+                const dataMes = tramosPorMes[mes];
+                
+                if(isFirst) {
+                    currentCalcRow.querySelector('.mo-fecha').value = mes;
+                    currentCalcRow.querySelector('.mo-horas').value = dataMes.totalHoras.toFixed(2);
+                    currentCalcRow.querySelector('.mo-tramos-json').value = JSON.stringify(dataMes.tramos);
+                    isFirst = false;
+                } else {
+                    agregarFilaManoObra({
+                        personal_id: personalId,
+                        fecha_labor: mes,
+                        horas_invertidas: dataMes.totalHoras.toFixed(2),
+                        responsabilidad: respValue,
+                        detalle_tramos: dataMes.tramos
+                    });
+                }
+            }
+            
+            closeCalculadoraHoras();
         }
 
         // INIT
