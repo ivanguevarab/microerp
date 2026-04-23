@@ -115,13 +115,21 @@
                         <i class="far fa-calendar-alt text-gray-400 mr-3"></i>
                         <div class="flex flex-col text-xs text-slate-400 mr-2" id="lblDesdeContainer">
                             <span id="lblDesde" class="font-semibold uppercase tracking-wide">Día en revisión</span>
-                            <input type="date" id="filtroDesde" class="text-sm font-bold border-none outline-none text-slate-700 bg-transparent cursor-pointer" onchange="manejarCambioFecha()">
+                            <div class="flex items-center gap-1 mt-1">
+                                <button onclick="moverFechaFiltro(-1, 'filtroDesde')" class="text-slate-400 hover:text-slate-700 transition px-1" title="Día Anterior"><i class="fas fa-chevron-left"></i></button>
+                                <input type="date" id="filtroDesde" class="text-sm font-bold border-none outline-none text-slate-700 bg-transparent cursor-pointer" onchange="manejarCambioFecha()">
+                                <button onclick="moverFechaFiltro(1, 'filtroDesde')" class="text-slate-400 hover:text-slate-700 transition px-1" title="Día Siguiente"><i class="fas fa-chevron-right"></i></button>
+                            </div>
                         </div>
                         
                         <div id="contenedorHasta" class="hidden items-center ml-2 border-l border-gray-200 pl-3">
                             <div class="flex flex-col text-xs text-slate-400">
                                 <span class="font-semibold uppercase tracking-wide">Hasta</span>
-                                <input type="date" id="filtroHasta" class="text-sm font-bold border-none outline-none text-slate-700 bg-transparent cursor-pointer" onchange="manejarCambioFecha()">
+                                <div class="flex items-center gap-1 mt-1">
+                                    <button onclick="moverFechaFiltro(-1, 'filtroHasta')" class="text-slate-400 hover:text-slate-700 transition px-1" title="Día Anterior"><i class="fas fa-chevron-left"></i></button>
+                                    <input type="date" id="filtroHasta" class="text-sm font-bold border-none outline-none text-slate-700 bg-transparent cursor-pointer" onchange="manejarCambioFecha()">
+                                    <button onclick="moverFechaFiltro(1, 'filtroHasta')" class="text-slate-400 hover:text-slate-700 transition px-1" title="Día Siguiente"><i class="fas fa-chevron-right"></i></button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -279,6 +287,16 @@
 
             actualizarTextoFechaLarga();
             cargarTablero();
+        }
+
+        function moverFechaFiltro(dias, inputId) {
+            const input = document.getElementById(inputId);
+            if (!input.value) return;
+            const date = new Date(input.value + "T12:00:00");
+            date.setDate(date.getDate() + dias);
+            const formatter = new Intl.DateTimeFormat('en-CA');
+            input.value = formatter.format(date);
+            manejarCambioFecha();
         }
 
         function toggleFiltroRango() {
