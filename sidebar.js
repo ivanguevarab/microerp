@@ -177,6 +177,22 @@
                     ]
                 }
             ]
+        },
+        {
+            type: 'accordion',
+            label: 'Especialidades',
+            icon: 'fas fa-star',
+            id: 'menu-especialidades',
+            url: '', 
+            defaultOpen: false,
+            groups: [
+                {
+                    subtitle: 'Desarrollos a Medida',
+                    items: [
+                        { label: 'Landing Page', url: 'landing_page.html', required_specialty: 'landing_page' }
+                    ]
+                }
+            ]
         }
     ];
 
