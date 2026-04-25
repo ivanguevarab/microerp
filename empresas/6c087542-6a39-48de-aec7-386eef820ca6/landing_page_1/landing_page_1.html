@@ -112,7 +112,7 @@
     <nav class="fixed w-full z-50 glass-nav transition-all duration-300 py-4" id="navbar">
         <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
             <a href="#" class="flex items-center gap-3">
-                <img id="logo-img" src="logo.png" alt="Logo Empresa" class="h-10 w-auto scale-[3.5] lg:scale-[4] origin-left rounded-sm opacity-0 transition-all duration-500" onload="this.classList.remove('opacity-0')" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\'><rect width=\'40\' height=\'40\' fill=\'%23f59e0b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'white\' font-family=\'sans-serif\' font-weight=\'bold\'>LOGO</text></svg>'">
+                <img id="logo-img" src="logo.png" alt="Logo Empresa" class="h-10 w-auto scale-[3] md:scale-[3.5] lg:scale-[4] origin-left rounded-sm opacity-0 transition-all duration-500" onload="this.classList.remove('opacity-0')" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\'><rect width=\'40\' height=\'40\' fill=\'%23f59e0b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'white\' font-family=\'sans-serif\' font-weight=\'bold\'>LOGO</text></svg>'">
             </a>
             <div class="hidden md:flex gap-8 items-center">
                 <a href="#servicios" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors">Catálogo de Servicios</a>
@@ -395,11 +395,24 @@
                 nav.style.background = 'rgba(2, 6, 23, 0.95)';
                 nav.style.paddingTop = '0.75rem';
                 nav.style.paddingBottom = '0.75rem';
+                
+                // Efecto de desvanecimiento en móviles al bajar
+                if (window.innerWidth < 768) {
+                    nav.style.opacity = '0';
+                    nav.style.pointerEvents = 'none';
+                } else {
+                    nav.style.opacity = '1';
+                    nav.style.pointerEvents = 'auto';
+                }
             } else {
                 nav.classList.remove('shadow-xl');
                 nav.style.background = 'rgba(2, 6, 23, 0.7)';
                 nav.style.paddingTop = '1rem';
                 nav.style.paddingBottom = '1rem';
+                
+                // Reaparecer al llegar al top (en todos los dispositivos)
+                nav.style.opacity = '1';
+                nav.style.pointerEvents = 'auto';
             }
 
             // Reveal Animation Engine
