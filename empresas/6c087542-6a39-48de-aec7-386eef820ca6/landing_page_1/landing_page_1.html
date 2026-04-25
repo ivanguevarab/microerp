@@ -111,8 +111,9 @@
     <!-- Navegación -->
     <nav class="fixed w-full z-50 glass-nav transition-all duration-300 py-4" id="navbar">
         <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
-            <a href="#" class="flex items-center gap-3">
-                <img id="logo-img" src="logo.png" alt="Logo Empresa" class="h-10 w-auto scale-[3] md:scale-[3.5] lg:scale-[4] origin-left rounded-sm opacity-0 transition-all duration-500" onload="this.classList.remove('opacity-0')" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\'><rect width=\'40\' height=\'40\' fill=\'%23f59e0b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'white\' font-family=\'sans-serif\' font-weight=\'bold\'>LOGO</text></svg>'">
+            <a href="#" class="flex items-center">
+                <img id="logo-img" src="logo.png" alt="Logo Empresa" class="h-10 w-auto scale-[1.8] md:scale-[3.5] lg:scale-[4] origin-left rounded-sm opacity-0 transition-all duration-500" onload="this.classList.remove('opacity-0')" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\'><rect width=\'40\' height=\'40\' fill=\'%23f59e0b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'white\' font-family=\'sans-serif\' font-weight=\'bold\'>LOGO</text></svg>'">
+                <span id="mobile-brand-name" class="text-white font-extrabold text-lg tracking-[0.2em] md:hidden ml-10 uppercase whitespace-nowrap drop-shadow-lg">ALAMOS IMPORT</span>
             </a>
             <div class="hidden md:flex gap-8 items-center">
                 <a href="#servicios" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors">Catálogo de Servicios</a>
@@ -264,7 +265,7 @@
     </section>
 
     <!-- Footer -->
-    <footer class="bg-black py-12 border-t border-slate-900">
+    <footer class="bg-black pt-12 pb-28 md:py-12 border-t border-slate-900">
         <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
             <div class="flex items-center gap-4 opacity-70 hover:opacity-100 transition-opacity">
                 <img src="logo.png" alt="Logo" class="h-8 w-auto scale-[2.5] origin-left rounded-sm grayscale" onerror="this.style.display='none'">
@@ -332,6 +333,9 @@
             document.getElementById('hero-subtitle').textContent = data.descripcion_nosotros || "Descubre soluciones profesionales de alta calidad diseñadas para tu éxito.";
             document.getElementById('about-name').textContent = data.nombre_comercial;
             document.getElementById('footer-name').textContent = data.nombre_comercial;
+            
+            const mobileBrand = document.getElementById('mobile-brand-name');
+            if (mobileBrand) mobileBrand.textContent = data.nombre_comercial;
             
             // Reemplazo seguro de saltos de línea por <br> para el texto de "Nosotros"
             if(data.descripcion_nosotros) {
