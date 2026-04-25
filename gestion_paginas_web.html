@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub de Páginas Web - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'], } 
+                } 
+            } 
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        body {
+            background-color: #f8fafc; /* Modo claro por defecto */
+            color: #0f172a;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .dark body {
+            background-color: #020617; /* Dark Slate 950 */
+            color: #f8fafc;
+        }
+
+        .container {
+            padding: 40px 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            margin-bottom: 40px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 20px;
+            transition: border-color 0.3s ease;
+            position: relative;
+        }
+
+        .dark .page-header {
+            border-color: #334155;
+        }
+
+        .page-header h2 {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 10px;
+        }
+
+        .page-header p {
+            color: #475569;
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: 800px;
+        }
+
+        .dark .page-header p {
+            color: #94a3b8;
+        }
+
+        /* Glassmorphism Premium Card */
+        .web-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dark .web-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border-color: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .web-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.1);
+            border-color: #cbd5e1;
+        }
+
+        .dark .web-card:hover {
+            box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.8);
+            border-color: rgba(245, 158, 11, 0.4); /* Glow ámbar sutil */
+        }
+
+        .iframe-container {
+            width: 100%;
+            height: 280px;
+            position: relative;
+            border-bottom: 1px solid #e2e8f0;
+            background-color: #f1f5f9;
+            overflow: hidden;
+        }
+
+        .dark .iframe-container {
+            border-color: rgba(255, 255, 255, 0.05);
+            background-color: #0f172a;
+        }
+
+        /* Escalar el contenido del iframe para que se vea completo como miniatura */
+        .iframe-container iframe {
+            width: 200%;
+            height: 200%;
+            transform: scale(0.5);
+            transform-origin: 0 0;
+            border: none;
+            pointer-events: none; /* Prevenir interacción dentro de la tarjeta */
+        }
+        
+        .card-body {
+            padding: 24px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Botones Premium */
+        .btn-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .btn-primary-action {
+            background-color: #f59e0b;
+            color: #000;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary-action:hover {
+            background-color: #fbbf24;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-secondary-action {
+            background-color: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        
+        .dark .btn-secondary-action {
+            color: #e2e8f0;
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-secondary-action:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .dark .btn-secondary-action:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+        }
+
+        /* Ultimate Override para Síndrome del Modo Gris */
+        .dark body { background-color: #020617 !important; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950">
+    <!-- Cabecera Central -->
+    <header class="submodule-header relative">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='dashboard.html'">
+                ← Volver al Panel
+            </button>
+            <h1 class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Hub de Páginas Web</h1>
+        </div>
+        
+        <!-- Toggle Tema (Estándar Oficial) -->
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
+            <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+            <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+            <span class="text-sm font-bold tracking-wide">TEMA</span>
+        </button>
+    </header>
+
+    <main class="container relative">
+        <div class="page-header">
+            <h2 class="text-slate-900 dark:text-white">Centro de Visualización Pública</h2>
+            <p>Administra y previsualiza los enlaces a tus portales web y catálogos públicos contratados. Comparte los accesos oficiales de forma rápida y segura con tus clientes.</p>
+        </div>
+
+        <!-- Grid de Tarjetas -->
+        <div id="webPagesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Loading State -->
+            <div id="loading-state" class="col-span-full flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400">
+                <i class="fas fa-circle-notch fa-spin text-4xl text-amber-500 mb-4"></i>
+                <p class="font-medium tracking-wide uppercase text-sm">Consultando Portales Activos...</p>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden col-span-full flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400 bg-white/50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                <div class="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-2xl mb-4">
+                    <i class="fas fa-globe-americas"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">No hay páginas activas</h3>
+                <p class="text-center max-w-md">Su empresa actualmente no cuenta con módulos web públicos contratados o habilitados. Contacte a soporte para adquirir uno.</p>
+            </div>
+            <!-- Renderizado dinámico aquí -->
+        </div>
+    </main>
+
+    <!-- Inserción del Sidebar que gobierna el panel lateral base -->
+    <script src="sidebar.js"></script>
+    
+    <script>
+        // Lógica de Modo Oscuro
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Inicializar tema al cargar
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+
+        // Utilidad para notificaciones Toast
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-lg text-white font-bold tracking-wide z-[9999] shadow-xl transform translate-y-10 opacity-0 transition-all duration-300 flex items-center gap-3`;
+            toast.style.backgroundColor = type === 'success' ? '#10b981' : '#f59e0b';
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'} text-xl"></i> ${message}`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        window.addEventListener('load', () => {
+            const checkGuard = setInterval(() => {
+                if (window.currentUser) {
+                    clearInterval(checkGuard);
+                    fetchWebPages(window.currentUser);
+                }
+            }, 100);
+        });
+
+        async function fetchWebPages(user) {
+            try {
+                const { data: profile, error } = await window.supabaseClient
+                    .from('perfiles_usuario')
+                    .select(`
+                        empresa_id,
+                        empresas (
+                            especialidades
+                        )
+                    `)
+                    .eq('id', user.id)
+                    .single();
+
+                if (error) throw error;
+
+                document.getElementById('loading-state').classList.add('hidden');
+
+                if (profile && profile.empresas) {
+                    const specialties = profile.empresas.especialidades || [];
+                    const grid = document.getElementById('webPagesGrid');
+                    
+                    let hasPages = false;
+
+                    // Validar si tiene la especialidad "landing_page"
+                    if (specialties.includes('landing_page')) {
+                        hasPages = true;
+                        
+                        // Determinar URL de la Landing Page
+                        const relativeUrl = `empresas/${profile.empresa_id}/landing_page_1/landing_page_1.html`;
+                        
+                        // Obtener la URL absoluta del dominio actual
+                        const currentOrigin = window.location.origin;
+                        const pathnameTokens = window.location.pathname.split('/');
+                        pathnameTokens.pop(); // remover gestion_paginas_web.html
+                        const basePath = pathnameTokens.join('/');
+                        
+                        const absoluteUrl = `${currentOrigin}${basePath}/${relativeUrl}`;
+
+                        const card = document.createElement('div');
+                        card.className = 'web-card';
+                        card.innerHTML = `
+                            <div class="iframe-container">
+                                <iframe src="${relativeUrl}" title="Vista Previa Landing Page"></iframe>
+                                <div class="absolute inset-0 bg-slate-900/10 dark:bg-black/20 pointer-events-none"></div>
+                                <div class="absolute top-3 left-3 bg-green-500/90 backdrop-blur-md text-white text-[10px] font-extrabold uppercase px-3 py-1 rounded-full shadow border border-green-400/50 flex items-center gap-1.5 tracking-widest">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                                    Activa
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Landing Page Corporativa</h3>
+                                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-grow leading-relaxed">
+                                    Página pública optimizada para captación de clientes. Contiene catálogo de servicios, contacto y datos corporativos.
+                                </p>
+                                <div class="flex flex-col gap-3 mt-auto">
+                                    <button onclick="window.open('${relativeUrl}', '_blank')" class="btn-action btn-primary-action w-full">
+                                        <i class="fas fa-external-link-alt"></i> Abrir Vista Previa
+                                    </button>
+                                    <button onclick="copyToClipboard('${absoluteUrl}')" class="btn-action btn-secondary-action w-full">
+                                        <i class="fas fa-copy"></i> Copiar Link Público
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    }
+
+                    // Se pueden agregar más verificaciones aquí para otras páginas (ej. e-commerce) en el futuro
+
+                    if (!hasPages) {
+                        document.getElementById('empty-state').classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error("Error cargando portales:", err);
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('empty-state').querySelector('h3').textContent = "Error de conexión";
+                document.getElementById('empty-state').querySelector('p').textContent = "No pudimos validar sus portales web. Intente nuevamente más tarde.";
+            }
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('¡Enlace copiado al portapapeles!');
+            } catch (err) {
+                console.error('Error al copiar: ', err);
+                // Fallback clásico
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('¡Enlace copiado al portapapeles!');
+                } catch (err) {
+                    console.error('Error en fallback de copiado', err);
+                    alert("No se pudo copiar el enlace. Por favor, intente manualmente.");
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+    </script>
+</body>
+</html>
