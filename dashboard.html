@@ -117,7 +117,7 @@
     </section>
 
     <!-- Modules Section -->
-    <section>
+    <section class="mb-14">
       <h3 class="text-slate-300 text-xl font-bold tracking-tight mb-5 flex items-center gap-3">
          <i class="fa-solid fa-layer-group text-amber-500"></i>
          Módulos del Sistema
@@ -125,6 +125,17 @@
       <!-- grid container for modules. Changed ID from id="modulesGrid" logic is intact -->
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="modulesGrid">
         <!-- Los módulos se cargarán dinámicamente aquí -->
+      </div>
+    </section>
+
+    <!-- Especialidades Section -->
+    <section id="especialidades-section" class="hidden mb-14">
+      <h3 class="text-slate-300 text-xl font-bold tracking-tight mb-5 flex items-center gap-3">
+         <i class="fa-solid fa-star text-amber-500"></i>
+         Especialidades
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="especialidadesGrid">
+        <!-- Las especialidades se cargarán dinámicamente aquí -->
       </div>
     </section>
   </main>
@@ -226,6 +237,7 @@
       const userRole = userData.role || 'LECTURA';
       const userRoutes = userData.userRoutes || [];
       const isAdmin = userRole === 'ADMIN';
+      const companySpecialties = userData.companySpecialties || [];
 
       MODULES.forEach(module => {
         // Regla de Negocio: Ocultar Producción si es estrictamente Comercial
@@ -283,6 +295,73 @@
 
         modulesGrid.appendChild(moduleCard);
       });
+
+      // ============================================
+      // RENDERIZADO DE ESPECIALIDADES
+      // ============================================
+      const espSection = document.getElementById('especialidades-section');
+      const espGrid = document.getElementById('especialidadesGrid');
+      espGrid.innerHTML = '';
+      
+      const SPECIALTIES = [
+        {
+           id: 'landing_page',
+           icon: '<i class="fa-solid fa-globe"></i>',
+           title: 'Landing Page',
+           description: 'Administración y visualización de tu página web comercial y captación de leads.',
+           url: `empresas/${userData.empresaId}/landing_page.html`
+        }
+      ];
+
+      let hasAnySpecialty = false;
+
+      SPECIALTIES.forEach(spec => {
+          // Regla 1: Ocultar si la empresa NO lo tiene contratado
+          if (!companySpecialties.includes(spec.id)) return;
+          hasAnySpecialty = true;
+
+          // Regla 2: Validar permiso operativo del usuario
+          let hasAccess = false;
+          if (isAdmin) {
+             hasAccess = true;
+          } else {
+             hasAccess = userRoutes.includes(spec.url);
+          }
+
+          const specCard = document.createElement('div');
+          specCard.className = `bg-slate-900/50 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between ${!hasAccess ? 'opacity-40 grayscale cursor-not-allowed pointer-events-none shadow-none' : 'hover:-translate-y-2 hover:border-amber-500/40 shadow-xl hover:shadow-[0_15px_30px_rgba(245,158,11,0.15)] hover:bg-slate-900/80'}`;
+
+          if (hasAccess) {
+             specCard.onclick = () => window.location.href = spec.url;
+          }
+
+          specCard.innerHTML = `
+            <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-amber-700 to-transparent group-hover:via-amber-400 transition-colors duration-500 ${!hasAccess ? 'hidden' : ''}"></div>
+            <div class="relative z-10 h-full flex flex-col pt-1">
+              <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950 flex items-center justify-center text-[1.4rem] border border-amber-900/50 shadow-inner group-hover:border-amber-500/50 text-amber-500 transition-all">
+                    ${spec.icon}
+                </div>
+                <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors leading-tight flex-1 ml-1">${spec.title}</div>
+              </div>
+              <div class="text-slate-500 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                 ${spec.description}
+              </div>
+              <div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest ${!hasAccess ? 'hidden' : 'group-hover:text-amber-500/90 transition-colors'}">
+                 <span>Ingresar Especialidad</span>
+                 <i class="fa-solid fa-arrow-right-long group-hover:translate-x-1 transition-transform"></i>
+              </div>
+              ${!hasAccess ? '<div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-red-500 opacity-60 uppercase tracking-widest"><span>Acceso Restringido</span><i class="fa-solid fa-lock"></i></div>' : ''}
+            </div>
+          `;
+          espGrid.appendChild(specCard);
+      });
+
+      if (hasAnySpecialty) {
+          espSection.classList.remove('hidden');
+      } else {
+          espSection.classList.add('hidden');
+      }
     }
 
     function navigateToModule(url) {
@@ -336,12 +415,14 @@
           .select(`
             rol,
             accesos_rutas,
+            empresa_id,
             empresas (
               nombre,
               plan_suscripcion,
               es_comercializadora,
               es_servicios,
-              es_industrial
+              es_industrial,
+              especialidades
             )
           `)
           .eq('id', user.id)
@@ -352,6 +433,7 @@
         if (profile) {
           userData.role = profile.rol;
           userData.userRoutes = profile.accesos_rutas || [];
+          userData.empresaId = profile.empresa_id;
 
           if (profile.empresas) {
             userData.company = profile.empresas.nombre;
@@ -360,9 +442,11 @@
               profile.empresas.es_servicios === false &&
               profile.empresas.es_industrial === false
             );
+            userData.companySpecialties = profile.empresas.especialidades || [];
           } else {
             userData.company = 'Sin Empresa';
             userData.isOnlyCommercial = false; 
+            userData.companySpecialties = [];
           }
 
           updateHeaderInfo(userData);
