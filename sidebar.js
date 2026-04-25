@@ -189,7 +189,7 @@
                 {
                     subtitle: 'Desarrollos a Medida',
                     items: [
-                        { label: 'Landing Page', url: 'landing_page.html', required_specialty: 'landing_page' }
+                        { label: 'Hub de Páginas Web', url: 'gestion_paginas_web.html', required_specialty: 'landing_page' }
                     ]
                 }
             ]
