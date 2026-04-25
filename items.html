@@ -120,11 +120,45 @@
         .table-header {
             padding: 20px;
             border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
         }
 
         .search-box {
             position: relative;
+            flex-grow: 1;
             max-width: 400px;
+        }
+
+        .sort-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sort-box label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #354a5f;
+        }
+
+        .sort-box select {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #2c3e50;
+            background: white;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .sort-box select:focus {
+            border-color: #0070f2;
         }
 
         .search-box input {
@@ -566,8 +600,18 @@
             <div class="table-header">
                 <div class="search-box">
                     <input type="text" id="searchInput" placeholder="Buscar por código o descripción..."
-                        onkeyup="buscarItems()">
+                        onkeyup="aplicarFiltrosYOrden()">
                     <span class="search-icon">🔍</span>
+                </div>
+                <div class="sort-box">
+                    <label for="sortSelect"><i class="fas fa-sort-amount-down-alt"></i> Ordenar:</label>
+                    <select id="sortSelect" onchange="aplicarFiltrosYOrden()">
+                        <option value="created_at_desc">Más Recientes (Defecto)</option>
+                        <option value="descripcion_asc">Descripción (A - Z)</option>
+                        <option value="descripcion_desc">Descripción (Z - A)</option>
+                        <option value="codigo_asc">Código (Ascendente)</option>
+                        <option value="codigo_desc">Código (Descendente)</option>
+                    </select>
                 </div>
             </div>
 
@@ -763,7 +807,7 @@
                 if (error) throw error;
 
                 itemsData = data;
-                renderizarTabla(itemsData);
+                aplicarFiltrosYOrden();
             } catch (error) {
                 console.error('Error al cargar items:', error);
                 mostrarToast('Error al cargar items', 'error');
@@ -920,17 +964,41 @@
         }
 
         // ============================================
-        // BÚSQUEDA
+        // BÚSQUEDA Y ORDENAMIENTO
         // ============================================
-        function buscarItems() {
+        function aplicarFiltrosYOrden() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const sortValue = document.getElementById('sortSelect').value;
 
-            const resultados = itemsData.filter(prod =>
+            // 1. Filtrar
+            let resultados = itemsData.filter(prod =>
                 prod.codigo.toLowerCase().includes(searchTerm) ||
                 prod.descripcion.toLowerCase().includes(searchTerm) ||
                 (prod.categorias?.nombre || '').toLowerCase().includes(searchTerm)
             );
 
+            // 2. Ordenar en memoria
+            resultados.sort((a, b) => {
+                if (sortValue === 'descripcion_asc') {
+                    return a.descripcion.localeCompare(b.descripcion, 'es', { sensitivity: 'base' });
+                } else if (sortValue === 'descripcion_desc') {
+                    return b.descripcion.localeCompare(a.descripcion, 'es', { sensitivity: 'base' });
+                } else if (sortValue === 'codigo_asc') {
+                    return a.codigo.localeCompare(b.codigo, 'es', { sensitivity: 'base' });
+                } else if (sortValue === 'codigo_desc') {
+                    return b.codigo.localeCompare(a.codigo, 'es', { sensitivity: 'base' });
+                } else {
+                    // created_at_desc
+                    // Como en Frontend no guardamos todos los items con hora de forma garantizada sin undefined,
+                    // Si 'created_at' no existe, usamos fallback a codigo desc
+                    if(a.created_at && b.created_at) {
+                        return new Date(b.created_at) - new Date(a.created_at);
+                    }
+                    return 0; // Orden original del array (Que ya viene ordenado por Supabase)
+                }
+            });
+
+            // 3. Renderizar
             renderizarTabla(resultados);
         }
 
