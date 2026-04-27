@@ -9,7 +9,20 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS config for Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SweetAlert2 -->
@@ -35,10 +48,119 @@
         .detail-table { width: 100%; font-size: 13px; margin-top: 15px; }
         .detail-table th { background: #f1f5f9; padding: 8px; text-align: left; border-bottom: 1px solid #cbd5e1; }
         .detail-table td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+
+        /* =========================================================
+           THE ULTIMATE CSS OVERRIDE BLOCK FOR DARK MODE (PREMIUM SAAS)
+           ========================================================= */
+
+        /* Ambient Light Blobs */
+        .ambient-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            display: none;
+            pointer-events: none;
+        }
+        html.dark .ambient-blob { display: block; }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.15); }
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.10); }
+
+        /* General / Body */
+        html.dark body {
+            background-color: #020617 !important; /* bg-slate-950 puro */
+            color: #e2e8f0 !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+        html.dark .submodule-header {
+            background: rgba(15, 23, 42, 0.7) !important;
+            border-bottom: 1px solid #1e293b !important;
+        }
+        
+        /* Tarjetas Principales (Glassmorphism) */
+        html.dark .bg-white.rounded-xl.shadow-sm {
+            background-color: rgba(15, 23, 42, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* Tabla de Datos Principal */
+        html.dark .data-table th { background-color: rgba(30, 41, 59, 0.5) !important; color: #94a3b8 !important; border-bottom-color: rgba(255,255,255,0.05) !important; }
+        html.dark .data-table td { background-color: transparent !important; color: #e2e8f0 !important; border-bottom-color: rgba(255,255,255,0.05) !important; }
+        html.dark .data-table tbody tr:hover td { background-color: rgba(30, 41, 59, 0.6) !important; }
+        
+        /* Inputs y Labels Base */
+        html.dark label { color: #94a3b8 !important; }
+        html.dark input[type="text"], html.dark input[type="date"] {
+            background-color: rgba(30, 41, 59, 0.6) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+        }
+        html.dark input[type="text"]:focus, html.dark input[type="date"]:focus {
+            border-color: #f59e0b !important; /* amber accent */
+        }
+        
+        /* Badges & Botones Secundarios */
+        html.dark .bg-gray-50 { background-color: rgba(15, 23, 42, 0.6) !important; border-color: rgba(255,255,255,0.05) !important;}
+        html.dark .text-gray-700 { color: #e2e8f0 !important; }
+        html.dark .text-gray-500 { color: #94a3b8 !important; }
+        html.dark .status-anulado { background-color: rgba(225, 29, 72, 0.15) !important; color: #fb7185 !important; border: 1px solid rgba(225, 29, 72, 0.3) !important; }
+        html.dark .status-registrado { background-color: rgba(16, 185, 129, 0.15) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
+        
+        /* SweetAlert2 Premium Dark Mode */
+        html.dark .swal2-popup {
+            background-color: rgba(15, 23, 42, 0.95) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+        }
+        html.dark .swal2-title, html.dark .swal2-html-container { color: #e2e8f0 !important; }
+        html.dark .swal2-input, html.dark .swal2-select, html.dark .swal2-textarea {
+            background-color: rgba(30, 41, 59, 0.8) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+        }
+        html.dark .swal2-input:focus, html.dark .swal2-select:focus {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) !important;
+        }
+        
+        /* Modal Custom Internal Classes for Dark Mode */
+        html.dark .modal-details { background-color: transparent !important; }
+        html.dark .modal-details .bg-white { background-color: rgba(30, 41, 59, 0.5) !important; border-color: rgba(255,255,255,0.05) !important; }
+        html.dark .modal-details .bg-gray-50 { background-color: rgba(15, 23, 42, 0.6) !important; border-color: rgba(255,255,255,0.05) !important; }
+        html.dark .modal-details .bg-gray-100 { background-color: rgba(30, 41, 59, 0.8) !important; color: #cbd5e1 !important;}
+        html.dark .modal-details .bg-gray-800 { background-color: rgba(2, 6, 23, 0.9) !important; color: #f8fafc !important;}
+        html.dark .modal-details .text-gray-800 { color: #f8fafc !important; }
+        html.dark .modal-details .text-gray-700 { color: #e2e8f0 !important; }
+        html.dark .modal-details .text-gray-500 { color: #94a3b8 !important; }
+        html.dark .modal-details .text-gray-400 { color: #64748b !important; }
+        html.dark .modal-details .text-gray-300 { color: #475569 !important; }
+        html.dark .modal-details .border-gray-100, html.dark .modal-details .border-gray-200 { border-color: rgba(255,255,255,0.05) !important; }
+        
+        html.dark .detail-table th { background-color: rgba(30, 41, 59, 0.8) !important; color: #e2e8f0 !important; border-bottom-color: rgba(255,255,255,0.1) !important;}
+        html.dark .detail-table td { border-bottom-color: rgba(255,255,255,0.05) !important; color: #e2e8f0 !important;}
+        html.dark .detail-table tbody { background-color: transparent !important;}
+        html.dark .detail-table tr:hover { background-color: rgba(30, 41, 59, 0.4) !important;}
+        
+        /* Modal Creditos */
+        html.dark .modal-details .bg-blue-50\/40 { background-color: rgba(30, 58, 138, 0.2) !important; border-color: rgba(59, 130, 246, 0.2) !important; }
+        html.dark .modal-details .text-blue-900 { color: #bfdbfe !important; }
+        html.dark .modal-details .text-blue-700 { color: #93c5fd !important; }
+        html.dark .modal-details .text-blue-600 { color: #60a5fa !important; }
+
+        /* MODO CLARO ESTRICTO */
+        html:not(.dark) body { background-color: #f3f4f6 !important; color: #334155 !important; }
+        html:not(.dark) .submodule-header h1 { color: #ffffff !important; }
+        html:not(.dark) .submodule-header { border-bottom: 1px solid #1e293b !important; }
     </style>
 </head>
 
-<body>
+<body class="transition-colors duration-300">
     <!-- Header Standarizado -->
     <header class="submodule-header">
         <div class="submodule-header-content">
@@ -46,11 +168,20 @@
                 ← Volver
             </button>
             <h1>Registros Históricos de Ventas</h1>
-            <div class="submodule-version" id="fechaActual"></div>
+            <div id="fechaActual" style="display:none;"></div>
+            <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
+                <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+                <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+                <span class="text-sm font-bold tracking-wide">TEMA</span>
+            </button>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Ambient Blobs -->
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <!-- Panel de Filtros -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -652,6 +783,37 @@
             }
         }
 
+        // Script de Tema (Dualidad Light/Dark)
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('themeToggleBtn');
+            if(btn) {
+                if(isDark) {
+                    btn.querySelector('.fa-sun').classList.add('hidden');
+                    btn.querySelector('.fa-moon').classList.remove('hidden');
+                } else {
+                    btn.querySelector('.fa-sun').classList.remove('hidden');
+                    btn.querySelector('.fa-moon').classList.add('hidden');
+                }
+            }
+        }
+
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                updateThemeIcon(document.documentElement.classList.contains('dark'));
+            });
+        })();
     </script>
 </body>
 </html>
