@@ -6,7 +6,20 @@
     <title>Cierre de Caja - MICRO ERP</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS config for Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Supabase -->
@@ -193,10 +206,132 @@
 
         #print-report-container { display: none; }
         .print-only { display: none; }
+
+        /* =========================================================
+           THE ULTIMATE CSS OVERRIDE BLOCK FOR DARK MODE (PREMIUM SAAS)
+           ========================================================= */
+
+        /* Ambient Light Blobs */
+        .ambient-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            display: none;
+            pointer-events: none;
+        }
+        html.dark .ambient-blob { display: block; }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.15); }
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.10); }
+
+        /* General / Body */
+        html.dark body {
+            background-color: #020617 !important; /* bg-slate-950 puro */
+            color: #e2e8f0 !important;
+        }
+        html.dark .submodule-header {
+            background: rgba(15, 23, 42, 0.7) !important;
+            border-bottom: 1px solid #1e293b !important;
+        }
+        
+        html.dark .page-wrap h2 { color: #f8fafc !important; }
+        html.dark .page-wrap p.text-slate-500 { color: #94a3b8 !important; }
+
+        /* Tarjetas Principales (Glassmorphism) */
+        html.dark .bg-white.rounded-xl.shadow-sm {
+            background-color: rgba(15, 23, 42, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* Cabeceras de tarjetas internas */
+        html.dark .bg-amber-50 {
+            background-color: rgba(245, 158, 11, 0.1) !important;
+            border-bottom: 1px solid rgba(245, 158, 11, 0.2) !important;
+        }
+        html.dark .text-amber-800 { color: #fcd34d !important; }
+        html.dark .bg-amber-200 { background-color: rgba(245, 158, 11, 0.2) !important; color: #fcd34d !important; }
+        
+        html.dark .bg-blue-50 {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2) !important;
+        }
+        html.dark .text-blue-800 { color: #93c5fd !important; }
+
+        /* Filas de la calculadora / datos */
+        html.dark .bg-slate-50, html.dark .border-slate-100, html.dark .border-slate-200, html.dark .border-slate-300 {
+            background-color: rgba(30, 41, 59, 0.3) !important;
+            border-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        html.dark .text-slate-600 { color: #94a3b8 !important; }
+        html.dark .text-slate-700 { color: #e2e8f0 !important; }
+        html.dark .text-slate-800 { color: #f8fafc !important; }
+
+        /* Fix para tabla transitoria (dinámica) */
+        html.dark tr.bg-white { background-color: transparent !important; }
+
+        /* Inputs Generales */
+        html.dark input[type="text"], html.dark input[type="number"], html.dark select {
+            background-color: rgba(30, 41, 59, 0.6) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+        }
+        html.dark input:focus, html.dark select:focus {
+            border-color: #f59e0b !important; /* amber accent */
+        }
+        html.dark #in-fondo-inicial { color: #60a5fa !important; }
+
+        /* Tabla de Billetes y Monedas */
+        html.dark .table-calc th { color: #94a3b8 !important; }
+        html.dark .table-calc td.text-slate-500 { color: #94a3b8 !important; }
+        html.dark .table-calc td.text-amber-600 { color: #fcd34d !important; }
+        html.dark .table-calc td.text-gray-500 { color: #94a3b8 !important; }
+        html.dark .subtotal { color: #e2e8f0 !important; }
+
+        /* Footer de las tarjetas (Total Esperado y Físico) */
+        html.dark .bg-slate-700 {
+            background-color: rgba(15, 23, 42, 0.9) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        html.dark .bg-blue-600 {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important; /* blue premium gradient */
+        }
+
+        /* Resumen Final de Cuadre */
+        html.dark #ui-cuadre-status.bg-emerald-50 {
+            background-color: rgba(16, 185, 129, 0.1) !important;
+            border-color: rgba(16, 185, 129, 0.2) !important;
+        }
+        html.dark #ui-cuadre-status.bg-emerald-50 #ui-descuadre-monto { color: #34d399 !important; }
+        html.dark #ui-cuadre-status.bg-emerald-50 #ui-cuadre-leyenda { background-color: rgba(16, 185, 129, 0.2) !important; color: #34d399 !important; border-color: rgba(16, 185, 129, 0.3) !important; }
+
+        html.dark #ui-cuadre-status.bg-rose-50 {
+            background-color: rgba(225, 29, 72, 0.1) !important;
+            border-color: rgba(225, 29, 72, 0.2) !important;
+        }
+        html.dark #ui-cuadre-status.bg-rose-50 #ui-descuadre-monto { color: #fb7185 !important; }
+        html.dark #ui-cuadre-status.bg-rose-50 #ui-cuadre-leyenda { background-color: rgba(225, 29, 72, 0.2) !important; color: #fb7185 !important; border-color: rgba(225, 29, 72, 0.3) !important; }
+
+        html.dark #ui-cuadre-status.bg-blue-50 {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            border-color: rgba(59, 130, 246, 0.2) !important;
+        }
+        html.dark #ui-cuadre-status.bg-blue-50 #ui-descuadre-monto { color: #60a5fa !important; }
+        html.dark #ui-cuadre-status.bg-blue-50 #ui-cuadre-leyenda { background-color: rgba(59, 130, 246, 0.2) !important; color: #60a5fa !important; border-color: rgba(59, 130, 246, 0.3) !important; }
+
+        /* Global spinner z-index override */
+        html.dark #global-spinner { background-color: rgba(2, 6, 23, 0.8) !important; }
+
+        /* MODO CLARO ESTRICTO */
+        html:not(.dark) body { background-color: #f8fafc !important; color: #1e293b !important; }
+        html:not(.dark) .submodule-header h1 { color: #ffffff !important; }
+        html:not(.dark) .submodule-header { border-bottom: 1px solid #1e293b !important; }
     </style>
 </head>
 
-<body class="bg-slate-50 font-inter text-slate-800">
+<body class="text-slate-800 transition-colors duration-300">
 
     <!-- Header del Submódulo -->
     <header class="submodule-header no-print">
@@ -205,9 +340,17 @@
                 ← Volver a Ventas
             </button>
             <h1>Arqueo de Caja</h1>
-            <div class="submodule-version">MICRO ERP v2.0</div>
+            <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
+                <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+                <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+                <span class="text-sm font-bold tracking-wide">TEMA</span>
+            </button>
         </div>
     </header>
+
+    <!-- Ambient Blobs -->
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
 
     <main class="page-wrap pb-20">
         <!-- Dato global capturado de BD -->
@@ -741,5 +884,39 @@
 
     <!-- Inyectar Sidebar -->
     <script src="sidebar.js"></script>
+
+    <!-- Script de Tema (Dualidad Light/Dark) -->
+    <script>
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('themeToggleBtn');
+            if(btn) {
+                if(isDark) {
+                    btn.querySelector('.fa-sun').classList.add('hidden');
+                    btn.querySelector('.fa-moon').classList.remove('hidden');
+                } else {
+                    btn.querySelector('.fa-sun').classList.remove('hidden');
+                    btn.querySelector('.fa-moon').classList.add('hidden');
+                }
+            }
+        }
+
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                updateThemeIcon(document.documentElement.classList.contains('dark'));
+            });
+        })();
+    </script>
 </body>
 </html>
