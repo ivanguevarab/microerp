@@ -64,7 +64,7 @@
                         { label: 'Items', url: 'items.html' },
                         { label: 'Ingresos', url: 'ingresos.html' },
                         { label: 'Egresos', url: 'egresos.html' },
-                        { label: 'Transferencias', url: 'traslados.html' }
+                        { label: 'Traslados', url: 'traslados.html' }
                     ]
                 },
                 {
