@@ -8,7 +8,20 @@
 
     <!-- Tailwind & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS config for Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Supabase & Auth -->
@@ -19,7 +32,6 @@
     <link rel="stylesheet" href="styles.css">
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .container-pos { max-width: 1400px; margin: 0 auto; padding: 20px; }
         
         /* Grid Principal POS: 70% Izquierda (Catálogo), 30% Derecha (Ticket) */
@@ -126,6 +138,201 @@
         @media (max-width: 1024px) {
             .pos-grid { grid-template-columns: 1fr; }
         }
+
+        /* =========================================================
+           THE ULTIMATE CSS OVERRIDE BLOCK FOR DARK MODE (PREMIUM SAAS)
+           ========================================================= */
+
+        /* Ambient Light Blobs */
+        .ambient-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            display: none;
+            pointer-events: none;
+        }
+        html.dark .ambient-blob { display: block; }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.15); }
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.10); }
+
+        /* General / Body */
+        html.dark body {
+            background-color: #020617 !important; /* bg-slate-950 puro */
+            color: #e2e8f0 !important;
+        }
+        html.dark .submodule-header {
+            background: rgba(15, 23, 42, 0.7) !important;
+            border-bottom: 1px solid #1e293b !important;
+        }
+
+        /* Glassmorphism Paneles POS */
+        html.dark .panel {
+            background-color: rgba(15, 23, 42, 0.8) !important; /* card-bg translucido */
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5) !important;
+        }
+        html.dark .panel-header {
+            background: rgba(15, 23, 42, 0.5) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+            color: #f8fafc !important;
+        }
+        html.dark .panel-header span.text-blue-800 { color: #60a5fa !important; }
+        html.dark .panel-header span.bg-blue-200 {
+            background-color: rgba(37, 99, 235, 0.2) !important;
+            color: #93c5fd !important;
+            border: 1px solid rgba(37, 99, 235, 0.3) !important;
+        }
+
+        /* Buscador General */
+        html.dark .search-hero input {
+            background-color: rgba(30, 41, 59, 0.6) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+        }
+        html.dark .search-hero input:focus {
+            border-color: #f59e0b !important; /* amber accent focus */
+            background-color: rgba(15, 23, 42, 0.9) !important;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15) !important;
+        }
+        html.dark .search-hero i { color: #94a3b8 !important; }
+        html.dark .autocomplete-results {
+            background-color: #0f172a !important;
+            border-color: #1e293b !important;
+        }
+        html.dark .ac-item {
+            border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+            color: #94a3b8 !important;
+        }
+        html.dark .ac-item:hover { background-color: #1e293b !important; }
+        html.dark .ac-active {
+            background-color: rgba(245, 158, 11, 0.15) !important;
+            border-left-color: #f59e0b !important; /* amber highlight */
+        }
+        html.dark .ac-item .font-bold.text-slate-800 { color: #f8fafc !important; }
+        html.dark .ac-item .text-blue-600 { color: #60a5fa !important; }
+
+        /* Tabs de Categorías */
+        html.dark .giro-tab {
+            background-color: rgba(30, 41, 59, 0.6) !important;
+            color: #94a3b8 !important;
+            border: 1px solid transparent !important;
+        }
+        html.dark .giro-tab:hover {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+        }
+        html.dark .giro-tab.active {
+            background-color: #f59e0b !important;
+            color: #020617 !important;
+            border-color: #f59e0b !important;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3) !important;
+        }
+
+        /* Formulario Ticket y Cliente */
+        html.dark .p-4.border-b.border-gray-200 {
+            background-color: transparent !important;
+            border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        html.dark input[type="text"], html.dark input[type="number"], html.dark input[type="date"], html.dark select {
+            background-color: rgba(30, 41, 59, 0.6) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+        }
+        html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8) !important; }
+        html.dark #clienteSearchResults {
+            background-color: #0f172a !important;
+            border-color: #1e293b !important;
+        }
+        html.dark #clienteSearchResults > div {
+            border-color: rgba(255, 255, 255, 0.05) !important;
+            color: #94a3b8 !important;
+        }
+        html.dark #clienteSearchResults > div:hover { background-color: #1e293b !important; }
+        html.dark #clienteSearchResults .text-slate-800 { color: #f8fafc !important; }
+        
+        /* Boton add client */
+        html.dark button.bg-blue-100 {
+            background-color: rgba(245, 158, 11, 0.1) !important;
+            border-color: rgba(245, 158, 11, 0.2) !important;
+            color: #f59e0b !important;
+        }
+        html.dark button.bg-blue-100:hover {
+            background-color: rgba(245, 158, 11, 0.2) !important;
+        }
+
+        /* Tabla Ticket */
+        html.dark .ticket-table th {
+            background-color: rgba(30, 41, 59, 0.4) !important;
+            border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+            color: #94a3b8 !important;
+        }
+        html.dark .ticket-table td {
+            border-bottom-color: rgba(255, 255, 255, 0.02) !important;
+            color: #e2e8f0 !important;
+        }
+        html.dark .ticket-table tbody tr:hover { background-color: rgba(30, 41, 59, 0.6) !important; }
+        
+        html.dark .qty-input, html.dark .price-input {
+            background-color: rgba(15, 23, 42, 0.5) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+        }
+        html.dark .qty-input:focus, html.dark .price-input:focus {
+            border-color: #f59e0b !important; /* amber */
+        }
+
+        /* Botón Pagar Premium Amber Glow */
+        html.dark #btnPagar:not(:disabled) {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            color: #020617 !important; /* max contrast */
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4) !important;
+            border: none !important;
+            text-shadow: none !important;
+        }
+        html.dark #btnPagar:not(:disabled):hover {
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.6) !important;
+            transform: translateY(-2px) !important;
+        }
+        html.dark #btnPagar:disabled {
+            background: rgba(30, 41, 59, 0.8) !important;
+            color: #64748b !important;
+            box-shadow: none !important;
+        }
+
+        /* Cajas Alertas / Info */
+        html.dark .bg-yellow-50 {
+            background-color: rgba(180, 83, 9, 0.15) !important;
+            border-color: rgba(217, 119, 6, 0.3) !important;
+            color: #fcd34d !important;
+        }
+
+        /* Textos Utilitarios Genéricos */
+        html.dark .text-slate-800, html.dark .text-gray-800, html.dark .text-blue-800 { color: #f8fafc !important; }
+        html.dark .text-slate-500, html.dark .text-gray-500 { color: #94a3b8 !important; }
+        
+        /* Almacenes selector dark fix */
+        html.dark #almacenesContainer button.bg-white {
+            background-color: rgba(30, 41, 59, 0.6) !important;
+            color: #94a3b8 !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        html.dark #almacenesContainer button.bg-white:hover {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+        }
+        html.dark #almacenesContainer button.bg-blue-600 {
+            background-color: rgba(59, 130, 246, 0.2) !important;
+            color: #60a5fa !important;
+            border-color: rgba(59, 130, 246, 0.3) !important;
+        }
+
+        /* MODO CLARO ESTRICTO (Para corregir que styles.css impone #020617 en body) */
+        html:not(.dark) body { background-color: #f3f4f6 !important; color: #334155 !important; }
+        html:not(.dark) .submodule-header h1 { color: #ffffff !important; }
+        html:not(.dark) .submodule-header { border-bottom: 1px solid #1e293b !important; }
     </style>
 </head>
 
@@ -137,9 +344,18 @@
                 ← Volver
             </button>
             <h1>Terminal Punto de Venta (POS)</h1>
-            <div class="submodule-version" id="fechaActual"></div>
+            <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 mt-2 z-10 relative"></div>
+            <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
+                <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+                <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+                <span class="text-sm font-bold tracking-wide">TEMA</span>
+            </button>
         </div>
     </header>
+
+    <!-- Ambient Blobs -->
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
 
     <main class="container-pos">
         <div class="pos-grid">
@@ -1223,6 +1439,40 @@
             window.location.href = 'clientes.html?action=new_client&return_to=emitir_ticket.html';
         }
 
+    </script>
+
+    <!-- Script de Tema (Dualidad Light/Dark) -->
+    <script>
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('themeToggleBtn');
+            if(btn) {
+                if(isDark) {
+                    btn.querySelector('.fa-sun').classList.add('hidden');
+                    btn.querySelector('.fa-moon').classList.remove('hidden');
+                } else {
+                    btn.querySelector('.fa-sun').classList.remove('hidden');
+                    btn.querySelector('.fa-moon').classList.add('hidden');
+                }
+            }
+        }
+
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                updateThemeIcon(document.documentElement.classList.contains('dark'));
+            });
+        })();
     </script>
 </body>
 </html>
