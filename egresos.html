@@ -5,21 +5,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salida de Inventario</title>
+    <!-- Tailwind & Fonts (Standardized) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <script src="auth-guard.js"></script> <!-- Auth Guard -->
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS config for Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase & Auth -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script> <!-- Auth Guard -->
     <link rel="stylesheet" href="styles.css">
     <script src="sidebar.js"></script>
 
-
-
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: #f3f4f6;
         }
 
@@ -170,12 +182,137 @@
                 /* Hide date on mobile */
             }
         }
+
+        /* =========================================================
+           THE ULTIMATE CSS OVERRIDE BLOCK FOR DARK MODE (PREMIUM SAAS)
+           ========================================================= */
+
+        /* Ambient Light Blobs */
+        .ambient-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            display: none;
+            pointer-events: none;
+        }
+        html.dark .ambient-blob { display: block; }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.15); }
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.10); }
+
+        /* General / Body */
+        html.dark body {
+            background-color: #020617 !important; /* bg-slate-950 puro */
+            color: #e2e8f0 !important;
+        }
+        
+        html.dark .submodule-header {
+            background: rgba(15, 23, 42, 0.7) !important;
+            border-bottom: 1px solid #1e293b !important;
+        }
+        html.dark .submodule-header h1 { color: #f8fafc !important; }
+
+        /* Contenedores / Cards */
+        html.dark .bg-white {
+            background-color: rgba(15, 23, 42, 0.8) !important;
+            border-color: rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5) !important;
+        }
+        
+        html.dark .text-gray-800 { color: #f8fafc !important; }
+        html.dark .text-gray-900 { color: #f8fafc !important; }
+        html.dark .text-gray-700 { color: #cbd5e1 !important; }
+        html.dark .text-gray-500 { color: #94a3b8 !important; }
+        html.dark .border-b { border-bottom-color: rgba(255, 255, 255, 0.1) !important; }
+
+        /* Inputs y Selects */
+        html.dark input[type="text"], html.dark input[type="date"], html.dark select {
+            background-color: rgba(30, 41, 59, 0.8) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+        }
+        html.dark input[type="text"]:focus, html.dark input[type="date"]:focus, html.dark select:focus {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) !important;
+        }
+
+        /* Buscador Google-Style en Dark Mode */
+        html.dark .search-input {
+            background-color: rgba(15, 23, 42, 0.9) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+        }
+        html.dark .search-input:focus { border-color: #f59e0b !important; }
+        html.dark .search-icon { color: #94a3b8 !important; }
+        
+        html.dark .search-results {
+            background-color: rgba(15, 23, 42, 0.95) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(16px) !important;
+        }
+        html.dark .result-item {
+            border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        html.dark .result-item:hover {
+            background-color: rgba(30, 41, 59, 0.8) !important;
+        }
+
+        /* Tablas Dark */
+        html.dark table thead, html.dark .bg-gray-50 {
+            background-color: rgba(30, 41, 59, 0.9) !important;
+            color: #e2e8f0 !important;
+            border-bottom-color: rgba(255,255,255,0.1) !important;
+        }
+        html.dark table thead th {
+            color: #cbd5e1 !important;
+        }
+        html.dark table tbody td {
+            color: #e2e8f0 !important;
+            border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        html.dark tbody tr:hover td {
+            background-color: rgba(30, 41, 59, 0.4) !important;
+        }
+
+        /* Botones de Acción Especial */
+        html.dark .bg-blue-600 {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            color: #020617 !important;
+            border: none !important;
+        }
+        html.dark .bg-blue-600:hover {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4) !important;
+        }
+        
+        html.dark .border-gray-300.text-gray-700 {
+            background: rgba(30, 41, 59, 0.8) !important;
+            color: #cbd5e1 !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        html.dark .border-gray-300.text-gray-700:hover {
+            background: rgba(30, 41, 59, 1) !important;
+        }
+        
+        /* CUP Container (Alert Mode) */
+        html.dark #cupId {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            border-color: rgba(59, 130, 246, 0.3) !important;
+            color: #93c5fd !important;
+        }
+
+        /* Badges */
+        html.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.2) !important; color: #93c5fd !important; }
+
+        /* MODO CLARO ESTRICTO */
+        html:not(.dark) body { background-color: #f5f6fa !important; color: #334155 !important; font-family: 'Plus Jakarta Sans', sans-serif !important;}
     </style>
 </head>
 
-<body class="text-gray-800">
+<body class="text-gray-800 transition-colors duration-300">
 
-    <!-- Navbar (Simplificado para consistencia) -->
     <!-- Header -->
     <header class="submodule-header">
         <div class="submodule-header-content">
@@ -183,9 +320,18 @@
                 ← Volver
             </button>
             <h1>Registrar Salida de Inventario</h1>
-            <div id="fechaActual" class="submodule-version"></div>
+            <div id="fechaActual" class="submodule-version mr-24"></div>
+            <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
+                <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+                <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+                <span class="text-sm font-bold tracking-wide">TEMA</span>
+            </button>
         </div>
     </header>
+
+    <!-- Ambient Blobs -->
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -1088,6 +1234,38 @@
 
             alert(`ℹ️ Costo Promedio Referencial Global: \n\nS / ${promedio.toFixed(4)} por unidad\n\n(Calculado sobre ${totalCantidad} unidades totales en este egreso)`);
         });
+
+        // Script de Tema (Dualidad Light/Dark)
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('themeToggleBtn');
+            if(btn) {
+                if(isDark) {
+                    btn.querySelector('.fa-sun').classList.add('hidden');
+                    btn.querySelector('.fa-moon').classList.remove('hidden');
+                } else {
+                    btn.querySelector('.fa-sun').classList.remove('hidden');
+                    btn.querySelector('.fa-moon').classList.add('hidden');
+                }
+            }
+        }
+
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                updateThemeIcon(document.documentElement.classList.contains('dark'));
+            });
+        })();
 
     </script>
 </body>
