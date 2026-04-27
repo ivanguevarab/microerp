@@ -359,8 +359,8 @@
             </nav>
             <div class="sidebar-footer p-4 border-t border-white/5 bg-slate-950/80 mt-auto">
                 <div class="flex items-center gap-3 pl-1">
-                    <div class="w-2.5 h-2.5 shrink-0 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse transition-all"></div>
-                    <span class="text-[11px] font-bold text-slate-500 tracking-[0.2em]">SISTEMA CONECTADO</span>
+                    <div id="connection-light" class="w-2.5 h-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse transition-all duration-500"></div>
+                    <span id="connection-text" class="text-[11px] font-bold text-slate-500 tracking-[0.2em] transition-colors duration-500">SISTEMA CONECTADO</span>
                 </div>
             </div>
         `;
@@ -538,5 +538,63 @@
                 }
             });
         }, 100);
+
+        // --- 6. Monitor de Conexión Activo (Ping Real) ---
+        let isActuallyConnected = true;
+
+        async function verifyRealConnection() {
+            // 1. Verificación rápida del SO
+            if (!navigator.onLine) return false;
+
+            // 2. Verificación real de salida a Internet
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s max timeout
+                
+                // Usamos no-cors a un recurso diminuto y universal (Google favicon) 
+                // con un cache-buster para evitar que el navegador nos mienta.
+                // Esto no gasta cuota de Supabase.
+                await fetch('https://www.google.com/favicon.ico?cb=' + Date.now(), {
+                    mode: 'no-cors',
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                return true;
+            } catch (error) {
+                return false; // El fetch falló (sin internet real)
+            }
+        }
+
+        async function updateConnectionStatus() {
+            const light = document.getElementById('connection-light');
+            const text = document.getElementById('connection-text');
+            if (!light || !text) return;
+
+            const connected = await verifyRealConnection();
+            isActuallyConnected = connected;
+
+            if (isActuallyConnected) {
+                // Online: Emerald
+                light.className = 'w-2.5 h-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse transition-all duration-500';
+                text.textContent = 'SISTEMA CONECTADO';
+                text.classList.remove('text-rose-500');
+                text.classList.add('text-slate-500');
+            } else {
+                // Offline: Rose (Estático)
+                light.className = 'w-2.5 h-2.5 shrink-0 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.6)] transition-all duration-500';
+                text.textContent = 'SIN CONEXIÓN';
+                text.classList.remove('text-slate-500');
+                text.classList.add('text-rose-500');
+            }
+        }
+
+        // Reacción inmediata ante desconexión de cable/wifi reportada por el SO
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Ping activo de comprobación cada 10 segundos
+        setTimeout(updateConnectionStatus, 100);
+        setInterval(updateConnectionStatus, 10000);
     };
 })();
