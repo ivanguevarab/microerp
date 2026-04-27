@@ -252,7 +252,7 @@
 
             <!-- Formulario de Gasto -->
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 items-end">
-                <div class="md:col-span-4">
+                <div class="md:col-span-3">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                     <input type="text" id="gastoDescripcion" list="listaGastos" placeholder="Ej: Flete"
                         class="w-full rounded-lg border-gray-300 shadow-sm h-10">
@@ -267,7 +267,7 @@
                     <input type="number" id="gastoMonto" min="0" step="0.01" placeholder="0.00"
                         class="w-full rounded-lg border-gray-300 shadow-sm h-10">
                 </div>
-                <div class="md:col-span-3">
+                <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">¿Con Factura?</label>
                     <select id="gastoConFactura" onchange="toggleCamposGasto()"
                         class="w-full rounded-lg border-gray-300 shadow-sm h-10">
@@ -276,9 +276,14 @@
                     </select>
                 </div>
                 <div class="md:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Pago Gasto <span class="text-red-500">*</span></label>
+                    <input type="date" id="gastoFechaPagoOEA"
+                        class="w-full rounded-lg border-gray-300 shadow-sm h-10">
+                </div>
+                <div class="md:col-span-2">
                     <button type="button" onclick="agregarGasto()"
-                        class="w-full bg-gray-600 text-white rounded-lg hover:bg-gray-700 h-10 font-medium">
-                        + Agregar Gasto
+                        class="w-full bg-gray-600 text-white rounded-lg hover:bg-gray-700 h-10 font-medium px-2">
+                        + Agregar
                     </button>
                 </div>
             </div>
@@ -488,9 +493,10 @@
         // ============================================
         // CONFIGURACIÓN SUPABASE
         // ============================================
-        const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Supabase ya está inicializado globalmente en auth-guard.js
+        // const SUPABASE_URL = 'https://snyfzenjapyybbfqrnku.supabase.co';
+        // const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueWZ6ZW5qYXB5eWJiZnFybmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAzNTQsImV4cCI6MjA3ODY2NjM1NH0.JyuhgrbYjCt7XJiWhptI6Q2MM9JDKK49fnQdMlHxjlQ';
+        const supabaseClient = window.supabaseClient;
 
         // ============================================
         // ESTADO GLOBAL
@@ -511,6 +517,7 @@
             const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
             document.getElementById('fechaTraslado').value = hoy;
             document.getElementById('gastoFecha').valueAsDate = new Date();
+            document.getElementById('gastoFechaPagoOEA').value = hoy;
 
             await verificarSesion();
             await cargarDatosIniciales();
@@ -811,9 +818,10 @@
             const descripcion = document.getElementById('gastoDescripcion').value;
             const monto = parseFloat(document.getElementById('gastoMonto').value);
             const conFactura = document.getElementById('gastoConFactura').value === 'true';
+            const fechaPagoOEA = document.getElementById('gastoFechaPagoOEA').value;
 
-            if (!descripcion || isNaN(monto) || monto <= 0) {
-                alert('Datos de gasto inválidos');
+            if (!descripcion || isNaN(monto) || monto <= 0 || !fechaPagoOEA) {
+                alert('Ingrese descripción, monto válido y fecha de pago');
                 return;
             }
 
@@ -851,7 +859,8 @@
                 // Datos extra
                 serie: document.getElementById('gastoSerie').value,
                 numero: document.getElementById('gastoNumero').value,
-                fecha: document.getElementById('gastoFecha').value
+                fecha: document.getElementById('gastoFecha').value,
+                fechaPagoOEA: fechaPagoOEA
             });
 
             renderizarTablaGastos();
@@ -860,6 +869,8 @@
             // Limpiar
             document.getElementById('gastoDescripcion').value = '';
             document.getElementById('gastoMonto').value = '';
+            const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+            document.getElementById('gastoFechaPagoOEA').value = hoy;
         }
 
         function renderizarTablaGastos() {
@@ -943,7 +954,7 @@
                 const itemIds = itemsTraslado.map(i => i.producto.id);
 
                 // b. Calcular "Día Siguiente" a la fecha seleccionada (Límite 05:00 UTC = 00:00 Perú)
-                const fechaBase = new Date(fechaTraslado + 'T00:00:00'); // Fecha seleccionada (Local)
+                const fechaBase = new Date(fecha + 'T00:00:00'); // Fecha seleccionada (Local)
                 fechaBase.setDate(fechaBase.getDate() + 1); // Sumar 1 día (Mañana Local)
 
                 // Formatear manualmente a YYYY-MM-DDT05:00:00Z
@@ -952,6 +963,40 @@
                 const dd = String(fechaBase.getDate()).padStart(2, '0');
 
                 // PUNTO CLAVE: 00:00 Lima es 05:00 UTC.
+                const nextDay = `${yyyy}-${mm}-${dd}T05:00:00Z`;
+
+                // Helper local para mostrar hora correcta
+                const formatFechaLima = (fechaRaw) => {
+                    if (!fechaRaw.endsWith('Z') && !fechaRaw.includes('+')) fechaRaw += 'Z';
+                    const d = new Date(fechaRaw);
+                    const perTimeMs = d.getTime() - (5 * 3600000);
+                    const perDate = new Date(perTimeMs);
+                    return perDate.toISOString().replace('T', ' ').substring(0, 19);
+                };
+
+                // Consultar Kardex Origen
+                const { data: conflictosOrigen, error: errOrigen } = await supabaseClient
+                    .from('kardex')
+                    .select('item_id, fecha_movimiento, items ( codigo, descripcion )')
+                    .eq('almacen_id', origenId)
+                    .in('item_id', itemIds)
+                    .gte('fecha_movimiento', nextDay);
+
+                if (errOrigen) throw errOrigen;
+
+                // Consultar Kardex Destino
+                const { data: conflictosDestino, error: errDestino } = await supabaseClient
+                    .from('kardex')
+                    .select('item_id, fecha_movimiento, items ( codigo, descripcion )')
+                    .eq('almacen_id', destinoId)
+                    .in('item_id', itemIds)
+                    .gte('fecha_movimiento', nextDay);
+
+                if (errDestino) throw errDestino;
+
+                let hayConflictos = false;
+                let mensajeError = `❌ BLOQUEO DE SEGURIDAD (SAFE APPEND PRO)\n\nNo se puede registrar el traslado con fecha ${fecha} porque existen movimientos posteriores en el Kardex que alterarían el costo promedio:\n`;
+
                 if (conflictosOrigen && conflictosOrigen.length > 0) {
                     hayConflictos = true;
                     mensajeError += `\n🔴 En ORIGEN (Almacén de Salida):\n`;
@@ -1071,7 +1116,29 @@
                     throw new Error('No se encontraron los tipos de movimiento "Traslado" configurados.');
                 }
 
-                const codigoTraslado = `TRA-${Date.now()}`; // Código de vinculación
+                // Generación de Correlativo: TRASLADO-AÑO-NNNNNN
+                const anioActual = new Date().getFullYear();
+                const prefijo = `TRASLADO-${anioActual}-`;
+                
+                const { data: ultimosTraslados, error: errCorr } = await supabaseClient
+                    .from('egresos')
+                    .select('numero_egreso')
+                    .like('numero_egreso', `${prefijo}%`)
+                    .order('numero_egreso', { ascending: false })
+                    .limit(1);
+
+                if (errCorr) throw errCorr;
+
+                let correlativo = 1;
+                if (ultimosTraslados && ultimosTraslados.length > 0) {
+                    const ultimoNum = ultimosTraslados[0].numero_egreso;
+                    const partes = ultimoNum.split('-');
+                    if (partes.length === 3) {
+                        correlativo = parseInt(partes[2], 10) + 1;
+                    }
+                }
+
+                const codigoTraslado = `${prefijo}${String(correlativo).padStart(6, '0')}`;
 
                 // 2. Registrar EGRESO (Origen)
                 const { data: egreso, error: errEgreso } = await supabaseClient
@@ -1158,7 +1225,8 @@
                         proveedor_id: gasto.proveedorId || null,
                         serie_factura: gasto.serie || null,
                         numero_factura: gasto.numero || null,
-                        fecha_emision: gasto.fecha || null
+                        fecha_emision: gasto.fecha || null,
+                        fecha_pago: gasto.fechaPagoOEA
                     }));
 
                     const { error: errorGastos } = await supabaseClient
