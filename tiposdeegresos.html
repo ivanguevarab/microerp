@@ -14,7 +14,20 @@
 
   <!-- Tailwind & Fonts (Standardized) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS config for Dark Mode -->
+  <script>
+      tailwind.config = {
+          darkMode: 'class',
+          theme: {
+              extend: {
+                  fontFamily: {
+                      sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                  }
+              }
+          }
+      }
+  </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 
@@ -120,6 +133,38 @@
     .table-header {
       padding: 20px;
       border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .sort-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sort-box label {
+      font-weight: 500;
+      color: #354a5f;
+      font-size: 14px;
+    }
+
+    .sort-box select {
+      padding: 8px 30px 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #2c3e50;
+      cursor: pointer;
+      background-color: white;
+      transition: all 0.3s;
+    }
+
+    .sort-box select:focus {
+      outline: none;
+      border-color: #0070f2;
     }
 
     .search-box {
@@ -479,10 +524,152 @@
         position: relative;
       }
     }
+
+    /* =========================================================
+       THE ULTIMATE CSS OVERRIDE BLOCK FOR DARK MODE (PREMIUM SAAS)
+       ========================================================= */
+
+    /* Ambient Light Blobs */
+    .ambient-blob {
+        position: fixed;
+        border-radius: 50%;
+        filter: blur(120px);
+        z-index: -1;
+        display: none;
+        pointer-events: none;
+    }
+    html.dark .ambient-blob { display: block; }
+    .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.15); }
+    .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.10); }
+
+    /* General / Body */
+    html.dark body {
+        background-color: #020617 !important; /* bg-slate-950 puro */
+        color: #e2e8f0 !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+    }
+    
+    html.dark .submodule-header {
+        background: rgba(15, 23, 42, 0.7) !important;
+        border-bottom: 1px solid #1e293b !important;
+    }
+    html.dark .submodule-header h1 { color: #f8fafc !important; }
+
+    /* Contenedores Principales */
+    html.dark .page-header h2 { color: #f8fafc !important; }
+    
+    html.dark .table-container {
+        background-color: rgba(15, 23, 42, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5) !important;
+    }
+    
+    html.dark .table-header { border-bottom-color: rgba(255, 255, 255, 0.1) !important; }
+
+    /* Inputs y Búsqueda */
+    html.dark .search-box input {
+        background-color: rgba(30, 41, 59, 0.6) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+        color: #f8fafc !important;
+    }
+    html.dark .search-box input:focus {
+        border-color: #f59e0b !important;
+    }
+
+    html.dark .sort-box label {
+        color: #e2e8f0 !important;
+    }
+    html.dark .sort-box select {
+        background-color: rgba(30, 41, 59, 0.6) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+        color: #f8fafc !important;
+    }
+    html.dark .sort-box select:focus {
+        border-color: #f59e0b !important;
+    }
+    
+    /* Tablas */
+    html.dark table thead, html.dark table thead tr {
+        background-color: rgba(30, 41, 59, 0.9) !important;
+    }
+    html.dark table thead th {
+        background-color: transparent !important;
+        color: #e2e8f0 !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+    html.dark table tbody td {
+        color: #e2e8f0 !important;
+        border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+    }
+    html.dark tbody tr:hover {
+        background-color: rgba(30, 41, 59, 0.6) !important;
+    }
+
+    /* Badges */
+    html.dark .badge-active { background-color: rgba(16, 185, 129, 0.1) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
+    html.dark .badge-inactive { background-color: rgba(225, 29, 72, 0.1) !important; color: #fb7185 !important; border: 1px solid rgba(225, 29, 72, 0.3) !important; }
+
+    /* Botones de Acción (Iconos) */
+    html.dark .btn-edit { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; }
+    html.dark .btn-edit:hover { background: #3b82f6 !important; color: white !important; }
+    html.dark .btn-delete { background: rgba(225, 29, 72, 0.15) !important; color: #fb7185 !important; }
+    html.dark .btn-delete:hover { background: #e11d48 !important; color: white !important; }
+    
+    html.dark .btn-primary {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; /* emerald gradient */
+        color: #020617 !important;
+    }
+    html.dark .btn-primary:hover {
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.4) !important;
+        transform: translateY(-2px) !important;
+    }
+    
+    html.dark .btn-secondary { background: rgba(30, 41, 59, 0.8) !important; color: #cbd5e1 !important; border: 1px solid rgba(255,255,255,0.1) !important;}
+    html.dark .btn-secondary:hover { background: rgba(30, 41, 59, 1) !important; }
+
+    /* Modal Dark Premium */
+    html.dark .modal-content {
+        background-color: rgba(15, 23, 42, 0.95) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+    }
+    html.dark .modal-header { border-bottom-color: rgba(255,255,255,0.1) !important; }
+    html.dark .modal-header h3 { color: #f8fafc !important; }
+    html.dark .btn-close { color: #94a3b8 !important; }
+    html.dark .btn-close:hover { background-color: rgba(30, 41, 59, 0.8) !important; color: #f8fafc !important; }
+    
+    html.dark .form-group label { color: #94a3b8 !important; }
+    html.dark .form-group input {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+        color: #f8fafc !important;
+    }
+    html.dark .form-group input:focus { border-color: #f59e0b !important; }
+    html.dark .modal-footer { border-top-color: rgba(255,255,255,0.1) !important; }
+
+    /* Toast Dark */
+    html.dark .toast {
+        background-color: rgba(15, 23, 42, 0.95) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #f8fafc !important;
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7) !important;
+    }
+
+    /* Loading and Empty States */
+    html.dark .loading { color: #94a3b8 !important; }
+    html.dark .spinner { border-color: rgba(30, 41, 59, 0.8) !important; border-top-color: #3b82f6 !important; }
+    html.dark .empty-state { color: #94a3b8 !important; }
+
+    /* MODO CLARO ESTRICTO */
+    html:not(.dark) body { background-color: #f5f6fa !important; color: #334155 !important; font-family: 'Plus Jakarta Sans', sans-serif !important;}
   </style>
 </head>
 
-<body>
+<body class="transition-colors duration-300">
   <!-- Header -->
   <header class="submodule-header">
     <div class="submodule-header-content">
@@ -490,9 +677,17 @@
         ← Volver
       </button>
       <h1>Gestión de Tipos de Egresos</h1>
-      <div class="submodule-version">MICRO ERP v2.0</div>
+      <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
+          <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+          <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+          <span class="text-sm font-bold tracking-wide">TEMA</span>
+      </button>
     </div>
   </header>
+
+  <!-- Ambient Blobs -->
+  <div class="ambient-blob blob-1"></div>
+  <div class="ambient-blob blob-2"></div>
 
   <!-- Main Content -->
   <main class="container">
@@ -506,8 +701,16 @@
     <div class="table-container">
       <div class="table-header">
         <div class="search-box">
-          <input type="text" id="searchInput" placeholder="Buscar tipo de egreso..." onkeyup="buscarTiposEgresos()">
+          <input type="text" id="searchInput" placeholder="Buscar tipo de egreso..." onkeyup="aplicarFiltrosYOrden()">
           <span class="search-icon">🔍</span>
+        </div>
+        <div class="sort-box">
+          <label for="sortSelect"><i class="fas fa-sort-amount-down-alt"></i> Ordenar:</label>
+          <select id="sortSelect" onchange="aplicarFiltrosYOrden()">
+            <option value="created_at_desc">Más Recientes (Defecto)</option>
+            <option value="nombre_asc">Nombre (A - Z)</option>
+            <option value="nombre_desc">Nombre (Z - A)</option>
+          </select>
         </div>
       </div>
 
@@ -579,7 +782,7 @@
         if (error) throw error;
 
         tiposEgresosData = data;
-        renderizarTabla(tiposEgresosData);
+        aplicarFiltrosYOrden();
       } catch (error) {
         console.error('Error al cargar tipos de egresos:', error);
         mostrarToast('Error al cargar tipos de egresos', 'error');
@@ -643,15 +846,33 @@
     }
 
     // ============================================
-    // BÚSQUEDA
+    // BÚSQUEDA Y ORDENAMIENTO
     // ============================================
-    function buscarTiposEgresos() {
+    function aplicarFiltrosYOrden() {
       const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      const sortValue = document.getElementById('sortSelect').value;
 
-      const resultados = tiposEgresosData.filter(tipo =>
+      // 1. Filtrar
+      let resultados = tiposEgresosData.filter(tipo =>
         tipo.nombre.toLowerCase().includes(searchTerm)
       );
 
+      // 2. Ordenar en memoria
+      resultados.sort((a, b) => {
+        if (sortValue === 'nombre_asc') {
+          return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+        } else if (sortValue === 'nombre_desc') {
+          return b.nombre.localeCompare(a.nombre, 'es', { sensitivity: 'base' });
+        } else {
+          // created_at_desc
+          if (a.created_at && b.created_at) {
+            return new Date(b.created_at) - new Date(a.created_at);
+          }
+          return 0; // Orden original de Supabase
+        }
+      });
+
+      // 3. Renderizar
       renderizarTabla(resultados);
     }
 
@@ -904,6 +1125,38 @@
         cerrarModal();
       }
     });
+
+    // Script de Tema (Dualidad Light/Dark)
+    function toggleTheme() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        updateThemeIcon(isDark);
+    }
+
+    function updateThemeIcon(isDark) {
+        const btn = document.getElementById('themeToggleBtn');
+        if(btn) {
+            if(isDark) {
+                btn.querySelector('.fa-sun').classList.add('hidden');
+                btn.querySelector('.fa-moon').classList.remove('hidden');
+            } else {
+                btn.querySelector('.fa-sun').classList.remove('hidden');
+                btn.querySelector('.fa-moon').classList.add('hidden');
+            }
+        }
+    }
+
+    (function() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            updateThemeIcon(document.documentElement.classList.contains('dark'));
+        });
+    })();
   </script>
 </body>
 
