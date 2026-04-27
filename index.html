@@ -80,9 +80,9 @@
       <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-600/20 rounded-full blur-[120px]"></div>
   </div>
 
-  <!-- Top Pricing Tab -->
-  <div class="fixed top-6 left-0 w-full flex justify-center pointer-events-none z-50">
-    <div class="w-full max-w-6xl px-4 lg:px-0 pointer-events-auto flex justify-center lg:justify-start">
+  <!-- Top Pricing Tab (Solo Escritorio) -->
+  <div class="hidden lg:flex fixed top-6 left-0 w-full justify-center pointer-events-none z-50">
+    <div class="w-full max-w-6xl px-4 lg:px-0 pointer-events-auto flex justify-start">
       <a href="planes_precios_microerp.html" class="inline-block text-slate-300 font-semibold px-4 py-2 border border-slate-700/50 rounded-lg hover:text-white hover:bg-white/5 transition-all outline-none animate-heartbeat">
         Ver Planes
       </a>
@@ -94,6 +94,14 @@
     
     <!-- Sección Izquierda: Branding -->
     <div class="reveal px-4 lg:px-0 text-center lg:text-left">
+      
+      <!-- Botón Ver Planes (Solo Móvil) -->
+      <div class="flex lg:hidden justify-center mb-8 pointer-events-auto">
+        <a href="planes_precios_microerp.html" class="inline-block text-slate-300 font-semibold px-4 py-2 border border-slate-700/50 rounded-lg hover:text-white hover:bg-white/5 transition-all outline-none animate-heartbeat">
+          Ver Planes
+        </a>
+      </div>
+
       <div class="inline-flex items-center gap-3 py-1 px-4 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-widest mb-6">
         <i class="fas fa-shield-halved"></i>
         <span>Acceso Corporativo Seguro</span>
