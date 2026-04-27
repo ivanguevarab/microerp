@@ -343,6 +343,38 @@
                             </div>
                         `;
                         grid.appendChild(card);
+
+                        // --- Landing Page 2 (Especializada para Restaurantes) ---
+                        const relativeUrl2 = `empresas/${profile.empresa_id}/landing_page_2/landing_page_2.html`;
+                        const absoluteUrl2 = `${currentOrigin}${basePath}/${relativeUrl2}`;
+
+                        const card2 = document.createElement('div');
+                        card2.className = 'web-card';
+                        card2.innerHTML = `
+                            <div class="iframe-container">
+                                <iframe src="${relativeUrl2}" title="Vista Previa Landing Page 2"></iframe>
+                                <div class="absolute inset-0 bg-slate-900/10 dark:bg-black/20 pointer-events-none"></div>
+                                <div class="absolute top-3 left-3 bg-green-500/90 backdrop-blur-md text-white text-[10px] font-extrabold uppercase px-3 py-1 rounded-full shadow border border-green-400/50 flex items-center gap-1.5 tracking-widest">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                                    Activa
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Landing Page: Restaurantes</h3>
+                                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-grow leading-relaxed">
+                                    Portal web especializado en equipamiento gastronómico y comercial, diseñado para captar clientes del sector hotelero y de restaurantes.
+                                </p>
+                                <div class="flex flex-col gap-3 mt-auto">
+                                    <button onclick="window.open('${relativeUrl2}', '_blank')" class="btn-action btn-primary-action w-full">
+                                        <i class="fas fa-external-link-alt"></i> Abrir Vista Previa
+                                    </button>
+                                    <button onclick="copyToClipboard('${absoluteUrl2}')" class="btn-action btn-secondary-action w-full">
+                                        <i class="fas fa-copy"></i> Copiar Link Público
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        grid.appendChild(card2);
                     }
 
                     // Se pueden agregar más verificaciones aquí para otras páginas (ej. e-commerce) en el futuro
