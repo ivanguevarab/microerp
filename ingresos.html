@@ -1487,7 +1487,8 @@
                 const { data: proveedores } = await supabaseApp
                     .from('proveedores')
                     .select('id, razon_social')
-                    .eq('activo', true);
+                    .eq('activo', true)
+                    .order('razon_social', { ascending: true });
 
                 proveedoresCache = proveedores || [];
                 llenarSelect('proveedor', proveedores, 'razon_social');
