@@ -99,6 +99,7 @@ async function checkAuth() {
 
         // Una vez superada la admisión, ahora sí activamos al usuario para desencadenar otras acciones UI (como initDashboard)
         window.currentUser = session.user;
+        window.currentUserProfile = profileData;
         console.log("✅ Acceso Autorizado y Perfil Validado para:", window.currentUser.email);
         updateUserHeader(window.currentUser);
         
