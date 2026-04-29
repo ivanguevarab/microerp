@@ -123,6 +123,7 @@
                     subtitle: 'Operaciones',
                     items: [
                         { label: 'Órdenes de Producción (CUP)', url: 'codigos_cup.html' },
+                        { label: 'Proyectos (Kanban)', url: 'proyectos.html' },
                         { label: 'Órdenes de Servicio (CUS)', url: 'codigos_cus.html' }
                     ]
                 }
