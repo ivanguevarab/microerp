@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyectos (Kanban) | MICRO ERP</title>
+    
+    <!-- CDNs necesarias -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Configuración Tailwind Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        dark: {
+                            bg: '#0f172a',
+                            surface: '#1e293b',
+                            border: '#334155'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* ==========================================================================
+           ULTIMATE CSS OVERRIDE PARA MODO DÍA / NOCHE
+           ========================================================================== */
+        body {
+            background-color: #f8fafc; /* Modo día: Blanco tiza puro */
+            color: #0f172a;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Modo Noche estricto */
+        html.dark body {
+            background-color: #0f172a !important; 
+            color: #f8fafc !important;
+        }
+
+        /* Forzar fondos en elementos estructurales */
+        html.dark .kanban-col { background-color: #1e293b !important; border-color: #334155 !important; }
+        html.dark .kanban-card { background-color: #0f172a !important; border-color: #334155 !important; }
+        html.dark .modal-content { background-color: #1e293b !important; border-color: #334155 !important; }
+        html.dark input, html.dark select, html.dark textarea { 
+            background-color: #0f172a !important; 
+            color: white !important; 
+            border-color: #334155 !important; 
+            color-scheme: dark;
+        }
+        
+        /* Headers y Textos */
+        html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark p, html.dark span, html.dark label {
+            color: #f8fafc !important;
+        }
+        
+        /* Transparencias forzadas para evitar rectángulos grises */
+        html.dark .kanban-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+            border-color: #3b82f6 !important;
+        }
+
+        /* ==========================================================================
+           ESTILOS ESPECÍFICOS KANBAN
+           ========================================================================== */
+        
+        .kanban-board {
+            display: flex;
+            gap: 1.5rem;
+            height: calc(100vh - 180px);
+            overflow-x: auto;
+            padding-bottom: 1rem;
+            align-items: flex-start; /* Para que las columnas no se estiren al 100% vertical si no tienen items */
+        }
+
+        .kanban-col {
+            flex: 0 0 350px;
+            background-color: #f1f5f9;
+            border-radius: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .kanban-col-header {
+            padding: 1rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .col-todo .kanban-col-header { border-bottom-color: #94a3b8; }
+        .col-doing .kanban-col-header { border-bottom-color: #3b82f6; }
+        .col-done .kanban-col-header { border-bottom-color: #22c55e; }
+
+        .kanban-items {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-height: 100px;
+        }
+
+        .kanban-card {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            cursor: grab;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+
+        .kanban-card:active {
+            cursor: grabbing;
+        }
+
+        .kanban-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .ghost-card {
+            opacity: 0.4;
+            background-color: #e2e8f0 !important;
+            border: 2px dashed #94a3b8 !important;
+        }
+
+        .semaforo-bar-container {
+            height: 6px;
+            width: 100%;
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 0.75rem;
+        }
+        
+        html.dark .semaforo-bar-container {
+            background-color: #334155;
+        }
+
+        .semaforo-bar {
+            height: 100%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+        
+        /* Modal Tabs */
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover {
+            color: #0f172a;
+        }
+        html.dark .tab-btn:hover {
+            color: white;
+        }
+        .tab-btn.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Glassmorphism para header del submodulo */
+        .glass-header {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e2e8f0;
+        }
+        html.dark .glass-header {
+            background: rgba(15, 23, 42, 0.8);
+            border-bottom: 1px solid #334155;
+        }
+    </style>
+</head>
+
+<body class="antialiased h-screen flex flex-col overflow-hidden relative">
+    <!-- Auth Guard -->
+    <script src="auth-guard.js"></script>
+
+    <!-- Header Estandarizado -->
+    <header class="submodule-header relative">
+        <div class="submodule-header-content">
+            <a href="gestion_produccion_y_servicios.html" class="btn-back-std">
+                <i class="fa-solid fa-arrow-left"></i> Volver al Inicio
+            </a>
+            <div>
+                <h1>Kanban de Producción</h1>
+                <p class="text-[11px] text-slate-400 font-medium tracking-wide uppercase mt-1">Gestión visual de Órdenes de Producción (CUP)</p>
+            </div>
+        </div>
+        
+        <!-- Botón de Tema Estandarizado (Anclado a la cabecera) -->
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-[110]">
+            <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+            <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+            <span class="text-sm font-bold tracking-wide">TEMA</span>
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-hidden p-6 relative">
+        <!-- Tablero Kanban -->
+        <div class="kanban-board" id="kanbanBoard">
+            
+            <!-- Columna: No Empezado -->
+            <div class="kanban-col col-todo shadow-sm">
+                <div class="kanban-col-header text-slate-700 dark:text-slate-200">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-box text-slate-400"></i>
+                        <span>No Empezado</span>
+                    </div>
+                    <span class="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full text-xs" id="count-todo">0</span>
+                </div>
+                <div class="kanban-items" id="list-todo" data-estado="No Empezado">
+                    <!-- Cards here -->
+                </div>
+            </div>
+
+            <!-- Columna: En Proceso -->
+            <div class="kanban-col col-doing shadow-sm">
+                <div class="kanban-col-header text-slate-700 dark:text-slate-200">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-cog fa-spin-hover text-blue-500"></i>
+                        <span>En Proceso</span>
+                    </div>
+                    <span class="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full text-xs" id="count-doing">0</span>
+                </div>
+                <div class="kanban-items" id="list-doing" data-estado="En Proceso">
+                    <!-- Cards here -->
+                </div>
+            </div>
+
+            <!-- Columna: Terminado -->
+            <div class="kanban-col col-done shadow-sm">
+                <div class="kanban-col-header text-slate-700 dark:text-slate-200">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-check-circle text-green-500"></i>
+                        <span>Terminado</span>
+                    </div>
+                    <span class="bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 px-2 py-1 rounded-full text-xs" id="count-done">0</span>
+                </div>
+                <div class="kanban-items" id="list-done" data-estado="Terminado">
+                    <!-- Cards here -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Sidebar de Navegación Global -->
+    <script src="sidebar.js"></script>
+
+    <!-- Modal Detalles de Proyecto (Offcanvas-like pero centrado para más espacio) -->
+    <div id="modalProyecto" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] hidden flex justify-center items-center p-4">
+        <div class="modal-content bg-white dark:bg-slate-800 rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700">
+            
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center gap-2" id="modalTitle">
+                        <span id="modalCupCode" class="text-blue-600 dark:text-blue-400 font-mono"></span>
+                        <span id="modalCupDesc" class="text-slate-800 dark:text-white"></span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" id="modalTrace">Creado por: -</p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="flex border-b border-slate-200 dark:border-slate-700 px-6 shrink-0" id="modalTabs">
+                <button class="tab-btn active" onclick="switchTab('tab-general')">General</button>
+                <button class="tab-btn" onclick="switchTab('tab-tareas')">Tareas (<span id="countTareas">0</span>)</button>
+                <button class="tab-btn" onclick="switchTab('tab-equipo')">Equipo Asignado</button>
+                <button class="tab-btn" onclick="switchTab('tab-notas')">Timeline Notas</button>
+            </div>
+
+            <!-- Tabs Content -->
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900/50">
+                <input type="hidden" id="currentProjectId">
+
+                <!-- Tab: General -->
+                <div id="tab-general" class="tab-content active space-y-6">
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Flujo de Trabajo</label>
+                            <select id="flujoTrabajo" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="Normal">Normal</option>
+                                <option value="Prioritario">Prioritario 🔥</option>
+                                <option value="No Prioritario">No Prioritario 💤</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Fecha de Vencimiento</label>
+                            <input type="date" id="fechaVencimiento" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-slate-500">Fecha Inicio Kanban</label>
+                            <input type="text" id="fechaInicioKanban" readonly class="w-full rounded-lg bg-slate-100 dark:bg-slate-800 border-none p-2.5 text-slate-500 cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-slate-500">Fecha Fin Kanban</label>
+                            <input type="text" id="fechaFinKanban" readonly class="w-full rounded-lg bg-slate-100 dark:bg-slate-800 border-none p-2.5 text-slate-500 cursor-not-allowed">
+                        </div>
+                    </div>
+                    <div class="flex justify-end pt-4">
+                        <button onclick="guardarGeneral()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/30">
+                            Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab: Tareas -->
+                <div id="tab-tareas" class="tab-content">
+                    
+                    <!-- Progress Summary -->
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-6 shadow-sm">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-4">
+                                <span class="font-medium">Avance Global</span>
+                                <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer">
+                                    <input type="checkbox" id="chkOcultarDomingos" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" onchange="localStorage.setItem('kanbanOcultarDomingos', this.checked); renderTareasList(currentProjectData.tareas)">
+                                    Ocultar Domingos
+                                </label>
+                            </div>
+                            <span id="avanceText" class="font-bold text-blue-600 dark:text-blue-400">0%</span>
+                        </div>
+                        <div class="semaforo-bar-container h-3">
+                            <div id="avanceBar" class="semaforo-bar w-0 bg-slate-400"></div>
+                        </div>
+                    </div>
+
+                    <!-- Nueva Tarea Form -->
+                    <div class="flex gap-2 mb-6">
+                        <input type="hidden" id="editTareaId">
+                        <input type="text" id="nuevaTareaDesc" placeholder="Describir nueva tarea..." class="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <input type="date" id="nuevaTareaFecha" class="w-40 rounded-lg border border-slate-300 dark:border-slate-600 p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <button id="btnGuardarTarea" onclick="agregarTarea()" class="bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">
+                            Añadir
+                        </button>
+                    </div>
+
+                    <!-- Lista de Tareas -->
+                    <div class="space-y-3" id="tareasList">
+                        <!-- Tareas JS -->
+                    </div>
+                </div>
+
+                <!-- Tab: Equipo -->
+                <div id="tab-equipo" class="tab-content">
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Seleccione al personal operativo asignado a este proyecto. (Lista filtrada por Macro-Área "Operaciones")</p>
+                    
+                    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm max-h-[400px] overflow-y-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+                                <tr>
+                                    <th class="p-3 w-10 text-center">Asignar</th>
+                                    <th class="p-3">Nombre</th>
+                                    <th class="p-3">Cargo / Macro-Área</th>
+                                </tr>
+                            </thead>
+                            <tbody id="equipoList" class="divide-y divide-slate-100 dark:divide-slate-700">
+                                <!-- Personal JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex justify-end pt-4 mt-4">
+                        <button id="btnGuardarEquipo" onclick="guardarAsignaciones()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/30">
+                            Actualizar Asignaciones
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab: Notas -->
+                <div id="tab-notas" class="tab-content">
+                    <!-- Nueva Nota -->
+                    <div class="mb-6 flex flex-col gap-2">
+                        <textarea id="nuevaNotaTexto" rows="3" placeholder="Escribir una nota o actualización sobre el proyecto..." class="w-full rounded-lg border border-slate-300 dark:border-slate-600 p-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
+                        <div class="flex justify-end gap-2">
+                            <button id="btnCancelarEdicionNota" onclick="cancelarEdicionNota()" class="hidden text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-4 py-2 rounded-lg font-medium transition-colors">
+                                Cancelar
+                            </button>
+                            <button id="btnPublicarNota" onclick="agregarNota()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                                Publicar Nota
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Timeline -->
+                    <div class="relative border-l border-slate-200 dark:border-slate-700 ml-3 space-y-6 pb-4" id="notasList">
+                        <!-- Notas JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts de Logica Core -->
+    <script>
+        // === MODO OSCURO GLOBAL ===
+        function toggleTheme() {
+            const htmlClasses = document.documentElement.classList;
+            if (htmlClasses.contains('dark')) {
+                htmlClasses.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                htmlClasses.add('dark');
+                localStorage.theme = 'dark';
+            }
+        }
+
+        // On Load Theme Check
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+
+        // === VARIABLES GLOBALES ===
+        let kanbanSortables = [];
+        let tareasSortables = [];
+        let currentProjectData = null;
+
+        // === INICIALIZACIÓN ===
+        document.addEventListener('DOMContentLoaded', async () => {
+            const hideSundaysSaved = localStorage.getItem('kanbanOcultarDomingos') === 'true';
+            const chkDomingos = document.getElementById('chkOcultarDomingos');
+            if (chkDomingos) chkDomingos.checked = hideSundaysSaved;
+
+            // Esperar que auth-guard.js verifique la sesión si está en proceso, o la obtenemos directamente.
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            if (session) {
+                window.currentUser = session.user;
+            }
+            initKanbanSortables();
+            loadBoard();
+        });
+
+        // Inicializar Drag & Drop
+        function initKanbanSortables() {
+            const columns = ['list-todo', 'list-doing', 'list-done'];
+            columns.forEach(colId => {
+                const el = document.getElementById(colId);
+                kanbanSortables.push(new Sortable(el, {
+                    group: 'kanban',
+                    animation: 150,
+                    ghostClass: 'ghost-card',
+                    onEnd: async function (evt) {
+                        const itemEl = evt.item;
+                        const newContainer = evt.to;
+                        const oldContainer = evt.from;
+                        
+                        if (newContainer !== oldContainer) {
+                            const projectId = itemEl.getAttribute('data-id');
+                            const newState = newContainer.getAttribute('data-estado');
+                            await updateProjectState(projectId, newState);
+                        }
+                    },
+                }));
+            });
+        }
+
+        // Cargar Tablero Kanban
+        async function loadBoard() {
+            try {
+                // Fetch de proyectos con JOIN a codigos_unicos
+                const { data: proyectosRaw, error } = await window.supabaseClient
+                    .from('proyectos_produccion')
+                    .select('*, codigos_unicos(codigo, descripcion)');
+
+                if (error) throw error;
+
+                // Limpiar columnas
+                document.getElementById('list-todo').innerHTML = '';
+                document.getElementById('list-doing').innerHTML = '';
+                document.getElementById('list-done').innerHTML = '';
+                
+                let countTodo = 0, countDoing = 0, countDone = 0;
+
+                for (const p of proyectosRaw) {
+                    // Mapeo seguro en caso de que PostgREST no acepte el alias "cup:" directamente
+                    const proy = {
+                        ...p,
+                        cup: p.codigos_unicos || { codigo: 'Error', descripcion: 'Datos de CUP no encontrados' }
+                    };
+                    
+                    if (!proy.cup) continue; 
+                    
+                    // Fetch avance tareas sumando porcentajes
+                    const { data: tareas } = await window.supabaseClient
+                        .from('proyectos_tareas')
+                        .select('porcentaje_avance')
+                        .eq('proyecto_id', proy.id)
+                        .eq('completada', true);
+                        
+                    const avance = tareas ? tareas.reduce((sum, t) => sum + Number(t.porcentaje_avance || 0), 0) : 0;
+                    
+                    const cardHtml = createCardHTML(proy, Math.min(100, avance));
+                    
+                    if (proy.estado_kanban === 'No Empezado') {
+                        document.getElementById('list-todo').insertAdjacentHTML('beforeend', cardHtml);
+                        countTodo++;
+                    } else if (proy.estado_kanban === 'En Proceso') {
+                        document.getElementById('list-doing').insertAdjacentHTML('beforeend', cardHtml);
+                        countDoing++;
+                    } else if (proy.estado_kanban === 'Terminado') {
+                        document.getElementById('list-done').insertAdjacentHTML('beforeend', cardHtml);
+                        countDone++;
+                    }
+                }
+
+                document.getElementById('count-todo').textContent = countTodo;
+                document.getElementById('count-doing').textContent = countDoing;
+                document.getElementById('count-done').textContent = countDone;
+
+            } catch (err) {
+                console.error("Error loading board:", err);
+            }
+        }
+
+        // Crear HTML de Tarjeta
+        function createCardHTML(proy, avance) {
+            // Lógica semáforo visual
+            let colorSem = 'bg-slate-400';
+            if(avance > 0 && avance < 30) colorSem = 'bg-red-500';
+            else if(avance >= 30 && avance <= 70) colorSem = 'bg-yellow-400';
+            else if(avance > 70) colorSem = 'bg-green-500';
+
+            // Badge Flujo
+            let badgeHtml = '';
+            if (proy.flujo_trabajo === 'Prioritario') badgeHtml = `<span class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md animate-pulse border border-white dark:border-slate-800"><i class="fas fa-fire mr-1"></i>PRIORIDAD</span>`;
+            
+            // Format fecha vencimiento
+            let fecHtml = '';
+            if (proy.fecha_vencimiento) {
+                const peruTodayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+                const isOverdue = proy.fecha_vencimiento < peruTodayStr && proy.estado_kanban !== 'Terminado';
+                const textCol = isOverdue ? 'text-red-500 font-bold' : 'text-slate-500 dark:text-slate-400';
+                fecHtml = `<div class="mt-3 text-xs flex items-center gap-1 ${textCol}"><i class="far fa-clock"></i> Vence: ${proy.fecha_vencimiento}</div>`;
+            }
+
+            return `
+                <div class="kanban-card group" data-id="${proy.id}" onclick="openProjectModal('${proy.id}')">
+                    ${badgeHtml}
+                    <div class="text-xs font-mono text-blue-600 dark:text-blue-400 mb-1">${proy.cup.codigo}</div>
+                    <div class="text-sm font-semibold text-slate-800 dark:text-white leading-tight mb-2">${proy.cup.descripcion}</div>
+                    
+                    <div class="semaforo-bar-container">
+                        <div class="semaforo-bar ${colorSem}" style="width: ${avance}%"></div>
+                    </div>
+                    
+                    ${fecHtml}
+                </div>
+            `;
+        }
+
+        // Actualizar Estado en BD (Drag & Drop)
+        async function updateProjectState(projectId, newState) {
+            try {
+                let updates = { 
+                    estado_kanban: newState,
+                    updated_at: new Date().toISOString(),
+                    updated_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario'
+                };
+                
+                if (newState === 'En Proceso') {
+                    // Solo seteamos inicio si no tiene (para no sobreescribir la 1ra vez)
+                    const {data} = await window.supabaseClient.from('proyectos_produccion').select('fecha_inicio').eq('id', projectId).single();
+                    if(!data.fecha_inicio) updates.fecha_inicio = new Date().toISOString();
+                } else if (newState === 'Terminado') {
+                    updates.fecha_fin = new Date().toISOString();
+                }
+
+                const { error } = await window.supabaseClient
+                    .from('proyectos_produccion')
+                    .update(updates)
+                    .eq('id', projectId);
+
+                if (error) throw error;
+                loadBoard(); // Reload to refresh counts and logic
+            } catch (err) {
+                console.error("Error updating state:", err);
+                alert("Error al actualizar el estado del proyecto.");
+                loadBoard(); // Revert visual drag if error
+            }
+        }
+
+        // === MODAL Y TABS ===
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        async function openProjectModal(projectId) {
+            document.getElementById('currentProjectId').value = projectId;
+            
+            // Switch to General tab by default
+            document.querySelectorAll('.tab-btn')[0].click();
+            
+            // Limpiar inputs de tareas
+            if(document.getElementById('editTareaId')) document.getElementById('editTareaId').value = '';
+            if(document.getElementById('nuevaTareaDesc')) document.getElementById('nuevaTareaDesc').value = '';
+            if(document.getElementById('nuevaTareaFecha')) document.getElementById('nuevaTareaFecha').value = '';
+            const btn = document.getElementById('btnGuardarTarea');
+            if (btn) {
+                btn.textContent = 'Añadir';
+                btn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+                btn.classList.add('bg-slate-800', 'dark:bg-slate-200', 'text-white', 'dark:text-slate-800');
+            }
+
+            // Cargar Data Base
+            await loadProjectData(projectId);
+            
+            // Auto-curar pesos de tareas antiguas si no suman ~100%
+            if (currentProjectData && currentProjectData.tareas && currentProjectData.tareas.length > 0) {
+                let sumPesos = currentProjectData.tareas.reduce((acc, t) => acc + Number(t.porcentaje_avance || 0), 0);
+                if (sumPesos < 99 || sumPesos > 101) {
+                    await recalcularPesosTareas(projectId);
+                    await loadProjectData(projectId);
+                }
+            }
+            
+            // Abrir modal
+            document.getElementById('modalProyecto').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modalProyecto').classList.add('hidden');
+            loadBoard(); // Al cerrar, recargar tablero por si hubo cambios de flujo/tareas
+        }
+
+        // === LÓGICA DE DATOS (TABS) ===
+        
+        async function loadProjectData(projectId) {
+            // 1. General & Tareas
+            const { data: proy, error } = await window.supabaseClient
+                .from('proyectos_produccion')
+                .select(`
+                    *,
+                    cup:codigos_unicos ( codigo, descripcion ),
+                    tareas:proyectos_tareas (
+                        *,
+                        recursos:proyectos_tareas_recursos (
+                            id,
+                            personal_id,
+                            personal ( id, nombres, apellidos )
+                        )
+                    )
+                `)
+                .eq('id', projectId)
+                .single();
+                
+            if (error) return console.error("Error:", error);
+            currentProjectData = proy;
+
+            // Fill General Tab
+            document.getElementById('modalCupCode').textContent = proy.cup.codigo;
+            document.getElementById('modalCupDesc').textContent = proy.cup.descripcion;
+            document.getElementById('modalTrace').textContent = `Kanban creado por: ${proy.created_by || 'Sistema'} | Última modif: ${proy.updated_by || '-'}`;
+            
+            document.getElementById('flujoTrabajo').value = proy.flujo_trabajo || 'Normal';
+            document.getElementById('fechaVencimiento').value = proy.fecha_vencimiento || '';
+            const iniDateStr = proy.fecha_inicio ? (proy.fecha_inicio.endsWith('Z') ? proy.fecha_inicio : proy.fecha_inicio + 'Z') : null;
+            const finDateStr = proy.fecha_fin ? (proy.fecha_fin.endsWith('Z') ? proy.fecha_fin : proy.fecha_fin + 'Z') : null;
+            document.getElementById('fechaInicioKanban').value = iniDateStr ? new Date(iniDateStr).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : 'No Iniciado';
+            document.getElementById('fechaFinKanban').value = finDateStr ? new Date(finDateStr).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : 'No Terminado';
+
+            // Load Team synchronously to populate currentProjectTeam for tasks
+            await loadEquipoTab(projectId);
+
+            // Fill Tareas Tab
+            renderTareasList(proy.tareas);
+
+            // Notes
+            loadNotasTab(projectId);
+        }
+
+        async function guardarGeneral() {
+            const id = document.getElementById('currentProjectId').value;
+            const updates = {
+                flujo_trabajo: document.getElementById('flujoTrabajo').value,
+                fecha_vencimiento: document.getElementById('fechaVencimiento').value || null,
+                updated_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario',
+                updated_at: new Date().toISOString()
+            };
+
+            const { error } = await window.supabaseClient.from('proyectos_produccion').update(updates).eq('id', id);
+            if(error) alert("Error guardando datos.");
+            else alert("Guardado correctamente.");
+        }
+
+        // TAREAS
+        function renderTareasList(tareas) {
+            // Limpiar sortables previos de tareas
+            tareasSortables.forEach(s => s.destroy());
+            tareasSortables = [];
+
+            const container = document.getElementById('tareasList');
+            document.getElementById('countTareas').textContent = tareas ? tareas.length : 0;
+            
+            // 1. Calcular límites del calendario
+            // Fijar 'hoy' basado en la zona horaria de Perú
+            const peruTodayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+            let minDate = new Date(peruTodayStr + 'T00:00:00');
+            let maxDate = new Date(peruTodayStr + 'T00:00:00');
+            
+            if (currentProjectData && currentProjectData.created_at) {
+                minDate = new Date(currentProjectData.created_at);
+            }
+            
+            if (currentProjectData && currentProjectData.fecha_vencimiento) {
+                // Hay que lidiar con Timezones, parseamos agregando 'T00:00:00' o la hora actual
+                maxDate = new Date(currentProjectData.fecha_vencimiento + 'T00:00:00');
+            } else {
+                maxDate.setDate(minDate.getDate() + 7);
+            }
+
+            // Expandir si hay tareas fuera del rango
+            let totalAvance = 0;
+            if (tareas && tareas.length > 0) {
+                tareas.forEach(t => {
+                    if(t.completada) totalAvance += Number(t.porcentaje_avance || 0);
+
+                    if (t.fecha_limite) {
+                        const d = new Date(t.fecha_limite + 'T00:00:00');
+                        if (d < minDate) minDate = d;
+                        if (d > maxDate) maxDate = d;
+                    }
+                });
+            }
+            
+            // Ajustar horas a 0 para limpieza
+            minDate.setHours(0,0,0,0);
+            maxDate.setHours(0,0,0,0);
+            
+            // Generar array de fechas
+            const arrayFechas = [];
+            let currentDate = new Date(minDate);
+            const hideSundays = document.getElementById('chkOcultarDomingos')?.checked || false;
+            while (currentDate <= maxDate) {
+                if (!(hideSundays && currentDate.getDay() === 0)) {
+                    arrayFechas.push(new Date(currentDate));
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            // Agrupar tareas
+            const grupos = { 'null': [] };
+            arrayFechas.forEach(d => grupos[formatDateIso(d)] = []);
+            
+            if (tareas) {
+                // Orden base por creación para que dentro de un día mantengan orden cronológico
+                tareas.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+                
+                tareas.forEach(t => {
+                    const key = t.fecha_limite || 'null';
+                    if (grupos[key]) grupos[key].push(t);
+                    else {
+                        grupos[key] = [t]; 
+                    }
+                });
+            }
+
+            // Determinar Fecha Vencimiento del Proyecto para sombrear
+            let fechaVencObj = null;
+            if (currentProjectData && currentProjectData.fecha_vencimiento) {
+                fechaVencObj = new Date(currentProjectData.fecha_vencimiento + 'T00:00:00');
+                fechaVencObj.setHours(0,0,0,0);
+            }
+
+            let html = '';
+            let emptyDaysBuffer = [];
+
+            function flushEmptyDays() {
+                if (emptyDaysBuffer.length === 0) return;
+                html += '<div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">';
+                emptyDaysBuffer.forEach(day => {
+                    html += generarBloqueFechaHtml(day.fIso, day.titulo, day.tareas, day.isAtrasado, day.hasVencimiento, true);
+                });
+                html += '</div>';
+                emptyDaysBuffer = [];
+            }
+
+            // Cajón: Sin Fecha
+            html += generarBloqueFechaHtml('null', 'Sin Fecha Asignada (Por Programar)', grupos['null']);
+
+            // Calendario
+            arrayFechas.forEach(d => {
+                const fIso = formatDateIso(d);
+                const tareasDelGrupo = grupos[fIso] || [];
+                const isEmpty = tareasDelGrupo.length === 0;
+                
+                let formatoDia = isEmpty ? 'short' : 'long';
+                const nombreDia = d.toLocaleDateString('es-PE', { weekday: formatoDia, day: '2-digit', month: 'short' });
+                const titulo = nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1);
+                
+                let isAtrasado = false;
+                if (fechaVencObj && d > fechaVencObj) {
+                    isAtrasado = true;
+                }
+                
+                if (isEmpty) {
+                    emptyDaysBuffer.push({ fIso, titulo, tareas: tareasDelGrupo, isAtrasado, hasVencimiento: !!fechaVencObj });
+                } else {
+                    flushEmptyDays();
+                    html += generarBloqueFechaHtml(fIso, titulo, tareasDelGrupo, isAtrasado, !!fechaVencObj, false);
+                }
+            });
+            
+            flushEmptyDays();
+
+            // Tareas rebeldes fuera del rango generado
+            Object.keys(grupos).forEach(key => {
+                if (key !== 'null' && !arrayFechas.find(d => formatDateIso(d) === key)) {
+                     const d = new Date(key + 'T00:00:00');
+                     let isAtrasado = false;
+                     if (fechaVencObj && d > fechaVencObj) isAtrasado = true;
+                     html += generarBloqueFechaHtml(key, key, grupos[key], isAtrasado, !!fechaVencObj, false);
+                }
+            });
+
+            container.innerHTML = html;
+
+            // Inicializar Drag & Drop
+            setTimeout(() => {
+                document.querySelectorAll('.cal-day-dropzone').forEach(el => {
+                    tareasSortables.push(new Sortable(el, {
+                        group: 'tareas-cal',
+                        animation: 150,
+                        handle: '.drag-handle',
+                        ghostClass: 'bg-blue-50', // Se ve sutil en dark mode por CSS conflict pero es ghostClass
+                        onEnd: async function(evt) {
+                            const itemEl = evt.item;
+                            const newContainer = evt.to;
+                            const oldContainer = evt.from;
+                            
+                            if (newContainer !== oldContainer) {
+                                const tareaId = itemEl.getAttribute('data-id');
+                                const nuevaFecha = newContainer.getAttribute('data-fecha');
+                                await cambiarFechaTarea(tareaId, nuevaFecha);
+                            }
+                        }
+                    }));
+                });
+            }, 50);
+
+            // Actualizar ProgressBar
+            totalAvance = Math.min(100, totalAvance);
+            document.getElementById('avanceText').textContent = `${totalAvance}%`;
+            
+            const bar = document.getElementById('avanceBar');
+            bar.style.width = `${totalAvance}%`;
+            bar.className = 'semaforo-bar';
+            if(totalAvance > 0 && totalAvance < 30) bar.classList.add('bg-red-500');
+            else if(totalAvance >= 30 && totalAvance <= 70) bar.classList.add('bg-yellow-400');
+            else if(totalAvance > 70) bar.classList.add('bg-green-500');
+            else bar.classList.add('bg-slate-400');
+        }
+
+        function formatDateIso(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // Funciones auxiliares para drag & drop de días colapsados
+        function toggleDia(headerEl) {
+            const dropzone = headerEl.nextElementSibling;
+            dropzone.classList.toggle('hidden');
+            const icon = headerEl.querySelector('.fa-chevron-down, .fa-chevron-up');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down');
+                icon.classList.toggle('fa-chevron-up');
+            }
+        }
+
+        function abrirDiaDrag(headerEl) {
+            const dropzone = headerEl.nextElementSibling;
+            if(dropzone.classList.contains('hidden')) {
+                dropzone.classList.remove('hidden');
+                const icon = headerEl.querySelector('.fa-chevron-down');
+                if (icon) {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-up');
+                }
+            }
+        }
+
+        function generarBloqueFechaHtml(fechaIso, titulo, tareasDelGrupo, isAtrasado = false, hasVencimiento = false, isGrouped = false) {
+            const isNull = fechaIso === 'null';
+            let colorHeader = 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300';
+            const iconClass = isGrouped ? 'mr-1 text-[11px]' : 'mr-2';
+            let iconHeader = `<i class="far fa-calendar-alt ${iconClass}"></i>`;
+            let borderDay = 'border-slate-200 dark:border-slate-700';
+            
+            if (isNull) {
+                colorHeader = 'bg-yellow-50 dark:bg-yellow-500/10 text-yellow-800 dark:text-yellow-400';
+                iconHeader = '<i class="fas fa-inbox mr-2"></i>';
+                borderDay = 'border-yellow-200 dark:border-yellow-500/20';
+            } else if (hasVencimiento) {
+                if (isAtrasado) {
+                    colorHeader = 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300';
+                    iconHeader = '<i class="fas fa-exclamation-circle text-red-500 mr-2"></i>';
+                    borderDay = 'border-red-200 dark:border-red-800/50';
+                } else {
+                    colorHeader = 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300';
+                    iconHeader = '<i class="fas fa-calendar-check text-emerald-500 mr-2"></i>';
+                    borderDay = 'border-emerald-200 dark:border-emerald-800/50';
+                }
+            }
+            
+            let htmlTareas = '';
+            tareasDelGrupo.forEach(t => {
+                const colorBg = t.completada ? 'bg-slate-50 dark:bg-slate-800/50 opacity-80' : 'bg-white dark:bg-slate-800 shadow-sm';
+                const colorBorde = t.completada ? 'border-green-200 dark:border-green-800/50' : 'border-slate-200 dark:border-slate-700 hover:border-blue-300';
+                
+                const badgeStatus = t.completada 
+                    ? `<button onclick="toggleTarea('${t.id}', false)" class="flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400 border border-green-300 dark:border-green-800 hover:bg-green-200 transition-colors shadow-sm"><i class="fas fa-check"></i> Realizado</button>`
+                    : `<button onclick="toggleTarea('${t.id}', true)" class="flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 hover:bg-orange-100 hover:text-orange-700 hover:border-orange-300 transition-colors shadow-sm"><i class="fas fa-clock"></i> Pendiente</button>`;
+                
+                // --- Bloque de Recursos ---
+                const team = window.currentProjectTeam || [];
+                const recursos = t.recursos || [];
+                recursos.sort((a,b) => {
+                    const nA = a.personal ? a.personal.apellidos + ' ' + a.personal.nombres : '';
+                    const nB = b.personal ? b.personal.apellidos + ' ' + b.personal.nombres : '';
+                    return nA.localeCompare(nB);
+                });
+
+                let htmlRecursos = '';
+                recursos.forEach(r => {
+                    if(!r.personal) return;
+                    const nombreStr = r.personal.apellidos + ', ' + r.personal.nombres;
+                    const partes = r.personal.nombres.split(' ');
+                    const partesApe = r.personal.apellidos.split(' ');
+                    const iniciales = (partes[0].charAt(0) + partesApe[0].charAt(0)).toUpperCase();
+                    htmlRecursos += `
+                        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/50 rounded-full pl-1 pr-2 py-0.5 border border-slate-200 dark:border-slate-600 transition-colors hover:border-blue-300 dark:hover:border-blue-500">
+                            <div class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 flex items-center justify-center text-[9px] font-bold" title="${nombreStr}">${iniciales}</div>
+                            <span class="text-[10px] text-slate-600 dark:text-slate-300 truncate max-w-[80px]" title="${nombreStr}">${partes[0]} ${partesApe[0]}</span>
+                            <button onclick="removerRecursoTarea('${r.id}')" class="text-slate-400 hover:text-red-500 ml-1 flex items-center" title="Quitar asignación"><i class="fas fa-times text-[10px]"></i></button>
+                        </div>
+                    `;
+                });
+
+                let optHtml = `<option value="">+ Operario</option>`;
+                team.forEach(p => {
+                    if(!recursos.find(r => r.personal_id === p.id)) {
+                        optHtml += `<option value="${p.id}">${p.apellidos}, ${p.nombres}</option>`;
+                    }
+                });
+                
+                const selectRecurso = `
+                    <select class="text-[10px] bg-transparent border border-slate-200 dark:border-slate-600 rounded outline-none p-1 text-slate-600 dark:text-slate-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors max-w-[100px]" onchange="agregarRecursoTarea('${t.id}', this.value); this.value='';">
+                        ${optHtml}
+                    </select>
+                `;
+
+                const recursosBlock = `
+                    <div class="flex flex-wrap items-center gap-1.5 mt-2 ml-7 border-t border-slate-100 dark:border-slate-700/50 pt-2">
+                        ${htmlRecursos}
+                        ${team.length > 0 && recursos.length < team.length ? selectRecurso : ''}
+                    </div>
+                `;
+                // --------------------------
+
+                htmlTareas += `
+                    <div class="group flex flex-col p-3 rounded-lg border ${colorBg} ${colorBorde} transition-all" data-id="${t.id}">
+                        <div class="flex items-center gap-3">
+                            <!-- Drag Handle -->
+                            <div class="drag-handle text-slate-300 dark:text-slate-600 hover:text-blue-400 transition-colors px-1 cursor-grab active:cursor-grabbing">
+                                <i class="fas fa-grip-vertical"></i>
+                            </div>
+                            
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium text-sm truncate ${t.completada ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'}">${t.descripcion}</p>
+                                <p class="text-[10px] text-slate-500 mt-0.5">
+                                    Peso: <strong>${t.porcentaje_avance}%</strong> | Por: ${t.updated_by || t.created_by || '-'}
+                                </p>
+                            </div>
+                            
+                            <!-- Botón Estado -->
+                            <div class="shrink-0">
+                                ${badgeStatus}
+                            </div>
+                            
+                            <!-- Botones de Acción -->
+                            <div class="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="editarTareaUI('${t.id}', '${t.descripcion.replace(/'/g, "&apos;").replace(/"/g, "&quot;")}', '${t.fecha_limite || ''}')" class="text-slate-300 hover:text-blue-500 transition-colors px-1" title="Editar tarea"><i class="fas fa-pencil-alt"></i></button>
+                                <button onclick="borrarTarea('${t.id}')" class="text-slate-300 hover:text-red-500 transition-colors px-1" title="Eliminar tarea"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        ${recursosBlock}
+                    </div>
+                `;
+            });
+
+            const isEmpty = tareasDelGrupo.length === 0;
+            const marginClass = isGrouped ? '' : 'mb-4';
+            const pxHeader = isGrouped ? 'px-2 py-1.5' : 'px-4 py-2';
+            const textHeader = isGrouped ? 'text-[11px]' : 'text-sm';
+            const spanTareas = isGrouped ? '' : `${tareasDelGrupo.length} Tareas`;
+
+            return `
+                <div class="cal-day-box border ${borderDay} rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/30 ${marginClass} transition-colors">
+                    <div class="${pxHeader} ${colorHeader} border-b ${borderDay} font-semibold ${textHeader} flex justify-between items-center transition-colors cursor-pointer select-none" onclick="toggleDia(this)" ondragenter="abrirDiaDrag(this)">
+                        <span class="truncate" title="${titulo}">${iconHeader}${titulo}</span>
+                        <span class="text-[10px] font-normal opacity-70 flex items-center gap-1 shrink-0">
+                            ${spanTareas}
+                            <i class="fas fa-chevron-${isEmpty ? 'down' : 'up'} transition-transform text-slate-400 opacity-60"></i>
+                        </span>
+                    </div>
+                    <div class="cal-day-dropzone p-3 min-h-[60px] flex flex-col gap-2 ${isEmpty ? 'hidden' : ''}" data-fecha="${fechaIso}">
+                        ${htmlTareas.length > 0 ? htmlTareas : '<div class="text-xs text-center text-slate-400 dark:text-slate-500 italic py-2 pointer-events-none">Arrastre tareas aquí</div>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function recalcularPesosTareas(proyId) {
+            const { data: tareas, error } = await window.supabaseClient
+                .from('proyectos_tareas')
+                .select('id')
+                .eq('proyecto_id', proyId);
+                
+            if (error || !tareas || tareas.length === 0) return;
+            
+            const pesoUnico = parseFloat((100 / tareas.length).toFixed(2));
+            
+            for (const t of tareas) {
+                await window.supabaseClient
+                    .from('proyectos_tareas')
+                    .update({ porcentaje_avance: pesoUnico })
+                    .eq('id', t.id);
+            }
+        }
+
+        function editarTareaUI(id, descripcion, fecha) {
+            document.getElementById('editTareaId').value = id;
+            document.getElementById('nuevaTareaDesc').value = descripcion;
+            document.getElementById('nuevaTareaFecha').value = fecha;
+            const btn = document.getElementById('btnGuardarTarea');
+            btn.textContent = 'Actualizar';
+            btn.classList.remove('bg-slate-800', 'dark:bg-slate-200', 'text-white', 'dark:text-slate-800');
+            btn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+        }
+
+        async function agregarTarea() {
+            const proyId = document.getElementById('currentProjectId').value;
+            const editId = document.getElementById('editTareaId').value;
+            const desc = document.getElementById('nuevaTareaDesc').value.trim();
+            const fec = document.getElementById('nuevaTareaFecha').value;
+            
+            if(!desc) return alert("Ingrese descripción de la tarea.");
+            
+            const payload = {
+                descripcion: desc,
+                fecha_limite: fec || null,
+                updated_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario'
+            };
+
+            if (editId) {
+                // Modo Edición
+                const {error} = await window.supabaseClient.from('proyectos_tareas').update(payload).eq('id', editId);
+                if(error) return alert("Error actualizando tarea.");
+                
+                // Restaurar UI
+                document.getElementById('editTareaId').value = '';
+                const btn = document.getElementById('btnGuardarTarea');
+                btn.textContent = 'Añadir';
+                btn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+                btn.classList.add('bg-slate-800', 'dark:bg-slate-200', 'text-white', 'dark:text-slate-800');
+            } else {
+                // Modo Creación
+                payload.proyecto_id = proyId;
+                payload.empresa_id = currentProjectData.empresa_id;
+                payload.porcentaje_avance = 0;
+                payload.created_by = payload.updated_by;
+                const {error} = await window.supabaseClient.from('proyectos_tareas').insert([payload]);
+                if(error) return alert("Error creando tarea.");
+            }
+            
+            await recalcularPesosTareas(proyId);
+            
+            // Clean and reload
+            document.getElementById('nuevaTareaDesc').value = '';
+            document.getElementById('nuevaTareaFecha').value = '';
+            loadProjectData(proyId); // Refresh
+        }
+
+        async function cambiarFechaTarea(tareaId, nuevaFechaIso) {
+            const fechaVal = nuevaFechaIso === 'null' ? null : nuevaFechaIso;
+            const {error} = await window.supabaseClient.from('proyectos_tareas').update({
+                fecha_limite: fechaVal,
+                updated_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario',
+                updated_at: new Date().toISOString()
+            }).eq('id', tareaId);
+            
+            if(error) alert("Error al mover la tarea.");
+            loadProjectData(document.getElementById('currentProjectId').value);
+        }
+
+        async function toggleTarea(id, completada) {
+            const {error} = await window.supabaseClient.from('proyectos_tareas').update({
+                completada: completada,
+                updated_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario',
+                updated_at: new Date().toISOString()
+            }).eq('id', id);
+            if(!error) loadProjectData(document.getElementById('currentProjectId').value);
+        }
+
+        async function borrarTarea(id) {
+            if(!confirm("¿Eliminar tarea?")) return;
+            const proyId = document.getElementById('currentProjectId').value;
+            const {error} = await window.supabaseClient.from('proyectos_tareas').delete().eq('id', id);
+            if(!error) {
+                await recalcularPesosTareas(proyId);
+                loadProjectData(proyId);
+            }
+        }
+
+        async function agregarRecursoTarea(tareaId, personalId) {
+            if(!personalId) return;
+            const payload = {
+                tarea_id: tareaId,
+                personal_id: personalId,
+                created_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario'
+            };
+            const {error} = await window.supabaseClient.from('proyectos_tareas_recursos').insert([payload]);
+            if(error) alert("Error asignando operario a la tarea.");
+            else loadProjectData(document.getElementById('currentProjectId').value);
+        }
+
+        async function removerRecursoTarea(recursoId) {
+            if(!confirm("¿Quitar a este operario de la tarea?")) return;
+            const {error} = await window.supabaseClient.from('proyectos_tareas_recursos').delete().eq('id', recursoId);
+            if(error) alert("Error quitando operario.");
+            else loadProjectData(document.getElementById('currentProjectId').value);
+        }
+
+        // EQUIPO
+        async function loadEquipoTab(projectId) {
+            try {
+                // Fetch Personal + Categorias
+                const {data: personalFull} = await window.supabaseClient
+                    .from('personal')
+                    .select('id, nombres, apellidos, categoria_id');
+                    
+                const {data: categorias} = await window.supabaseClient
+                    .from('categorias_personal')
+                    .select('id, nombre');
+
+                // Filtrar solo los de Operaciones (según reglas dictadas)
+                const opsCatIds = categorias.filter(c => c.nombre.toLowerCase().includes('operaciones')).map(c => c.id);
+                
+                let personalOperaciones = personalFull.filter(p => opsCatIds.includes(p.categoria_id));
+                // Ordenar alfabéticamente
+                personalOperaciones.sort((a,b) => (a.apellidos + ' ' + a.nombres).localeCompare(b.apellidos + ' ' + b.nombres));
+
+                // Fetch asignaciones actuales
+                const {data: asignaciones} = await window.supabaseClient
+                    .from('proyectos_asignaciones')
+                    .select('personal_id')
+                    .eq('proyecto_id', projectId);
+                
+                const asignadosIds = asignaciones ? asignaciones.map(a => a.personal_id) : [];
+                
+                // Guardar en memoria para usar en las tareas
+                window.currentProjectTeam = personalOperaciones.filter(p => asignadosIds.includes(p.id));
+
+                const tbody = document.getElementById('equipoList');
+                const isAdmin = window.currentUserProfile?.rol === 'ADMIN';
+                
+                // Boton de guardado
+                const btnSave = document.getElementById('btnGuardarEquipo');
+                if(btnSave) {
+                    if(isAdmin) btnSave.classList.remove('hidden');
+                    else btnSave.classList.add('hidden');
+                }
+
+                if(personalOperaciones.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-slate-500 italic">No hay trabajadores registrados en la macro-área "Operaciones".</td></tr>';
+                    return;
+                }
+
+                let html = isAdmin ? '' : '<tr><td colspan="3" class="p-2 text-center text-[11px] text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 font-medium">Modo Solo Lectura: Únicamente los Administradores pueden modificar el equipo.</td></tr>';
+                
+                personalOperaciones.forEach(p => {
+                    const catName = categorias.find(c => c.id === p.categoria_id)?.nombre || '-';
+                    const isChecked = asignadosIds.includes(p.id) ? 'checked' : '';
+                    const disabledAttr = isAdmin ? '' : 'disabled';
+                    
+                    html += `
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <td class="p-3 text-center">
+                                <input type="checkbox" value="${p.id}" class="chk-equipo w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" ${isChecked} ${disabledAttr}>
+                            </td>
+                            <td class="p-3 font-medium text-slate-700 dark:text-slate-200">${p.apellidos}, ${p.nombres}</td>
+                            <td class="p-3 text-xs text-slate-500">
+                                <span class="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded border border-slate-200 dark:border-slate-600">${catName}</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+
+            } catch (err) {
+                console.error("Error load equipo:", err);
+            }
+        }
+
+        async function guardarAsignaciones() {
+            const proyId = document.getElementById('currentProjectId').value;
+            const checkboxes = document.querySelectorAll('.chk-equipo');
+            
+            // Por simplicidad: borrar todas y re-insertar las seleccionadas
+            await window.supabaseClient.from('proyectos_asignaciones').delete().eq('proyecto_id', proyId);
+            
+            const toInsert = [];
+            checkboxes.forEach(chk => {
+                if(chk.checked) {
+                    toInsert.push({
+                        proyecto_id: proyId,
+                        empresa_id: currentProjectData.empresa_id,
+                        personal_id: chk.value,
+                        created_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario'
+                    });
+                }
+            });
+
+            if(toInsert.length > 0) {
+                const {error} = await window.supabaseClient.from('proyectos_asignaciones').insert(toInsert);
+                if(error) alert("Error actualizando asignaciones.");
+                else alert("Equipo asignado con éxito.");
+            } else {
+                alert("Asignaciones vaciadas con éxito.");
+            }
+        }
+
+        // NOTAS
+        async function loadNotasTab(projectId) {
+            const {data: notas, error} = await window.supabaseClient
+                .from('proyectos_notas')
+                .select('*')
+                .eq('proyecto_id', projectId)
+                .order('created_at', {ascending: false}); // Más recientes arriba
+
+            const container = document.getElementById('notasList');
+            if(error || !notas || notas.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-500 italic ml-4">No hay notas registradas en este proyecto.</p>';
+                return;
+            }
+
+            let html = '';
+            notas.forEach(n => {
+                const dateStr = n.created_at.endsWith('Z') ? n.created_at : n.created_at + 'Z';
+                const date = new Date(dateStr).toLocaleString('es-PE', { timeZone: 'America/Lima' });
+                html += `
+                    <div class="relative pl-6 group">
+                        <!-- Nodo Timeline -->
+                        <div class="absolute w-3 h-3 bg-blue-500 rounded-full -left-[6px] top-1.5 ring-4 ring-white dark:ring-slate-800"></div>
+                        
+                        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm relative transition-all group-hover:border-blue-300 dark:group-hover:border-blue-500">
+                            <!-- Botones de Acción Ocultos -->
+                            <div class="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded px-1">
+                                <button onclick="editarNota('${n.id}', '${n.texto.replace(/'/g, "&apos;").replace(/"/g, "&quot;").replace(/\n/g, "\\n")}')" class="text-slate-400 hover:text-blue-500 transition-colors" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+                                <button onclick="eliminarNota('${n.id}')" class="text-slate-400 hover:text-red-500 transition-colors" title="Eliminar"><i class="fas fa-trash"></i></button>
+                            </div>
+
+                            <p class="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap pr-10">${n.texto}</p>
+                            <div class="mt-2 flex justify-between items-center text-xs text-slate-500">
+                                <span><i class="fas fa-user-circle mr-1"></i> ${n.created_by || 'Usuario'}</span>
+                                <span><i class="far fa-clock mr-1"></i> ${date}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        let editingNotaId = null;
+
+        async function editarNota(id, textoActual) {
+            editingNotaId = id;
+            const textarea = document.getElementById('nuevaNotaTexto');
+            textarea.value = textoActual;
+            textarea.focus();
+            
+            const btn = document.getElementById('btnPublicarNota');
+            btn.textContent = "Actualizar Nota";
+            btn.classList.replace('bg-blue-600', 'bg-amber-500');
+            btn.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600');
+            
+            document.getElementById('btnCancelarEdicionNota').classList.remove('hidden');
+        }
+
+        function cancelarEdicionNota() {
+            editingNotaId = null;
+            const textarea = document.getElementById('nuevaNotaTexto');
+            textarea.value = '';
+            
+            const btn = document.getElementById('btnPublicarNota');
+            btn.textContent = "Publicar Nota";
+            btn.classList.replace('bg-amber-500', 'bg-blue-600');
+            btn.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700');
+            
+            document.getElementById('btnCancelarEdicionNota').classList.add('hidden');
+        }
+
+        async function eliminarNota(id) {
+            if(!confirm("¿Estás seguro de eliminar esta nota permanentemente?")) return;
+            const {error} = await window.supabaseClient.from('proyectos_notas').delete().eq('id', id);
+            if(error) alert("Error eliminando la nota.");
+            else loadNotasTab(document.getElementById('currentProjectId').value);
+        }
+
+        async function agregarNota() {
+            const proyId = document.getElementById('currentProjectId').value;
+            const txt = document.getElementById('nuevaNotaTexto').value.trim();
+            if(!txt) return;
+
+            if (editingNotaId) {
+                // Modo Edición
+                const {error} = await window.supabaseClient.from('proyectos_notas')
+                    .update({ 
+                        texto: txt, 
+                        updated_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario', 
+                        updated_at: new Date().toISOString() 
+                    })
+                    .eq('id', editingNotaId);
+                
+                if(error) alert("Error editando la nota.");
+                else {
+                    cancelarEdicionNota();
+                    loadNotasTab(proyId);
+                }
+            } else {
+                // Modo Inserción
+                const payload = {
+                    proyecto_id: proyId,
+                    empresa_id: currentProjectData.empresa_id,
+                    texto: txt,
+                    created_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario',
+                    updated_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario'
+                };
+
+                const {error} = await window.supabaseClient.from('proyectos_notas').insert([payload]);
+                if(error) alert("Error guardando nota.");
+                else {
+                    document.getElementById('nuevaNotaTexto').value = '';
+                    loadNotasTab(proyId); // Refresh solo notas
+                }
+            }
+        }
+    </script>
+</body>
+</html>
