@@ -152,7 +152,7 @@
                         Consulta</label>
                     <input type="month" id="inputMes"
                         class="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 shadow-sm focus:border-blue-500 focus:outline-none font-medium h-[42px]"
-                        onchange="filtrarDatos()">
+                        onchange="manejarCambioMes()">
                 </div>
             </div>
         </div>
@@ -233,6 +233,7 @@
     <script src="sidebar.js"></script>
     <script>
         let movimientosCache = [];
+        let personalCache = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
             // Iniciar mes actual
@@ -257,26 +258,100 @@
             try {
                 const { data, error } = await window.supabaseClient
                     .from('personal')
-                    .select('id, nombres, apellidos, cargo_rol, documento_identidad')
-                    .eq('activo', true)
+                    .select('id, nombres, apellidos, cargo_rol, documento_identidad, periodos_contratacion, requiere_marcacion, categorias_personal(nombre)')
                     .order('apellidos');
 
                 if (error) throw error;
 
-                const select = document.getElementById('selectPersonal');
-                select.innerHTML = '';
+                personalCache = data || [];
+                renderSelectPersonal();
 
-                if (data && data.length > 0) {
-                    data.forEach(p => {
-                        let nom = p.nombres.split(' ')[0];
-                        select.innerHTML += '<option value="' + p.id + '">' + p.apellidos + ', ' + nom + ' - ' + (p.cargo_rol || 'Operativo') + ' (DNI/CE: ' + p.documento_identidad + ')</option>';
-                    });
-                } else {
-                    select.innerHTML = '<option value="">No hay personal activo</option>';
-                    select.disabled = true;
-                }
             } catch (error) {
                 console.error("Error cargando personal:", error);
+            }
+        }
+
+        function manejarCambioMes() {
+            renderSelectPersonal();
+            filtrarDatos();
+        }
+
+        function renderSelectPersonal() {
+            const select = document.getElementById('selectPersonal');
+            const currentSelected = select.value;
+            const mesInput = document.getElementById('inputMes').value; // YYYY-MM
+            
+            select.innerHTML = '';
+
+            if (personalCache.length === 0) {
+                select.innerHTML = '<option value="">No hay personal registrado</option>';
+                select.disabled = true;
+                return;
+            }
+            
+            // Determinar inicio y fin de mes consultado
+            if (!mesInput) return;
+            const [yyyy, mm] = mesInput.split('-');
+            const firstDayOfMonth = `${yyyy}-${mm}-01`;
+            const lastDate = new Date(yyyy, mm, 0);
+            const lastDayOfMonth = `${yyyy}-${mm}-${String(lastDate.getDate()).padStart(2, '0')}`;
+
+            // 1. Filtrar trabajadores válidos para el mes
+            const trabajadoresValidos = personalCache.filter(p => {
+                // Excluir personal que no requiere control de asistencia
+                if (p.requiere_marcacion === false) return false;
+
+                if (!p.periodos_contratacion || p.periodos_contratacion.length === 0) return true; // Failsafe para legacy
+                
+                // Tiene algún periodo activo en este mes?
+                return p.periodos_contratacion.some(periodo => {
+                    const ingresoValido = periodo.ingreso <= lastDayOfMonth;
+                    const ceseValido = !periodo.cese || periodo.cese >= firstDayOfMonth;
+                    return ingresoValido && ceseValido;
+                });
+            });
+
+            if (trabajadoresValidos.length === 0) {
+                select.innerHTML = '<option value="">Ningún colaborador laboró en este mes</option>';
+                select.disabled = true;
+                return;
+            }
+
+            select.disabled = false;
+
+            // 2. Agrupar por Macro-Área
+            const agrupado = {};
+            trabajadoresValidos.forEach(p => {
+                const area = p.categorias_personal ? p.categorias_personal.nombre : 'Sin Asignar';
+                if (!agrupado[area]) agrupado[area] = [];
+                agrupado[area].push(p);
+            });
+
+            // 3. Renderizar optgroups ordenados
+            const areasOrdenadas = Object.keys(agrupado).sort();
+            
+            areasOrdenadas.forEach(area => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = area;
+                
+                const trabajadores = agrupado[area].sort((a, b) => a.apellidos.localeCompare(b.apellidos));
+                
+                trabajadores.forEach(p => {
+                    let nom = p.nombres.split(' ')[0];
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = `${p.apellidos}, ${nom} - ${p.cargo_rol || 'Operativo'} (DNI/CE: ${p.documento_identidad})`;
+                    optgroup.appendChild(opt);
+                });
+                
+                select.appendChild(optgroup);
+            });
+
+            // 4. Preservar selección o elegir el primero
+            if (currentSelected && trabajadoresValidos.some(p => p.id === currentSelected)) {
+                select.value = currentSelected;
+            } else {
+                select.selectedIndex = 0; // Seleccionar el primero de la lista nueva
             }
         }
 
