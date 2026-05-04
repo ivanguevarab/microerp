@@ -299,7 +299,8 @@
         </div>
 
         <!-- Pestañas de Macro-Áreas -->
-        <div id="macroTabsContainer" class="flex border-b border-slate-200 mb-6 overflow-x-auto gap-2" style="scrollbar-width: none;">
+        <div id="macroTabsContainer" class="flex border-b border-slate-200 mb-6 overflow-x-auto gap-2"
+            style="scrollbar-width: none;">
             <!-- Renderizado por JS -->
         </div>
 
@@ -384,7 +385,9 @@
 
                         <div class="form-section-title flex justify-between items-center" style="grid-column: 1 / -1;">
                             <span>Historial de Contratación (Altas y Bajas)</span>
-                            <button type="button" onclick="agregarPeriodoContratacion()" class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition"><i class="fas fa-plus"></i> Añadir Periodo</button>
+                            <button type="button" onclick="agregarPeriodoContratacion()"
+                                class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition"><i
+                                    class="fas fa-plus"></i> Añadir Periodo</button>
                         </div>
                         <div id="container-periodos" style="grid-column: 1 / -1;" class="flex flex-col gap-2">
                             <!-- Filas de periodos inyectadas via JS -->
@@ -408,9 +411,15 @@
                         <div class="form-section-title flex justify-between items-center">
                             <span>Estructura Remunerativa</span>
                             <div class="flex items-center gap-2 font-normal">
-                                <label class="text-xs text-slate-500 normal-case tracking-normal mb-0 mt-0">Mes Seleccionado:</label>
-                                <input type="month" id="mesSalario" class="text-xs px-2 py-1 border rounded text-slate-700 bg-white" onchange="cambiarMesSalario()" required>
-                                <button type="button" class="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 rounded px-2 py-1 transition" onclick="copiarMesAnterior()" title="Copiar del mes anterior"><i class="fas fa-copy"></i> Copiar</button>
+                                <label class="text-xs text-slate-500 normal-case tracking-normal mb-0 mt-0">Mes
+                                    Seleccionado:</label>
+                                <input type="month" id="mesSalario"
+                                    class="text-xs px-2 py-1 border rounded text-slate-700 bg-white"
+                                    onchange="cambiarMesSalario()" required>
+                                <button type="button"
+                                    class="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 rounded px-2 py-1 transition"
+                                    onclick="copiarMesAnterior()" title="Copiar del mes anterior"><i
+                                        class="fas fa-copy"></i> Copiar</button>
                             </div>
                         </div>
 
@@ -526,7 +535,9 @@
                             class="w-full text-sm">
                     </div>
                     <div class="px-3" style="min-width: 130px; transform:translateY(-8px);">
-                        <label class="block text-[10px] font-semibold text-slate-600 uppercase tracking-widest mb-1 text-center" title="Aplica a costos de CUS">¿Costos CUS?</label>
+                        <label
+                            class="block text-[10px] font-semibold text-slate-600 uppercase tracking-widest mb-1 text-center"
+                            title="Aplica a costos de CUS">¿Costos CUS?</label>
                         <div class="flex justify-center mt-1">
                             <label class="switch" style="transform: scale(0.85); margin:0;">
                                 <input type="checkbox" id="catAplicaCus">
@@ -551,7 +562,8 @@
                         <thead class="bg-white border-b border-slate-200 text-slate-500 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th class="py-3 px-6 text-xs font-bold uppercase tracking-wider">Macro-Área</th>
-                                <th class="py-3 px-4 text-xs font-bold text-center uppercase tracking-wider" title="Admite Operarios para CUS">CUS M.O.</th>
+                                <th class="py-3 px-4 text-xs font-bold text-center uppercase tracking-wider"
+                                    title="Admite Operarios para CUS">CUS M.O.</th>
                                 <th class="py-3 px-6 text-xs font-bold uppercase tracking-wider">Detalle</th>
                                 <th class="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right">Acciones
                                 </th>
@@ -621,12 +633,12 @@
                     .order('nombre', { ascending: true });
 
                 if (error) throw error;
-                
+
                 categoriasApp = (data || []).map(c => ({
                     ...c,
                     aplica_cus: c.cus_mano_obra_areas && c.cus_mano_obra_areas.length > 0 ? c.cus_mano_obra_areas[0].activo : false
                 }));
-                
+
                 llenarSelectCategorias();
                 renderTablaCategorias(); // Render en el Modal 
                 renderTabs(); // Renderizar pestañas
@@ -674,12 +686,12 @@
 
             tabsContainer.innerHTML = '';
 
-            // Definir todas las áreas disponibles, empezando por "Todas"
-            const areas = ['Todas', ...categoriasApp.map(c => c.nombre).sort()];
+            // Definir todas las áreas disponibles, empezando por "Todas" y terminando por "Inactivos"
+            const areas = ['Todas', ...categoriasApp.map(c => c.nombre).sort(), 'Inactivos'];
 
             areas.forEach(area => {
                 const btn = document.createElement('button');
-                
+
                 // Estilos base y dinámicos
                 const baseClasses = "px-5 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors focus:outline-none";
                 const activeClasses = "border-blue-600 text-blue-600";
@@ -705,12 +717,33 @@
 
             tbody.innerHTML = '';
 
-            const filtrados = personalApp.filter(p => {
-                const catNombre = p.categorias_personal ? p.categorias_personal.nombre : '';
+            // Obtener fecha de hoy para validar ceses
+            const hoy = new Date().toISOString().split('T')[0];
 
-                // Filtro por pestaña (Macro-Área)
-                if (currentMacroArea !== 'Todas' && catNombre !== currentMacroArea) {
-                    return false;
+            const filtrados = personalApp.filter(p => {
+                // 1. Determinar estado dinámico (Activo/Inactivo) basado en historial
+                let esActivo = true;
+                if (p.periodos_contratacion && p.periodos_contratacion.length > 0) {
+                    const periodos = [...p.periodos_contratacion].sort((a, b) => new Date(a.ingreso) - new Date(b.ingreso));
+                    const ultimoPeriodo = periodos[periodos.length - 1];
+                    if (ultimoPeriodo.cese && ultimoPeriodo.cese <= hoy) {
+                        esActivo = false;
+                    }
+                }
+
+                // Sobrescribir temporalmente la propiedad activo para el render visual
+                p.activo = esActivo;
+
+                // 2. Filtro por pestaña (Macro-Área y Estado)
+                if (currentMacroArea === 'Inactivos') {
+                    if (esActivo) return false;
+                } else {
+                    if (!esActivo) return false;
+
+                    const catNombre = p.categorias_personal ? p.categorias_personal.nombre : '';
+                    if (currentMacroArea !== 'Todas' && catNombre !== currentMacroArea) {
+                        return false;
+                    }
                 }
 
                 // Búsqueda inteligente
@@ -739,7 +772,7 @@
                 const targetMonth = getDefaultMonth();
                 const salarios = trabajador.personal_salarios || [];
                 const salActual = salarios.find(s => s.anio_mes === targetMonth) || { monto_salario_base: 0, monto_salario_kpi: 0 };
-                
+
                 const formatoMoneda = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
                 const baseS = formatoMoneda.format(salActual.monto_salario_base);
                 const kpiS = formatoMoneda.format(salActual.monto_salario_kpi);
@@ -892,7 +925,7 @@
                         .select('id')
                         .eq('categoria_id', savedCatId)
                         .single();
-                    
+
                     if (existingCus) {
                         await window.supabaseClient.from('cus_mano_obra_areas').update({ activo: aplicaCus }).eq('id', existingCus.id);
                     } else {
@@ -1024,7 +1057,7 @@
 
             const currentMonth = getDefaultMonth();
             document.getElementById('mesSalario').value = currentMonth;
-            
+
             const salarios = target.personal_salarios || [];
             const salActual = salarios.find(s => s.anio_mes === currentMonth) || { monto_salario_base: 0, monto_salario_kpi: 0 };
             document.getElementById('montoBase').value = salActual.monto_salario_base;
@@ -1040,7 +1073,7 @@
             const id = document.getElementById('personalId').value;
             const targetMonth = document.getElementById('mesSalario').value;
             if (!targetMonth || !id) {
-                if(!id && targetMonth) {
+                if (!id && targetMonth) {
                     // Si es crear trabajador y cambia el mes, dejamos en 0. Ya que es nuevo.
                     document.getElementById('montoBase').value = '0.00';
                     document.getElementById('montoKpi').value = '0.00';
@@ -1052,7 +1085,7 @@
             if (!target) return;
             const salarios = target.personal_salarios || [];
             const salActual = salarios.find(s => s.anio_mes === targetMonth) || { monto_salario_base: 0, monto_salario_kpi: 0 };
-            
+
             document.getElementById('montoBase').value = salActual.monto_salario_base;
             document.getElementById('montoKpi').value = salActual.monto_salario_kpi;
         }
@@ -1066,17 +1099,17 @@
             }
 
             const [y, m] = targetMonth.split('-');
-            let date = new Date(y, parseInt(m)-1, 1);
+            let date = new Date(y, parseInt(m) - 1, 1);
             date.setMonth(date.getMonth() - 1);
             let prevY = date.getFullYear();
             let prevM = String(date.getMonth() + 1).padStart(2, '0');
             let prevMonth = `${prevY}-${prevM}`;
 
-            if(id) {
+            if (id) {
                 const target = personalApp.find(p => p.id === id);
                 const salarios = target.personal_salarios || [];
                 const salPrev = salarios.find(s => s.anio_mes === prevMonth);
-                
+
                 if (salPrev) {
                     document.getElementById('montoBase').value = salPrev.monto_salario_base;
                     document.getElementById('montoKpi').value = salPrev.monto_salario_kpi;
@@ -1104,7 +1137,7 @@
         function agregarPeriodoContratacion(ingreso = '', cese = '') {
             const container = document.getElementById('container-periodos');
             const rowId = 'periodo_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-            
+
             const row = document.createElement('div');
             row.className = 'flex items-end gap-3 bg-white p-3 rounded border border-slate-200';
             row.id = rowId;
@@ -1125,7 +1158,7 @@
             const container = document.getElementById('container-periodos');
             const rows = container.querySelectorAll('div[id^="periodo_"]');
             const periodos = [];
-            
+
             rows.forEach(row => {
                 const ingreso = row.querySelector('.input-ingreso').value;
                 const cese = row.querySelector('.input-cese').value;
@@ -1136,7 +1169,7 @@
                     });
                 }
             });
-            
+
             // Ordenar por fecha de ingreso
             return periodos.sort((a, b) => new Date(a.ingreso) - new Date(b.ingreso));
         }
@@ -1198,21 +1231,21 @@
                         if (error.code === '23505') throw new Error("Ya existe un trabajador con ese número de documento en la empresa.");
                         throw error;
                     }
-                    if(newP) savedPersonalId = newP.id;
+                    if (newP) savedPersonalId = newP.id;
                 }
 
                 // --------- GUARDAR ESTRUCTURA SALARIAL DEL MES SELECCIONADO ---------
                 const monthSel = document.getElementById('mesSalario').value;
-                if (monthSel) { 
+                if (monthSel) {
                     const baseV = parseFloat(document.getElementById('montoBase').value || 0);
                     const kpiV = parseFloat(document.getElementById('montoKpi').value || 0);
 
                     const { data: existSal } = await window.supabaseClient.from('personal_salarios')
-                            .select('id')
-                            .eq('personal_id', savedPersonalId)
-                            .eq('anio_mes', monthSel)
-                            .single();
-                    
+                        .select('id')
+                        .eq('personal_id', savedPersonalId)
+                        .eq('anio_mes', monthSel)
+                        .single();
+
                     if (existSal) {
                         await window.supabaseClient.from('personal_salarios').update({
                             monto_salario_base: baseV,
