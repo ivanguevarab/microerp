@@ -722,10 +722,15 @@
 
             // Preparación contextual si eligiera inyección/retiro de Accionistas
             let sociosHTML = '';
-            const { data: socios } = await window.supabaseClient.from('personal')
-                .select('id, nombres, apellidos, categorias_personal!inner(nombre)')
-                .eq('empresa_id', currentEmpresaId)
-                .eq('categorias_personal.nombre', 'Socio / Accionista');
+            const { data: sociosRaw } = await window.supabaseClient.from('personal')
+                .select('id, nombres, apellidos, cargo_rol, categorias_personal!inner(nombre)')
+                .eq('empresa_id', currentEmpresaId);
+                
+            // Filtro inteligente para incluir tanto la Macro-Área como la Nomenclatura Híbrida en el Cargo Específico
+            const socios = (sociosRaw || []).filter(s => 
+                s.categorias_personal.nombre === 'Socio / Accionista' || 
+                (s.cargo_rol && (s.cargo_rol.toLowerCase().includes('accionista') || s.cargo_rol.toLowerCase().includes('socio')))
+            );
             
             if (socios && socios.length > 0) {
                 sociosHTML = '<select id="swald-socio" class="border border-gray-300 rounded px-3 py-2 outline-none bg-white text-sm hidden w-full mb-2"><option value="">-- Seleccione Accionista --</option>';
