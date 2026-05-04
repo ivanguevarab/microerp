@@ -86,19 +86,17 @@
                 // 2. OBTENER SALDOS DEL MES EN CURSO
                 const { data: bancos } = await window.supabaseClient
                     .from('banco_horas')
-                    .select('personal_id, saldo_acumulado, fecha_movimiento, created_at')
+                    .select('personal_id, cantidad_horas, fecha_movimiento')
                     .eq('empresa_id', currentEmpresaId)
                     .gte('fecha_movimiento', prmDia)
-                    .lte('fecha_movimiento', ultDia)
-                    .order('fecha_movimiento', { ascending: false })
-                    .order('created_at', { ascending: false });
+                    .lte('fecha_movimiento', ultDia);
 
                 const saldoBancoMap = {};
                 (bancos || []).forEach(bh => {
-                    // Solo guardamos el primer (ultimo) registro hallado por ordenado por fecha desc
                     if (saldoBancoMap[bh.personal_id] === undefined) {
-                        saldoBancoMap[bh.personal_id] = parseFloat(bh.saldo_acumulado || 0);
+                        saldoBancoMap[bh.personal_id] = 0;
                     }
+                    saldoBancoMap[bh.personal_id] += parseFloat(bh.cantidad_horas || 0);
                 });
 
                 // 3. SEPARAR Y ORDENAR ALERTAS
@@ -106,26 +104,32 @@
                 const alertasPositivas = [];
 
                 listado.forEach(p => {
-                    const saldo = saldoBancoMap[p.id];
-                    if (saldo === undefined || saldo === 0) return;
+                    const rawSaldo = saldoBancoMap[p.id];
+                    if (rawSaldo === undefined || rawSaldo === 0) return;
+                    
+                    // Redondear a 2 decimales para evitar problemas de coma flotante
+                    const saldo = parseFloat(rawSaldo.toFixed(2));
+                    if (saldo === 0) return;
                     
                     if (saldo < 0) {
                         alertasNegativas.push({
                             sortKey: p.apellidos + ' ' + p.nombres,
+                            saldo: saldo,
                             html: `<strong class="text-slate-200">${p.nombres.split(' ')[0]} ${p.apellidos.split(' ')[0]}</strong> mantiene una deuda de <strong class="text-rose-400 drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]">${Math.abs(saldo)} horas</strong>. Se descontará en planilla.`
                         });
                     } else if (saldo > 0) {
                         const accion = p.pago_horas_extras_habilitado ? "abonará en Efectivo" : "reservará para Canje";
                         alertasPositivas.push({
                             sortKey: p.apellidos + ' ' + p.nombres,
+                            saldo: saldo,
                             html: `<strong class="text-slate-200">${p.nombres.split(' ')[0]} ${p.apellidos.split(' ')[0]}</strong> tiene saldo a favor de <strong class="text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]">+${saldo} horas</strong>. Se ${accion} según perfil.`
                         });
                     }
                 });
 
-                // Ordenar alfabéticamente A-Z
-                alertasNegativas.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-                alertasPositivas.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+                // Ordenar por valor absoluto de horas (Los que más tienen/deben arriba)
+                alertasNegativas.sort((a, b) => a.saldo - b.saldo); // Más negativo (mayor deuda) primero
+                alertasPositivas.sort((a, b) => b.saldo - a.saldo); // Más positivo (mayor excedente) primero
 
                 // 4. RENDERIZAR
                 const dListNeg = document.getElementById('alertListNegativo');
