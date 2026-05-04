@@ -555,7 +555,7 @@
                     .from('liquidaciones_mensuales')
                     .select(`
                         *,
-                        personal(nombres, apellidos, documento_identidad, cargo_rol, pago_horas_extras_habilitado, categorias_personal(nombre)),
+                        personal(nombres, apellidos, documento_identidad, cargo_rol, requiere_marcacion, pago_horas_extras_habilitado, periodos_contratacion, categorias_personal(nombre)),
                         conceptos_pago(*)
                     `)
                     .eq('periodo_mes', mes)
@@ -564,7 +564,24 @@
 
                 if (error) throw error;
 
-                liquidacionesApp = liqs || [];
+                // Filtrar liquidaciones de gente inactiva en el mes consultado (Máquina del Tiempo)
+                const [yyyy, mm] = mes.split('-');
+                const firstDayOfMonth = `${yyyy}-${mm}-01`;
+                const dateFin = new Date(yyyy, mm, 0);
+                const lastDayOfMonth = `${yyyy}-${mm}-${String(dateFin.getDate()).padStart(2, '0')}`;
+
+                liquidacionesApp = (liqs || []).filter(liq => {
+                    if (!liq.personal) return false;
+                    const p = liq.personal;
+                    if (!p.periodos_contratacion || p.periodos_contratacion.length === 0) return true; // Failsafe
+                    
+                    return p.periodos_contratacion.some(periodo => {
+                        const ingresoValido = periodo.ingreso <= lastDayOfMonth;
+                        const ceseValido = !periodo.cese || periodo.cese >= firstDayOfMonth;
+                        return ingresoValido && ceseValido;
+                    });
+                });
+
                 renderTabla();
             } catch (err) {
                 console.error("Error cargando liquidaciones: ", err);
@@ -582,23 +599,42 @@
 
             try {
                 // ALGORITMO DE GENERACIÓN NÓMINA:
-                // Paso 1: Obtener todo el personal activo que requiere marcación
-                const { data: personalList } = await window.supabaseClient
+                // Paso 1: Obtener todo el personal de la empresa (ignorando estado 'activo' y 'requiere_marcacion')
+                const { data: rawPersonalList } = await window.supabaseClient
                     .from('personal')
                     .select('*, personal_salarios(*)')
-                    .eq('empresa_id', currentEmpresaId)
-                    .eq('activo', true)
-                    .eq('requiere_marcacion', true);
+                    .eq('empresa_id', currentEmpresaId);
 
-                if (!personalList || personalList.length === 0) {
-                    alert("No hay personal activo sujeto a marcación para liquidar.");
+                if (!rawPersonalList || rawPersonalList.length === 0) {
+                    alert("No hay personal en la base de datos.");
+                    return;
+                }
+
+                // Aplicar Máquina del Tiempo
+                const [yyyy, mm] = mes.split('-');
+                const firstDayOfMonth = `${yyyy}-${mm}-01`;
+                const dateFin = new Date(yyyy, mm, 0);
+                const lastDayOfMonth = `${yyyy}-${mm}-${String(dateFin.getDate()).padStart(2, '0')}`;
+                
+                const personalList = rawPersonalList.filter(p => {
+                    if (!p.periodos_contratacion || p.periodos_contratacion.length === 0) return true; // Failsafe
+                    
+                    return p.periodos_contratacion.some(periodo => {
+                        const ingresoValido = periodo.ingreso <= lastDayOfMonth;
+                        const ceseValido = !periodo.cese || periodo.cese >= firstDayOfMonth;
+                        return ingresoValido && ceseValido;
+                    });
+                });
+
+                if (personalList.length === 0) {
+                    alert("No hay personal que haya laborado en el mes seleccionado.");
+                    btn.innerHTML = '<i class="fas fa-sync-alt"></i> Generar / Actualizar Planilla';
+                    btn.disabled = false;
                     return;
                 }
 
                 // Paso 2: Obtener sumatorias de horas del calendario del mes
-                const [yyyy, mm] = mes.split('-');
                 const fechaInicio = `${yyyy}-${mm}-01`;
-                const dateFin = new Date(yyyy, mm, 0);
                 const fechaFin = `${yyyy}-${mm}-${String(dateFin.getDate()).padStart(2, '0')}`;
 
                 const { data: calendarios } = await window.supabaseClient
@@ -844,6 +880,12 @@
                     extHtm = `<span class="text-slate-400 text-xs">Sin saldo</span>`;
                 }
 
+                let tasaHtml = `<div class="text-[0.7rem] text-slate-400">Tasa: ${parseFloat(liq.tasa_horaria).toFixed(2)}/h</div>`;
+                if (p.requiere_marcacion === false) {
+                    tasaHtml = `<div class="text-[0.65rem] font-bold text-slate-600 mt-1 bg-slate-100 inline-block px-1.5 py-0.5 rounded border border-slate-200">Sin Marcación</div>`;
+                    extHtm = `<span class="text-slate-400 text-xs font-medium italic">Sin Marcación</span>`;
+                }
+
                 // Generar Info Conceptos
                 let concHtm = `<div class="text-xs space-y-0.5">`;
                 if (parseFloat(liq.total_adelantos) > 0) concHtm += `<div class="text-red-500">Adelantos: -${formatoMoneda.format(liq.total_adelantos)}</div>`;
@@ -889,7 +931,7 @@
                 </td>
                 <td class="py-3 px-6 text-right">
                     <div class="font-bold text-slate-700">${tBaseS}</div>
-                    <div class="text-[0.7rem] text-slate-400">Tasa: ${parseFloat(liq.tasa_horaria).toFixed(2)}/h</div>
+                    ${tasaHtml}
                 </td>
                 <td class="py-3 px-6 text-right">
                     ${extHtm}
