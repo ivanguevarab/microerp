@@ -233,7 +233,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 mb-1">Mes y Año</label>
-                    <input type="month" id="inputMes" class="form-control" onchange="cargarCalendario()">
+                    <input type="month" id="inputMes" class="form-control" onchange="manejarCambioMes()">
                 </div>
                 <div style="margin-top: 1.25rem; margin-left: auto; text-align: right;">
                     <div id="statsHorasEfectivas" class="text-sm font-bold text-slate-600 mb-2">Total Horas
@@ -445,7 +445,7 @@
             try {
                 const { data, error } = await window.supabaseClient
                     .from('personal')
-                    .select('id, nombres, apellidos')
+                    .select('id, nombres, apellidos, cargo_rol, documento_identidad, periodos_contratacion, categorias_personal(nombre)')
                     .eq('empresa_id', currentEmpresaId)
                     .eq('requiere_marcacion', true)
                     .order('apellidos');
@@ -453,18 +453,95 @@
                 if (error) throw error;
                 personalList = data || [];
 
-                const select = document.getElementById('selectPersonal');
-                select.innerHTML = '<option value="">-- Seleccione un trabajador --</option>';
+                renderSelectPersonal();
 
-                personalList.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.id;
-                    opt.textContent = `${p.apellidos}, ${p.nombres}`;
-                    select.appendChild(opt);
-                });
             } catch (err) {
                 console.error("Error cargando combo de personal", err);
                 alert("Error cargando lista de personal. Revise consola.");
+            }
+        }
+
+        function manejarCambioMes() {
+            renderSelectPersonal();
+            cargarCalendario();
+        }
+
+        function renderSelectPersonal() {
+            const select = document.getElementById('selectPersonal');
+            const currentSelected = select.value;
+            const mesInput = document.getElementById('inputMes').value; // YYYY-MM
+            
+            select.innerHTML = '';
+
+            if (personalList.length === 0) {
+                select.innerHTML = '<option value="">No hay personal registrado</option>';
+                select.disabled = true;
+                return;
+            }
+            
+            // Determinar inicio y fin de mes consultado
+            if (!mesInput) return;
+            const [yyyy, mm] = mesInput.split('-');
+            const firstDayOfMonth = `${yyyy}-${mm}-01`;
+            const lastDate = new Date(yyyy, mm, 0);
+            const lastDayOfMonth = `${yyyy}-${mm}-${String(lastDate.getDate()).padStart(2, '0')}`;
+
+            // 1. Filtrar trabajadores válidos para el mes
+            const trabajadoresValidos = personalList.filter(p => {
+                if (!p.periodos_contratacion || p.periodos_contratacion.length === 0) return true; // Failsafe
+                
+                // Tiene algún periodo activo en este mes?
+                return p.periodos_contratacion.some(periodo => {
+                    const ingresoValido = periodo.ingreso <= lastDayOfMonth;
+                    const ceseValido = !periodo.cese || periodo.cese >= firstDayOfMonth;
+                    return ingresoValido && ceseValido;
+                });
+            });
+
+            if (trabajadoresValidos.length === 0) {
+                select.innerHTML = '<option value="">Ningún colaborador laboró en este mes</option>';
+                select.disabled = true;
+                return;
+            }
+
+            select.disabled = false;
+
+            // 2. Agrupar por Macro-Área
+            const agrupado = {};
+            trabajadoresValidos.forEach(p => {
+                const area = p.categorias_personal ? p.categorias_personal.nombre : 'Sin Asignar';
+                if (!agrupado[area]) agrupado[area] = [];
+                agrupado[area].push(p);
+            });
+
+            // 3. Renderizar optgroups ordenados
+            const areasOrdenadas = Object.keys(agrupado).sort();
+            
+            // Opción por defecto
+            select.innerHTML = '<option value="">-- Seleccione un trabajador --</option>';
+
+            areasOrdenadas.forEach(area => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = area;
+                
+                const trabajadores = agrupado[area].sort((a, b) => a.apellidos.localeCompare(b.apellidos));
+                
+                trabajadores.forEach(p => {
+                    let nom = p.nombres.split(' ')[0];
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = `${p.apellidos}, ${nom} - ${p.cargo_rol || 'Operativo'} (DNI/CE: ${p.documento_identidad})`;
+                    optgroup.appendChild(opt);
+                });
+                
+                select.appendChild(optgroup);
+            });
+
+            // 4. Preservar selección
+            if (currentSelected && trabajadoresValidos.some(p => p.id === currentSelected)) {
+                select.value = currentSelected;
+            } else {
+                select.selectedIndex = 0; 
             }
         }
 
