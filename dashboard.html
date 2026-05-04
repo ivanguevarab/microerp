@@ -545,22 +545,53 @@
         document.getElementById('kpi-produccion').textContent = !error && count !== null ? count : '0';
       } catch (err) { console.error('Error KPI Producción', err); }
 
-      // --- KPI 4: FLUJO DE CAJA ---
+      // --- KPI 4: VARIACIÓN NETA DE EFECTIVO ---
       try {
-        const { data, error } = await window.supabaseClient.rpc('fn_dashboard_saldo_caja_real');
-
-        let saldoReal = 0;
-        if (!error && data !== null && data !== undefined) {
-            saldoReal = Number(data);
+        // 1. Obtener Saldo Real Actual (Saldo Final de Hoy)
+        const { data: saldoData, error: saldoErr } = await window.supabaseClient.rpc('fn_dashboard_saldo_caja_real');
+        let saldoActual = 0;
+        if (!saldoErr && saldoData !== null && saldoData !== undefined) {
+            saldoActual = Number(saldoData);
         } else {
-            if(error) console.error('Error KPI Flujo Caja desde Supabase:', error);
+            if(saldoErr) console.error('Error Saldo Real:', saldoErr);
         }
 
-        const elFluja = document.getElementById('kpi-flujo-caja');
-        if (saldoReal >= 0) {
-          elFluja.innerHTML = `<span class="text-emerald-500 font-extrabold">${formatCurrency(saldoReal)}</span>`;
+        // 2. Obtener Saldo Inicial del Mes desde fc_saldos_diarios
+        let saldoInicialMes = 0;
+        const { data: inicialData, error: inicialErr } = await window.supabaseClient
+          .from('fc_saldos_diarios')
+          .select('saldo_inicial')
+          .gte('fecha', firstDayStr)
+          .lte('fecha', lastDayStr)
+          .order('fecha', { ascending: true })
+          .limit(1);
+
+        if (!inicialErr && inicialData && inicialData.length > 0) {
+            saldoInicialMes = Number(inicialData[0].saldo_inicial);
         } else {
-          elFluja.innerHTML = `<span class="text-rose-500 font-extrabold">- ${formatCurrency(Math.abs(saldoReal))}</span>`;
+            // Si no hay registros en este mes, tomamos el saldo final del último día del mes anterior
+            const { data: prevData, error: prevErr } = await window.supabaseClient
+              .from('fc_saldos_diarios')
+              .select('saldo_final_sistema')
+              .lt('fecha', firstDayStr)
+              .order('fecha', { ascending: false })
+              .limit(1);
+              
+            if (!prevErr && prevData && prevData.length > 0) {
+                saldoInicialMes = Number(prevData[0].saldo_final_sistema);
+            }
+        }
+
+        // 3. Calcular Variación
+        const variacionNeta = saldoActual - saldoInicialMes;
+        const elFluja = document.getElementById('kpi-flujo-caja');
+        
+        if (variacionNeta > 0) {
+          elFluja.innerHTML = `<span class="text-emerald-500 font-extrabold">+ ${formatCurrency(variacionNeta)}</span>`;
+        } else if (variacionNeta < 0) {
+          elFluja.innerHTML = `<span class="text-rose-500 font-extrabold">- ${formatCurrency(Math.abs(variacionNeta))}</span>`;
+        } else {
+          elFluja.innerHTML = `<span class="text-white font-extrabold">${formatCurrency(0)}</span>`;
         }
       } catch (err) { console.error('Error KPI Flujo Caja', err); }
     }
