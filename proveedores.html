@@ -539,15 +539,25 @@
       opacity: 0.5;
     }
 
-    .ruc-tag {
+    .doc-tag {
       display: inline-block;
-      background: #fff3e0;
-      color: #e65100;
       padding: 4px 10px;
       border-radius: 4px;
       font-family: 'Courier New', monospace;
       font-weight: 600;
       font-size: 13px;
+    }
+
+    .doc-tag.DNI {
+      background: #e3f2fd;
+      color: #1565c0;
+      border: 1px solid #bbdefb;
+    }
+
+    .doc-tag.RUC {
+      background: #fff3e0;
+      color: #e65100;
+      border: 1px solid #ffe0b2;
     }
 
     /* Nuevos estilos para botón de búsqueda RUC */
@@ -804,7 +814,8 @@
     }
 
     /* Badges, Tags & WhatsApp/Call Buttons */
-    html.dark .ruc-tag { background: rgba(234, 88, 12, 0.1) !important; color: #f97316 !important; border: 1px solid rgba(234, 88, 12, 0.3) !important; }
+    html.dark .doc-tag.RUC { background: rgba(234, 88, 12, 0.1) !important; color: #f97316 !important; border: 1px solid rgba(234, 88, 12, 0.3) !important; }
+    html.dark .doc-tag.DNI { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; border: 1px solid rgba(59, 130, 246, 0.3) !important; }
     html.dark .badge-active { background-color: rgba(16, 185, 129, 0.1) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
     html.dark .badge-inactive { background-color: rgba(225, 29, 72, 0.1) !important; color: #fb7185 !important; border: 1px solid rgba(225, 29, 72, 0.3) !important; }
 
@@ -963,19 +974,19 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label for="ruc">RUC *</label>
+                <label id="lblRuc" for="ruc">Documento (RUC / DNI) *</label>
                 <div class="input-group">
-                  <input type="text" id="ruc" required placeholder="Ej: 20123456789" maxlength="11" pattern="[0-9]{11}">
+                  <input type="text" id="ruc" required placeholder="Ej: 20123456789 o 71234567" maxlength="11" oninput="actualizarModoDocumento(this.value)">
                   <a href="https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaWeb.jsp"
-                    target="_blank" class="btn-search-ruc" style="text-decoration: none;"
+                    target="_blank" class="btn-search-ruc" id="btnSearchDoc" style="text-decoration: none;"
                     title="Consulta Manual en SUNAT">
-                    🌐
+                    🏢
                   </a>
                 </div>
-                <div class="form-hint">11 dígitos numéricos</div>
+                <div class="form-hint" id="docHint">11 o 8 dígitos numéricos</div>
               </div>
 
-              <div class="form-group">
+              <div class="form-group" id="groupNombreComercial">
                 <label for="nombre_comercial">Nombre Comercial <span class="optional-tag">(opcional)</span></label>
                 <input type="text" id="nombre_comercial" placeholder="Ej: Aceros del Norte" maxlength="200">
               </div>
@@ -983,17 +994,17 @@
 
             <div class="form-row single">
               <div class="form-group">
-                <label for="razon_social">Razón Social *</label>
+                <label id="lblRazonSocial" for="razon_social">Razón Social *</label>
                 <input type="text" id="razon_social" required placeholder="Ej: ACEROS DEL NORTE S.A.C." maxlength="200">
-                <div class="form-hint">Razón social oficial registrada en SUNAT</div>
+                <div class="form-hint" id="razonSocialHint">Razón social oficial registrada en SUNAT</div>
               </div>
             </div>
           </div>
 
-          <!-- SECCIÓN: CONTACTO 1 -->
-          <div class="form-section">
+          <!-- SECCIÓN: CONTACTO 1 (MÚLTIPLE) -->
+          <div class="form-section" id="sectionContactoPersonal">
             <div class="form-section-title">
-              👤 Contacto Principal <span class="optional-tag">(opcional)</span>
+              👤 Persona de Contacto <span class="optional-tag">(opcional)</span>
             </div>
 
             <div class="form-row">
@@ -1007,10 +1018,17 @@
                 <input type="text" id="contacto1_cargo" placeholder="Ej: Gerente de Ventas" maxlength="100">
               </div>
             </div>
+          </div>
 
+          <!-- SECCIÓN: CONTACTO TELEFÓNICO -->
+          <div class="form-section" id="sectionContactoTelefono">
+            <div class="form-section-title" id="titleContactoTelefono">
+              📞 Datos de Contacto
+            </div>
+            
             <div class="form-row">
               <div class="form-group">
-                <label for="contacto1_celular">Celular</label>
+                <label for="contacto1_celular">Celular Principal</label>
                 <input type="text" id="contacto1_celular" placeholder="987654321" maxlength="20">
               </div>
 
@@ -1021,37 +1039,11 @@
               </div>
             </div>
           </div>
-
-          <!-- SECCIÓN: CONTACTO 2 -->
-          <div class="form-section">
-            <div class="form-section-title">
-              👤 Contacto Secundario <span class="optional-tag">(opcional)</span>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="contacto2_nombre">Nombre</label>
-                <input type="text" id="contacto2_nombre" placeholder="Ej: María López" maxlength="100">
-              </div>
-
-              <div class="form-group">
-                <label for="contacto2_cargo">Cargo</label>
-                <input type="text" id="contacto2_cargo" placeholder="Ej: Asistente" maxlength="100">
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="contacto2_celular">Celular</label>
-                <input type="text" id="contacto2_celular" placeholder="987654321" maxlength="20">
-              </div>
-
-              <div class="form-group">
-                <label for="contacto2_whatsapp">WhatsApp</label>
-                <input type="text" id="contacto2_whatsapp" placeholder="987654321" maxlength="20">
-              </div>
-            </div>
-          </div>
+          
+          <input type="hidden" id="contacto2_nombre">
+          <input type="hidden" id="contacto2_cargo">
+          <input type="hidden" id="contacto2_celular">
+          <input type="hidden" id="contacto2_whatsapp">
         </form>
       </div>
       <div class="modal-footer">
@@ -1166,7 +1158,7 @@
         <table>
           <thead>
             <tr>
-              <th>RUC</th>
+              <th>Documento</th>
               <th>Razón Social</th>
               <th>Nombre Comercial</th>
               <th>Contactos</th>
@@ -1176,23 +1168,36 @@
           </thead>
           <tbody>
             ${datos.map(p => {
-        const tieneContacto1 = p.contacto1_nombre || p.contacto1_celular || p.contacto1_whatsapp;
-        const tieneContacto2 = p.contacto2_nombre || p.contacto2_celular || p.contacto2_whatsapp;
-        const totalContactos = (tieneContacto1 ? 1 : 0) + (tieneContacto2 ? 1 : 0);
+        const docValue = p.ruc || '';
+        const docTipo = docValue.length === 8 ? 'DNI' : 'RUC';
+        
+        let subName = '';
+        if (p.nombre_comercial && p.nombre_comercial !== p.razon_social && docTipo === 'RUC') {
+            subName = `<div style="font-size:12px; color:#7f8c8d; margin-top:2px">(${p.nombre_comercial})</div>`;
+        }
+
+        const tieneContacto = p.contacto1_nombre || p.contacto1_celular || p.contacto1_whatsapp;
 
         return `
                 <tr>
-                  <td><span class="ruc-tag">${p.ruc}</span></td>
-                  <td><strong>${p.razon_social}</strong></td>
-                  <td>${p.nombre_comercial || '<span style="color: #bdc3c7;">-</span>'}</td>
                   <td>
-                    ${totalContactos > 0 ? `
+                    <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
+                      <span class="doc-tag ${docTipo}">${docTipo}</span>
+                      <span style="font-family:monospace; font-weight:600; color:#555">${docValue || 'S/N'}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <strong>${p.razon_social}</strong>
+                    ${subName}
+                  </td>
+                  <td>${docTipo === 'DNI' ? '<span style="color: #bdc3c7;">N/A</span>' : (p.nombre_comercial || '<span style="color: #bdc3c7;">-</span>')}</td>
+                  <td>
+                    ${tieneContacto ? `
                       <button class="contact-toggle" onclick="toggleContactos('${p.id}')">
-                        👥 Ver Contactos (${totalContactos}) ⬇️
+                        👥 Ver Contactos ⬇️
                       </button>
                       <div id="contactos-${p.id}" class="contact-details">
                         ${renderizarDetalleContacto(p, 1)}
-                        ${renderizarDetalleContacto(p, 2)}
                       </div>
                     ` : '<span style="color: #bdc3c7;">Sin contactos</span>'}
                   </td>
@@ -1261,6 +1266,55 @@
     }
 
     // ============================================
+    // LOGICA DE DOCUMENTOS (DNI/RUC)
+    // ============================================
+    function actualizarModoDocumento(valor) {
+        const valStr = (valor || '').replace(/\D/g, '');
+        const btnSearch = document.getElementById('btnSearchDoc');
+        const docHint = document.getElementById('docHint');
+        
+        const groupNombreComercial = document.getElementById('groupNombreComercial');
+        const sectionContactoPersonal = document.getElementById('sectionContactoPersonal');
+        const lblRazonSocial = document.getElementById('lblRazonSocial');
+        const razonSocialHint = document.getElementById('razonSocialHint');
+        const inputRazon = document.getElementById('razon_social');
+        const inputComercial = document.getElementById('nombre_comercial');
+        
+        if (valStr.length <= 8) {
+            // Modo Persona / DNI
+            btnSearch.href = "https://eldni.com/pe/buscar-datos-por-dni";
+            btnSearch.title = "Buscar Persona por DNI (eldni.com)";
+            btnSearch.innerHTML = '🪪';
+            docHint.innerText = "8 dígitos numéricos para DNI";
+            
+            groupNombreComercial.style.display = 'none';
+            sectionContactoPersonal.style.display = 'none';
+            
+            lblRazonSocial.innerText = 'Nombre Completo *';
+            razonSocialHint.innerText = "Nombre de la Persona Natural";
+            inputRazon.placeholder = "Ej: Juan Pérez";
+            
+            // Clean up fields just in case
+            if(groupNombreComercial.style.display === 'none' && !proveedorEditando) {
+               inputComercial.value = '';
+            }
+        } else {
+            // Modo Empresa / RUC
+            btnSearch.href = "https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaWeb.jsp";
+            btnSearch.title = "Consulta RUC (SUNAT)";
+            btnSearch.innerHTML = '🏢';
+            docHint.innerText = "11 dígitos numéricos para RUC";
+            
+            groupNombreComercial.style.display = '';
+            sectionContactoPersonal.style.display = 'block';
+            
+            lblRazonSocial.innerText = 'Razón Social *';
+            razonSocialHint.innerText = "Razón social oficial registrada en SUNAT";
+            inputRazon.placeholder = "Ej: ACEROS DEL NORTE S.A.C.";
+        }
+    }
+
+    // ============================================
     // CRUD
     // ============================================
     function abrirModalNuevo() {
@@ -1269,8 +1323,9 @@
       document.getElementById('proveedorId').value = '';
       document.getElementById('modalTitle').innerText = 'Nuevo Proveedor';
       document.getElementById('modal').classList.add('active');
+      actualizarModoDocumento('');
 
-      // Focus en RUC
+      // Focus en Documento
       setTimeout(() => document.getElementById('ruc').focus(), 100);
     }
 
@@ -1286,8 +1341,8 @@
       const razon_social = document.getElementById('razon_social').value.trim();
 
       // Validaciones
-      if (!/^\d{11}$/.test(ruc)) {
-        mostrarToast('El RUC debe tener 11 dígitos numéricos', 'warning');
+      if (!/^\d{8}$/.test(ruc) && !/^\d{11}$/.test(ruc)) {
+        mostrarToast('El documento debe tener 8 (DNI) u 11 (RUC) dígitos numéricos', 'warning');
         return;
       }
 
@@ -1379,8 +1434,8 @@
       document.getElementById('modalTitle').innerText = 'Editar Proveedor';
 
       // Llenar campos
-      document.getElementById('ruc').value = proveedor.ruc;
-      document.getElementById('razon_social').value = proveedor.razon_social;
+      document.getElementById('ruc').value = proveedor.ruc || '';
+      document.getElementById('razon_social').value = proveedor.razon_social || '';
       document.getElementById('nombre_comercial').value = proveedor.nombre_comercial || '';
 
       // Contacto 1
@@ -1389,13 +1444,14 @@
       document.getElementById('contacto1_celular').value = proveedor.contacto1_celular || '';
       document.getElementById('contacto1_whatsapp').value = proveedor.contacto1_whatsapp || '';
 
-      // Contacto 2
-      document.getElementById('contacto2_nombre').value = proveedor.contacto2_nombre || '';
-      document.getElementById('contacto2_cargo').value = proveedor.contacto2_cargo || '';
-      document.getElementById('contacto2_celular').value = proveedor.contacto2_celular || '';
-      document.getElementById('contacto2_whatsapp').value = proveedor.contacto2_whatsapp || '';
+      // Contacto 2 (Limpieza por obsolescencia UI)
+      document.getElementById('contacto2_nombre').value = '';
+      document.getElementById('contacto2_cargo').value = '';
+      document.getElementById('contacto2_celular').value = '';
+      document.getElementById('contacto2_whatsapp').value = '';
 
       document.getElementById('modal').classList.add('active');
+      actualizarModoDocumento(proveedor.ruc || '');
     }
 
     async function eliminarProveedor(id, nombre) {
