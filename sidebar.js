@@ -399,14 +399,13 @@
                 });
 
                 const isOpen = (function () {
-                    // Prioridad 1: Si estoy dentro del módulo, forzar abierto y actualizar memoria
+                    // Prioridad 1: Si estoy dentro del módulo, forzar abierto (SIN guardar en memoria permanente)
                     if (hasActiveChild) {
-                        localStorage.setItem(`sidebar_state_v2_${itemConfig.id}`, 'true');
                         return true;
                     }
 
-                    // Prioridad 2: Respetar la memoria del usuario guardada previamente
-                    const storedState = localStorage.getItem(`sidebar_state_v2_${itemConfig.id}`);
+                    // Prioridad 2: Respetar la memoria del usuario guardada previamente (clic manual)
+                    const storedState = localStorage.getItem(`sidebar_state_v3_${itemConfig.id}`);
                     if (storedState !== null) {
                         return storedState === 'true';
                     }
@@ -503,7 +502,7 @@
                 parentDiv.classList.remove('bg-slate-900/40');
                 const iconDiv = parentDiv.querySelector('.w-8');
                 iconDiv.classList.remove('border-amber-500/50', 'text-amber-500');
-                localStorage.setItem(`sidebar_state_v2_${id}`, 'false'); // Guardar estado cerrado
+                localStorage.setItem(`sidebar_state_v3_${id}`, 'false'); // Guardar estado cerrado
             } else {
                 content.classList.add('expanded');
                 content.style.maxHeight = content.scrollHeight + "px"; // Animación smooth
@@ -511,7 +510,7 @@
                 parentDiv.classList.add('bg-slate-900/40');
                 const iconDiv = parentDiv.querySelector('.w-8');
                 iconDiv.classList.add('border-amber-500/50', 'text-amber-500');
-                localStorage.setItem(`sidebar_state_v2_${id}`, 'true'); // Guardar estado abierto
+                localStorage.setItem(`sidebar_state_v3_${id}`, 'true'); // Guardar estado abierto
             }
         };
 
