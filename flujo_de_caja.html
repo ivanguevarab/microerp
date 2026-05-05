@@ -1159,7 +1159,10 @@
                         const mInput = document.getElementById('swald-monto');
                         const alertDiv = document.getElementById('swald-alert');
 
-                        if (catSel === catTargetId && sCli && sCli.value) {
+                        const selCatObj = typeof catDisponibles !== 'undefined' ? catDisponibles.find(x => x.id === catSel) : null;
+                        const selCatName = selCatObj ? selCatObj.nombre : '';
+
+                        if (selCatName === 'Ventas al Crédito (Recepción de Pagos)' && sCli && sCli.value) {
                             const opt = sCli.options[sCli.selectedIndex];
                             const max = parseFloat(opt.getAttribute('data-max'));
                             const m = parseFloat(mInput.value);
@@ -1192,6 +1195,7 @@
                     const m = parseFloat(document.getElementById('swald-monto').value);
                     const cliField = document.getElementById('swald-cliente');
                     const socField = document.getElementById('swald-socio');
+                    const ordField = document.getElementById('swald-orden');
                     const trabAlmuerzoField = document.getElementById('swald-trab-almuerzo');
                     const trabTodosField = document.getElementById('swald-trab-todos');
                     
