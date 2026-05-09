@@ -926,13 +926,14 @@
                 }
 
                 try {
+                    const username = mov.created_by ? mov.created_by : 'Sistema';
                     if (mov.tipo_movimiento === 'INGRESO') {
                         title.textContent = `Código del movimiento: ${mov.documento_referencia}`;
-                        subtitle.textContent = `Registrado el ${new Date(mov.fecha_movimiento).toLocaleString()}`;
+                        subtitle.textContent = `Registrado el ${new Date(mov.fecha_movimiento).toLocaleString()} por ${username}`;
                         await fetchDetallesIngreso(mov.documento_referencia, content);
                     } else if (mov.tipo_movimiento === 'EGRESO') {
                         title.textContent = `Código del movimiento: ${mov.codigo_venta || mov.documento_referencia || 'Sin Referencia'}`;
-                        subtitle.textContent = `Registrado el ${new Date(mov.fecha_movimiento).toLocaleString()}`;
+                        subtitle.textContent = `Registrado el ${new Date(mov.fecha_movimiento).toLocaleString()} por ${username}`;
                         await fetchDetallesEgreso(mov.documento_referencia, content);
                     } else {
                         content.innerHTML = '<p class="text-center text-gray-500">No hay detalles adicionales disponibles para este tipo de movimiento.</p>';
