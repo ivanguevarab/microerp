@@ -602,7 +602,7 @@
                 // Paso 1: Obtener todo el personal de la empresa (ignorando estado 'activo' y 'requiere_marcacion')
                 const { data: rawPersonalList } = await window.supabaseClient
                     .from('personal')
-                    .select('*, personal_salarios(*)')
+                    .select('*, personal_salarios(*), categorias_personal(nombre)')
                     .eq('empresa_id', currentEmpresaId);
 
                 if (!rawPersonalList || rawPersonalList.length === 0) {
@@ -705,6 +705,22 @@
                 const mapLiqs = {};
                 (liqsExis || []).forEach(l => { mapLiqs[l.personal_id] = l; });
 
+                // Pre-calcular sumatoria de CUS y CUP para todos los trabajadores "Por Proyecto"
+                const queryCus = window.supabaseClient.from('cus_horas_hombre').select('personal_id, horas_invertidas, costo_hora_efectiva, subtotal_costo').gte('fecha_labor', firstDayOfMonth).lte('fecha_labor', lastDayOfMonth);
+                const { data: allCus } = await queryCus;
+                const queryCup = window.supabaseClient.from('cup_horas_hombre').select('personal_id, horas_invertidas, costo_hora_efectiva, subtotal_costo').gte('fecha_labor', firstDayOfMonth).lte('fecha_labor', lastDayOfMonth);
+                const { data: allCup } = await queryCup;
+
+                const sumProyectosMap = {};
+                if (allCus) allCus.forEach(c => {
+                    if (!sumProyectosMap[c.personal_id]) sumProyectosMap[c.personal_id] = 0;
+                    sumProyectosMap[c.personal_id] += parseFloat(c.subtotal_costo || (c.horas_invertidas * c.costo_hora_efectiva) || 0);
+                });
+                if (allCup) allCup.forEach(p => {
+                    if (!sumProyectosMap[p.personal_id]) sumProyectosMap[p.personal_id] = 0;
+                    sumProyectosMap[p.personal_id] += parseFloat(p.subtotal_costo || (p.horas_invertidas * p.costo_hora_efectiva) || 0);
+                });
+
                 // Iterar Personal, Upsertar
                 const listInsert = [];
                 const listUpdate = [];
@@ -735,27 +751,34 @@
                         }
                     }
 
-                    // REGLA 1: Tasa Horaria
                     let tasaHoraria = 0;
-                    if (hrEsperadas > 0) {
-                        tasaHoraria = sBase / hrEsperadas;
-                    }
-
-                    // REGLAS 2 Y 3: Horas Extra
                     let montoHe = 0;
                     let montoFalta = 0;
 
-                    if (saldoBnc > 0) {
-                        if (p.pago_horas_extras_habilitado) {
-                            let baseHr = parseFloat((saldoBnc * tasaHoraria).toFixed(2));
-                            let t1 = Math.min(saldoBnc, 2.0);
-                            let t2 = Math.max(saldoBnc - 2.0, 0);
-                            let overcharge1 = parseFloat((t1 * tasaHoraria * 0.25).toFixed(2));
-                            let overcharge2 = parseFloat((t2 * tasaHoraria * 0.35).toFixed(2));
-                            montoHe = baseHr + overcharge1 + overcharge2;
+                    if (p.requiere_marcacion === false && p.categorias_personal && p.categorias_personal.nombre === 'Operaciones') {
+                        // ES POR PROYECTO: sBase se sobreescribe con el devengado real (Solo aplica a contratistas de Operaciones)
+                        sBase = sumProyectosMap[p.id] || 0;
+                        // No aplica horas extras ni penalidades por banco
+
+                    } else {
+                        // REGLA 1: Tasa Horaria
+                        if (hrEsperadas > 0) {
+                            tasaHoraria = sBase / hrEsperadas;
                         }
-                    } else if (saldoBnc < 0) {
-                        montoFalta = parseFloat((Math.abs(saldoBnc) * tasaHoraria).toFixed(2)); // Valor Absoluto positivo, pero representa descuento
+
+                        // REGLAS 2 Y 3: Horas Extra
+                        if (saldoBnc > 0) {
+                            if (p.pago_horas_extras_habilitado) {
+                                let baseHr = parseFloat((saldoBnc * tasaHoraria).toFixed(2));
+                                let t1 = Math.min(saldoBnc, 2.0);
+                                let t2 = Math.max(saldoBnc - 2.0, 0);
+                                let overcharge1 = parseFloat((t1 * tasaHoraria * 0.25).toFixed(2));
+                                let overcharge2 = parseFloat((t2 * tasaHoraria * 0.35).toFixed(2));
+                                montoHe = baseHr + overcharge1 + overcharge2;
+                            }
+                        } else if (saldoBnc < 0) {
+                            montoFalta = parseFloat((Math.abs(saldoBnc) * tasaHoraria).toFixed(2)); // Valor Absoluto positivo, pero representa descuento
+                        }
                     }
 
                     // Determinar KPI inicial si es nuevo
