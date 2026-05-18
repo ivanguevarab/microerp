@@ -14,6 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="styles.css">
     <script src="sidebar.js"></script>
 
@@ -688,7 +689,7 @@
                                     <tr>
                                         <th style="padding: 8px;">Trabajador</th>
                                         <th style="padding: 8px; width: 130px;">Fecha Labor</th>
-                                        <th style="padding: 8px; width: 140px;">Horas</th>
+                                        <th id="th-horas-costo-cup" style="padding: 8px; width: 140px;">HORAS</th>
                                         <th style="padding: 8px;">Responsabilidad / Tarea</th>
                                         <th style="padding: 8px; width: 50px; text-align: center;"></th>
                                     </tr>
@@ -799,6 +800,7 @@
                 <button onclick="closeTraceability()" class="btn-icon"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
+                <input type="hidden" id="traceability-cup-id">
                 <!-- KPI CARDS -->
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
                     <div style="padding: 1rem; background: #eff6ff; border-radius: 8px; text-align: center;">
@@ -837,7 +839,10 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer" style="justify-content: center;">
+            <div class="modal-footer no-print" style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="openGastoModal()" class="btn-icon" style="color: #10b981; border: 1px solid #10b981; background: #ecfdf5; width: auto; gap: 6px; font-size: 0.85rem; padding: 6px 12px; border-radius: 6px;">
+                    <i class="fas fa-plus"></i> Añadir Costo
+                </button>
                 <button onclick="printTraceability()" class="btn-icon" style="width: auto; gap: 8px;">
                     <i class="fas fa-print"></i> Imprimir Reporte
                 </button>
@@ -1166,76 +1171,136 @@
                 const personalId = trabaInput.value;
                 const mes = fechaInput.value; 
 
-                // 1. Obtener salario real historizado (Base + KPI)
                 const empleado = moEmpleadosData.find(e => e.id === personalId);
                 if(!empleado) continue; // safety fallback
 
-                let salBase = 0;
-                let salKpi = 0;
-                
-                if (empleado.personal_salarios && empleado.personal_salarios.length > 0) {
-                    const salHistorico = empleado.personal_salarios.find(s => s.anio_mes === mes);
-                    if (salHistorico) {
-                        salBase = salHistorico.monto_salario_base || 0;
-                        salKpi = salHistorico.monto_salario_kpi || 0;
-                    } else {
-                        const lastSal = empleado.personal_salarios[empleado.personal_salarios.length - 1];
-                        salBase = lastSal.monto_salario_base || 0;
-                        salKpi = lastSal.monto_salario_kpi || 0;
+                if (empleado.requiere_marcacion === false) {
+                    const montoDigitado = parseFloat(horasInput.value);
+                    if (isNaN(montoDigitado) || montoDigitado < 0) {
+                        alert('Ingrese un costo pactado válido para ' + empleado.nombres);
+                        return;
                     }
-                }
 
-                const salarioTotal = salBase + salKpi;
-                
-                // 2. Obtener minutos laborables de calendario_personal
-                const year = mes.split('-')[0];
-                const month = mes.split('-')[1];
-                const inicioMes = `${year}-${month}-01`;
-                // Obtener ultimo dia del mes
-                const ultDia = new Date(year, month, 0).getDate();
-                const finMes = `${year}-${month}-${String(ultDia).padStart(2,'0')}`;
-                
-                const { data: cal } = await window.supabaseClient.from('calendario_personal')
-                    .select('hora_entrada_esperada, hora_salida_esperada, aplica_almuerzo, hora_inicio_almuerzo_esperado, hora_fin_almuerzo_esperado')
-                    .eq('personal_id', personalId)
-                    .gte('fecha', inicioMes)
-                    .lte('fecha', finMes)
-                    .in('tipo_dia', ['LABORABLE']);
-                
-                let minutosEfectivosMes = 0;
-                
-                if (cal && cal.length > 0) {
-                    cal.forEach(dia => {
-                        const mStr = (timeString) => {
-                            if(!timeString) return 0;
-                            const [h, m] = timeString.split(':');
-                            return (parseInt(h, 10) * 60) + parseInt(m, 10);
-                        };
-                        
-                        let minJornada = mStr(dia.hora_salida_esperada) - mStr(dia.hora_entrada_esperada);
-                        let minAlmuerzo = dia.aplica_almuerzo ? (mStr(dia.hora_fin_almuerzo_esperado) - mStr(dia.hora_inicio_almuerzo_esperado)) : 0;
-                        
-                        if(minJornada > 0) {
-                            if(minAlmuerzo > 0 && minAlmuerzo < minJornada) minJornada -= minAlmuerzo;
-                            minutosEfectivosMes += minJornada;
+                    // Obtener salario base del mes (Tope Presupuestal)
+                    let salBase = 0;
+                    if (empleado.personal_salarios && empleado.personal_salarios.length > 0) {
+                        const salHistorico = empleado.personal_salarios.find(s => s.anio_mes === mes);
+                        if (salHistorico) {
+                            salBase = parseFloat(salHistorico.monto_salario_base || 0);
+                        } else {
+                            const allSalarios = [...empleado.personal_salarios].sort((a,b) => b.anio_mes.localeCompare(a.anio_mes));
+                            const fallbackSal = allSalarios.find(s => s.anio_mes <= mes);
+                            if (fallbackSal) salBase = parseFloat(fallbackSal.monto_salario_base || 0);
                         }
+                    }
+
+                    // Sumar acumulado de este mes en CUS y CUP
+                    let acumuladoCusCup = 0;
+                    
+                    let queryCup = window.supabaseClient.from('cup_horas_hombre').select('horas_invertidas, costo_hora_efectiva, subtotal_costo').eq('personal_id', personalId).like('fecha_labor', `${mes}%`);
+                    if (id) queryCup = queryCup.neq('cup_id', id); // Excluir actual
+                    const { data: pData } = await queryCup;
+                    if (pData) pData.forEach(p => acumuladoCusCup += parseFloat(p.subtotal_costo || (p.horas_invertidas * p.costo_hora_efectiva) || 0));
+                    
+                    let queryCus = window.supabaseClient.from('cus_horas_hombre').select('horas_invertidas, costo_hora_efectiva, subtotal_costo').eq('personal_id', personalId).like('fecha_labor', `${mes}%`);
+                    const { data: cData } = await queryCus;
+                    if (cData) cData.forEach(c => acumuladoCusCup += parseFloat(c.subtotal_costo || (c.horas_invertidas * c.costo_hora_efectiva) || 0));
+
+                    // Validar con filas temporales de esta misma orden para el mismo mes
+                    const montoMismoMesEnEstaOrden = moData.filter(m => m.personal_id === personalId && m.fecha_labor === `${mes}-01`).reduce((acc, curr) => acc + curr.costo_hora_efectiva, 0);
+
+                    if ((acumuladoCusCup + montoMismoMesEnEstaOrden + montoDigitado) > salBase) {
+                        const requerido = acumuladoCusCup + montoMismoMesEnEstaOrden + montoDigitado;
+                        const msg = `Tope Presupuestal Excedido\n\n` +
+                                  `El presupuesto mensual autorizado para ${empleado.nombres} ${empleado.apellidos} en ${mes} se ha excedido.\n\n` +
+                                  `Acumulado anterior: S/ ${acumuladoCusCup.toFixed(2)}\n` +
+                                  `Intento actual: S/ ${(montoMismoMesEnEstaOrden + montoDigitado).toFixed(2)}\n\n` +
+                                  `Salario Base actual: S/ ${salBase.toFixed(2)}\n` +
+                                  `Nuevo tope requerido: S/ ${requerido.toFixed(2)}\n\n` +
+                                  `¿Desea ir al Padrón de Personal para actualizarlo?`;
+                        if (confirm(msg)) {
+                            window.location.href = 'padron_personal.html';
+                        }
+                        return;
+                    }
+
+                    moData.push({
+                        personal_id: personalId,
+                        fecha_labor: `${mes}-01`,
+                        horas_invertidas: 1, // Fix: 1 unidad para trazar subtotal
+                        responsabilidad: respInput.value,
+                        costo_hora_efectiva: parseFloat(montoDigitado),
+                        detalle_tramos: tramosArr
+                    });
+
+                } else {
+                    // 2. LOGICA PARA PERSONAL CON MARCACION (CALENDARIO - ORIGINAL)
+                    let salBase = 0;
+                    let salKpi = 0;
+                    
+                    if (empleado.personal_salarios && empleado.personal_salarios.length > 0) {
+                        const salHistorico = empleado.personal_salarios.find(s => s.anio_mes === mes);
+                        if (salHistorico) {
+                            salBase = salHistorico.monto_salario_base || 0;
+                            salKpi = salHistorico.monto_salario_kpi || 0;
+                        } else {
+                            const lastSal = empleado.personal_salarios[empleado.personal_salarios.length - 1];
+                            salBase = lastSal.monto_salario_base || 0;
+                            salKpi = lastSal.monto_salario_kpi || 0;
+                        }
+                    }
+
+                    const salarioTotal = salBase + salKpi;
+                    
+                    // Obtener minutos laborables de calendario_personal
+                    const year = mes.split('-')[0];
+                    const month = mes.split('-')[1];
+                    const inicioMes = `${year}-${month}-01`;
+                    // Obtener ultimo dia del mes
+                    const ultDia = new Date(year, month, 0).getDate();
+                    const finMes = `${year}-${month}-${String(ultDia).padStart(2,'0')}`;
+                    
+                    const { data: cal } = await window.supabaseClient.from('calendario_personal')
+                        .select('hora_entrada_esperada, hora_salida_esperada, aplica_almuerzo, hora_inicio_almuerzo_esperado, hora_fin_almuerzo_esperado')
+                        .eq('personal_id', personalId)
+                        .gte('fecha', inicioMes)
+                        .lte('fecha', finMes)
+                        .in('tipo_dia', ['LABORABLE']);
+                    
+                    let minutosEfectivosMes = 0;
+                    
+                    if (cal && cal.length > 0) {
+                        cal.forEach(dia => {
+                            const mStr = (timeString) => {
+                                if(!timeString) return 0;
+                                const [h, m] = timeString.split(':');
+                                return (parseInt(h, 10) * 60) + parseInt(m, 10);
+                            };
+                            
+                            let minJornada = mStr(dia.hora_salida_esperada) - mStr(dia.hora_entrada_esperada);
+                            let minAlmuerzo = dia.aplica_almuerzo ? (mStr(dia.hora_fin_almuerzo_esperado) - mStr(dia.hora_inicio_almuerzo_esperado)) : 0;
+                            
+                            if(minJornada > 0) {
+                                if(minAlmuerzo > 0 && minAlmuerzo < minJornada) minJornada -= minAlmuerzo;
+                                minutosEfectivosMes += minJornada;
+                            }
+                        });
+                    }
+                    
+                    let horasEfectivasMes = minutosEfectivosMes / 60;
+                    if(horasEfectivasMes <= 0) horasEfectivasMes = 240; 
+                    
+                    const costoHora = (salarioTotal / horasEfectivasMes).toFixed(4);
+                    
+                    moData.push({
+                        personal_id: personalId,
+                        fecha_labor: `${mes}-01`, 
+                        horas_invertidas: parseFloat(horasInput.value),
+                        responsabilidad: respInput.value,
+                        costo_hora_efectiva: parseFloat(costoHora),
+                        detalle_tramos: tramosArr
                     });
                 }
-                
-                let horasEfectivasMes = minutosEfectivosMes / 60;
-                // Fallback de contingencia: Si no tiene calendario configurado en absoluto ese mes pero lo cargaron, usar tarifa base 240hrs o 0
-                if(horasEfectivasMes <= 0) horasEfectivasMes = 240; 
-                
-                const costoHora = (salarioTotal / horasEfectivasMes).toFixed(4);
-                
-                moData.push({
-                    personal_id: personalId,
-                    fecha_labor: `${mes}-01`, // YYYY-MM-01 referencial
-                    horas_invertidas: parseFloat(horasInput.value),
-                    responsabilidad: respInput.value,
-                    costo_hora_efectiva: parseFloat(costoHora),
-                    detalle_tramos: tramosArr
-                });
             }
 
             let err;
@@ -1295,10 +1360,19 @@
             
             if(moDb && moDb.length > 0) {
                 document.getElementById('moList').innerHTML = '';
+                if(moEmpleadosData.length === 0) await loadMOEmpleados();
                 for(const md of moDb) {
                     const { data: p } = await window.supabaseClient.from('personal').select('nombres, apellidos').eq('id', md.personal_id).single();
                     const nombre = p ? `${p.nombres} ${p.apellidos}` : 'Desconocido';
                     const mesLabor = md.fecha_labor ? md.fecha_labor.substring(0, 7) : '';
+
+                    const empInfo = moEmpleadosData.find(e => e.id === md.personal_id);
+                    let isMonto = false;
+                    let displayHoras = md.horas_invertidas;
+                    if (empInfo && empInfo.requiere_marcacion === false) {
+                        isMonto = true;
+                        displayHoras = md.subtotal_costo || (md.horas_invertidas * md.costo_hora_efectiva);
+                    }
                     
                     agregarFilaManoObra({
                         personal_id: md.personal_id,
@@ -1306,7 +1380,9 @@
                         fecha_labor: mesLabor,
                         horas_invertidas: md.horas_invertidas,
                         responsabilidad: md.responsabilidad,
-                        detalle_tramos: md.detalle_tramos
+                        detalle_tramos: md.detalle_tramos,
+                        isMonto,
+                        displayHoras: parseFloat(displayHoras).toFixed(2)
                     });
                 }
             }
@@ -1391,6 +1467,7 @@
         // 7. Trazabilidad & Etiquetas
         async function viewTraceability(id) {
             document.getElementById('modal-traceability').classList.add('active');
+            document.getElementById('traceability-cup-id').value = id;
             // ... (Logic for filling traceability, copied from previous)
             const list = document.getElementById('trace-list');
             list.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
@@ -1410,7 +1487,7 @@
                 // Traer Mano de Obra
                 const { data: moTrace } = await window.supabaseClient
                     .from('cup_horas_hombre')
-                    .select('*, personal(nombres, apellidos)')
+                    .select('*, personal(nombres, apellidos, requiere_marcacion)')
                     .eq('cup_id', id);
 
                 // Traer Gastos Financieros (Flujo de Caja)
@@ -1437,7 +1514,7 @@
                             fecha_labor: mo.fecha_labor,
                             personal: mo.personal ? `${mo.personal.nombres} ${mo.personal.apellidos}` : 'No Asignado',
                             responsabilidad: mo.responsabilidad,
-                            horas: parseFloat(mo.horas_invertidas),
+                            horas: mo.personal?.requiere_marcacion === false ? 'Por Proyecto' : `${parseFloat(mo.horas_invertidas)} hrs`,
                             costo_total: parseFloat(mo.subtotal_costo || 0)
                         }));
                     }
@@ -1478,7 +1555,7 @@
                                  <td>${m.fecha_labor.substring(0, 7)}</td>
                                  <td>HORAS</td>
                                  <td>${m.responsabilidad} <br><small style="color:#64748b;">(${m.personal})</small></td>
-                                 <td style="text-align:right;">${m.horas} hrs</td>
+                                 <td style="text-align:right;">${m.horas}</td>
                                  <td style="text-align:right;">S/ ${m.costo_total.toFixed(2)}</td>
                                </tr>`;
                             } else if(m.isFc) {
@@ -1535,6 +1612,128 @@
         window.printTraceability = () => {
             document.body.classList.add('print-traceability');
             window.print();
+        };
+
+        window.openGastoModal = async () => {
+            const cupId = document.getElementById('traceability-cup-id').value;
+            if (!cupId) return;
+
+            const hoyStr = new Date().toLocaleString("es-PE", {timeZone: "America/Lima"}).split(',')[0].split('/').reverse().join('-');
+
+            Swal.fire({
+                title: 'Añadir Servicio / Gasto',
+                html: `
+                    <div style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">Fecha del Gasto</label>
+                            <input type="date" id="swal-gasto-fecha" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; outline: none; box-sizing: border-box;" value="${hoyStr}">
+                        </div>
+                        
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">Clasificación Financiera</label>
+                            <select id="swal-gasto-cat" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; outline: none; box-sizing: border-box; background: white;">
+                                <option value="">Cargando...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">Concepto / Referencia</label>
+                            <input type="text" id="swal-gasto-ref" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; outline: none; box-sizing: border-box;" placeholder="Ej. Transporte de personal">
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">Monto (S/)</label>
+                            <input type="text" id="swal-gasto-monto" inputmode="decimal" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; outline: none; font-weight: bold; font-size: 1.1rem; box-sizing: border-box;" placeholder="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');">
+                        </div>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Registrar en Flujo',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#10b981',
+                didOpen: async () => {
+                    const select = document.getElementById('swal-gasto-cat');
+                    try {
+                        const permitidas = ['Gasto de Ventas', 'Compras Logística / Inventario', 'Otros Egresos'];
+                        const { data } = await window.supabaseClient.from('fc_fuentes_categorias')
+                            .select('id, nombre')
+                            .eq('empresa_id', window.currentEmpresaId)
+                            .eq('tipo_movimiento', 'EGRESO')
+                            .in('nombre', permitidas);
+                            
+                        if (data && data.length > 0) {
+                            select.innerHTML = '<option value="">-- Seleccione Categoría --</option>' + 
+                                data.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+                        } else {
+                            select.innerHTML = '<option value="">No hay categorías compatibles</option>';
+                        }
+                    } catch(e) {
+                        select.innerHTML = '<option value="">Error de conexión</option>';
+                    }
+                },
+                preConfirm: () => {
+                    const fecha = document.getElementById('swal-gasto-fecha').value;
+                    const cat = document.getElementById('swal-gasto-cat').value;
+                    const ref = document.getElementById('swal-gasto-ref').value;
+                    const monto = parseFloat(document.getElementById('swal-gasto-monto').value);
+
+                    if (!fecha) return Swal.showValidationMessage('La fecha es obligatoria');
+                    if (!cat) return Swal.showValidationMessage('Debe seleccionar una clasificación');
+                    if (!ref.trim()) return Swal.showValidationMessage('El concepto es obligatorio');
+                    if (isNaN(monto) || monto <= 0) return Swal.showValidationMessage('Ingrese un monto válido mayor a 0');
+
+                    return { fecha, cat, ref: ref.trim(), monto };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const v = result.value;
+                    Swal.fire({ title: 'Registrando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+                    
+                    try {
+                        // Generar correlativo
+                        const yearStr = v.fecha.split('-')[0];
+                        const prefix = `VAR_EGRESO_${yearStr}_`;
+                        
+                        const { data: ultVar } = await window.supabaseClient.from('fc_movimientos')
+                            .select('codigo_correlativo')
+                            .ilike('codigo_correlativo', `${prefix}%`)
+                            .order('codigo_correlativo', { ascending: false })
+                            .limit(1);
+
+                        let sec = 1;
+                        if (ultVar && ultVar.length > 0 && ultVar[0].codigo_correlativo) {
+                            const partes = ultVar[0].codigo_correlativo.split('_');
+                            const valStr = partes[partes.length - 1];
+                            if(!isNaN(valStr)) sec = parseInt(valStr, 10) + 1;
+                        }
+                        const correlativo = `${prefix}${String(sec).padStart(6, '0')}`;
+
+                        const payload = {
+                            empresa_id: window.currentEmpresaId,
+                            categoria_id: v.cat,
+                            monto: v.monto.toFixed(2),
+                            fecha_movimiento: v.fecha,
+                            referencia: v.ref,
+                            codigo_unico_id: cupId,
+                            tipo_movimiento: 'EGRESO',
+                            estado: 'APROBADO',
+                            codigo_correlativo: correlativo,
+                            created_by: window.currentUser.email,
+                            created_at: new Date().toISOString()
+                        };
+
+                        const { error } = await window.supabaseClient.from('fc_movimientos').insert([payload]);
+                        if (error) throw error;
+
+                        Swal.fire('Guardado', 'El servicio/gasto fue agregado a la orden y al Flujo de Caja.', 'success').then(() => {
+                            viewTraceability(cupId); // Refrescar la tabla
+                        });
+                    } catch(e) {
+                        console.error(e);
+                        Swal.fire('Error', 'No se pudo registrar el gasto.', 'error');
+                    }
+                }
+            });
         };
 
         function openEtiqueta(code, desc) {
@@ -1647,7 +1846,7 @@
                 const catIds = conf.map(c => c.categoria_id);
 
                 const { data: personal } = await window.supabaseClient.from('personal')
-                    .select('id, nombres, apellidos, categoria_id, activo, personal_salarios(anio_mes, monto_salario_base, monto_salario_kpi)')
+                    .select('id, nombres, apellidos, requiere_marcacion, categoria_id, activo, personal_salarios(anio_mes, monto_salario_base, monto_salario_kpi)')
                     .eq('empresa_id', window.currentEmpresaId)
                     .eq('activo', true)
                     .in('categoria_id', catIds)
@@ -1660,6 +1859,50 @@
                 return [];
             }
         }
+
+        window.updateThHorasCostoCUP = function() {
+            const th = document.getElementById('th-horas-costo-cup');
+            if(!th) return;
+            const allSelects = document.querySelectorAll('.mo-trabajador-id');
+            let hasCosto = false;
+            allSelects.forEach(sel => {
+                if(sel.value) {
+                    const emp = moEmpleadosData.find(e => e.id === sel.value);
+                    if(emp && emp.requiere_marcacion === false) hasCosto = true;
+                }
+            });
+            th.innerText = hasCosto ? "COSTO" : "HORAS";
+        };
+
+        window.handleMoEmpChangeCUP = function(selectEl) {
+            const empId = selectEl.value;
+            const row = selectEl.closest('tr');
+            const horasInput = row.querySelector('.mo-horas');
+            const calcBtn = row.querySelector('.calc-horas-btn');
+            
+            if (!empId) {
+                horasInput.readOnly = true;
+                horasInput.style.background = '#f8fafc';
+                horasInput.placeholder = "Horas";
+                calcBtn.style.display = 'block';
+                window.updateThHorasCostoCUP();
+                return;
+            }
+            
+            const empleado = moEmpleadosData.find(e => e.id === empId);
+            if (empleado && empleado.requiere_marcacion === false) {
+                horasInput.readOnly = false;
+                horasInput.style.background = '#ffffff';
+                horasInput.placeholder = "Costo Pactado (S/)";
+                calcBtn.style.display = 'none';
+            } else {
+                horasInput.readOnly = true;
+                horasInput.style.background = '#f8fafc';
+                horasInput.placeholder = "Horas";
+                calcBtn.style.display = 'block';
+            }
+            window.updateThHorasCostoCUP();
+        };
 
         async function agregarFilaManoObra(data = null) {
             const list = document.getElementById('moList');
@@ -1684,9 +1927,12 @@
             const hoy = new Date();
             const mesActual = data && data.fecha_labor ? data.fecha_labor : `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
 
+            const isMonto = data && data.isMonto;
+            const valDisplay = data ? (isMonto ? data.displayHoras : parseFloat(data.horas_invertidas).toFixed(2)) : '';
+
             tr.innerHTML = `
                 <td style="padding: 4px;">
-                    <select class="mo-trabajador-id" required style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;">
+                    <select class="mo-trabajador-id" onchange="handleMoEmpChangeCUP(this)" required style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;">
                         ${optionsHtml}
                     </select>
                 </td>
@@ -1695,8 +1941,8 @@
                 </td>
                 <td style="padding: 4px;">
                     <div style="display: flex; gap: 4px; align-items: center;">
-                        <input type="text" class="mo-horas" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; background: #f8fafc;" value="${data ? parseFloat(data.horas_invertidas).toFixed(2) : ''}" readonly required>
-                        <button type="button" class="btn-icon" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; width: 34px; height: 34px; padding: 0; flex-shrink: 0;" title="Calculadora de Horas" onclick="abrirCalculadoraHoras(this)">
+                        <input type="text" inputmode="decimal" class="mo-horas" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; background: ${isMonto ? '#ffffff' : '#f8fafc'};" value="${valDisplay}" ${isMonto ? '' : 'readonly'} placeholder="${isMonto ? 'Costo Pactado (S/)' : 'Horas'}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" required>
+                        <button type="button" class="btn-icon calc-horas-btn" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; width: 34px; height: 34px; padding: 0; flex-shrink: 0; display: ${isMonto ? 'none' : 'block'};" title="Calculadora de Horas" onclick="abrirCalculadoraHoras(this)">
                             ⏱️
                         </button>
                     </div>
@@ -1706,7 +1952,7 @@
                     <input type="text" class="mo-resp" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;" placeholder="Ej. Ensamble final" value="${data ? data.responsabilidad : ''}" required>
                 </td>
                 <td style="padding: 4px; text-align: center;">
-                    <button type="button" onclick="this.closest('tr').remove(); if(document.getElementById('moList').children.length===0) document.getElementById('moList').innerHTML = '<tr id=\\'moEmpty\\'><td colspan=\\'5\\' style=\\'text-align: center; color: #94a3b8; font-style: italic; padding: 15px;\\'>Sin personal asignado aún</td></tr>';" class="btn-icon" style="color: var(--danger-color); margin: 0 auto;">
+                    <button type="button" onclick="this.closest('tr').remove(); if(document.getElementById('moList').children.length===0) document.getElementById('moList').innerHTML = '<tr id=\\'moEmpty\\'><td colspan=\\'5\\' style=\\'text-align: center; color: #94a3b8; font-style: italic; padding: 15px;\\'>Sin personal asignado aún</td></tr>'; window.updateThHorasCostoCUP();" class="btn-icon" style="color: var(--danger-color); margin: 0 auto;">
                         <i class="fas fa-trash"></i>
                     </button>
                     ${data && data.id ? `<input type="hidden" class="mo-row-id" value="${data.id}">` : ''}
