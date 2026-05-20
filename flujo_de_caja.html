@@ -76,6 +76,10 @@
         .btn-egreso { color: #f43f5e; border: 1px solid #f43f5e; }
         .btn-egreso:hover { background-color: #fff1f2; }
 
+        .audit-mode-active .audit-checkbox-cell { display: table-cell; }
+        .audit-checkbox-cell { display: none; }
+        .row-audited { background-color: #f0fdf4 !important; opacity: 0.9; }
+
     </style>
 </head>
 
@@ -102,6 +106,10 @@
 
             <div class="flex flex-col items-end gap-2">
                 <div class="flex items-center gap-4">
+                    <label class="text-xs font-semibold text-emerald-600 cursor-pointer select-none flex items-center gap-2 border border-emerald-200 bg-emerald-50 px-2 py-1 rounded-lg shadow-sm hover:bg-emerald-100 transition">
+                        <input type="checkbox" id="toggleAuditoria" class="form-checkbox h-4 w-4 text-emerald-600 rounded" onchange="toggleModoAuditoria()">
+                        MODO AUDITORÍA
+                    </label>
                     <label class="text-xs font-semibold text-slate-500 cursor-pointer select-none flex items-center gap-2">
                         <input type="checkbox" id="toggleRango" class="form-checkbox h-4 w-4 text-blue-600 rounded" onchange="toggleFiltroRango()">
                         FILTRAR RANGO DE FECHAS
@@ -245,6 +253,7 @@
 
     <script>
         let currentEmpresaId = null;
+        let currentUserName = null;
         let categoriasList = [];
         
         document.addEventListener('DOMContentLoaded', async () => {
@@ -353,8 +362,9 @@
         }
 
         async function cargarContextoInicial() {
-            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', window.currentUser.id).single();
+            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id, nombre_completo').eq('id', window.currentUser.id).single();
             currentEmpresaId = perfil.empresa_id;
+            currentUserName = perfil.nombre_completo || window.currentUser.email;
         }
 
         async function asegurarCategoriasBase() {
@@ -680,10 +690,13 @@
                                 const fecObj = new Date(fStr);
                                 const hHora = isNaN(fecObj) ? '' : fecObj.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit', timeZone: 'America/Lima'});
                                 detHTML += `
-                                    <tr class="border-b border-gray-100/50 hover:bg-slate-100">
-                                        <td class="py-2 pl-4 text-[11px] text-slate-400 font-mono w-24">${hHora}</td>
-                                        <td class="py-2 text-xs text-slate-600">${mini.ref}</td>
-                                        <td class="py-2 pr-4 text-xs font-semibold text-slate-700 text-right w-24">S/ ${formatMoney(mini.monto)}</td>
+                                    <tr class="border-b border-gray-100/50 hover:bg-slate-100 cursor-pointer transition-colors" onclick="toggleRowAudit(this)">
+                                        <td class="py-2 pl-3 w-8 audit-checkbox-cell align-middle">
+                                            <input type="checkbox" class="form-checkbox h-3.5 w-3.5 text-emerald-500 rounded pointer-events-none" />
+                                        </td>
+                                        <td class="py-2 pl-4 text-[11px] text-slate-400 font-mono w-24 align-middle">${hHora}</td>
+                                        <td class="py-2 text-xs text-slate-600 align-middle">${mini.ref}</td>
+                                        <td class="py-2 pr-4 text-xs font-semibold text-slate-700 text-right w-24 align-middle">S/ ${formatMoney(mini.monto)}</td>
                                     </tr>
                                 `;
                             });
@@ -881,6 +894,7 @@
             // Preparación de Trabajadores para Egresos (Almuerzo y Remuneraciones)
             let trabajadorAlmuerzoHTML = '';
             let trabajadorTodosHTML = '';
+            let listaPersonalTodos = [];
             
             if (tipo === 'EGRESO') {
                 // 1. Obtener todos los trabajadores activos
@@ -889,6 +903,8 @@
                     .eq('empresa_id', currentEmpresaId)
                     .eq('activo', true)
                     .order('nombres', { ascending: true });
+                
+                listaPersonalTodos = todosTrabajadores || [];
                 
                 // 2. Obtener políticas de asistencia para almuerzos
                 const { data: politicas } = await window.supabaseClient.from('politicas_asistencia')
@@ -1259,14 +1275,89 @@
                     return { 
                         cat: c, monto: m, ref: recRef,
                         isCredit: isCredit, clienteId: isCredit ? cliField.value : null,
-                        ordenId: (isOrden && ordField.value) ? ordField.value : null
+                        ordenId: (isOrden && ordField.value) ? ordField.value : null,
+                        trabNombre: (isTrabTodos && trabTodosField) ? trabTodosField.value : null
                     }
                 }
             });
 
             if (formValues) {
+                const catObj = catDisponibles.find(x => x.id === formValues.cat);
+                const cName = catObj ? catObj.nombre : '';
+                const catPlanillaNombres = ['Pago Remuneraciones y Beneficios', 'Pago de Remuneraciones', 'Pago Remuneraciones'];
+                let isExcepcionTope = false;
+
+                if (catPlanillaNombres.includes(cName) && formValues.trabNombre) {
+                    Swal.fire({ title: 'Validando Tope Presupuestal...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+                    
+                    const trab = listaPersonalTodos.find(t => `${t.nombres} ${t.apellidos}` === formValues.trabNombre);
+                    if (trab) {
+                        const mesActual = document.getElementById('filtroHasta').value.substring(0, 7);
+                        
+                        // Obtener tope salarial
+                        const { data: salarios } = await window.supabaseClient.from('personal_salarios')
+                            .select('anio_mes, monto_salario_base')
+                            .eq('personal_id', trab.id)
+                            .lte('anio_mes', mesActual)
+                            .order('anio_mes', { ascending: false })
+                            .limit(1);
+                        let tope = 0;
+                        if (salarios && salarios.length > 0) {
+                            tope = parseFloat(salarios[0].monto_salario_base || 0);
+                        }
+
+                        // Obtener pagos del mes (usando rangos gte y lt para evitar fallos de types en Supabase)
+                        const [yyyy, mm] = mesActual.split('-');
+                        let nextMm = parseInt(mm, 10) + 1;
+                        let nextYyyy = parseInt(yyyy, 10);
+                        if (nextMm > 12) { nextMm = 1; nextYyyy++; }
+                        const nextMesActual = `${nextYyyy}-${String(nextMm).padStart(2, '0')}`;
+
+                        const { data: pagosFC } = await window.supabaseClient.from('fc_movimientos')
+                            .select('monto')
+                            .eq('empresa_id', currentEmpresaId)
+                            .eq('estado', 'APROBADO')
+                            .gte('fecha_movimiento', `${mesActual}-01`)
+                            .lt('fecha_movimiento', `${nextMesActual}-01`)
+                            .like('referencia', `%Personal: ${formValues.trabNombre}%`);
+                        
+                        let sumaAnterior = 0;
+                        (pagosFC || []).forEach(p => {
+                            sumaAnterior += parseFloat(p.monto || 0);
+                        });
+
+                        const totalProyectado = sumaAnterior + formValues.monto;
+
+                        if (totalProyectado > tope) {
+                            const resBypass = await Swal.fire({
+                                title: 'Tope Presupuestal Excedido',
+                                icon: 'warning',
+                                html: `El pago autorizado para <b>${formValues.trabNombre}</b> en ${mesActual} se ha excedido.<br><br>` +
+                                      `Pagos acumulados del mes: <b>S/ ${sumaAnterior.toFixed(2)}</b><br>` +
+                                      `Intento actual: <b class="text-rose-600">S/ ${formValues.monto.toFixed(2)}</b><br>` +
+                                      `Total resultando: <b class="text-rose-600">S/ ${totalProyectado.toFixed(2)}</b><br><br>` +
+                                      `Salario Base actual (Tope): <b class="text-emerald-600">S/ ${tope.toFixed(2)}</b><br><br>` +
+                                      `¿Desea registrar el egreso de todos modos?`,
+                                showCancelButton: true,
+                                confirmButtonText: 'Continuar de Todos Modos',
+                                cancelButtonText: 'Cancelar Registro',
+                                confirmButtonColor: '#f59e0b',
+                                reverseButtons: true
+                            });
+
+                            if (!resBypass.isConfirmed) return; // Se cancela la operación
+                            
+                            // Bypass activado
+                            isExcepcionTope = true;
+                            formValues.ref = (formValues.ref || '') + ` | [EXCEPCIÓN DE TOPE APROBADA POR: ${currentUserName}]`;
+                        }
+                    }
+                }
+
                 Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
                 try {
+                    const finalCreatedBy = isExcepcionTope ? `${currentUserName}|EXCEPCION_TOPE` : currentUserName;
+
                     if (formValues.isCredit) {
                         // Flujo Opción A: Afectación Estructural Contable Real mediante RPC
                         const payloadRpc = {
@@ -1275,7 +1366,7 @@
                             p_monto: formValues.monto.toFixed(2),
                             p_fecha_pago: document.getElementById('filtroHasta').value,
                             p_referencia: formValues.ref || '',
-                            p_created_by: window.currentUser.email
+                            p_created_by: finalCreatedBy
                         };
                         const pCall = window.supabaseClient.rpc('fn_amortizar_credito_cliente', payloadRpc);
                         pCall.then(({error}) => { if(error) throw error; });
@@ -1284,7 +1375,7 @@
                         const payload = {
                             empresa_id: currentEmpresaId, categoria_id: formValues.cat,
                             monto: formValues.monto.toFixed(2), fecha_movimiento: document.getElementById('filtroHasta').value,
-                            referencia: formValues.ref || null, created_by: window.currentUser.email,
+                            referencia: formValues.ref || null, created_by: finalCreatedBy,
                             created_at: new Date().toISOString()
                         };
                         if (formValues.ordenId) payload.codigo_unico_id = formValues.ordenId;
@@ -1413,6 +1504,31 @@
                 btnIcon.classList.remove('fa-chevron-up');
                 btnIcon.classList.add('fa-chevron-down');
                 btnIcon.classList.remove('text-indigo-500');
+            }
+        }
+
+        function toggleModoAuditoria() {
+            const isAudit = document.getElementById('toggleAuditoria').checked;
+            const mainContent = document.querySelector('main');
+            if (isAudit) {
+                mainContent.classList.add('audit-mode-active');
+            } else {
+                mainContent.classList.remove('audit-mode-active');
+                document.querySelectorAll('.row-audited').forEach(row => {
+                    row.classList.remove('row-audited');
+                    const cb = row.querySelector('input[type="checkbox"]');
+                    if (cb) cb.checked = false;
+                });
+            }
+        }
+
+        function toggleRowAudit(rowElement) {
+            if (!document.querySelector('main').classList.contains('audit-mode-active')) return;
+            
+            rowElement.classList.toggle('row-audited');
+            const cb = rowElement.querySelector('input[type="checkbox"]');
+            if (cb) {
+                cb.checked = !cb.checked;
             }
         }
 
