@@ -605,7 +605,8 @@
                 tipo_egreso_id: document.getElementById('tipoEgreso').value,
                 fecha_egreso: document.getElementById('fechaEgreso').value,
                 cup_id: document.getElementById('cupId').value || null,
-                cus_id: document.getElementById('cupId').value || null // Nota: la UI reusa un select, pasaremos al correcto según el scope del DB trigger o RPC
+                cus_id: document.getElementById('cupId').value || null, // Nota: la UI reusa un select, pasaremos al correcto según el scope del DB trigger o RPC
+                created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema'
             };
 
             // Reparar el Cup/Cus asignation depending on select name
