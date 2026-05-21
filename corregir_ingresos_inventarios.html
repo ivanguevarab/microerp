@@ -753,12 +753,12 @@
                     style="display: none; background: #fff7ed; padding: 1rem; border-radius: 8px; border: 1px solid #ffedd5; grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
                     <div class="form-group">
                         <label for="montoInicial">Pago Inicial (S/)</label>
-                        <input type="number" id="montoInicial" min="0" step="0.01" value="0.00"
-                            oninput="calcularSaldo()">
+                        <input type="text" inputmode="decimal" id="montoInicial" placeholder="0.00" value="0.00"
+                            oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1'); calcularSaldo()">
                     </div>
                     <div class="form-group">
                         <label for="saldoPendiente">Saldo Pendiente (S/)</label>
-                        <input type="number" id="saldoPendiente" readonly
+                        <input type="text" id="saldoPendiente" readonly
                             style="background-color: #f1f5f9; font-weight: bold;">
                     </div>
                     <div class="form-group">
@@ -828,7 +828,8 @@
                 <div class="form-group cantidad-group">
                     <label for="cantidadInput">Cantidad <span id="unidadMedidaDisplay"
                             style="font-weight: normal; color: var(--secondary-color); font-size: 0.9em;"></span></label>
-                    <input type="number" id="cantidadInput" min="0.01" step="0.01" value="1">
+                    <input type="text" inputmode="decimal" id="cantidadInput" placeholder="0.00" value="1"
+                        oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1'); recalcularPrecioUnitarioVisual()">
                 </div>
 
                 <!-- 3. Modo de Ingreso (Span 1) - Row 2 -->
@@ -845,8 +846,8 @@
                 <!-- 4. Monto (Span 1) - Row 2 -->
                 <div class="form-group monto-group">
                     <label for="montoInput">Monto</label>
-                    <input type="number" id="montoInput" min="0" step="0.0001" placeholder="0.00"
-                        oninput="recalcularPrecioUnitarioVisual()">
+                    <input type="text" inputmode="decimal" id="montoInput" placeholder="0.00"
+                        oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1'); recalcularPrecioUnitarioVisual()">
                     <!-- Input Oculto que usa el sistema (Precio Unitario Final) -->
                     <input type="hidden" id="precioInput">
                 </div>
@@ -905,7 +906,8 @@
                 </div>
                 <div class="form-group">
                     <label for="gastoMonto">Monto Total</label>
-                    <input type="number" id="gastoMonto" min="0" step="0.01" placeholder="0.00">
+                    <input type="text" inputmode="decimal" id="gastoMonto" placeholder="0.00"
+                        oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');">
                 </div>
                 <div class="form-group">
                     <label for="gastoConFactura">¿Con Factura?</label>
@@ -999,6 +1001,12 @@
                 <div class="total-row final" style="white-space: nowrap; align-items: center;">
                     <span>Costo de Adquisición Total:</span>
                     <span id="lblCostoTotal" style="margin-left: 1rem;">S/ 0.00</span>
+                </div>
+                <!-- Botón de Ajuste Inteligente -->
+                <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="abrirModalAjuste()" style="font-size: 0.85rem; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.5rem; background-color: #f1f5f9; border: 1px solid #cbd5e1; color: var(--secondary-color);">
+                        <i class="fas fa-magic"></i> ¿Difiere por céntimos? Ajuste Inteligente
+                    </button>
                 </div>
             </div>
         </div>
@@ -1857,11 +1865,10 @@
             document.getElementById('cantidadInput').value = item.cantidad;
 
             // Cargar el monto visual (montoInput) y el precio unitario (precioInput)
-            // Asumimos que el usuario quiere ver el precio unitario por defecto al editar
-            // O idealmente, deberíamos guardar qué "modo" usó, pero por ahora cargaremos el precio unitario
+            // Asignar por defecto el modo PRECIO_TOTAL al editar
             document.getElementById('precioInput').value = item.precioUnitario;
-            document.getElementById('montoInput').value = item.precioUnitario;
-            document.getElementById('modoPrecio').value = 'PRECIO_UNITARIO'; // Resetear modo a precio unitario para consistencia
+            document.getElementById('montoInput').value = (item.precioUnitario * item.cantidad).toFixed(4); // Se asigna el Total
+            document.getElementById('modoPrecio').value = 'PRECIO_TOTAL';
 
             // Eliminar de la lista
             eliminarFila(index);
@@ -2287,27 +2294,39 @@
                 }
 
                 // 4. Poblar Tabla Detalle
-                detalleIngreso = detalles.map(d => ({
-                    productoId: d.item_id,
-                    codigo: d.items.codigo,
-                    descripcion: d.items.descripcion,
-                    unidad: d.items.unidades_medida?.codigo || 'UND',
-                    cantidad: d.cantidad,
-                    precioUnitario: d.precio_compra_unitario, // Precio Original Input
-                    // Recalculamos valores derivados para consistencia visual
-                    valorUnitario: d.valor_compra_unitario,
-                    igvUnitario: d.igv_credito_fiscal_unitario,
-                    subtotal: d.valor_compra_total,
-                    igvTotal: d.igv_credito_fiscal_producto,
-                    total: d.precio_compra_total,
+                detalleIngreso = detalles.map(d => {
+                    const cant = Number(d.cantidad);
+                    const totalBD = Number(d.precio_compra_total);
+                    let puPreciso = Number(d.precio_compra_unitario);
+                    
+                    // PREVENIR BUG DE 1 CÉNTIMO:
+                    // Extraer precio unitario con máxima precisión matemática desde el total de BD
+                    if (cant > 0 && Math.abs(totalBD - (puPreciso * cant)) > 0.001) {
+                        puPreciso = totalBD / cant;
+                    }
 
-                    costoAdquisicionUnitario: d.costo_adquisicion_unitario,
-                    costoAdquisicionTotal: d.costo_adquisicion_total,
-                    gastoAsignado: d.otros_egresos_total,
+                    return {
+                        productoId: d.item_id,
+                        codigo: d.items.codigo,
+                        descripcion: d.items.descripcion,
+                        unidad: d.items.unidades_medida?.codigo || 'UND',
+                        cantidad: cant,
+                        precioUnitario: puPreciso, // Precio Original Input con alta precisión
+                        // Recalculamos valores derivados para consistencia visual
+                        valorUnitario: d.valor_compra_unitario,
+                        igvUnitario: d.igv_credito_fiscal_unitario,
+                        subtotal: d.valor_compra_total,
+                        igvTotal: d.igv_credito_fiscal_producto,
+                        total: totalBD,
 
-                    esPerecible: !!d.fecha_vencimiento,
-                    fechaVencimiento: d.fecha_vencimiento
-                }));
+                        costoAdquisicionUnitario: d.costo_adquisicion_unitario,
+                        costoAdquisicionTotal: d.costo_adquisicion_total,
+                        gastoAsignado: d.otros_egresos_total,
+
+                        esPerecible: !!d.fecha_vencimiento,
+                        fechaVencimiento: d.fecha_vencimiento
+                    };
+                });
 
                 recalcularTodo(); // Refrescar visuales generales (incluyendo distribución de flete en items)
                 mostrarToast('Datos cargados. Modo corrección activo.', 'info');
@@ -2380,6 +2399,7 @@
                 proveedor_id: proveedor,
                 observacion: observacion,
                 almacen_id: almacen,
+                created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema',
                 // 🔥 CAMPOS FINANCIEROS (Fix 18/01/2026) 🔥
                 forma_pago: document.getElementById('formaPago').value,
                 medio_pago: document.getElementById('medioPago').value,
@@ -2456,12 +2476,100 @@
             toast.className = `toast ${tipo} active`;
             icon.textContent = tipo === 'success' ? '✅' : (tipo === 'error' ? '❌' : '⚠️');
             msg.textContent = mensaje;
-
             setTimeout(() => {
                 toast.classList.remove('active');
             }, 3000);
         }
 
+        // ============================================
+        // AJUSTE INTELIGENTE DE CÉNTIMOS
+        // ============================================
+        let itemSugeridoAjuste = null;
+        let montoSugeridoAjuste = 0;
+
+        function abrirModalAjuste() {
+            if (detalleIngreso.length === 0) {
+                mostrarToast('Debe agregar al menos un item antes de usar el Ajuste Inteligente', 'warning');
+                return;
+            }
+            document.getElementById('totalFacturaFisica').value = '';
+            document.getElementById('resultadoAjuste').style.display = 'none';
+            document.getElementById('btnAplicarAjuste').disabled = true;
+            document.getElementById('modalAjusteInteligente').style.display = 'flex';
+            setTimeout(() => document.getElementById('totalFacturaFisica').focus(), 100);
+        }
+
+        function cerrarModalAjuste() {
+            document.getElementById('modalAjusteInteligente').style.display = 'none';
+        }
+
+        function verificarAjuste() {
+            const inputVal = document.getElementById('totalFacturaFisica').value;
+            const totalFisica = parseFloat(inputVal);
+            const resDiv = document.getElementById('resultadoAjuste');
+            const btnAplicar = document.getElementById('btnAplicarAjuste');
+            
+            if (isNaN(totalFisica) || totalFisica <= 0) {
+                resDiv.style.display = 'none';
+                btnAplicar.disabled = true;
+                return;
+            }
+
+            const totalActual = detalleIngreso.reduce((sum, i) => sum + i.total, 0);
+            
+            // Meta de Total Items = Total Ingresado (Evaluación directa al Total Items)
+            const metaTotalItems = totalFisica;
+
+            const diferencia = metaTotalItems - totalActual; // positivo: falta, negativo: sobra
+
+            if (Math.abs(diferencia) > 1.00) {
+                resDiv.innerHTML = `<div style="color: var(--danger-color); font-weight: 500;">
+                    <i class="fas fa-exclamation-triangle"></i> La diferencia algorítmica (S/ ${Math.abs(diferencia).toFixed(2)}) es muy grande (> 1 Sol). Revise los precios unitarios y cantidades antes de usar el ajuste inteligente.
+                </div>`;
+                resDiv.style.display = 'block';
+                btnAplicar.disabled = true;
+                return;
+            }
+
+            if (Math.abs(diferencia) < 0.009) {
+                resDiv.innerHTML = `<div style="color: var(--success-color); font-weight: 500;">
+                    <i class="fas fa-check-circle"></i> Los montos cuadran perfectamente. No requiere ajuste.
+                </div>`;
+                resDiv.style.display = 'block';
+                btnAplicar.disabled = true;
+                return;
+            }
+
+            // Buscar en qué item es mejor absorber la diferencia (idealmente el de mayor precio total)
+            const itemsOrdenados = detalleIngreso.map((item, index) => ({...item, originalIndex: index}))
+                                                 .sort((a, b) => b.total - a.total);
+            const itemMayor = itemsOrdenados[0];
+            
+            itemSugeridoAjuste = itemMayor.originalIndex;
+            montoSugeridoAjuste = itemMayor.total + diferencia;
+
+            resDiv.innerHTML = `
+                <div style="font-size: 0.9rem;">
+                    <p style="margin-bottom: 0.5rem;"><strong>Análisis Completado:</strong></p>
+                    <p style="color: var(--secondary-color); margin-bottom: 0.25rem;">Diferencia a cuadrar: <strong>S/ ${diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}</strong></p>
+                    <p style="color: var(--primary-color);">Solución a Aplicar: Asignar de forma subyacente matemáticamente <strong>S/ ${montoSugeridoAjuste.toFixed(2)}</strong> como equivalente a <em>Precio Total</em> en el ítem:<br><span style="font-weight: 600;">${itemMayor.codigo} - ${itemMayor.descripcion}</span>.</p>
+                </div>
+            `;
+            resDiv.style.display = 'block';
+            btnAplicar.disabled = false;
+        }
+
+        function aplicarAjusteSugerido() {
+            if (itemSugeridoAjuste === null || isNaN(montoSugeridoAjuste)) return;
+
+            const item = detalleIngreso[itemSugeridoAjuste];
+            // Matemática inversa limpia y exacta para lograr que: item.precioUnitario * item.cantidad = montoSugeridoAjuste
+            item.precioUnitario = montoSugeridoAjuste / item.cantidad;
+            
+            mostrarToast('Ajuste quirúrgico aplicado con éxito. Revisa el cuadro de totales.', 'success');
+            cerrarModalAjuste();
+            recalcularTodo();
+        }
 
     </script>
 
@@ -2512,6 +2620,34 @@
                         onclick="ejecutarEliminacion()">🗑️ ELIMINAR INGRESO</button>
                     <button class="btn btn-primary" onclick="ejecutarCorreccion()">💾 CORREGIR INGRESO</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Ajuste Inteligente -->
+    <div id="modalAjusteInteligente" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-magic" style="color: var(--primary-color);"></i> Ajuste Inteligente de Totales</h3>
+                <button class="btn-icon" onclick="cerrarModalAjuste()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: var(--secondary-color); font-size: 0.95rem;">
+                    Ingrese el <strong>Total General Exacto de su Comprobante en Físico</strong>. El sistema calculará la diferencia de céntimos en el Total Items y ajustará un ítem automáticamente.
+                </p>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="totalFacturaFisica">Total Exacto según Comprobante en Físico (S/)</label>
+                    <input type="text" inputmode="decimal" id="totalFacturaFisica" placeholder="Ej: 1540.23" autocomplete="off" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onkeyup="verificarAjuste()">
+                </div>
+
+                <div id="resultadoAjuste" style="display: none; padding: 1rem; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1rem;">
+                    <!-- Contenido inyectado dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModalAjuste()">Cancelar</button>
+                <button id="btnAplicarAjuste" class="btn btn-primary" onclick="aplicarAjusteSugerido()" disabled>Aplicar Ajuste Automático</button>
             </div>
         </div>
     </div>
