@@ -1151,6 +1151,7 @@
                     fecha_egreso: fechaEgreso,
                     estado: 'CONFIRMADO',
                     usuario_id: usuarioActual.id,
+                    created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema',
                     observaciones: document.getElementById('observacionesRef')?.value || null
                 };
 
