@@ -738,6 +738,13 @@
                 
                 if(err1) throw err1;
 
+                // 4.1 TRANSACCIÓN DB (C. Anular Impacto en Flujo de Caja y Cuentas por Cobrar)
+                const { error: errCredito } = await window.supabaseClient.from('ventas_credito_pagos').update({ 
+                    estado: 'ANULADO' 
+                }).eq('venta_id', ventaId);
+                
+                if(errCredito) throw errCredito;
+
                 // 5. TRANSACCION DB (B. Revertir Kardex Físico vía RPC existente, sí existe un egreso asociado y es seguro)
                 if(egresoBD_id) {
                     // El RPC `fn_administrar_correccion_egreso` restaurará las cantidades a los lotes exactos y borrará Kardex/Egresos "silenciosamente" salvaguardando la integridad
