@@ -590,6 +590,10 @@
                             <label class="block text-xs font-bold text-gray-700 mb-1">Referencia / Trazabilidad (Opcional)</label>
                             <input id="swal-ref" type="text" class="w-full border border-gray-300 rounded px-3 py-2 outline-none" placeholder="N° Op. Voucher o Notas de turno">
                         </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">Fecha de Recepción del Pago</label>
+                            <input id="swal-fecha" type="date" class="w-full border border-gray-300 rounded px-3 py-2 outline-none" value="${getLimaDate()}">
+                        </div>
                     </div>
                 `,
                 focusConfirm: false,
@@ -603,11 +607,17 @@
                         Swal.showValidationMessage(`El monto debe ser numérico, mayor a 0 y no exceder la deuda de S/ ${saldoActual}`);
                         return false;
                     }
+                    const fechaSeleccionada = document.getElementById('swal-fecha').value;
+                    if (!fechaSeleccionada) {
+                        Swal.showValidationMessage('Debes seleccionar una fecha de pago');
+                        return false;
+                    }
                     return {
                         monto: monto,
                         metodo: document.getElementById('swal-metodo').value,
                         ref: document.getElementById('swal-ref').value,
-                        tipo_pago: document.getElementById('swal-tipo').value || 'ADELANTO'
+                        tipo_pago: document.getElementById('swal-tipo').value || 'ADELANTO',
+                        fecha_pago: fechaSeleccionada
                     }
                 }
             });
@@ -616,7 +626,24 @@
                 Swal.fire({ title: 'Asentando Pago...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
                 try {
                     const nuevoSaldo = Number(saldoActual) - formValues.monto;
-                    const fechaHoyStr = new Date().toISOString();
+                    
+                    let fechaHoyStr = '';
+                    const fechaActualStr = getLimaDate();
+                    if (formValues.fecha_pago === fechaActualStr) {
+                        const now = new Date();
+                        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                        const limaTime = new Date(utc - 5 * 3600000);
+                        const y = limaTime.getFullYear();
+                        const m = String(limaTime.getMonth() + 1).padStart(2, '0');
+                        const d = String(limaTime.getDate()).padStart(2, '0');
+                        const H = String(limaTime.getHours()).padStart(2, '0');
+                        const M = String(limaTime.getMinutes()).padStart(2, '0');
+                        const S = String(limaTime.getSeconds()).padStart(2, '0');
+                        fechaHoyStr = `${y}-${m}-${d}T${H}:${M}:${S}-05:00`;
+                    } else {
+                        fechaHoyStr = `${formValues.fecha_pago}T00:00:00-05:00`;
+                    }
+
                     const userInfo = window.currentUser?.email || window.currentUser?.id || 'Desconocido';
                     
                     // 1. Insertar el pago (Adenda dinámica)
