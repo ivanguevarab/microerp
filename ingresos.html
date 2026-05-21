@@ -2541,7 +2541,7 @@
                     egreso_real_pagado: egresoReal,
                     fecha_pago: fechaPago,
                     fecha_vencimiento: formaPago === 'CREDITO' ? fechaVencimiento : null,
-                    created_by: window.currentUser ? (window.currentUser.user_metadata?.full_name || window.currentUser.email) : 'Sistema',
+                    created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema',
                     
                     detalles: detalleIngreso.map(item => ({
                         item_id: item.productoId,
