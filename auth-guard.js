@@ -70,6 +70,7 @@ async function checkAuth() {
                     id,
                     rol,
                     estado,
+                    nombre_completo,
                     accesos_rutas,
                     empresas (
                         es_comercializadora,
