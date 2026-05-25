@@ -86,7 +86,8 @@
         }
 
         .kanban-col {
-            flex: 0 0 350px;
+            flex: 1 1 0;
+            min-width: 300px;
             background-color: #f1f5f9;
             border-radius: 0.75rem;
             display: flex;
@@ -237,11 +238,11 @@
                 <div class="kanban-col-header text-slate-700 dark:text-slate-200">
                     <div class="flex items-center gap-2">
                         <i class="fas fa-box text-slate-400"></i>
-                        <span>No Empezado</span>
+                        <span>No Iniciado</span>
                     </div>
                     <span class="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full text-xs" id="count-todo">0</span>
                 </div>
-                <div class="kanban-items" id="list-todo" data-estado="No Empezado">
+                <div class="kanban-items" id="list-todo" data-estado="No Iniciado">
                     <!-- Cards here -->
                 </div>
             </div>
@@ -500,7 +501,7 @@
                 // Fetch de proyectos con JOIN a codigos_unicos
                 const { data: proyectosRaw, error } = await window.supabaseClient
                     .from('proyectos_produccion')
-                    .select('*, codigos_unicos(codigo, descripcion)');
+                    .select('*, codigos_unicos(codigo, descripcion, estado)');
 
                 if (error) throw error;
 
@@ -519,6 +520,7 @@
                     };
                     
                     if (!proy.cup) continue; 
+                    if (proy.cup.estado === 'ANULADO') continue;
                     
                     // Fetch avance tareas sumando porcentajes
                     const { data: tareas } = await window.supabaseClient
@@ -531,7 +533,7 @@
                     
                     const cardHtml = createCardHTML(proy, Math.min(100, avance));
                     
-                    if (proy.estado_kanban === 'No Empezado') {
+                    if (proy.estado_kanban === 'No Iniciado') {
                         document.getElementById('list-todo').insertAdjacentHTML('beforeend', cardHtml);
                         countTodo++;
                     } else if (proy.estado_kanban === 'En Proceso') {
@@ -597,10 +599,14 @@
                     updated_by: window.currentUser?.user_metadata?.full_name || window.currentUser?.email || 'Usuario'
                 };
                 
-                if (newState === 'En Proceso') {
+                if (newState === 'No Iniciado') {
+                    updates.fecha_inicio = null;
+                    updates.fecha_fin = null;
+                } else if (newState === 'En Proceso') {
                     // Solo seteamos inicio si no tiene (para no sobreescribir la 1ra vez)
                     const {data} = await window.supabaseClient.from('proyectos_produccion').select('fecha_inicio').eq('id', projectId).single();
                     if(!data.fecha_inicio) updates.fecha_inicio = new Date().toISOString();
+                    updates.fecha_fin = null;
                 } else if (newState === 'Terminado') {
                     updates.fecha_fin = new Date().toISOString();
                 }
@@ -611,6 +617,34 @@
                     .eq('id', projectId);
 
                 if (error) throw error;
+                
+                // --- Sincronización Bidireccional hacia codigos_unicos ---
+                let cupEstado = 'NO_INICIADO';
+                if (newState === 'En Proceso') cupEstado = 'EN_PROCESO';
+                if (newState === 'Terminado') cupEstado = 'TERMINADO';
+                
+                const getLimaDateStr = (isoStr) => {
+                    if (!isoStr) return null;
+                    const d = new Date(isoStr);
+                    const limaDate = new Date(d.toLocaleString("en-US", {timeZone: "America/Lima"}));
+                    return limaDate.getFullYear() + "-" + String(limaDate.getMonth() + 1).padStart(2, '0') + "-" + String(limaDate.getDate()).padStart(2, '0');
+                };
+                
+                let cupUpdates = { estado: cupEstado };
+                if (updates.fecha_inicio !== undefined) {
+                    cupUpdates.fecha_inicio = getLimaDateStr(updates.fecha_inicio);
+                }
+                if (updates.fecha_fin !== undefined) {
+                    cupUpdates.fecha_fin = getLimaDateStr(updates.fecha_fin);
+                }
+                
+                const { error: errorCup } = await window.supabaseClient
+                    .from('codigos_unicos')
+                    .update(cupUpdates)
+                    .eq('id', projectId);
+                    
+                if (errorCup) console.error("Error sincronizando CUP:", errorCup);
+                // ---------------------------------------------------------
                 loadBoard(); // Reload to refresh counts and logic
             } catch (err) {
                 console.error("Error updating state:", err);
