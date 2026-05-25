@@ -1143,6 +1143,7 @@
                     <thead>
                         <tr>
                             <th>Descripción</th>
+                            <th>Fecha Pago</th>
                             <th>Proveedor / Doc</th>
                             <th>¿Factura?</th>
                             <th class="col-number">Monto</th>
@@ -1982,10 +1983,13 @@
                 if (gasto.conFactura) {
                     detalleDoc = `<small>${gasto.proveedorNombre}<br>${gasto.serie}-${gasto.numero}</small>`;
                 }
+                
+                const fechaFormat = gasto.fechaPagoOEA ? gasto.fechaPagoOEA.split('-').reverse().join('/') : '-';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${gasto.descripcion}</td>
+                    <td>${fechaFormat}</td>
                     <td>${detalleDoc}</td>
                     <td>${gasto.conFactura ? 'SÍ' : 'NO'}</td>
                     <td class="col-number">${formatMoney(gasto.monto)}</td>
@@ -2007,6 +2011,7 @@
             document.getElementById('gastoDescripcion').value = gasto.descripcion;
             document.getElementById('gastoMonto').value = gasto.monto;
             document.getElementById('gastoConFactura').value = gasto.conFactura.toString();
+            if (gasto.fechaPagoOEA) document.getElementById('gastoFechaPagoOEA').value = gasto.fechaPagoOEA;
 
             toggleCamposGasto(); // Mostrar/ocultar campos de factura
 
