@@ -904,6 +904,10 @@
 
     <script>
         // --- LOGICA IMPORTADA Y ADAPTADA ---
+        const obtenerFechaLocalStr = () => {
+            const d = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Lima"}));
+            return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+        };
 
         // 1. Inicialización y Perfil
         async function initModule() {
@@ -1165,14 +1169,14 @@
                 fin.value = '';
             } else if (estado === 'EN_PROCESO') {
                 inicio.disabled = false;
-                if (!inicio.value) inicio.valueAsDate = new Date();
+                if (!inicio.value) inicio.value = obtenerFechaLocalStr();
                 fin.disabled = true;
                 fin.value = '';
             } else if (estado === 'TERMINADO' || estado === 'ANULADO') {
                 inicio.disabled = false;
-                if (!inicio.value) inicio.valueAsDate = new Date();
+                if (!inicio.value) inicio.value = obtenerFechaLocalStr();
                 fin.disabled = false;
-                if (!fin.value) fin.valueAsDate = new Date();
+                if (!fin.value) fin.value = obtenerFechaLocalStr();
             }
         }
 
@@ -1710,7 +1714,7 @@
             const cupId = document.getElementById('traceability-cup-id').value;
             if (!cupId) return;
 
-            const hoyStr = new Date().toLocaleString("es-PE", {timeZone: "America/Lima"}).split(',')[0].split('/').reverse().join('-');
+            const hoyStr = obtenerFechaLocalStr();
 
             Swal.fire({
                 title: 'Añadir Servicio / Gasto',
@@ -2070,7 +2074,7 @@
             const tbody = document.getElementById('calc-horas-list');
             const tr = document.createElement('tr');
             
-            const hoy = new Date().toISOString().split('T')[0];
+            const hoy = obtenerFechaLocalStr();
             
             tr.innerHTML = `
                 <td style="padding: 4px;">
@@ -2108,7 +2112,18 @@
                     const [h2, m2] = fin.split(':').map(Number);
                     const min1 = (h1 * 60) + m1;
                     let min2 = (h2 * 60) + m2;
-                    if(min2 < min1) min2 += 24 * 60; 
+                    
+                    if(min2 < min1) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Hora Inválida',
+                            text: 'La hora de fin no puede ser inferior a la hora de inicio.',
+                            confirmButtonColor: '#3085d6'
+                        });
+                        row.querySelector('.calc-fin').value = inicio;
+                        min2 = min1;
+                    }
+                    
                     subtotal = (min2 - min1) / 60;
                 }
                 
