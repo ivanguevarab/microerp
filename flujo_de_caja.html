@@ -197,8 +197,42 @@
             </div>
         </div>
 
+        <!-- Buscador Universal -->
+        <div class="mb-6 relative">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <i class="fas fa-search text-blue-500"></i>
+            </div>
+            <input type="text" id="buscadorFlujoCaja" class="w-full bg-white border border-gray-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-shadow placeholder-slate-400 text-slate-700 font-medium" placeholder="Buscar por empleado, socio, código de ticket, palabra clave...">
+        </div>
+
+        <!-- Resultados Búsqueda Plana (Oculto por defecto) -->
+        <div id="contenedor-busqueda-plana" class="hidden bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden mb-12">
+            <div class="p-4 bg-blue-50/50 border-b border-blue-100 flex justify-between items-center">
+                <h3 class="font-bold text-blue-700 flex items-center"><i class="fas fa-search mr-2 text-blue-500"></i> Resultados de Búsqueda</h3>
+                <span id="contador-resultados" class="text-xs font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">0 encontrados</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                            <th class="px-4 py-3">Tipo</th>
+                            <th class="px-4 py-3">Fecha</th>
+                            <th class="px-4 py-3">Categoría</th>
+                            <th class="px-4 py-3">Referencia</th>
+                            <th class="px-4 py-3">Autor</th>
+                            <th class="px-4 py-3 text-right">Monto</th>
+                            <th class="px-4 py-3 text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-body-busqueda" class="divide-y divide-gray-100">
+                        <!-- Inyectado por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- ROW 3: Tablas de Flujo (Ingresos y Egresos) -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+        <div id="contenedor-tablas-flujo" class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
             
             <!-- COLS 1: Ingresos -->
             <div class="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden">
@@ -465,7 +499,7 @@
 
                 // 1. VENTAS CONTADO
                 const { data: vtaContado } = await window.supabaseClient.from('ventas')
-                    .select('id, created_at, fecha_venta, fecha_recepcion_pago, numero_ticket, precio_venta_total')
+                    .select('id, created_at, fecha_venta, fecha_recepcion_pago, numero_ticket, precio_venta_total, created_by')
                     .eq('empresa_id', currentEmpresaId)
                     .eq('estado', 'REGISTRADO')
                     .eq('condicion_pago', 'CONTADO')
@@ -477,7 +511,7 @@
                 (vtaContado || []).forEach(v => {
                     const val = Number(v.precio_venta_total);
                     sumVtaContado += val;
-                    detVtaContado.push({ fecha: v.created_at || v.fecha_recepcion_pago, ref: 'Ticket/Factura: ' + (v.numero_ticket || 'S/N'), monto: val });
+                    detVtaContado.push({ fecha: v.created_at || v.fecha_recepcion_pago, ref: 'Ticket/Factura: ' + (v.numero_ticket || 'S/N'), monto: val, created_by: v.created_by });
                 });
                 if(sumVtaContado > 0) {
                     objIngresos.push({ cat: 'Ventas al Contado', monto: sumVtaContado, sys: true, detalles: detVtaContado });
@@ -486,7 +520,7 @@
 
                 // 2. VENTAS CREDITO (COBROS/ADELANTOS)
                 const { data: cobrosCredito } = await window.supabaseClient.from('ventas_credito_pagos')
-                    .select('id, created_at, fecha_pago, monto, ventas(numero_ticket, clientes(razon_social))')
+                    .select('id, created_at, fecha_pago, monto, created_by, ventas(numero_ticket, clientes(razon_social))')
                     .eq('empresa_id', currentEmpresaId)
                     .eq('estado', 'PAGADO')
                     .gte('fecha_pago', isoDesde)
@@ -500,7 +534,7 @@
                     const ticketStr = v.ventas ? v.ventas.numero_ticket : 'Ticket Desconocido';
                     const clienteStr = (v.ventas && v.ventas.clientes) ? v.ventas.clientes.razon_social : 'Cliente Anónimo';
                     const refAmortizacion = `Cobro de ${ticketStr} - ${clienteStr}`;
-                    detCobrosCredito.push({ fecha: v.created_at || v.fecha_pago, ref: refAmortizacion, monto: val });
+                    detCobrosCredito.push({ fecha: v.created_at || v.fecha_pago, ref: refAmortizacion, monto: val, created_by: v.created_by });
                 });
                 if(sumCobrosCredito > 0) {
                     objIngresos.push({ cat: 'Ventas al Crédito (Pagos Recibidos)', monto: sumCobrosCredito, sys: true, detalles: detCobrosCredito });
@@ -509,7 +543,7 @@
 
                 // 3. COMPRAS LOGISTICA (CONTADO Y CRÉDITO)
                 const { data: cmLogistica } = await window.supabaseClient.from('ingresos')
-                    .select('id, created_at, fecha_pago, numero_ingreso, egreso_real_pagado, forma_pago') 
+                    .select('id, created_at, fecha_pago, numero_ingreso, egreso_real_pagado, forma_pago, created_by') 
                     .eq('empresa_id', currentEmpresaId)
                     .in('estado', ['REGISTRADO', 'CONFIRMADO']) 
                     .gte('fecha_pago', desde)
@@ -527,17 +561,17 @@
                     if (monto > 0) {
                         if (v.forma_pago === 'CREDITO') {
                             sumComprasCredito += monto;
-                            detComprasCredito.push({ fecha: v.created_at || v.fecha_pago, ref: docInfo, monto: monto });
+                            detComprasCredito.push({ fecha: v.created_at || v.fecha_pago, ref: docInfo, monto: monto, created_by: v.created_by });
                         } else {
                             sumComprasContado += monto;
-                            detComprasContado.push({ fecha: v.created_at || v.fecha_pago, ref: docInfo, monto: monto });
+                            detComprasContado.push({ fecha: v.created_at || v.fecha_pago, ref: docInfo, monto: monto, created_by: v.created_by });
                         }
                     }
                 });
 
                 // 3.5 OTROS EGRESOS ASOCIADOS (OEA)
                 const { data: oeaList } = await window.supabaseClient.from('gastos_ingreso')
-                    .select('id, created_at, fecha_pago, precio_gasto, descripcion, ingresos!inner(empresa_id, numero_ingreso, estado)')
+                    .select('id, created_at, fecha_pago, precio_gasto, descripcion, ingresos!inner(empresa_id, numero_ingreso, estado, created_by)')
                     .eq('ingresos.empresa_id', currentEmpresaId)
                     .in('ingresos.estado', ['REGISTRADO', 'CONFIRMADO'])
                     .gte('fecha_pago', desde)
@@ -551,7 +585,7 @@
                     if (otrosG > 0) {
                         sumOtrosEgresos += otrosG;
                         const docInfo = g.ingresos ? g.ingresos.numero_ingreso : 'N/A';
-                        detOtrosEgresos.push({ fecha: g.created_at || g.fecha_pago, ref: `${g.descripcion} (${docInfo})`, monto: otrosG });
+                        detOtrosEgresos.push({ fecha: g.created_at || g.fecha_pago, ref: `${g.descripcion} (${docInfo})`, monto: otrosG, created_by: g.ingresos?.created_by });
                     }
                 });
 
@@ -572,7 +606,7 @@
 
                 // 4. FC MOVIMIENTOS
                 const { data: mf } = await window.supabaseClient.from('fc_movimientos')
-                    .select('id, created_at, fecha_movimiento, referencia, monto, categoria_id, codigo_correlativo, codigos_unicos(codigo, descripcion), fc_fuentes_categorias!inner(nombre, es_sistema, tipo_movimiento)')
+                    .select('id, created_at, fecha_movimiento, referencia, monto, categoria_id, codigo_correlativo, created_by, codigos_unicos(codigo, descripcion), fc_fuentes_categorias!inner(nombre, es_sistema, tipo_movimiento)')
                     .eq('empresa_id', currentEmpresaId)
                     .eq('estado', 'APROBADO')
                     .gte('fecha_movimiento', desde)
@@ -591,6 +625,7 @@
                         ref: m.referencia || 'Generado manualmente', 
                         monto: Number(m.monto),
                         correlativo: m.codigo_correlativo,
+                        created_by: m.created_by,
                         orden: m.codigos_unicos ? `${m.codigos_unicos.codigo} - ${m.codigos_unicos.descripcion}` : null
                     });
                 });
@@ -1551,7 +1586,12 @@
                     
                     let refContent = mini.ref;
                     if (mini.correlativo) {
-                        refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider mb-1">${mini.correlativo}</div>${refContent}`;
+                        let spanAutor = mini.created_by ? `<span class="ml-2 font-normal text-slate-500 italic tracking-normal">Por: ${mini.created_by}</span>` : '';
+                        refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider mb-1 flex items-center">${mini.correlativo}${spanAutor}</div>${refContent}`;
+                    } else {
+                        if (mini.created_by) {
+                            refContent += `<div class="mt-1"><span class="font-normal text-[10px] text-slate-500 italic tracking-normal">Por: ${mini.created_by}</span></div>`;
+                        }
                     }
                     if (mini.orden) {
                         refContent += `<div class="mt-1"><span class="inline-block bg-slate-100 border border-slate-200 text-slate-600 text-[10px] px-2 py-0.5 rounded font-bold"><i class="fas fa-link mr-1"></i>Asociado a: ${mini.orden}</span></div>`;
@@ -1706,6 +1746,222 @@
                 console.error(err);
                 Swal.fire('Error Critico', 'Hubo un error procesando el archivo de Excel. El bloque histórico podría estar corrupto.', 'error');
             }
+        }
+
+        // ==========================================
+        // BUSCADOR AVANZADO
+        // ==========================================
+        let debounceTimerBuscador;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputBuscador = document.getElementById('buscadorFlujoCaja');
+            if(inputBuscador) {
+                inputBuscador.addEventListener('input', (e) => {
+                    clearTimeout(debounceTimerBuscador);
+                    debounceTimerBuscador = setTimeout(() => {
+                        ejecutarBusquedaPlana(e.target.value.trim());
+                    }, 300);
+                });
+            }
+        });
+
+        function ejecutarBusquedaPlana(query) {
+            const contenedorTablas = document.getElementById('contenedor-tablas-flujo');
+            const contenedorBusqueda = document.getElementById('contenedor-busqueda-plana');
+            const tbodyBusqueda = document.getElementById('tbl-body-busqueda');
+            const contador = document.getElementById('contador-resultados');
+
+            if (!query || query.length < 2) {
+                contenedorTablas.classList.remove('hidden');
+                contenedorBusqueda.classList.add('hidden');
+                return;
+            }
+
+            contenedorTablas.classList.add('hidden');
+            contenedorBusqueda.classList.remove('hidden');
+            
+            window.resultadosBusquedaPlana = [];
+            let resultados = window.resultadosBusquedaPlana;
+            
+            if (window.memoriaIngresosCaja) {
+                window.memoriaIngresosCaja.forEach(cat => {
+                    if (cat.detalles) {
+                        cat.detalles.forEach(det => {
+                            if (coincideBuscador(query, cat.cat, det)) {
+                                resultados.push({ ...det, tipo: 'INGRESO', categoria: cat.cat });
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (window.memoriaEgresosCaja) {
+                window.memoriaEgresosCaja.forEach(cat => {
+                    if (cat.detalles) {
+                        cat.detalles.forEach(det => {
+                            if (coincideBuscador(query, cat.cat, det)) {
+                                resultados.push({ ...det, tipo: 'EGRESO', categoria: cat.cat });
+                            }
+                        });
+                    }
+                });
+            }
+
+            resultados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+            contador.textContent = `${resultados.length} encontrados`;
+            tbodyBusqueda.innerHTML = '';
+
+            if (resultados.length === 0) {
+                tbodyBusqueda.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-500 italic">No se encontraron movimientos que coincidan con "${query}".</td></tr>`;
+                return;
+            }
+
+            resultados.forEach((res, index) => {
+                let fStr = res.fecha;
+                if (fStr && !fStr.endsWith('Z') && !fStr.includes('+') && fStr.length > 10) fStr += 'Z';
+                const fecObj = new Date(fStr);
+                const fechaFormat = isNaN(fecObj) ? res.fecha : fecObj.toLocaleString('es-PE', {timeZone: 'America/Lima', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
+                
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors border-b border-gray-100';
+                
+                const tipoBadge = res.tipo === 'INGRESO' ? 
+                    `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">ING</span>` : 
+                    `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded text-xs font-bold">EGR</span>`;
+                
+                const montoColor = res.tipo === 'INGRESO' ? 'text-emerald-600' : 'text-rose-600';
+                const signo = res.tipo === 'INGRESO' ? '+' : '-';
+
+                const actionsHTML = `
+                    <div class="flex items-center justify-center gap-3">
+                        <button onclick="verDetalleUnicoModal(${index})" class="text-indigo-400 hover:text-indigo-600 transition transform hover:scale-110" title="Ver Detalles completos"><i class="fas fa-eye text-base"></i></button>
+                        <button onclick="saltarADia('${res.fecha}')" class="text-sky-400 hover:text-sky-600 transition transform hover:scale-110" title="Ir al día de este movimiento"><i class="fas fa-calendar-day text-base"></i></button>
+                    </div>
+                `;
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3 align-middle">${tipoBadge}</td>
+                    <td class="px-4 py-3 align-middle text-gray-500 font-mono text-xs whitespace-nowrap">${fechaFormat}</td>
+                    <td class="px-4 py-3 align-middle text-gray-600 font-medium text-xs">${res.categoria}</td>
+                    <td class="px-4 py-3 align-middle text-gray-800 text-sm">${res.ref}</td>
+                    <td class="px-4 py-3 align-middle text-gray-500 text-xs">${res.created_by || 'Sistema'}</td>
+                    <td class="px-4 py-3 align-middle text-right font-bold ${montoColor} whitespace-nowrap">${signo} S/ ${formatMoney(res.monto)}</td>
+                    <td class="px-4 py-3 align-middle text-center">${actionsHTML}</td>
+                `;
+                tbodyBusqueda.appendChild(tr);
+            });
+        }
+
+        function verDetalleUnicoModal(idx) {
+            const res = window.resultadosBusquedaPlana[idx];
+            if (!res) return;
+
+            let fStr = res.fecha;
+            if (fStr && !fStr.endsWith('Z') && !fStr.includes('+') && fStr.length > 10) fStr += 'Z';
+            const fecObj = new Date(fStr);
+            const fechaFull = isNaN(fecObj) ? res.fecha : fecObj.toLocaleString('es-PE', {timeZone: 'America/Lima', day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
+
+            const isIngreso = res.tipo === 'INGRESO';
+            const colorClass = isIngreso ? 'text-emerald-600' : 'text-rose-600';
+            const iconClass = isIngreso ? 'fa-arrow-down text-emerald-500' : 'fa-arrow-up text-rose-500';
+
+            let extraHTML = '';
+            if (res.correlativo) extraHTML += `<div class="mt-2 text-sm text-slate-500"><b>Correlativo:</b> ${res.correlativo}</div>`;
+            if (res.orden) extraHTML += `<div class="mt-2 text-sm text-slate-500"><b>Orden Asociada:</b> ${res.orden}</div>`;
+
+            Swal.fire({
+                title: `<div class="text-xl font-bold text-slate-800 flex items-center justify-center gap-2"><i class="fas ${iconClass}"></i> Detalle del Movimiento</div>`,
+                html: `
+                    <div class="text-left mt-4 bg-slate-50 p-5 rounded-lg border border-slate-200">
+                        <div class="mb-3">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Categoría</div>
+                            <div class="font-medium text-slate-700">${res.categoria}</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Fecha de Registro</div>
+                            <div class="font-medium text-slate-700">${fechaFull}</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Referencia / Concepto</div>
+                            <div class="font-medium text-slate-800">${res.ref}</div>
+                            ${extraHTML}
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Autor</div>
+                            <div class="font-medium text-slate-700"><i class="fas fa-user-circle mr-1 text-slate-400"></i> ${res.created_by || 'Sistema'}</div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-200 flex justify-between items-center">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Monto Total</div>
+                            <div class="text-2xl font-black ${colorClass}">S/ ${formatMoney(res.monto)}</div>
+                        </div>
+                    </div>
+                `,
+                showCloseButton: true,
+                showConfirmButton: false,
+                width: '500px'
+            });
+        }
+
+        function saltarADia(fechaIso) {
+            Swal.close(); 
+            
+            let fStr = fechaIso;
+            if (fStr && !fStr.endsWith('Z') && !fStr.includes('+') && fStr.length > 10) fStr += 'Z';
+            const fecObj = new Date(fStr);
+            if (isNaN(fecObj)) return;
+            
+            const year = fecObj.toLocaleString('es-PE', { timeZone: 'America/Lima', year: 'numeric' });
+            const month = fecObj.toLocaleString('es-PE', { timeZone: 'America/Lima', month: '2-digit' });
+            const day = fecObj.toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit' });
+            const fechaLocalStr = `${year}-${month}-${day}`;
+
+            document.getElementById('filtroDesde').value = fechaLocalStr;
+            document.getElementById('filtroHasta').value = fechaLocalStr;
+            
+            const inputBuscador = document.getElementById('buscadorFlujoCaja');
+            if (inputBuscador) {
+                inputBuscador.value = '';
+            }
+            
+            document.getElementById('contenedor-tablas-flujo').classList.remove('hidden');
+            document.getElementById('contenedor-busqueda-plana').classList.add('hidden');
+            
+            cargarTablero();
+            
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `Filtrado al día ${day}/${month}/${year}`,
+                showConfirmButton: false,
+                timer: 3000
+            });
+        }
+
+        function coincideBuscador(query, categoria, det) {
+            const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+            const q = normalize(query);
+            
+            const textA = normalize(categoria);
+            const textB = normalize(det.ref);
+            
+            const textoCompleto = `${textA} ${textB}`;
+            
+            // Separar la búsqueda por comas
+            const terminos = q.split(',').map(t => t.trim()).filter(t => t.length > 0);
+            
+            return terminos.every(termino => {
+                let esNumero = !isNaN(termino) && termino !== '';
+                
+                if (esNumero) {
+                    // Si digita exclusivamente un número, forzamos que filtre la columna Monto de forma matemática
+                    return Number(det.monto) === Number(termino);
+                } else {
+                    // Si digita texto, busca en las columnas de Categoría y Referencia
+                    return textoCompleto.includes(termino);
+                }
+            });
         }
     </script>
 </body>
