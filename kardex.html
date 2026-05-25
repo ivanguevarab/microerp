@@ -439,7 +439,7 @@
         </div>
 
         <!-- Modal Ver Detalles Avanzado -->
-        <div id="modalDetalles"
+        <div id="modalDetalles" onclick="if(event.target === this) cerrarModal('modalDetalles')"
             class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden overflow-y-auto h-full w-full z-[105] flex items-center justify-center">
             <div
                 class="relative mx-auto p-0 border w-11/12 md:w-4/5 lg:w-3/4 shadow-2xl rounded-xl bg-white max-h-[90vh] flex flex-col">
@@ -1006,6 +1006,32 @@
                 const fechaIngreso = formatDateSafe(ingreso.fecha_ingreso);
                 const fechaEmision = formatDateSafe(ingreso.fecha_documento);
                 const fechaVenc = formatDateSafe(ingreso.fecha_vencimiento);
+                const fechaPago = formatDateSafe(ingreso.fecha_pago);
+
+                let subtotalItems = 0;
+                let igvItems = 0;
+                let totalItems = 0;
+                items.forEach(item => {
+                    const precioUnit = item.precio_compra_unitario > 0 ? item.precio_compra_unitario : item.costo_adquisicion_unitario;
+                    const valorUnit = item.valor_compra_unitario > 0 ? item.valor_compra_unitario : item.costo_adquisicion_unitario;
+                    const igvUnit = item.igv_credito_fiscal_unitario || 0;
+                    const total = (item.precio_compra_total > 0 ? item.precio_compra_total : item.costo_adquisicion_total) || (item.cantidad * precioUnit);
+                    
+                    totalItems += total;
+                    igvItems += (igvUnit * item.cantidad);
+                    subtotalItems += (valorUnit * item.cantidad);
+                });
+
+                let subtotalGastos = 0;
+                let igvGastos = 0;
+                let totalGastos = 0;
+                gastos.forEach(gasto => {
+                    subtotalGastos += parseFloat(gasto.valor_gasto || 0);
+                    igvGastos += parseFloat(gasto.igv_credito_fiscal_gasto || 0);
+                    totalGastos += parseFloat(gasto.precio_gasto || 0);
+                });
+
+                const costoAdquisicionTotal = totalItems + totalGastos;
 
                 let html = `
                 <div class="space-y-8">
@@ -1028,7 +1054,8 @@
                             <div><p class="text-xs text-gray-500 uppercase">Serie - Número</p><p class="font-medium">${(ingreso.serie_factura || ingreso.numero_factura) ? (ingreso.serie_factura || '') + ' - ' + (ingreso.numero_factura || '') : '-'}</p></div>
                             
                             <div><p class="text-xs text-gray-500 uppercase">Fecha Emisión Doc.</p><p class="font-medium">${fechaEmision}</p></div>
-                            <div class="md:col-span-2"><p class="text-xs text-gray-500 uppercase">Observaciones</p><p class="font-medium text-gray-800">${ingreso.observaciones || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Fecha de Pago</p><p class="font-medium">${fechaPago}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Observaciones</p><p class="font-medium text-gray-800">${ingreso.observaciones || '-'}</p></div>
                         </div>
                     </section>
 
@@ -1107,7 +1134,8 @@
                                 <thead class="bg-gray-100 text-gray-600 uppercase text-xs">
                                     <tr>
                                         <th class="px-4 py-3">Descripción</th>
-                                        <th class="px-4 py-3">Factura?</th>
+                                        <th class="px-4 py-3 text-center">Fecha Pago</th>
+                                        <th class="px-4 py-3 text-center">Factura?</th>
                                         <th class="px-4 py-3">Doc. Ref.</th>
                                         <th class="px-4 py-3 text-right">Monto</th>
                                         <th class="px-4 py-3 text-right">Valor Gasto</th>
@@ -1118,7 +1146,8 @@
                                     ${gastos.map(gasto => `
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-4 py-3 font-medium">${gasto.descripcion || '-'}</td>
-                                        <td class="px-4 py-3">${gasto.con_factura_gasto ? '<span class="text-green-600 font-bold">SÍ</span>' : 'NO'}</td>
+                                        <td class="px-4 py-3 text-center text-gray-600">${formatDateSafe(gasto.fecha_pago)}</td>
+                                        <td class="px-4 py-3 text-center">${gasto.con_factura_gasto ? '<span class="text-green-600 font-bold">SÍ</span>' : 'NO'}</td>
                                         <td class="px-4 py-3 text-xs text-gray-500">
                                             ${gasto.con_factura_gasto ?
                         `<div>${gasto.serie_factura || ''}-${gasto.numero_factura || ''}</div>
@@ -1135,6 +1164,40 @@
                         </div>
                     </section>
                     ` : ''}
+
+                    <!-- Resumen Totales -->
+                    <section class="mt-8 flex justify-end">
+                        <div class="bg-gray-50 text-gray-600 rounded-xl p-6 w-full md:w-[400px] min-w-[350px] shadow-sm border border-gray-200">
+                            <div class="flex justify-between mb-2 text-sm">
+                                <span>Subtotal Items (Valor Venta):</span>
+                                <span class="font-medium text-gray-800">S/ ${formatMoney(subtotalItems)}</span>
+                            </div>
+                            <div class="flex justify-between mb-2 text-sm">
+                                <span>Subtotal Gasto (Valor Venta):</span>
+                                <span class="font-medium text-gray-800">S/ ${formatMoney(subtotalGastos)}</span>
+                            </div>
+                            <div class="flex justify-between mb-2 text-sm">
+                                <span>IGV Items (18%):</span>
+                                <span class="font-medium text-gray-800">S/ ${formatMoney(igvItems)}</span>
+                            </div>
+                            <div class="flex justify-between mb-4 text-sm pb-4 border-b border-gray-200">
+                                <span>IGV Gasto (18%):</span>
+                                <span class="font-medium text-gray-800">S/ ${formatMoney(igvGastos)}</span>
+                            </div>
+                            <div class="flex justify-between mb-2 text-sm font-medium">
+                                <span>Total Items:</span>
+                                <span class="text-gray-900">S/ ${formatMoney(totalItems)}</span>
+                            </div>
+                            <div class="flex justify-between mb-4 text-sm font-medium pb-4 border-b border-gray-200">
+                                <span>Total Gasto:</span>
+                                <span class="text-gray-900">S/ ${formatMoney(totalGastos)}</span>
+                            </div>
+                            <div class="flex justify-between items-center font-bold text-lg text-blue-600 mt-2">
+                                <span>Costo de Adquisición Total:</span>
+                                <span>S/ ${formatMoney(costoAdquisicionTotal)}</span>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             `;
                 container.innerHTML = html;
