@@ -884,6 +884,14 @@
                                     title="Nuevo Proveedor">+</button>
                             </div>
                         </div>
+
+                        <!-- Trazabilidad -->
+                        <div id="trazabilidadBlock" class="form-group full-width hidden mt-2 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                            <div class="flex flex-col gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                <div id="divTrazabilidadCreador" class="hidden">Registrado por: <span id="trazabilidadCreador" class="text-slate-700 dark:text-slate-300">-</span></div>
+                                <div id="divTrazabilidadActualizador" class="hidden">Última edición por: <span id="trazabilidadActualizador" class="text-slate-700 dark:text-slate-300">-</span></div>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -1243,6 +1251,10 @@
             document.getElementById('itemForm').reset();
             document.getElementById('itemId').value = '';
 
+            // Ocultar bloque de trazabilidad al crear nuevo
+            const tBlock = document.getElementById('trazabilidadBlock');
+            if (tBlock) tBlock.classList.add('hidden');
+
             // Generar código sugerido automáticamente
             if (generarCodigoAuto) {
                 generarCodigo();
@@ -1291,6 +1303,11 @@
             const unidadObj = unidadesData.find(u => u.id === unidadMedidaId);
             const unidadMedidaLegacy = unidadObj ? unidadObj.codigo : 'NIU';
 
+            // Captura de autoría correcta (desde el perfil global de la base de datos)
+            const autor = (window.currentUserProfile && window.currentUserProfile.nombre_completo) 
+                ? window.currentUserProfile.nombre_completo 
+                : (window.currentUser ? window.currentUser.email : 'Sistema');
+
             const payload = {
                 codigo,
                 descripcion,
@@ -1305,6 +1322,7 @@
             try {
                 if (id) {
                     // UPDATE
+                    payload.updated_by = autor;
                     const { error } = await supabaseApp
                         .from('items')
                         .update(payload)
@@ -1314,6 +1332,7 @@
                     mostrarToast('✅ Item actualizado correctamente', 'success');
                 } else {
                     // INSERT
+                    payload.created_by = autor;
                     const { error } = await supabaseApp
                         .from('items')
                         .insert([payload]);
@@ -1352,6 +1371,37 @@
                 document.getElementById('unidadMedidaId').value = data.unidad_medida_id;
                 document.getElementById('proveedorId').value = data.proveedor_id || '';
                 document.getElementById('stockMinimo').value = data.stock_minimo;
+
+                // Cargar Trazabilidad
+                const tBlock = document.getElementById('trazabilidadBlock');
+                const tDivCreador = document.getElementById('divTrazabilidadCreador');
+                const tCreador = document.getElementById('trazabilidadCreador');
+                const tAct = document.getElementById('divTrazabilidadActualizador');
+                const tActualizador = document.getElementById('trazabilidadActualizador');
+
+                let showBlock = false;
+
+                if (data.created_by) {
+                    tCreador.textContent = data.created_by;
+                    tDivCreador.classList.remove('hidden');
+                    showBlock = true;
+                } else {
+                    tDivCreador.classList.add('hidden');
+                }
+
+                if (data.updated_by) {
+                    tActualizador.textContent = data.updated_by;
+                    tAct.classList.remove('hidden');
+                    showBlock = true;
+                } else {
+                    tAct.classList.add('hidden');
+                }
+
+                if (showBlock) {
+                    tBlock.classList.remove('hidden');
+                } else {
+                    tBlock.classList.add('hidden');
+                }
 
                 document.getElementById('modal').classList.add('active');
             } catch (error) {
