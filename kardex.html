@@ -606,13 +606,18 @@
                 });
             });
 
+            function normalizarTexto(texto) {
+                if (!texto) return '';
+                return texto.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            }
+
             async function cargarKardex() {
                 const tbody = document.getElementById('tablaKardex');
                 tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando movimientos...</td></tr>';
 
                 const fechaDesde = document.getElementById('fechaDesde').value;
                 const fechaHasta = document.getElementById('fechaHasta').value;
-                const productoBusqueda = document.getElementById('busquedaProducto').value.toLowerCase();
+                const productoBusqueda = normalizarTexto(document.getElementById('busquedaProducto').value);
                 const tipoMovimiento = document.getElementById('tipoMovimiento').value;
 
                 try {
@@ -625,7 +630,7 @@
                         const { data: itemsFound, error: errorItems } = await supabaseClient
                             .from('items')
                             .select('id')
-                            .or(`codigo.ilike.%${productoBusqueda}%,descripcion.ilike.%${productoBusqueda}%`)
+                            .ilike('busqueda_vector', `%${productoBusqueda}%`)
                             .limit(50); // Limitamos para evitar queries gigantes
 
                         if (errorItems) throw errorItems;
