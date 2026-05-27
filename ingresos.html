@@ -1580,8 +1580,8 @@
                 e.target.dataset.id = '';
                 itemSeleccionadoActual = null;
 
-                const termino = e.target.value;
-                if (termino.length < 2) {
+                const termino = e.target.value.trim();
+                if (termino.length < 1) {
                     document.getElementById('resultadosBusqueda').style.display = 'none';
                     return;
                 }
@@ -1619,16 +1619,22 @@
             });
         }
 
+        function normalizarTexto(texto) {
+            if (!texto) return '';
+            return texto.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
         async function buscarProductos(termino) {
             const resultadosDiv = document.getElementById('resultadosBusqueda');
             resultadosDiv.style.display = 'block';
             resultadosDiv.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">Buscando...</div>';
 
             try {
+                const terminoNormalizado = normalizarTexto(termino);
                 const { data: productos, error } = await supabaseApp
                     .from('items')
                     .select('id, codigo, descripcion, unidad_medida:unidades_medida(codigo), proveedor_id')
-                    .or(`descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
+                    .ilike('busqueda_vector', `%${terminoNormalizado}%`)
                     .eq('activo', true)
                     .limit(10);
 
