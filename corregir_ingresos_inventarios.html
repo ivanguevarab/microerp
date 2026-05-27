@@ -1287,8 +1287,8 @@
                 e.target.dataset.id = '';
                 itemSeleccionadoActual = null;
 
-                const termino = e.target.value;
-                if (termino.length < 2) {
+                const termino = e.target.value.trim();
+                if (termino.length < 1) {
                     document.getElementById('resultadosBusqueda').style.display = 'none';
                     return;
                 }
@@ -1315,16 +1315,22 @@
             };
         }
 
+        function normalizarTexto(texto) {
+            if (!texto) return '';
+            return texto.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
         async function buscarProductos(termino) {
             const resultadosDiv = document.getElementById('resultadosBusqueda');
             resultadosDiv.style.display = 'block';
             resultadosDiv.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">Buscando...</div>';
 
             try {
+                const terminoNormalizado = normalizarTexto(termino);
                 const { data: productos, error } = await supabaseApp
                     .from('items')
                     .select('id, codigo, descripcion, unidad_medida:unidades_medida(codigo), proveedor_id')
-                    .or(`descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
+                    .ilike('busqueda_vector', `%${terminoNormalizado}%`)
                     .eq('activo', true)
                     .limit(10);
 
@@ -2379,6 +2385,26 @@
 
             const currentTotalOtrosEgresos = gastosIngreso.reduce((sum, g) => sum + (parseFloat(g.monto) || 0), 0); // Usar monto
 
+            // Cálculos Financieros Faltantes (Para Flujo de Caja y Contabilidad)
+            const subtotalGlobal = detalleIngreso.reduce((sum, i) => sum + (parseFloat(i.valorTotal) || 0), 0);
+            const igvGlobal = detalleIngreso.reduce((sum, i) => sum + (parseFloat(i.igvTotal) || 0), 0);
+            const totalItems = detalleIngreso.reduce((sum, i) => sum + (parseFloat(i.total) || 0), 0);
+            const costoTotal = totalItems + currentTotalOtrosEgresos;
+            
+            // Lógica de Pago
+            let egresoReal = 0;
+            let saldoCredito = 0;
+            const formaPago = document.getElementById('formaPago').value;
+            const montoInicial = parseFloat(document.getElementById('montoInicial').value) || 0;
+            
+            if (formaPago === 'CONTADO') {
+                egresoReal = totalItems;
+                saldoCredito = 0;
+            } else {
+                egresoReal = montoInicial;
+                saldoCredito = totalItems - montoInicial;
+            }
+
             // Armar payload gastos
             const payloadGastos = gastosIngreso.map(g => ({
                 tipo_gasto: g.tipo || 'OTROS',
@@ -2405,14 +2431,22 @@
                 observacion: observacion,
                 almacen_id: almacen,
                 created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema',
-                // 🔥 CAMPOS FINANCIEROS (Fix 18/01/2026) 🔥
-                forma_pago: document.getElementById('formaPago').value,
+                
+                // 🔥 GRANDES TOTALES FINANCIEROS (Fix Integridad) 🔥
+                subtotal: parseFloat(subtotalGlobal || 0).toFixed(2),
+                igv_credito_fiscal_total: parseFloat(igvGlobal || 0).toFixed(2),
+                monto_segun_documentos: parseFloat(totalItems || 0).toFixed(2),
+                costo_adquisicion_total: parseFloat(costoTotal || 0).toFixed(2),
+                egreso_real_pagado: parseFloat(egresoReal || 0).toFixed(2),
+                
+                // 🔥 CAMPOS FINANCIEROS Y DE PAGOS 🔥
+                forma_pago: formaPago,
                 medio_pago: document.getElementById('medioPago').value,
                 referencia_pago: document.getElementById('referenciaPago').value,
                 fecha_vencimiento: document.getElementById('fechaVencimiento').value,
                 fecha_pago: document.getElementById('fechaPago').value || null,
-                pago_inicial: document.getElementById('montoInicial').value,
-                saldo_credito: document.getElementById('saldoPendiente').value,
+                pago_inicial: montoInicial,
+                saldo_credito: saldoCredito,
                 otros_egresos_total: parseFloat(currentTotalOtrosEgresos || 0).toFixed(2), // Agregado total
                 gastos: payloadGastos, // NUEVO ARREGLO
                 // ----------------------------------------
@@ -2421,7 +2455,11 @@
                     cantidad: i.cantidad,
                     precio_unitario: i.precioUnitario,
                     costo_unitario: i.costoAdquisicionUnitario,
-                    fecha_vencimiento: i.fechaVencimiento || null // 🔥 FIX: Enviar fecha vencimiento del ITEM
+                    fecha_vencimiento: i.fechaVencimiento || null, // 🔥 FIX: Enviar fecha vencimiento del ITEM
+                    igv_credito_fiscal_unitario: parseFloat(i.igvUnitario || 0).toFixed(2),
+                    igv_credito_fiscal_producto: parseFloat(i.igvTotal || 0).toFixed(2),
+                    valor_compra_unitario: parseFloat(i.valorUnitario || 0).toFixed(2),
+                    valor_compra_total: parseFloat(i.valorTotal || 0).toFixed(2)
                 }))
             };
 
