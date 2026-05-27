@@ -417,6 +417,16 @@
             background-color: #cbd5e1;
         }
 
+        html.dark .toast {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+        }
+
+        /* EXPLICIT LIGHT MODE FIXES FOR INVISIBLE TEXT */
+        html:not(.dark) input[type="text"] {
+            color: #000000 !important;
+        }
+
         .btn-primary {
             background-color: var(--primary-color);
             color: white;
@@ -701,11 +711,12 @@
 
                 <!-- Proveedor -->
                 <!-- Proveedor -->
-                <div class="form-group">
-                    <label for="proveedor">Proveedor *</label>
-                    <select id="proveedor" required>
-                        <option value="">Cargando...</option>
-                    </select>
+                <div class="form-group" style="position: relative;">
+                    <label for="proveedorInput">Proveedor *</label>
+                    <input type="text" id="proveedorInput" placeholder="Seleccionar o buscar proveedor..." autocomplete="off" required style="width: 100%; box-sizing: border-box;">
+                    <input type="hidden" id="proveedor" required>
+                    <div id="resultadosProveedor" class="search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; background: var(--bg-color, #fff); border: 1px solid var(--border-color, #e2e8f0); max-height: 200px; overflow-y: auto; border-radius: 0.375rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    </div>
                 </div>
 
                 <!-- Almacén Destino -->
@@ -930,11 +941,12 @@
             <!-- Fila 2: Datos de Factura (Oculto por defecto) -->
             <div class="form-grid" id="gastoDatosFactura"
                 style="display: none; margin-bottom: 1rem; background: #f8fafc; padding: 1rem; border-radius: 8px;">
-                <div class="form-group" style="flex: 2;">
-                    <label for="gastoProveedor">Proveedor del Servicio</label>
-                    <select id="gastoProveedor">
-                        <option value="">Seleccionar proveedor...</option>
-                    </select>
+                <div class="form-group" style="flex: 2; position: relative;">
+                    <label for="gastoProveedorInput">Proveedor del Servicio</label>
+                    <input type="text" id="gastoProveedorInput" placeholder="Buscar proveedor..." autocomplete="off" style="width: 100%; box-sizing: border-box;">
+                    <input type="hidden" id="gastoProveedor">
+                    <div id="resultadosGastoProveedor" class="search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; background: var(--bg-color, #fff); border: 1px solid var(--border-color, #e2e8f0); max-height: 200px; overflow-y: auto; border-radius: 0.375rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="gastoSerie">Serie</label>
@@ -1229,11 +1241,14 @@
                 const { data: proveedores } = await supabaseApp
                     .from('proveedores')
                     .select('id, razon_social')
-                    .eq('activo', true);
+                    .eq('activo', true)
+                    .order('razon_social', { ascending: true });
 
                 proveedoresCache = proveedores || [];
-                llenarSelect('proveedor', proveedores, 'razon_social');
-                llenarSelect('gastoProveedor', proveedores, 'razon_social'); // Llenar también en gastos
+                
+                // Inicializar buscadores de proveedores (Google Style)
+                inicializarBuscadorProveedores('proveedorInput', 'proveedor', 'resultadosProveedor');
+                inicializarBuscadorProveedores('gastoProveedorInput', 'gastoProveedor', 'resultadosGastoProveedor');
 
                 // 3. Cargar Almacenes
                 const { data: almacenes } = await supabaseApp
@@ -1266,6 +1281,74 @@
                 option.value = item.id;
                 option.textContent = item[labelField];
                 select.appendChild(option);
+            });
+        }
+
+        function inicializarBuscadorProveedores(inputId, hiddenId, resultsId) {
+            const input = document.getElementById(inputId);
+            const hidden = document.getElementById(hiddenId);
+            const results = document.getElementById(resultsId);
+            
+            function renderResultados(lista) {
+                results.innerHTML = '';
+                if (lista.length === 0) {
+                    results.innerHTML = '<div style="padding: 0.75rem; color: #666; text-align: center;">No se encontraron proveedores</div>';
+                    return;
+                }
+                lista.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'result-item'; // Usa hover effect existente
+                    div.style.padding = '0.75rem';
+                    div.style.cursor = 'pointer';
+                    div.style.borderBottom = '1px solid var(--border-color, #e2e8f0)';
+                    div.textContent = p.razon_social;
+                    
+                    div.addEventListener('click', function() {
+                        input.value = p.razon_social;
+                        hidden.value = p.id;
+                        results.style.display = 'none';
+                        input.style.borderColor = '';
+                        
+                        // Si es el proveedor principal, disparar validaciones extras
+                        if (hiddenId === 'proveedor') {
+                            const event = new Event('change');
+                            hidden.dispatchEvent(event);
+                        }
+                    });
+                    results.appendChild(div);
+                });
+            }
+
+            input.addEventListener('input', function() {
+                hidden.value = ''; // Resetear ID si escribe
+                const query = normalizarTexto(this.value);
+                let filtrados = proveedoresCache;
+                if (query.length > 0) {
+                    filtrados = proveedoresCache.filter(p => normalizarTexto(p.razon_social).includes(query));
+                }
+                renderResultados(filtrados);
+                results.style.display = 'block';
+            });
+            
+            input.addEventListener('focus', function() {
+                const query = normalizarTexto(this.value);
+                let filtrados = proveedoresCache;
+                if (query.length > 0 && !hidden.value) {
+                     filtrados = proveedoresCache.filter(p => normalizarTexto(p.razon_social).includes(query));
+                }
+                renderResultados(filtrados);
+                results.style.display = 'block';
+            });
+            
+            document.addEventListener('click', function(e) {
+                if (e.target !== input && e.target !== results && !results.contains(e.target)) {
+                    results.style.display = 'none';
+                    if (!hidden.value && input.value.trim() !== '') {
+                        input.style.borderColor = 'red';
+                    } else if (hidden.value) {
+                        input.style.borderColor = '';
+                    }
+                }
             });
         }
 
@@ -1470,11 +1553,7 @@
 
             if (conFactura) {
                 divDatos.style.display = 'grid';
-                // Llenar proveedor si ya está cargado
-                const proveedorSelect = document.getElementById('gastoProveedor');
-                if (proveedorSelect.options.length <= 1 && proveedoresCache.length > 0) {
-                    llenarSelect('gastoProveedor', proveedoresCache, 'razon_social');
-                }
+                // (Omitido: Ya no se usan options estáticos para gastoProveedor porque ahora es un buscador interactivo)
             } else {
                 divDatos.style.display = 'none';
             }
@@ -1506,6 +1585,11 @@
                 }
 
                 proveedorSelect.value = item.proveedor_id;
+                const provMatch = proveedoresCache.find(p => p.id === item.proveedor_id);
+                if (provMatch) document.getElementById('proveedorInput').value = provMatch.razon_social;
+                
+                // Disparar toggle si es necesario
+                if (typeof toggleCondicionPago === 'function') toggleCondicionPago();
             }
         }
 
@@ -1570,6 +1654,7 @@
             document.getElementById('gastoMonto').value = '';
             document.getElementById('gastoConFactura').value = 'false';
             document.getElementById('gastoProveedor').value = '';
+            document.getElementById('gastoProveedorInput').value = '';
             document.getElementById('gastoSerie').value = '';
             document.getElementById('gastoNumero').value = '';
             document.getElementById('gastoFecha').valueAsDate = new Date();
@@ -1732,6 +1817,8 @@
 
             if (gasto.conFactura) {
                 document.getElementById('gastoProveedor').value = gasto.proveedorId;
+                const provMatch = proveedoresCache.find(p => p.id === gasto.proveedorId);
+                if (provMatch) document.getElementById('gastoProveedorInput').value = provMatch.razon_social;
                 document.getElementById('gastoSerie').value = gasto.serie;
                 document.getElementById('gastoNumero').value = gasto.numero;
                 document.getElementById('gastoFecha').value = gasto.fecha;
@@ -2192,6 +2279,8 @@
                     // Mover de vuelta las variables dinámicas que requieren que el DOM <option> exista (Race Condition)
                     document.getElementById('tipoIngreso').value = ingreso.tipo_ingreso_id;
                     document.getElementById('proveedor').value = ingreso.proveedor_id;
+                    const provMatch = proveedoresCache.find(p => p.id === ingreso.proveedor_id);
+                    if (provMatch) document.getElementById('proveedorInput').value = provMatch.razon_social;
                     document.getElementById('almacen').value = ingreso.almacen_destino_id;
 
                     toggleCondicionPago(); // Actualizar interfaz pago
