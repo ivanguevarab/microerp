@@ -1162,16 +1162,28 @@
         // ============================================
         // BÚSQUEDA Y ORDENAMIENTO
         // ============================================
+        function normalizarTexto(texto) {
+            if (!texto) return '';
+            return texto.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
         function aplicarFiltrosYOrden() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const rawSearchTerm = document.getElementById('searchInput').value.trim();
+            const searchTerm = normalizarTexto(rawSearchTerm);
             const sortValue = document.getElementById('sortSelect').value;
 
             // 1. Filtrar
-            let resultados = itemsData.filter(prod =>
-                prod.codigo.toLowerCase().includes(searchTerm) ||
-                prod.descripcion.toLowerCase().includes(searchTerm) ||
-                (prod.categorias?.nombre || '').toLowerCase().includes(searchTerm)
-            );
+            let resultados = itemsData;
+            
+            if (rawSearchTerm.length >= 1) {
+                resultados = itemsData.filter(prod => {
+                    const cod = normalizarTexto(prod.codigo);
+                    const desc = normalizarTexto(prod.descripcion);
+                    const cat = normalizarTexto(prod.categorias?.nombre);
+                    
+                    return cod.includes(searchTerm) || desc.includes(searchTerm) || cat.includes(searchTerm);
+                });
+            }
 
             // 2. Ordenar en memoria
             resultados.sort((a, b) => {
