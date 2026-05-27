@@ -703,7 +703,7 @@
 
                 if (!almacenId) return;
 
-                if (termino.length < 2) {
+                if (termino.length < 1) {
                     document.getElementById('resultadosBusqueda').style.display = 'none';
                     return;
                 }
@@ -723,6 +723,11 @@
 
         // --- Lógica de Búsqueda y Selección de Lotes ---
 
+        function normalizarTexto(texto) {
+            if (!texto) return '';
+            return texto.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
         // 1. Buscar Productos con Stock Disponible
         async function buscarProductos(termino, almacenId) {
             const resultadosDiv = document.getElementById('resultadosBusqueda');
@@ -733,11 +738,12 @@
                 // Paso 1: Buscar en la tabla de items (productos)
                 // Nota: Idealmente esto sería una vista o una función RPC para eficiencia
                 // Por ahora simulamos un join lógico en cliente por simplicidad del prototipo
-
+                
+                const terminoNormalizado = normalizarTexto(termino);
                 const { data: productos, error } = await supabaseClient
                     .from('items')
                     .select('id, codigo, descripcion, unidad_medida')
-                    .or(`descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
+                    .ilike('busqueda_vector', `%${terminoNormalizado}%`)
                     .limit(10);
 
                 if (error) throw error;
