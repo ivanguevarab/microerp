@@ -353,11 +353,20 @@
                 lblDesde.textContent = "Desde";
                 contenedorHasta.classList.remove('hidden');
                 contenedorHasta.classList.add('flex');
+                
+                // Automáticamente establecer "Desde" al primer día del mes de la fecha actual
+                if (hasta.value) {
+                    const partes = hasta.value.split('-');
+                    if (partes.length === 3) {
+                        desde.value = `${partes[0]}-${partes[1]}-01`;
+                    }
+                }
             } else {
                 lblDesde.textContent = "Día en revisión";
                 contenedorHasta.classList.remove('flex');
                 contenedorHasta.classList.add('hidden');
-                hasta.value = desde.value; // Forzar un solo día
+                // Al volver a modo "Un solo día", tomamos el día que estaba seleccionado en "Hasta"
+                desde.value = hasta.value;
             }
 
             actualizarTextoFechaLarga();
@@ -511,7 +520,7 @@
                 (vtaContado || []).forEach(v => {
                     const val = Number(v.precio_venta_total);
                     sumVtaContado += val;
-                    detVtaContado.push({ fecha: v.created_at || v.fecha_recepcion_pago, ref: 'Ticket/Factura: ' + (v.numero_ticket || 'S/N'), monto: val, created_by: v.created_by });
+                    detVtaContado.push({ fecha: v.created_at || v.fecha_recepcion_pago, fecha_movimiento: v.fecha_recepcion_pago || v.fecha_venta || v.created_at, ref: 'Ticket/Factura: ' + (v.numero_ticket || 'S/N'), monto: val, created_by: v.created_by });
                 });
                 if(sumVtaContado > 0) {
                     objIngresos.push({ cat: 'Ventas al Contado', monto: sumVtaContado, sys: true, detalles: detVtaContado });
@@ -534,7 +543,7 @@
                     const ticketStr = v.ventas ? v.ventas.numero_ticket : 'Ticket Desconocido';
                     const clienteStr = (v.ventas && v.ventas.clientes) ? v.ventas.clientes.razon_social : 'Cliente Anónimo';
                     const refAmortizacion = `Cobro de ${ticketStr} - ${clienteStr}`;
-                    detCobrosCredito.push({ fecha: v.created_at || v.fecha_pago, ref: refAmortizacion, monto: val, created_by: v.created_by });
+                    detCobrosCredito.push({ fecha: v.created_at || v.fecha_pago, fecha_movimiento: v.fecha_pago || v.created_at, ref: refAmortizacion, monto: val, created_by: v.created_by });
                 });
                 if(sumCobrosCredito > 0) {
                     objIngresos.push({ cat: 'Ventas al Crédito (Pagos Recibidos)', monto: sumCobrosCredito, sys: true, detalles: detCobrosCredito });
@@ -561,10 +570,10 @@
                     if (monto > 0) {
                         if (v.forma_pago === 'CREDITO') {
                             sumComprasCredito += monto;
-                            detComprasCredito.push({ fecha: v.created_at || v.fecha_pago, ref: docInfo, monto: monto, created_by: v.created_by });
+                            detComprasCredito.push({ fecha: v.created_at || v.fecha_pago, fecha_movimiento: v.fecha_pago || v.created_at, ref: docInfo, monto: monto, created_by: v.created_by });
                         } else {
                             sumComprasContado += monto;
-                            detComprasContado.push({ fecha: v.created_at || v.fecha_pago, ref: docInfo, monto: monto, created_by: v.created_by });
+                            detComprasContado.push({ fecha: v.created_at || v.fecha_pago, fecha_movimiento: v.fecha_pago || v.created_at, ref: docInfo, monto: monto, created_by: v.created_by });
                         }
                     }
                 });
@@ -585,7 +594,7 @@
                     if (otrosG > 0) {
                         sumOtrosEgresos += otrosG;
                         const docInfo = g.ingresos ? g.ingresos.numero_ingreso : 'N/A';
-                        detOtrosEgresos.push({ fecha: g.created_at || g.fecha_pago, ref: `${g.descripcion} (${docInfo})`, monto: otrosG, created_by: g.ingresos?.created_by });
+                        detOtrosEgresos.push({ fecha: g.created_at || g.fecha_pago, fecha_movimiento: g.fecha_pago || g.created_at, ref: `${g.descripcion} (${docInfo})`, monto: otrosG, created_by: g.ingresos?.created_by });
                     }
                 });
 
@@ -622,6 +631,7 @@
                     agru[key].monto += Number(m.monto);
                     agru[key].detalles.push({ 
                         fecha: m.created_at || m.fecha_movimiento, 
+                        fecha_movimiento: m.fecha_movimiento || m.created_at,
                         ref: m.referencia || 'Generado manualmente', 
                         monto: Number(m.monto),
                         correlativo: m.codigo_correlativo,
@@ -1807,7 +1817,7 @@
                 });
             }
 
-            resultados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            resultados.sort((a, b) => new Date(b.fecha_movimiento || b.fecha) - new Date(a.fecha_movimiento || a.fecha));
 
             contador.textContent = `${resultados.length} encontrados`;
             tbodyBusqueda.innerHTML = '';
@@ -1818,10 +1828,13 @@
             }
 
             resultados.forEach((res, index) => {
-                let fStr = res.fecha;
-                if (fStr && !fStr.endsWith('Z') && !fStr.includes('+') && fStr.length > 10) fStr += 'Z';
+                let fStr = res.fecha_movimiento || res.fecha;
+                if (fStr && !fStr.endsWith('Z') && !fStr.includes('+')) {
+                    if (fStr.length === 10) fStr += 'T12:00:00Z'; // Prevenir desfase por zona horaria UTC en fechas cortas
+                    else if (fStr.length > 10) fStr += 'Z';
+                }
                 const fecObj = new Date(fStr);
-                const fechaFormat = isNaN(fecObj) ? res.fecha : fecObj.toLocaleString('es-PE', {timeZone: 'America/Lima', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true});
+                const fechaFormat = isNaN(fecObj) ? (res.fecha_movimiento || res.fecha) : fecObj.toLocaleString('es-PE', {timeZone: 'America/Lima', day:'2-digit', month:'2-digit', year:'numeric'});
                 
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-gray-50 transition-colors border-b border-gray-100';
