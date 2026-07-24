@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Calculadora Rápida de Caja</title>
+    <title>Arqueo de caja</title>
     <!-- Tailwind CSS (CDN for standalone) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -20,6 +20,8 @@
     </script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
@@ -135,7 +137,7 @@
                     <i class="fas fa-cash-register text-3xl"></i>
                 </div>
                 <h2 class="text-xl font-bold text-white mb-1" id="modal-empresa-nombre">Cargando...</h2>
-                <p class="text-slate-400 text-sm">Calculadora rápida de caja</p>
+                <p class="text-slate-400 text-sm">Arqueo de caja</p>
             </div>
             
             <form id="setup-form" onsubmit="event.preventDefault(); startCalculator();" class="space-y-4">
@@ -144,7 +146,7 @@
                     <input type="text" id="in-cajera" required class="w-full rounded-lg px-4 py-3 text-lg" placeholder="Ej. María Pérez" autocomplete="off">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Número de Caja / Módulo</label>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Número de Caja</label>
                     <input type="tel" id="in-caja" required class="w-full rounded-lg px-4 py-3 text-lg" placeholder="Ej. 1" autocomplete="off">
                 </div>
                 <div class="pt-4">
@@ -172,7 +174,7 @@
             
             <div class="flex justify-between items-center bg-slate-900/50 rounded-xl p-3 border border-slate-700/50">
                 <div>
-                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Operador(a)</p>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Cajera(o)</p>
                     <p class="text-sm font-bold text-white truncate max-w-[150px]" id="ui-cajera-name">Usuario</p>
                 </div>
                 <div class="w-px h-8 bg-slate-700"></div>
@@ -300,6 +302,11 @@
                 </div>
             </div>
 
+            <!-- Botón de Captura -->
+            <button data-html2canvas-ignore="true" onclick="tomarCaptura()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-lg shadow-blue-500/30 flex justify-center items-center gap-2 mt-2">
+                <i class="fas fa-camera"></i>
+                <span>Tomar Captura y Guardar</span>
+            </button>
         </div>
     </main>
 
@@ -417,6 +424,45 @@
                 });
                 recalcularTodo();
             }
+        }
+
+        function tomarCaptura() {
+            const mainApp = document.getElementById('main-app');
+            const stickyBottom = document.getElementById('sticky-bottom');
+            
+            // Clonar el contenedor del total para añadirlo a la imagen temporalmente
+            const totalContent = stickyBottom.querySelector('.max-w-lg').cloneNode(true);
+            
+            // Remover el botón de limpiar del clon para que no salga en la captura
+            const btnLimpiar = totalContent.querySelector('button');
+            if(btnLimpiar) btnLimpiar.remove();
+            
+            // Ajustar estilos del clon para que se vea integrado al final del recibo
+            totalContent.className = "w-full mt-2 pb-4 px-3"; 
+            
+            mainApp.appendChild(totalContent);
+            
+            html2canvas(mainApp, {
+                backgroundColor: '#020617', // Mantener el fondo oscuro (slate 950)
+                scale: 2 // Alta resolución
+            }).then(canvas => {
+                // Remover el total temporal una vez renderizado el canvas
+                totalContent.remove();
+                
+                // Formatear la fecha
+                const fecha = new Date();
+                const dia = fecha.getDate().toString().padStart(2, '0');
+                const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+                const ano = fecha.getFullYear();
+                const strFecha = `${dia}-${mes}-${ano}`;
+                
+                const filename = `ARQUEO_${strFecha}.png`;
+                
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
         }
 
         // Initialize
