@@ -202,7 +202,7 @@
                     <div class="flex items-center gap-1.5 mb-2 pb-2 border-b border-slate-700/50">
                         <i class="fas fa-money-bill-wave text-blue-400 text-xs"></i>
                         <h3 class="font-bold text-blue-100 uppercase tracking-widest text-[10px]">Billetes</h3>
-                        <div class="ml-auto text-[10px] font-bold text-blue-300 truncate" id="sub-billetes">S/ 0.00</div>
+                        <div class="ml-auto text-[10px] font-bold text-blue-300 truncate leading-relaxed pb-0.5" id="sub-billetes">S/ 0.00</div>
                     </div>
                     
                     <div class="calc-row">
@@ -247,7 +247,7 @@
                     <div class="flex items-center gap-1.5 mb-2 pb-2 border-b border-slate-700/50">
                         <i class="fas fa-coins text-amber-400 text-xs"></i>
                         <h3 class="font-bold text-amber-100 uppercase tracking-widest text-[10px]">Monedas</h3>
-                        <div class="ml-auto text-[10px] font-bold text-amber-300 truncate" id="sub-monedas">S/ 0.00</div>
+                        <div class="ml-auto text-[10px] font-bold text-amber-300 truncate leading-relaxed pb-0.5" id="sub-monedas">S/ 0.00</div>
                     </div>
                     
                     <div class="calc-row">
@@ -308,7 +308,7 @@
         <div class="max-w-lg mx-auto w-full">
             <div class="bg-gradient-to-r from-blue-700 to-blue-500 rounded-2xl shadow-[0_-5px_20px_rgba(37,99,235,0.3)] p-4 flex flex-col items-center justify-center relative border border-blue-400/30">
                 <p class="text-blue-100 text-xs font-bold uppercase tracking-wider mb-1">Total Efectivo</p>
-                <p class="text-white text-4xl font-black tracking-tight" id="ui-total-efectivo">S/ 0.00</p>
+                <p class="text-white text-4xl font-black tracking-tight leading-normal pb-1" id="ui-total-efectivo">S/ 0.00</p>
                 
                 <button onclick="limpiarTodo()" class="absolute right-4 bg-blue-900/40 hover:bg-blue-900/60 text-white rounded-xl p-3 transition">
                     <i class="fas fa-eraser text-lg"></i>
@@ -419,26 +419,49 @@
         }
 
         function tomarCaptura() {
+            // 1. Reseteo de scroll al tope para evitar cálculos erróneos en la captura
+            window.scrollTo(0, 0);
+
             const mainApp = document.getElementById('main-app');
             const stickyBottom = document.getElementById('sticky-bottom');
             
-            // Clonar el contenedor del total para añadirlo a la imagen temporalmente
+            // 2. Clonar el contenedor del total para añadirlo a la imagen
             const totalContent = stickyBottom.querySelector('.max-w-lg').cloneNode(true);
-            
-            // Remover el botón de limpiar del clon para que no salga en la captura
             const btnLimpiar = totalContent.querySelector('button');
             if(btnLimpiar) btnLimpiar.remove();
-            
-            // Ajustar estilos del clon para que se vea integrado al final del recibo
             totalContent.className = "w-full mt-2 pb-4 px-3"; 
-            
             mainApp.appendChild(totalContent);
+
+            // 3. Transformación temporal de los inputs a DIVs para evitar recorte
+            const inputs = mainApp.querySelectorAll('input.qty-calc');
+            const replacements = [];
+            inputs.forEach(inp => {
+                const div = document.createElement('div');
+                div.className = inp.className + " flex items-center justify-center";
+                div.textContent = inp.value || "0";
+                div.style.backgroundColor = "rgba(30, 41, 59, 0.6)";
+                div.style.border = "1px solid rgba(255, 255, 255, 0.15)";
+                div.style.color = "#f8fafc";
+                div.style.height = inp.offsetHeight + "px"; // forzar la misma altura
+                
+                inp.parentNode.insertBefore(div, inp);
+                inp.style.display = 'none';
+                replacements.push({ input: inp, div: div });
+            });
             
+            // 4. Captura
             html2canvas(mainApp, {
-                backgroundColor: '#020617', // Mantener el fondo oscuro (slate 950)
-                scale: 2 // Alta resolución
+                backgroundColor: '#020617',
+                scale: 2,
+                scrollY: -window.scrollY // Forzar canvas align top
             }).then(canvas => {
-                // Remover el total temporal una vez renderizado el canvas
+                // Restaurar inputs
+                replacements.forEach(rep => {
+                    rep.input.style.display = '';
+                    rep.div.remove();
+                });
+                
+                // Remover el total temporal
                 totalContent.remove();
                 
                 // Formatear la fecha
