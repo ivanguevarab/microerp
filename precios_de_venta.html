@@ -490,6 +490,80 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         html.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
 
+        /* Estilos para Toggle Rows y Multiplicador */
+        .toggle-row {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid transparent;
+        }
+        .toggle-row.excluded {
+            transform: scale(0.98);
+            opacity: 0.5;
+            filter: grayscale(100%);
+        }
+        .toggle-row.excluded .item-name {
+            text-decoration: line-through;
+        }
+        .toggle-row.excluded .qty-pill-container {
+            display: none !important;
+        }
+        
+        .qty-pill-container {
+            min-width: 32px;
+            height: 32px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        
+        .qty-btn-plus {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            opacity: 0.3;
+            transition: all 0.2s;
+        }
+        .toggle-row:hover .qty-btn-plus {
+            opacity: 1;
+            background-color: #f1f5f9;
+        }
+        html.dark .toggle-row:hover .qty-btn-plus {
+            background-color: #334155;
+        }
+        
+        .qty-pill {
+            display: flex;
+            align-items: center;
+            background: #f1f5f9;
+            border-radius: 16px;
+            padding: 0 4px;
+            height: 32px;
+            gap: 8px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+        html.dark .qty-pill {
+            background: #1e293b;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .pill-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .pill-btn:hover { background: white; }
+        html.dark .pill-btn:hover { background: #334155; }
+        .pill-btn.minus:hover { color: #ef4444; }
+        .pill-btn.plus:hover { color: #10b981; }
+
     </style>
 </head>
 
@@ -676,7 +750,7 @@
                     </div>
                     <div class="flex-1 relative">
                         <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">Alto (cm)</span>
-                        <input type="number" id="tagHeight" class="w-full p-2 pr-16 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition" value="5" min="1.5" max="15" step="0.5">
+                        <input type="number" id="tagHeight" class="w-full p-2 pr-16 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition" value="4.9" min="1.5" max="15" step="0.1">
                     </div>
                 </div>
 
@@ -717,11 +791,43 @@
                 </div>
             </div>
 
-            <div class="flex justify-end gap-3 mt-4 pt-3 border-t border-slate-200 dark:border-slate-700">
-                <button onclick="cerrarModalImpresion()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition">Cancelar</button>
-                <button onclick="generarImpresion()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow transition flex items-center gap-2">
-                    <i class="fas fa-print"></i> Generar Vista
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-200 dark:border-slate-700">
+                <button onclick="abrirModalPersonalizar()" class="px-4 py-2 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-medium transition flex items-center gap-2">
+                    <i class="fas fa-sliders-h"></i> Personalizar
                 </button>
+                <div class="flex gap-3">
+                    <button onclick="cerrarModalImpresion()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition">Cancelar</button>
+                    <button onclick="generarImpresion()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow transition flex items-center gap-2">
+                        <i class="fas fa-print"></i> Generar Vista
+                    </button>
+                </div>
+            </div>
+        </dialog>
+
+        <!-- Modal Personalizar Etiquetas -->
+        <dialog id="modalPersonalizarEtiquetas" class="glass-modal rounded-xl shadow-2xl p-6 w-11/12 max-w-4xl max-h-[90vh] m-auto fixed inset-0 z-50 backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm hidden flex-col gap-4 text-slate-800 dark:text-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
+                <div>
+                    <h3 class="text-xl font-bold"><i class="fas fa-sliders-h text-indigo-500 mr-2"></i> Personalizar Selección</h3>
+                    <p class="text-xs text-slate-500 mt-1">Haz clic en una fila para descartarla. Usa el icono '+' para imprimir múltiples copias.</p>
+                </div>
+                <button onclick="cerrarModalPersonalizar()" class="text-slate-400 hover:text-red-500 transition"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="custom-scrollbar overflow-y-auto flex-1 border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-slate-50 dark:bg-slate-900/30">
+                <div id="listaPersonalizada" class="flex flex-col gap-1 text-sm">
+                    <!-- Dinámico -->
+                </div>
+            </div>
+            
+            <div class="flex justify-between items-center border-t border-slate-200 dark:border-slate-700 pt-3 mt-2">
+                <span class="text-sm font-semibold text-slate-600 dark:text-slate-400" id="statsPersonalizar">0 etiquetas a imprimir</span>
+                <div class="flex gap-3">
+                    <button onclick="cerrarModalPersonalizar()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition">Cancelar</button>
+                    <button onclick="generarImpresionDesdePersonalizado()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow transition flex items-center gap-2">
+                        <i class="fas fa-print"></i> Generar Vista
+                    </button>
+                </div>
             </div>
         </dialog>
 
@@ -1136,10 +1242,14 @@
                             // MATCH INTELIGENTE
                             const match = currentData.find(x => x.descripcion === excelDesc);
                             if(match) {
-                                excelPayload.push({
-                                    id: match.id,
-                                    nuevo_precio: excelPrecio
-                                });
+                                if (parseFloat(match.precio_venta) !== excelPrecio) {
+                                    excelPayload.push({
+                                        id: match.id,
+                                        nuevo_precio: excelPrecio
+                                    });
+                                } else {
+                                    errorMsg = "UNCHANGED";
+                                }
                             } else {
                                 const possibleMatch = currentData.find(x => x.descripcion.toLowerCase() === excelDesc.toLowerCase());
                                 if(possibleMatch) {
@@ -1155,7 +1265,17 @@
                             }
                         }
 
-                        if(errorMsg !== '') {
+                        if(errorMsg === "UNCHANGED") {
+                            htmlLi += `bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 opacity-70">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-semibold text-slate-600 dark:text-slate-400"><i class="fas fa-minus mr-1"></i> ${excelDesc}</span>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded">SIN CAMBIO</span>
+                                        <span class="text-sm font-bold text-slate-600 dark:text-slate-400">S/ ${excelPrecio.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            `;
+                        } else if(errorMsg !== '') {
                             errores++;
                             htmlLi += `bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800">
                                 <div class="flex justify-between items-start">
@@ -1329,38 +1449,11 @@
             });
         }
 
-        function generarImpresion() {
-            const printType = document.querySelector('input[name="printType"]:checked').value;
-            const widthCm = parseFloat(document.getElementById('tagWidth').value) || 5;
-            const heightCm = parseFloat(document.getElementById('tagHeight').value) || 3;
-            
-            let itemsToPrint = [];
-            
-            if (printType === 'todos') {
-                itemsToPrint = currentData;
-            } else if (printType === 'hoy') {
-                const hoyStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
-                itemsToPrint = currentData.filter(item => {
-                    if(!item.updated_at) return false;
-                    const updatedStr = new Date(item.updated_at).toLocaleDateString('en-CA');
-                    return updatedStr === hoyStr;
-                });
-            } else if (printType === 'manual') {
-                const checkboxes = document.querySelectorAll('.manual-print-cb:checked');
-                const selectedIds = Array.from(checkboxes).map(cb => cb.value);
-                itemsToPrint = currentData.filter(item => selectedIds.includes(item.id));
-            }
-
-            if (itemsToPrint.length === 0) {
-                Swal.fire('Atención', 'No hay productos para imprimir con el filtro seleccionado.', 'warning');
-                return;
-            }
-
-            const container = document.getElementById('printContainer');
-            container.innerHTML = '';
-
-            const fontDescPt = parseInt(document.getElementById('fontDesc').value) || 18;
-            const fontPricePt = parseInt(document.getElementById('fontPrice').value) || 28;
+        function procesarImpresionArray(itemsArray) {
+            const widthCm = parseFloat(document.getElementById('tagWidth').value) || 10.5;
+            const heightCm = parseFloat(document.getElementById('tagHeight').value) || 4.9;
+            const fontDescPt = parseInt(document.getElementById('fontDesc').value) || 30;
+            const fontPricePt = parseInt(document.getElementById('fontPrice').value) || 45;
             const layoutMode = document.querySelector('input[name="layoutMode"]:checked').value;
             const pageOrientation = document.querySelector('input[name="pageOrientation"]:checked').value;
 
@@ -1373,7 +1466,10 @@
             }
             styleNode.innerHTML = `@media print { @page { size: A4 ${pageOrientation}; margin: 0; } }`;
             
-            itemsToPrint.forEach(item => {
+            const container = document.getElementById('printContainer');
+            container.innerHTML = '';
+            
+            itemsArray.forEach(item => {
                 const currentPrice = modifiedRecords[item.id] !== undefined ? modifiedRecords[item.id] : (item.precio_venta || 0);
                 const unidad = item.unidad_medida || 'UND';
                 
@@ -1399,6 +1495,171 @@
             setTimeout(() => {
                 window.print();
             }, 100);
+        }
+
+        function generarImpresion() {
+            const printType = document.querySelector('input[name="printType"]:checked').value;
+            let itemsToPrint = [];
+            
+            if (printType === 'todos') {
+                itemsToPrint = currentData;
+            } else if (printType === 'hoy') {
+                const hoyStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
+                itemsToPrint = currentData.filter(item => {
+                    if(!item.updated_at) return false;
+                    let dateStr = item.updated_at;
+                    if (!dateStr.includes('Z') && !/(?:\+|-)\d{2}:?\d{2}$/.test(dateStr)) {
+                        dateStr += 'Z';
+                    }
+                    const updatedStr = new Date(dateStr).toLocaleDateString('en-CA');
+                    return updatedStr === hoyStr;
+                });
+            } else if (printType === 'manual') {
+                const checkboxes = document.querySelectorAll('.manual-print-cb:checked');
+                const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+                itemsToPrint = currentData.filter(item => selectedIds.includes(item.id));
+            }
+
+            if (itemsToPrint.length === 0) {
+                cerrarModalImpresion();
+                Swal.fire('Atención', 'No hay productos para imprimir con el filtro seleccionado.', 'warning').then(() => {
+                    document.getElementById('printModal').showModal();
+                });
+                return;
+            }
+
+            procesarImpresionArray(itemsToPrint);
+        }
+
+        let customPrintList = [];
+
+        function abrirModalPersonalizar() {
+            const printType = document.querySelector('input[name="printType"]:checked').value;
+            let baseItems = [];
+            
+            if (printType === 'todos') {
+                baseItems = currentData;
+            } else if (printType === 'hoy') {
+                const hoyStr = new Date().toLocaleDateString('en-CA');
+                baseItems = currentData.filter(item => {
+                    if(!item.updated_at) return false;
+                    let dateStr = item.updated_at;
+                    if (!dateStr.includes('Z') && !/(?:\+|-)\d{2}:?\d{2}$/.test(dateStr)) {
+                        dateStr += 'Z';
+                    }
+                    const updatedStr = new Date(dateStr).toLocaleDateString('en-CA');
+                    return updatedStr === hoyStr;
+                });
+            } else if (printType === 'manual') {
+                const checkboxes = document.querySelectorAll('.manual-print-cb:checked');
+                const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+                baseItems = currentData.filter(item => selectedIds.includes(item.id));
+            }
+
+            if (baseItems.length === 0) {
+                cerrarModalImpresion();
+                Swal.fire('Atención', 'No hay productos seleccionados para personalizar.', 'warning').then(() => {
+                    document.getElementById('printModal').showModal();
+                });
+                return;
+            }
+
+            customPrintList = baseItems.map(item => ({ item: item, qty: 1, excluded: false }));
+            renderizarListaPersonalizar();
+            
+            cerrarModalImpresion();
+            const modal = document.getElementById('modalPersonalizarEtiquetas');
+            modal.showModal();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function cerrarModalPersonalizar() {
+            const modal = document.getElementById('modalPersonalizarEtiquetas');
+            modal.close();
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('printModal').showModal();
+        }
+
+        function renderizarListaPersonalizar() {
+            const container = document.getElementById('listaPersonalizada');
+            container.innerHTML = '';
+            
+            let totalTags = 0;
+            
+            customPrintList.forEach((entry, index) => {
+                const rowId = `custom-row-${index}`;
+                const div = document.createElement('div');
+                div.id = rowId;
+                div.className = `toggle-row p-3 rounded-lg flex items-center justify-between cursor-pointer bg-white dark:bg-slate-800/80 hover:border-slate-300 dark:hover:border-slate-600 ${entry.excluded ? 'excluded' : ''}`;
+                div.onclick = (e) => toggleRowState(index, e);
+                
+                const currentPrice = modifiedRecords[entry.item.id] !== undefined ? modifiedRecords[entry.item.id] : (entry.item.precio_venta || 0);
+                
+                let qtyHtml = '';
+                if (entry.qty === 1) {
+                    qtyHtml = `<div class="qty-btn-plus" onclick="cambiarCant(${index}, 1, event)"><i class="fas fa-plus"></i></div>`;
+                } else {
+                    qtyHtml = `
+                        <div class="qty-pill" onclick="event.stopPropagation()">
+                            <div class="pill-btn minus hover:text-red-500" onclick="cambiarCant(${index}, -1, event)"><i class="fas fa-minus"></i></div>
+                            <span class="font-bold text-indigo-600 dark:text-indigo-400 w-4 text-center select-none">${entry.qty}</span>
+                            <div class="pill-btn plus hover:text-emerald-500" onclick="cambiarCant(${index}, 1, event)"><i class="fas fa-plus"></i></div>
+                        </div>
+                    `;
+                }
+
+                div.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="font-semibold text-slate-700 dark:text-slate-200 item-name transition-all">${entry.item.descripcion}</span>
+                        <span class="text-xs text-slate-500 font-bold transition-all">S/ ${parseFloat(currentPrice).toFixed(2)}</span>
+                    </div>
+                    <div class="qty-pill-container transition-all">
+                        ${qtyHtml}
+                    </div>
+                `;
+                container.appendChild(div);
+                
+                if (!entry.excluded) totalTags += entry.qty;
+            });
+            
+            document.getElementById('statsPersonalizar').innerText = `${totalTags} etiqueta(s) a imprimir`;
+        }
+
+        function toggleRowState(index, event) {
+            // Ignorar si el clic fue en un botón de cantidad
+            if (event && event.target.closest('.qty-pill-container')) return;
+            
+            customPrintList[index].excluded = !customPrintList[index].excluded;
+            renderizarListaPersonalizar();
+        }
+
+        function cambiarCant(index, delta, event) {
+            if (event) event.stopPropagation();
+            if (customPrintList[index].excluded) customPrintList[index].excluded = false; // Reactivar si está desactivado
+            
+            customPrintList[index].qty += delta;
+            if (customPrintList[index].qty < 1) customPrintList[index].qty = 1;
+            renderizarListaPersonalizar();
+        }
+
+        function generarImpresionDesdePersonalizado() {
+            const itemsArray = [];
+            customPrintList.forEach(entry => {
+                if (!entry.excluded) {
+                    for (let i = 0; i < entry.qty; i++) {
+                        itemsArray.push(entry.item);
+                    }
+                }
+            });
+
+            if (itemsArray.length === 0) {
+                Swal.fire('Atención', 'No has seleccionado ninguna etiqueta para imprimir.', 'warning');
+                return;
+            }
+
+            procesarImpresionArray(itemsArray);
         }
 
         // Script de Tema (Dualidad Light/Dark)
