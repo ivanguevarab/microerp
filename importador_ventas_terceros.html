@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importador de Ventas Terceros - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        amber: { 500: '#f59e0b', 600: '#d97706' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        .container-pos { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        .panel {
+            background-color: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            color: #e2e8f0;
+        }
+
+        .panel-header {
+            background: rgba(15, 23, 42, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 16px 20px;
+            font-weight: 700;
+            color: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ambient-blob {
+            position: fixed; border-radius: 50%; filter: blur(120px); z-index: -1; pointer-events: none;
+        }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(245, 158, 11, 0.15); } /* Amber */
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(37, 99, 235, 0.10); }
+
+        body { background-color: #020617; color: #e2e8f0; }
+        .submodule-header {
+            background: rgba(15, 23, 42, 0.7);
+            border-bottom: 1px solid #1e293b;
+        }
+
+        .drop-zone {
+            border: 2px dashed rgba(245, 158, 11, 0.4);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(30, 41, 59, 0.4);
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: #f59e0b;
+        }
+
+        .anomalia-row { background-color: rgba(220, 38, 38, 0.15); border-left: 4px solid #ef4444; }
+        .ok-row { background-color: rgba(16, 185, 129, 0.05); border-left: 4px solid #10b981; }
+
+        input.inline-edit {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-align: right;
+            outline: none;
+        }
+        input.inline-edit:focus { border-color: #f59e0b; }
+    </style>
+</head>
+<body>
+    <header class="submodule-header">
+        <div class="submodule-header-content">
+            <button class="btn-back-std" onclick="window.location.href='dashboard.html'">
+                ← Volver al Panel
+            </button>
+            <h1 class="text-amber-500"><i class="fas fa-magic mr-2"></i> Importador Inteligente de Ventas</h1>
+        </div>
+    </header>
+
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
+
+    <main class="container-pos mt-6">
+        <!-- FASE 1: UPLOAD EXCEL -->
+        <div class="panel mb-6" id="panelUpload">
+            <div class="panel-header">
+                <span><i class="fas fa-upload text-amber-500 mr-2"></i> Fase 1: Cargar Archivo Consolidado (Excel)</span>
+                <button onclick="abrirGestorDiccionario()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 py-1.5 px-3 rounded-lg border border-slate-700 transition flex items-center shadow-lg">
+                    <i class="fas fa-book mr-2 text-amber-500"></i> Diccionario de Homologación
+                </button>
+            </div>
+            <div class="p-8">
+                <p class="text-slate-400 mb-6 text-center max-w-2xl mx-auto">
+                    Sube un único archivo <b>.xlsx</b> que contenga el reporte de ventas totales del sistema de terceros.
+                    <br><span class="text-emerald-400 text-xs"><i class="fas fa-bolt"></i> El diccionario de homologación está integrado automáticamente.</span>
+                </p>
+                <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-file-excel text-5xl text-amber-500 mb-4 drop-shadow-lg"></i>
+                    <h3 class="text-xl font-bold text-slate-200 mb-2">Arrastra el archivo Excel aquí</h3>
+                    <p class="text-slate-500 text-sm">O haz clic para explorar en tus carpetas.</p>
+                    <input type="file" id="fileInput" accept=".xlsx" class="hidden">
+                </div>
+            </div>
+        </div>
+
+        <!-- FASE 1: REVISIÓN DE ANOMALÍAS EXCEL -->
+        <div class="panel hidden mb-6" id="panelRevision">
+            <div class="panel-header" style="background: rgba(30, 41, 59, 0.9);">
+                <span class="text-amber-500"><i class="fas fa-clipboard-check mr-2"></i> Fase 1: Revisión y Corrección de Anomalías (Totales)</span>
+                <div class="flex gap-4 text-sm font-bold">
+                    <span class="text-emerald-400"><i class="fas fa-check-circle"></i> Limpios: <span id="countOk">0</span></span>
+                    <span class="text-rose-400"><i class="fas fa-exclamation-triangle"></i> Alertas: <span id="countAlerts">0</span></span>
+                </div>
+            </div>
+            <div class="p-6 overflow-auto max-h-[500px]">
+                <p class="text-slate-400 text-sm mb-4">
+                    Se detectaron posibles descuadres en las unidades de medida (ej. ventas por Arrobas o Quintales marcadas como cantidad "1"). 
+                    <b>Corrige o confirma (con la tecla Enter) la cantidad de TODAS las filas en rojo para poder avanzar.</b>
+                </p>
+                
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-900 text-slate-400 uppercase text-xs">
+                        <tr>
+                            <th class="p-3">Estado</th>
+                            <th class="p-3">Item (MicroERP)</th>
+                            <th class="p-3 text-right">Cant. Original</th>
+                            <th class="p-3 text-right">Cant. Corregida</th>
+                            <th class="p-3 text-right">Total (S/)</th>
+                            <th class="p-3 text-right">P.U. Estimado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaRevisionBody" class="divide-y divide-slate-800">
+                        <!-- JS inyecta filas -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-6 border-t border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                <button onclick="reiniciarProceso()" class="text-slate-400 hover:text-white transition"><i class="fas fa-undo mr-2"></i> Cancelar</button>
+                <div class="flex items-center gap-4">
+                    <span class="text-slate-400 text-sm">Gran Total: <span id="granTotalSoles" class="font-bold text-emerald-400 text-lg">S/ 0.00</span></span>
+                    <button id="btnFase2" onclick="irAFase2()" class="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all">
+                        Continuar a Fase 2 <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FASE 2: UPLOAD HTML Y REVISIÓN -->
+        <div class="panel hidden mb-6" id="panelFase2">
+            <div class="panel-header">
+                <span><i class="fas fa-file-code text-blue-500 mr-2"></i> Fase 2: Análisis de Comprobantes de Crédito (HTML)</span>
+            </div>
+            <div class="p-8">
+                <p class="text-slate-400 mb-6 text-center max-w-2xl mx-auto">
+                    Si existen ventas al crédito, arrastra los archivos <b>.html</b> generados por el sistema de terceros. Puedes subir varios a la vez. Cada archivo se procesará como un lote de crédito independiente.
+                    Si no hubo ventas al crédito, puedes omitir este paso y continuar a la exportación.
+                </p>
+                <div id="dropZoneHtml" class="drop-zone !border-blue-500/40 hover:!bg-blue-500/10 mb-6" onclick="document.getElementById('fileInputHtml').click()">
+                    <i class="fas fa-file-code text-5xl text-blue-500 mb-4 drop-shadow-lg"></i>
+                    <h3 class="text-xl font-bold text-slate-200 mb-2">Arrastra los archivos HTML aquí</h3>
+                    <p class="text-slate-500 text-sm">O haz clic para explorar en tus carpetas (Soporta múltiple selección).</p>
+                    <input type="file" id="fileInputHtml" accept=".html,.htm" multiple class="hidden">
+                </div>
+
+                <div id="htmlLotesContainer" class="space-y-4">
+                    <!-- JS inyecta lotes HTML procesados -->
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                <button onclick="volverAFase1()" class="text-slate-400 hover:text-white transition"><i class="fas fa-arrow-left mr-2"></i> Volver a Fase 1</button>
+                <button onclick="irAFase3()" class="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all">
+                    Continuar a Exportación <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- MODAL GESTOR DE DICCIONARIO -->
+        <dialog id="modalGestorDiccionario" class="bg-transparent m-auto p-0 backdrop:bg-slate-900/80 backdrop:backdrop-blur-sm w-full max-w-3xl">
+            <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+                    <h2 class="text-xl font-bold text-slate-200"><i class="fas fa-book text-amber-500 mr-2"></i> Gestor del Diccionario de Homologación</h2>
+                    <button onclick="cerrarGestorDiccionario()" class="text-slate-400 hover:text-rose-500 transition"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                
+                <div class="p-5 flex-1 overflow-y-auto">
+                    <form id="formAgregarDiccionario" class="flex gap-3 mb-6 bg-slate-800/30 p-4 rounded-lg border border-slate-700/50" onsubmit="event.preventDefault(); agregarAlDiccionario();">
+                        <div class="flex-1">
+                            <label class="block text-xs text-slate-400 mb-1">Nombre Crudo (Terceros)</label>
+                            <input type="text" id="inputNombreCrudo" required class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-white focus:border-amber-500 outline-none" placeholder="Ej. PLATANO LORITO">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs text-slate-400 mb-1">Nombre MicroERP</label>
+                            <input type="text" id="inputNombreMicroERP" required class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-white focus:border-amber-500 outline-none" placeholder="Ej. Plátano Orito">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded transition h-[38px]"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </form>
+
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <i class="fas fa-search text-slate-500"></i>
+                        </div>
+                        <input type="text" id="busquedaDiccionario" onkeyup="filtrarDiccionario()" class="w-full bg-slate-950 border border-slate-800 text-white text-sm rounded-lg focus:ring-amber-500 focus:border-amber-500 block pl-10 p-2.5 mb-4" placeholder="Buscar en el diccionario...">
+                    </div>
+
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-950 text-slate-400 uppercase text-xs">
+                            <tr>
+                                <th class="p-3 rounded-tl-lg">Nombre Crudo</th>
+                                <th class="p-3"><i class="fas fa-arrow-right text-slate-600"></i></th>
+                                <th class="p-3">MicroERP</th>
+                                <th class="p-3 rounded-tr-lg text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyDiccionario" class="divide-y divide-slate-800">
+                            <!-- JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </dialog>
+
+    </main>
+
+    <script src="sidebar.js"></script>
+    <script>
+        // Diccionario Integrado
+        let configDicGlobal = {};
+
+        let rawData = [];
+        let itemsProcesados = []; // Fase 1
+        let lotesCreditoHTML = []; // Fase 2: [{ idLote, nombreArchivo, items: [{id, nombre, cantidadCorregida}] }]
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth(); // Supabase Global
+            
+            try {
+                const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id, accesos_rutas').eq('id', window.currentUser.id).single();
+                window.currentEmpresaId = perfil.empresa_id;
+                const { data: empresa } = await window.supabaseClient.from('empresas').select('especialidades').eq('id', perfil.empresa_id).single();
+                
+                if(!empresa.especialidades || !empresa.especialidades.includes('importador_ventas')) {
+                    document.body.innerHTML = `<div class="p-20 text-center"><h1 class="text-4xl text-rose-500 font-bold mb-4">ACCESO DENEGADO</h1><p class="text-slate-400">Esta empresa no tiene contratada la especialidad "Importador Ventas Terceros".</p><button onclick="window.location.href='dashboard.html'" class="mt-6 text-amber-500 underline">Volver</button></div>`;
+                    return;
+                }
+                await cargarDiccionarioDesdeBD();
+            } catch (e) { console.error(e); }
+
+            configurarDragAndDrop();
+            configurarDragAndDropHTML();
+        });
+
+        // ========================== DICCIONARIO ==========================
+        async function cargarDiccionarioDesdeBD() {
+            try {
+                const { data, error } = await window.supabaseClient.from('homologacion_ventas').select('nombre_crudo, nombre_microerp');
+                if (error) throw error;
+                configDicGlobal = {};
+                data.forEach(row => {
+                    configDicGlobal[row.nombre_crudo.toUpperCase()] = row.nombre_microerp;
+                });
+            } catch (err) {
+                console.error("Error al cargar diccionario:", err);
+                Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Fallo al sincronizar diccionario', showConfirmButton: false, timer: 3000 });
+            }
+        }
+
+        function abrirGestorDiccionario() {
+            document.getElementById('modalGestorDiccionario').showModal();
+            renderizarDiccionarioUI();
+        }
+
+        function cerrarGestorDiccionario() {
+            document.getElementById('modalGestorDiccionario').close();
+        }
+
+        function renderizarDiccionarioUI() {
+            const tbody = document.getElementById('tbodyDiccionario');
+            const filtro = document.getElementById('busquedaDiccionario').value.toUpperCase();
+            tbody.innerHTML = '';
+            
+            const entries = Object.entries(configDicGlobal).sort((a,b) => a[0].localeCompare(b[0]));
+            
+            entries.forEach(([crudo, erp]) => {
+                if (filtro && !crudo.includes(filtro) && !erp.toUpperCase().includes(filtro)) return;
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/30 transition">
+                        <td class="p-3 font-semibold text-amber-400">${crudo}</td>
+                        <td class="p-3"><i class="fas fa-arrow-right text-slate-600"></i></td>
+                        <td class="p-3 text-emerald-400">${erp}</td>
+                        <td class="p-3 text-right">
+                            <button onclick="eliminarDelDiccionario('${crudo}')" class="text-slate-500 hover:text-rose-500"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            if (entries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-500">El diccionario está vacío. Agrega términos nuevos.</td></tr>`;
+            }
+        }
+
+        function filtrarDiccionario() {
+            renderizarDiccionarioUI();
+        }
+
+        async function agregarAlDiccionario() {
+            const crudo = document.getElementById('inputNombreCrudo').value.trim().toUpperCase();
+            const erp = document.getElementById('inputNombreMicroERP').value.trim();
+            
+            if(!crudo || !erp) return;
+            
+            try {
+                // Upsert to Supabase
+                const { error } = await window.supabaseClient.from('homologacion_ventas').upsert({
+                    empresa_id: window.currentEmpresaId, // Asumido que existe en el global
+                    nombre_crudo: crudo,
+                    nombre_microerp: erp
+                }, { onConflict: 'empresa_id, nombre_crudo' });
+                
+                if (error) throw error;
+                
+                configDicGlobal[crudo] = erp;
+                document.getElementById('inputNombreCrudo').value = '';
+                document.getElementById('inputNombreMicroERP').value = '';
+                document.getElementById('inputNombreCrudo').focus();
+                renderizarDiccionarioUI();
+                
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Término guardado', showConfirmButton: false, timer: 2000, background: '#1e293b', color: '#fff' });
+            } catch (err) {
+                console.error(err);
+                Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar el término', background: '#1e293b', color: '#fff' });
+            }
+        }
+
+        async function eliminarDelDiccionario(crudo) {
+            try {
+                const { error } = await window.supabaseClient.from('homologacion_ventas')
+                    .delete()
+                    .eq('nombre_crudo', crudo); // RLS protege que solo borre de la empresa
+                
+                if (error) throw error;
+                
+                delete configDicGlobal[crudo];
+                renderizarDiccionarioUI();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function importarHojaConfigMasiva(wsConfig) {
+            const dataConfig = XLSX.utils.sheet_to_json(wsConfig, { header: 1 });
+            let nuevos = [];
+            dataConfig.forEach(row => {
+                if (row.length >= 2 && row[0] && row[1]) {
+                    const crudo = row[0].toString().trim().toUpperCase();
+                    const erp = row[1].toString().trim();
+                    if (!configDicGlobal[crudo]) {
+                        nuevos.push({ empresa_id: window.currentEmpresaId, nombre_crudo: crudo, nombre_microerp: erp });
+                    }
+                }
+            });
+
+            if (nuevos.length > 0) {
+                const res = await Swal.fire({
+                    icon: 'info', title: '¡Nuevos Términos Detectados!',
+                    text: `La hoja CONFIG de este archivo contiene ${nuevos.length} términos nuevos. ¿Deseas guardarlos permanentemente en la base de datos?`,
+                    background: '#1e293b', color: '#fff', showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-save mr-2"></i>Guardar en BD', cancelButtonText: 'Omitir'
+                });
+                
+                if (res.isConfirmed) {
+                    Swal.showLoading();
+                    const { error } = await window.supabaseClient.from('homologacion_ventas').upsert(nuevos, { onConflict: 'empresa_id, nombre_crudo' });
+                    if (error) {
+                        Swal.fire({ icon: 'error', title: 'Error', text: error.message, background: '#1e293b', color: '#fff' });
+                    } else {
+                        await cargarDiccionarioDesdeBD();
+                        Swal.fire({ icon: 'success', title: 'Éxito', text: 'Diccionario actualizado.', background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false });
+                    }
+                } else {
+                    // Solo en memoria temporal
+                    nuevos.forEach(n => configDicGlobal[n.nombre_crudo] = n.nombre_microerp);
+                }
+            }
+        }
+
+        // ========================== FASE 1: EXCEL ==========================
+        function configurarDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault(); dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; procesarArchivo(fileInput.files[0]); }
+            });
+            fileInput.addEventListener('change', (e) => { if (e.target.files.length) procesarArchivo(e.target.files[0]); });
+        }
+
+        async function procesarArchivo(file) {
+            if (!file.name.toLowerCase().endsWith('.xlsx')) return Swal.fire({ icon: 'error', title: 'Archivo Inválido', text: 'Solo .xlsx', background: '#1e293b', color: '#fff' });
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Si existe la hoja CONFIG, ofrecer importacion masiva
+                    if (workbook.SheetNames.includes('CONFIG')) {
+                        await importarHojaConfigMasiva(workbook.Sheets['CONFIG']);
+                    }
+
+                    const dataSheetName = workbook.SheetNames.find(s => s !== 'CONFIG') || workbook.SheetNames[0];
+                    const wsData = workbook.Sheets[dataSheetName];
+                    const dataCruda = XLSX.utils.sheet_to_json(wsData, { header: 1, defval: '' });
+
+                    let colDesc = 6, colCant = 9, colTotal = 11;
+                    for (let i = 0; i < Math.min(20, dataCruda.length); i++) {
+                        const row = dataCruda[i];
+                        if (!row) continue;
+                        let tDesc = -1, tCant = -1, tTotal = -1;
+                        for (let j = 0; j < row.length; j++) {
+                            const v = (row[j] || '').toString().toUpperCase().trim();
+                            if (v === 'PRODUCTO') tDesc = j;
+                            if (v === 'CANT' || v === 'CANTIDAD') tCant = j;
+                            if (v === 'TOTAL') tTotal = j;
+                        }
+                        if (tDesc !== -1 && tCant !== -1 && tTotal !== -1) { colDesc = tDesc; colCant = tCant; colTotal = tTotal; break; }
+                    }
+
+                    let itemsNoMapeados = [];
+                    rawData = [];
+
+                    for (let i = 1; i < dataCruda.length; i++) {
+                        const row = dataCruda[i];
+                        if (!row || row.length <= colTotal) continue;
+                        const descCruda = (row[colDesc] || '').toString().trim();
+                        if (!descCruda) continue;
+                        const cantidad = parseFloat(row[colCant]) || 0;
+                        const total = parseFloat(row[colTotal]) || 0;
+                        if (cantidad <= 0 && total <= 0) continue; 
+
+                        const descMicroERP = configDicGlobal[descCruda.toUpperCase()];
+                        if (!descMicroERP) {
+                            itemsNoMapeados.push(descCruda);
+                        } else {
+                            rawData.push({ crudo: descCruda, microerp: descMicroERP, cantidad: cantidad, total: total });
+                        }
+                    }
+
+                    if (itemsNoMapeados.length > 0) {
+                        const unicos = [...new Set(itemsNoMapeados)];
+                        return Swal.fire({
+                            icon: 'error', title: 'Ítems No Mapeados',
+                            html: `Se encontraron ítems crudos no reconocidos por el Diccionario Interno:<br><br>
+                                   <div style="max-height: 150px; overflow-y: auto; font-size: 12px; text-align: left; background: #0f172a; padding: 10px; border-radius: 5px;">
+                                   ${unicos.map(i => `• ${i}`).join('<br>')}
+                                   </div><br>Por favor, comunícate con soporte para agregarlos al diccionario.`,
+                            background: '#1e293b', color: '#fff', confirmButtonColor: '#f59e0b'
+                        });
+                    }
+                    analizarYAgrupar();
+                } catch (error) { Swal.fire({ icon: 'error', title: 'Error', text: error.message, background: '#1e293b', color: '#fff' }); }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function getMedian(arr) {
+            if (arr.length === 0) return 0;
+            let sorted = [...arr].sort((a,b) => a - b);
+            let mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
+        }
+
+        function analizarYAgrupar() {
+            const mapAgrupado = {};
+            rawData.forEach(item => {
+                if (!mapAgrupado[item.microerp]) mapAgrupado[item.microerp] = { nombre: item.microerp, filasOriginales: [], cantidadTotal: 0, dineroTotal: 0 };
+                mapAgrupado[item.microerp].filasOriginales.push(item);
+                mapAgrupado[item.microerp].cantidadTotal += item.cantidad;
+                mapAgrupado[item.microerp].dineroTotal += item.total;
+            });
+
+            itemsProcesados = [];
+            let cOk = 0, cAlert = 0;
+            let sumaTotalSoles = 0;
+
+            Object.values(mapAgrupado).forEach(group => {
+                let pUnitarios = group.filasOriginales.filter(f => f.cantidad > 0).map(f => f.total / f.cantidad);
+                let medianPU = pUnitarios.length > 0 ? getMedian(pUnitarios) : 0;
+                let hasAnomaly = false;
+
+                group.filasOriginales.forEach(fila => {
+                    if (fila.cantidad > 0) {
+                        let pu = fila.total / fila.cantidad;
+                        if (medianPU > 0 && (pu > medianPU * 1.8 || pu < medianPU * 0.6)) hasAnomaly = true;
+                    }
+                });
+
+                itemsProcesados.push({
+                    id: `prod_${group.nombre.replace(/[^a-zA-Z0-9]/g, '')}`,
+                    nombre: group.nombre,
+                    cantidadOriginal: parseFloat(group.cantidadTotal.toFixed(6)),
+                    cantidadCorregida: parseFloat(group.cantidadTotal.toFixed(6)),
+                    total: group.dineroTotal,
+                    esAnomalia: hasAnomaly,
+                    estado: hasAnomaly ? 'PENDIENTE' : 'LIMPIO'
+                });
+
+                if (hasAnomaly) cAlert++; else cOk++;
+                sumaTotalSoles += group.dineroTotal;
+            });
+
+            document.getElementById('countOk').innerText = cOk;
+            document.getElementById('countAlerts').innerText = cAlert;
+            document.getElementById('granTotalSoles').innerText = `S/ ${sumaTotalSoles.toFixed(2)}`;
+            
+            document.getElementById('panelUpload').classList.add('hidden');
+            document.getElementById('panelRevision').classList.remove('hidden');
+            
+            renderizarTabla();
+        }
+
+        window.alignNum = function(valStr, prefix = '', intW = 'w-12', fracW = 'w-16', strike = false) {
+            let parts = valStr.toString().split('.');
+            let dot = parts.length > 1 ? '.' : '<span class="opacity-0">.</span>';
+            let prefixHtml = prefix ? `<span class="text-emerald-400/70 mr-2">${prefix}</span>` : '';
+            return `<div class="inline-flex items-center tabular-nums font-mono text-[13px] tracking-tight ${strike ? 'line-through decoration-rose-500/50 opacity-70' : ''}">
+                ${prefixHtml}<span class="${intW} text-right">${parts[0]}</span><span class="text-slate-400 mx-[1px]">${dot}</span><span class="${fracW} text-left">${parts[1] || ''}</span>
+            </div>`;
+        };
+
+        function renderizarTabla() {
+            const tbody = document.getElementById('tablaRevisionBody');
+            tbody.innerHTML = '';
+            itemsProcesados.sort((a, b) => (b.esAnomalia === a.esAnomalia) ? 0 : b.esAnomalia ? 1 : -1);
+
+            itemsProcesados.forEach(item => {
+                let pu = item.cantidadCorregida > 0 ? (item.total / item.cantidadCorregida) : 0;
+                const puStr = Number(pu).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8, useGrouping: false });
+                const cantOrigStr = Number(item.cantidadOriginal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: false });
+                
+                const tr = document.createElement('tr');
+                tr.className = item.esAnomalia && item.estado === 'PENDIENTE' ? 'anomalia-row hover:bg-rose-900/30' : 'ok-row hover:bg-emerald-900/20';
+                
+                let badge = '';
+                if(item.estado === 'LIMPIO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-emerald-900/30 text-emerald-500 text-xs rounded font-bold">LIMPIO</span>`;
+                else if(item.estado === 'CORREGIDO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-blue-900/30 text-blue-400 text-xs rounded font-bold border border-blue-900/50"><i class="fas fa-edit mr-1"></i>CORREGIDO</span>`;
+                else if(item.estado === 'CONFIRMADO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-indigo-900/30 text-indigo-400 text-xs rounded font-bold border border-indigo-900/50"><i class="fas fa-check mr-1"></i>CONFIRMADO</span>`;
+                else badge = `<span class="whitespace-nowrap px-2 py-1 bg-red-900/50 text-red-400 text-xs rounded font-bold border border-red-900">REVISAR</span>`;
+                
+                let inputHtml = `<input type="text" inputmode="decimal" class="inline-edit w-36 text-center tabular-nums font-mono" value="${item.cantidadCorregida}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onchange="actualizarCantidad('${item.id}', this.value, 'fase1')" onkeydown="manejarEnter(event, '${item.id}', this.value, 'fase1')">`;
+
+                tr.innerHTML = `
+                    <td class="p-3 badge-cell">${badge}</td>
+                    <td class="p-3 font-bold text-white">${item.nombre}</td>
+                    <td class="p-3 text-right text-slate-500">${alignNum(cantOrigStr, '', 'w-12', 'w-16', true)}</td>
+                    <td class="p-3 text-right">${inputHtml}</td>
+                    <td class="p-3 text-right font-medium text-emerald-400">${alignNum(item.total.toFixed(2), 'S/', 'w-12', 'w-10')}</td>
+                    <td class="p-3 text-right text-slate-400" id="pu_${item.id}">${alignNum(puStr, 'S/', 'w-12', 'w-20')}</td>
+                `;
+                tbody.appendChild(tr);
+                
+                if(item.estado === 'CONFIRMADO') {
+                    tr.style.borderLeft = '4px solid #6366f1'; tr.style.backgroundColor = 'rgba(99, 102, 241, 0.05)';
+                } else if(item.estado === 'CORREGIDO') {
+                    tr.style.borderLeft = '4px solid #3b82f6'; tr.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+                }
+            });
+        }
+
+        function actualizarCantidad(id, newValue, fase, htmlLoteId = null) {
+            let val = parseFloat(newValue);
+            if (isNaN(val) || val < 0) val = 0; // Créditos pueden ser corregidos a 0
+            
+            let item;
+            if(fase === 'fase1') item = itemsProcesados.find(i => i.id === id);
+            else if(fase === 'fase2') {
+                const lote = lotesCreditoHTML.find(l => l.idLote === htmlLoteId);
+                if(lote) item = lote.items.find(i => i.id === id);
+            }
+
+            if (item && parseFloat(val.toFixed(6)) !== item.cantidadCorregida) {
+                item.cantidadCorregida = parseFloat(val.toFixed(6));
+                item.estado = 'CORREGIDO';
+                
+                if(fase === 'fase1') {
+                    let pu = item.cantidadCorregida > 0 ? (item.total / item.cantidadCorregida) : 0;
+                    const puStr = Number(pu).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8, useGrouping: false });
+                    document.getElementById(`pu_${id}`).innerHTML = window.alignNum(puStr, 'S/', 'w-12', 'w-20');
+                    renderizarTabla(); // Simplificado para actualizar el badge entero
+                } else {
+                    renderizarLotesHTML();
+                }
+            }
+        }
+
+        function manejarEnter(event, id, newValue, fase, htmlLoteId = null) {
+            if (event.key === 'Enter') {
+                event.target.blur(); 
+                let item;
+                if(fase === 'fase1') item = itemsProcesados.find(i => i.id === id);
+                else {
+                    const lote = lotesCreditoHTML.find(l => l.idLote === htmlLoteId);
+                    if(lote) item = lote.items.find(i => i.id === id);
+                }
+                
+                if (item && item.estado !== 'CORREGIDO') {
+                    item.estado = 'CONFIRMADO';
+                    if(fase === 'fase1') renderizarTabla();
+                    else renderizarLotesHTML();
+                }
+            }
+        }
+
+        function irAFase2() {
+            const incompletos = itemsProcesados.filter(i => i.estado === 'PENDIENTE');
+            if(incompletos.length > 0) {
+                return Swal.fire({ icon: 'warning', title: 'Revisión Incompleta', text: 'Debe corregir o confirmar TODAS las filas resaltadas en rojo (Anomalías) presionando ENTER.', background: '#1e293b', color: '#fff' });
+            }
+            document.getElementById('panelRevision').classList.add('hidden');
+            document.getElementById('panelFase2').classList.remove('hidden');
+        }
+
+        function reiniciarProceso() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('panelRevision').classList.add('hidden');
+            document.getElementById('panelFase2').classList.add('hidden');
+            document.getElementById('panelUpload').classList.remove('hidden');
+            itemsProcesados = [];
+            lotesCreditoHTML = [];
+            document.getElementById('htmlLotesContainer').innerHTML = '';
+        }
+
+        // ========================== FASE 2: HTML ==========================
+        function configurarDragAndDropHTML() {
+            const dropZone = document.getElementById('dropZoneHtml');
+            const fileInput = document.getElementById('fileInputHtml');
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault(); dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) procesarArchivosHTML(e.dataTransfer.files);
+            });
+            fileInput.addEventListener('change', (e) => { if (e.target.files.length) procesarArchivosHTML(e.target.files); });
+        }
+
+        function volverAFase1() {
+            document.getElementById('panelFase2').classList.add('hidden');
+            document.getElementById('panelRevision').classList.remove('hidden');
+        }
+
+        async function procesarArchivosHTML(files) {
+            for(let i=0; i<files.length; i++) {
+                const file = files[i];
+                if (!file.name.toLowerCase().endsWith('.html') && !file.name.toLowerCase().endsWith('.htm')) continue;
+                
+                const idLote = `HTML_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+                const text = await file.text();
+                
+                // Parsear con DOMParser
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                const tables = doc.querySelectorAll('table');
+                
+                let htmlItems = [];
+                // Estrategia: Buscar tabla que contenga "CANT." y "DESCRIPCIÓN"
+                tables.forEach(table => {
+                    const rows = table.querySelectorAll('tr');
+                    let idxCant = -1, idxDesc = -1;
+                    
+                    rows.forEach((row, rIdx) => {
+                        const cells = Array.from(row.children).filter(c => c.tagName === 'TD' || c.tagName === 'TH');
+                        // Buscar Headers
+                        if (idxCant === -1 || idxDesc === -1) {
+                            let tempCant = -1, tempDesc = -1;
+                            cells.forEach((cell, cIdx) => {
+                                const t = cell.innerText.toUpperCase().trim();
+                                if(t.includes('CANT') || t === 'CANT.') tempCant = cIdx;
+                                if(t.includes('DESCRIP') || t.includes('PRODUCTO')) tempDesc = cIdx;
+                            });
+                            if (tempCant !== -1 && tempDesc !== -1) {
+                                idxCant = tempCant;
+                                idxDesc = tempDesc;
+                            }
+                        } else {
+                            // Extraer Data
+                            if (idxCant !== -1 && idxDesc !== -1 && cells.length > Math.max(idxCant, idxDesc)) {
+                                const descCruda = cells[idxDesc].innerText.trim();
+                                const cantStr = cells[idxCant].innerText.trim();
+                                const cantidad = parseFloat(cantStr.replace(/,/g, ''));
+                                
+                                if(descCruda && cantidad > 0) {
+                                    const descMicroERP = configDicGlobal[descCruda.toUpperCase()];
+                                    if(descMicroERP) {
+                                        // Agrupar si se repite en el mismo HTML
+                                        const exist = htmlItems.find(x => x.nombre === descMicroERP);
+                                        if(exist) exist.cantidadCorregida += cantidad;
+                                        else htmlItems.push({ 
+                                            id: `cred_${Math.random().toString(36).substr(2,6)}`, 
+                                            nombre: descMicroERP, 
+                                            cantidadCorregida: cantidad, 
+                                            estado: 'PENDIENTE' 
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+
+                if(htmlItems.length > 0) {
+                    lotesCreditoHTML.push({
+                        idLote: idLote,
+                        nombreArchivo: file.name,
+                        items: htmlItems
+                    });
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'HTML Sin Datos', text: `No se encontraron ítems válidos en ${file.name}`, background: '#1e293b', color: '#fff' });
+                }
+            }
+            renderizarLotesHTML();
+        }
+
+        function renderizarLotesHTML() {
+            const container = document.getElementById('htmlLotesContainer');
+            container.innerHTML = '';
+            
+            lotesCreditoHTML.forEach((lote, index) => {
+                let htmlRows = '';
+                lote.items.forEach(item => {
+                    let badge = '';
+                    if(item.estado === 'CORREGIDO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-blue-900/30 text-blue-400 text-xs rounded font-bold border border-blue-900/50"><i class="fas fa-edit mr-1"></i>CORREGIDO</span>`;
+                    else if(item.estado === 'CONFIRMADO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-indigo-900/30 text-indigo-400 text-xs rounded font-bold border border-indigo-900/50"><i class="fas fa-check mr-1"></i>CONFIRMADO</span>`;
+                    else badge = `<span class="whitespace-nowrap px-2 py-1 bg-amber-900/50 text-amber-400 text-xs rounded font-bold border border-amber-900">REVISAR</span>`;
+                    
+                    htmlRows += `
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-800/50 ${item.estado === 'PENDIENTE' ? 'bg-amber-900/10' : ''}">
+                        <td class="p-2 w-32">${badge}</td>
+                        <td class="p-2 font-medium text-slate-200">${item.nombre}</td>
+                        <td class="p-2 text-right">
+                            <input type="text" inputmode="decimal" class="inline-edit w-24 text-center tabular-nums font-mono" value="${item.cantidadCorregida}" 
+                            onchange="actualizarCantidad('${item.id}', this.value, 'fase2', '${lote.idLote}')" 
+                            onkeydown="manejarEnter(event, '${item.id}', this.value, 'fase2', '${lote.idLote}')">
+                        </td>
+                    </tr>`;
+                });
+
+                const allConfirmed = lote.items.every(i => i.estado !== 'PENDIENTE');
+                const borderClass = allConfirmed ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-slate-700';
+
+                container.innerHTML += `
+                <div class="bg-slate-900 rounded-lg border ${borderClass} overflow-hidden mb-4 relative">
+                    <button onclick="eliminarLoteHTML('${lote.idLote}')" class="absolute top-3 right-3 text-slate-500 hover:text-rose-500"><i class="fas fa-times"></i></button>
+                    <div class="bg-slate-800/50 p-3 border-b border-slate-700 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-file-invoice-dollar text-blue-400 text-xl"></i>
+                            <div>
+                                <h4 class="font-bold text-blue-400 text-sm">LOTE CRÉDITO: ${lote.nombreArchivo}</h4>
+                                <p class="text-xs text-slate-400">${lote.items.length} ítems detectados. Valide o confirme todos.</p>
+                            </div>
+                        </div>
+                        <button onclick="confirmarTodoLote('${lote.idLote}')" class="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white py-1.5 px-3 rounded shadow transition mr-8">
+                            <i class="fas fa-check-double mr-1"></i> Confirmar Todo
+                        </button>
+                    </div>
+                    <div class="p-4 flex justify-center">
+                        <table class="w-full max-w-2xl text-left text-sm">
+                            <tbody>${htmlRows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+            });
+        }
+
+        function confirmarTodoLote(idLote) {
+            const lote = lotesCreditoHTML.find(l => l.idLote === idLote);
+            if(lote) {
+                lote.items.forEach(item => {
+                    // Solo cambiamos a confirmado si estaba pendiente. Si ya fue corregido (azul), se respeta.
+                    if(item.estado === 'PENDIENTE') {
+                        item.estado = 'CONFIRMADO';
+                    }
+                });
+                renderizarLotesHTML();
+            }
+        }
+
+        function eliminarLoteHTML(idLote) {
+            lotesCreditoHTML = lotesCreditoHTML.filter(l => l.idLote !== idLote);
+            renderizarLotesHTML();
+        }
+
+        // ========================== FASE 3: EXPORTACIÓN ==========================
+        function irAFase3() {
+            // Validar HTMLs
+            let incompletos = 0;
+            lotesCreditoHTML.forEach(l => {
+                incompletos += l.items.filter(i => i.estado === 'PENDIENTE').length;
+            });
+            if(incompletos > 0) {
+                return Swal.fire({ icon: 'warning', title: 'Revisión de Créditos Incompleta', text: 'Debe validar (presionar ENTER) o corregir todos los ítems de los lotes HTML antes de exportar.', background: '#1e293b', color: '#fff' });
+            }
+
+            exportarExcelFinal();
+        }
+
+        function exportarExcelFinal() {
+            // 1. Consolidar Fase 1 (Total General)
+            const mapExcel = {};
+            itemsProcesados.forEach(item => {
+                if (!mapExcel[item.nombre]) mapExcel[item.nombre] = { nombre: item.nombre, cantidad: 0, dineroTotal: 0 };
+                mapExcel[item.nombre].cantidad += item.cantidadCorregida;
+                mapExcel[item.nombre].dineroTotal += item.total;
+            });
+
+            // Arreglo Final: [Descripción, Cantidad, Precio Unitario, Condicion_Pago, Lote_Referencia]
+            const datosFinales = [['Descripción', 'Cantidad', 'Precio Unitario', 'Condicion_Pago', 'Lote_Referencia']];
+            
+            // 2. Procesar Lotes de Crédito (Restando del Total)
+            lotesCreditoHTML.forEach(lote => {
+                lote.items.forEach(cItem => {
+                    if (cItem.cantidadCorregida <= 0) return;
+                    
+                    const excelItem = mapExcel[cItem.nombre];
+                    if (excelItem) {
+                        // Calcular P.U original para mantener el monto
+                        let pu = excelItem.cantidad > 0 ? (excelItem.dineroTotal / excelItem.cantidad) : 0;
+                        
+                        // Agregar fila de Crédito
+                        datosFinales.push([
+                            cItem.nombre,
+                            cItem.cantidadCorregida,
+                            pu,
+                            'CREDITO',
+                            lote.nombreArchivo // Lote_Referencia
+                        ]);
+
+                        // Descontar del Excel Principal
+                        excelItem.cantidad -= cItem.cantidadCorregida;
+                    }
+                });
+            });
+
+            // 3. Procesar Restante (CONTADO)
+            Object.values(mapExcel).forEach(eItem => {
+                if(eItem.cantidad > 0) {
+                    let pu = eItem.dineroTotal / (eItem.cantidad + (itemsProcesados.find(i=>i.nombre===eItem.nombre).cantidadCorregida - eItem.cantidad)); // Aproximacion PU
+                    // Mejor calculo de PU: Usar el PU global de fase 1
+                    let origItem = itemsProcesados.find(i => i.nombre === eItem.nombre);
+                    let puReal = origItem.cantidadCorregida > 0 ? (origItem.total / origItem.cantidadCorregida) : 0;
+
+                    datosFinales.push([
+                        eItem.nombre,
+                        eItem.cantidad,
+                        puReal,
+                        'CONTADO',
+                        '' // Sin Lote Referencia
+                    ]);
+                }
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(datosFinales);
+            ws['!cols'] = [{wch: 40}, {wch: 15}, {wch: 20}, {wch: 15}, {wch: 30}];
+
+            XLSX.utils.book_append_sheet(wb, ws, "TicketConsolidado");
+            XLSX.writeFile(wb, "Ventas_del_dia_Procesado.xlsx");
+
+            Swal.fire({
+                icon: 'success', title: 'Exportación Exitosa', text: 'El archivo segregado (Contado/Crédito) está listo para el POS.',
+                background: '#1e293b', color: '#fff', showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-shopping-cart mr-2"></i>Ir al Punto de Venta', cancelButtonText: '<i class="fas fa-home mr-2"></i>Ir al Dashboard',
+                confirmButtonColor: '#f59e0b', cancelButtonColor: '#334155', reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) window.location.href = 'emitir_ticket.html';
+                else if (result.dismiss === Swal.DismissReason.cancel) window.location.href = 'dashboard.html';
+            });
+        }
+    </script>
+</body>
+</html>
