@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroERP - Transformación de Inventario</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <script src="sidebar.js"></script>
+    <style>
+        body { background: #f5f6fa; font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        .header {
+            background: var(--header-bg-gradient);
+            color: var(--header-text-color);
+            height: 80px; padding: 0 30px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: var(--header-shadow);
+        }
+
+        .ambient-blob {
+            position: fixed; border-radius: 50%; filter: blur(120px); z-index: -1; display: none; pointer-events: none;
+        }
+        html.dark .ambient-blob { display: block; }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.15); }
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.10); }
+
+        html.dark body { background-color: #020617 !important; color: #e2e8f0 !important; }
+        html.dark .header { background: rgba(15, 23, 42, 0.7) !important; border-bottom: 1px solid #1e293b !important; box-shadow: none !important; }
+        html.dark .header h1 { color: #f8fafc !important; }
+        
+        .glass-card {
+            background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); padding: 1.5rem;
+        }
+        html.dark .glass-card {
+            background-color: rgba(15, 23, 42, 0.8) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important;
+        }
+
+        .form-input {
+            width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #d1d5db;
+            outline: none; transition: all 0.2s;
+        }
+        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+        
+        html.dark .form-input {
+            background-color: rgba(30, 41, 59, 0.5); border-color: #334155; color: #f8fafc;
+        }
+        html.dark .form-input:focus { border-color: #3b82f6; }
+        
+        .result-item { padding: 10px 15px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s; }
+        .result-item:hover { background-color: #f3f4f6; }
+        html.dark .result-item { border-color: #334155; }
+        html.dark .result-item:hover { background-color: #1e293b; }
+        
+        .btn-delete { color: #ef4444; transition: color 0.2s; }
+        .btn-delete:hover { color: #b91c1c; }
+    </style>
+</head>
+
+<body class="transition-colors duration-300">
+    <header class="header">
+        <div class="flex items-center gap-4">
+            <button class="btn-back-std px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition" onclick="window.location.href='gestion_inventarios.html'">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </button>
+            <h1 class="text-xl font-bold">Transformación de Inventario (Despiece)</h1>
+        </div>
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2">
+            <i class="fas fa-sun text-amber-500 dark:hidden"></i>
+            <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
+            <span class="text-sm font-bold">TEMA</span>
+        </button>
+    </header>
+
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
+
+    <main class="container mx-auto p-6 max-w-5xl">
+        <!-- HEADER CONFIG -->
+        <div class="glass-card mb-6">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                <i class="fas fa-cogs text-blue-500"></i> Configuración Inicial
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Almacén de Operación</label>
+                    <select id="almacenSelect" class="form-input">
+                        <option value="">Seleccione un almacén...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha de Transformación</label>
+                    <input type="date" id="fechaTransformacion" class="form-input">
+                </div>
+            </div>
+            <div id="mensajeBloqueo" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-lg flex items-center gap-2">
+                <i class="fas fa-info-circle"></i> Seleccione un almacén para habilitar la selección de ítems.
+            </div>
+        </div>
+
+        <!-- ORIGEN -->
+        <div class="glass-card mb-6 border-l-4 border-l-orange-500 relative">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                <i class="fas fa-box-open"></i> Ítem Origen (Materia Prima a Despiezar)
+            </h2>
+            
+            <!-- Buscador Origen -->
+            <div id="origenBuscadorContenedor" class="relative">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </span>
+                    <input type="text" id="buscadorOrigen" disabled class="form-input pl-10" placeholder="Buscar ítem origen por nombre o código...">
+                </div>
+                <div id="resultadosOrigen" class="absolute z-20 w-full bg-white dark:bg-slate-800 shadow-xl rounded-b-lg border border-t-0 border-gray-200 dark:border-slate-700 hidden max-h-60 overflow-y-auto"></div>
+            </div>
+
+            <!-- Display Origen Seleccionado -->
+            <div id="origenSeleccionado" class="hidden mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-500/30 flex justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100" id="lblOrigenNombre">-</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400" id="lblOrigenCodigo">-</p>
+                    <p class="text-xs font-semibold text-orange-600 dark:text-orange-400 mt-1">Stock Disponible: <span id="lblOrigenStock">0</span> <span class="lblOrigenUom">-</span></p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="w-40">
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">Cantidad a Extraer</label>
+                        <div class="relative">
+                            <input type="number" id="cantidadOrigen" min="0.01" step="0.01" class="form-input pr-10 text-right font-bold text-lg text-orange-600 dark:text-orange-400 bg-white dark:bg-slate-900" placeholder="0.00">
+                            <span class="absolute right-3 top-2.5 text-sm font-medium text-slate-400 lblOrigenUom">-</span>
+                        </div>
+                    </div>
+                    <button id="btnLimpiarOrigen" class="w-10 h-10 mt-5 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-500 hover:text-red-500 hover:border-red-300 transition flex items-center justify-center" title="Cambiar Origen">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DESTINOS -->
+        <div class="glass-card mb-6 border-l-4 border-l-emerald-500">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <i class="fas fa-boxes"></i> Ítems Destino (Productos Resultantes)
+                </h2>
+                <div class="relative">
+                    <button id="btnAgregarDestino" disabled class="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800/50 font-medium text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-plus"></i> Añadir Destino
+                    </button>
+                </div>
+            </div>
+
+            <!-- Buscador Destino (Flotante o Modal in-line) -->
+            <div id="destinoBuscadorContenedor" class="hidden mb-4 relative p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm font-bold text-emerald-700 dark:text-emerald-400">Buscar ítem para añadir:</label>
+                    <button id="btnCerrarBuscadorDestino" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="relative">
+                    <input type="text" id="buscadorDestino" class="form-input pl-10" placeholder="Buscar por nombre o código...">
+                    <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+                </div>
+                <div id="resultadosDestino" class="absolute z-20 w-[calc(100%-2rem)] mt-1 bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-gray-200 dark:border-slate-700 hidden max-h-60 overflow-y-auto"></div>
+            </div>
+
+            <!-- Tabla de Destinos -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
+                            <th class="p-3 font-semibold w-1/2">Ítem Resultante</th>
+                            <th class="p-3 font-semibold text-right w-1/4">Cantidad Generada</th>
+                            <th class="p-3 font-semibold text-center w-16">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaDestinos">
+                        <tr id="filaVaciaDestinos">
+                            <td colspan="3" class="p-8 text-center text-slate-400 dark:text-slate-500">
+                                <i class="fas fa-box-open text-3xl mb-2 opacity-50 block"></i>
+                                No hay ítems destino asignados. Presione "Añadir Destino" para agregar.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Panel de Balance de Masas -->
+            <div class="mt-6 p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex gap-8">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total a Extraer (Origen)</p>
+                        <p class="text-xl font-bold text-orange-600 dark:text-orange-400" id="lblTotalOrigenPanel">0.00</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Suma Destinos</p>
+                        <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400" id="lblTotalDestinoPanel">0.00</p>
+                    </div>
+                </div>
+                
+                <div id="badgeBalance" class="px-6 py-2 rounded-full text-sm font-bold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <i class="fas fa-balance-scale"></i> Pendiente
+                </div>
+            </div>
+            
+            <p class="text-xs text-slate-500 mt-3 text-center">
+                <i class="fas fa-info-circle mr-1"></i> La suma de las cantidades destino debe ser <span class="font-bold">EXACTAMENTE IGUAL</span> a la cantidad origen extraída para preservar la exactitud del costo unitario.
+            </p>
+        </div>
+
+        <div class="glass-card mb-6">
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Observaciones (Opcional)</label>
+            <textarea id="observaciones" rows="2" class="form-input" placeholder="Ej. Despiece manual de lote..."></textarea>
+        </div>
+
+        <!-- ACCIONES -->
+        <div class="flex justify-end gap-4 mt-8">
+            <button class="px-6 py-2 rounded-lg font-medium text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700 transition" onclick="window.location.href='gestion_inventarios.html'">
+                Cancelar
+            </button>
+            <button id="btnTransformar" disabled class="px-8 py-2 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg flex items-center gap-2">
+                <i class="fas fa-check-circle"></i> Ejecutar Transformación
+            </button>
+        </div>
+    </main>
+
+    <script>
+        const supabaseClient = window.supabaseClient;
+        let itemsDestino = [];
+        let origenSeleccionado = null;
+        
+        // Formato utilitario
+        const formatNum = (num) => parseFloat(num || 0).toFixed(2);
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const fechaOptions = { timeZone: 'America/Lima' };
+            const today = new Date().toLocaleDateString('en-CA', fechaOptions); // YYYY-MM-DD
+            document.getElementById('fechaTransformacion').value = today;
+
+            await cargarAlmacenes();
+            configurarEventos();
+        });
+
+        async function cargarAlmacenes() {
+            const { data } = await supabaseClient.from('almacenes').select('*').eq('activo', true);
+            const select = document.getElementById('almacenSelect');
+            if (data) {
+                data.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = a.nombre;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        function configurarEventos() {
+            // 1. Almacen Change
+            document.getElementById('almacenSelect').addEventListener('change', (e) => {
+                const almacenId = e.target.value;
+                const buscadorOrigen = document.getElementById('buscadorOrigen');
+                const msj = document.getElementById('mensajeBloqueo');
+                
+                if (almacenId) {
+                    buscadorOrigen.disabled = false;
+                    msj.classList.add('hidden');
+                } else {
+                    buscadorOrigen.disabled = true;
+                    msj.classList.remove('hidden');
+                    resetearTodo();
+                }
+            });
+
+            // 2. Buscador Origen
+            document.getElementById('buscadorOrigen').addEventListener('input', debounce(buscarOrigen, 300));
+            
+            // 3. Cantidad Origen Change
+            document.getElementById('cantidadOrigen').addEventListener('input', () => {
+                validarBalance();
+            });
+
+            // 4. Limpiar Origen
+            document.getElementById('btnLimpiarOrigen').addEventListener('click', resetearTodo);
+
+            // 5. Agregar Destino UI
+            document.getElementById('btnAgregarDestino').addEventListener('click', () => {
+                document.getElementById('destinoBuscadorContenedor').classList.remove('hidden');
+                document.getElementById('buscadorDestino').focus();
+            });
+            document.getElementById('btnCerrarBuscadorDestino').addEventListener('click', () => {
+                document.getElementById('destinoBuscadorContenedor').classList.add('hidden');
+                document.getElementById('buscadorDestino').value = '';
+                document.getElementById('resultadosDestino').classList.add('hidden');
+            });
+
+            // 6. Buscador Destino
+            document.getElementById('buscadorDestino').addEventListener('input', debounce(buscarDestino, 300));
+
+            // 7. Botón Principal
+            document.getElementById('btnTransformar').addEventListener('click', procesarTransformacion);
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+        
+        function normalizarTexto(texto) {
+            if (!texto) return '';
+            return texto.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
+        // --- LÓGICA DE ORIGEN ---
+        async function buscarOrigen(e) {
+            const termino = normalizarTexto(e.target.value.trim());
+            const almacenId = document.getElementById('almacenSelect').value;
+            const resDiv = document.getElementById('resultadosOrigen');
+
+            if (termino.length < 2) {
+                resDiv.classList.add('hidden');
+                return;
+            }
+
+            resDiv.innerHTML = '<div class="p-4 text-center text-slate-500"><i class="fas fa-spinner fa-spin"></i> Buscando stock...</div>';
+            resDiv.classList.remove('hidden');
+
+            try {
+                // Buscar items que coincidan
+                const { data: productos } = await supabaseClient
+                    .from('items')
+                    .select('id, codigo, descripcion, unidad_medida')
+                    .ilike('busqueda_vector', `%${termino}%`)
+                    .limit(10);
+
+                if (!productos || productos.length === 0) {
+                    resDiv.innerHTML = '<div class="p-4 text-center text-slate-500">No se encontraron productos.</div>';
+                    return;
+                }
+
+                const disponibles = [];
+                for (const prod of productos) {
+                    // Check stock in almacen via ingresos_detalle
+                    const { data: lotes } = await supabaseClient
+                        .from('ingresos_detalle')
+                        .select('cantidad_disponible, ingresos!inner(almacen_destino_id)')
+                        .eq('item_id', prod.id)
+                        .eq('ingresos.almacen_destino_id', almacenId)
+                        .gt('cantidad_disponible', 0);
+
+                    const stockTotal = (lotes || []).reduce((sum, l) => sum + Number(l.cantidad_disponible), 0);
+                    if (stockTotal > 0) {
+                        disponibles.push({ producto: prod, stock: stockTotal });
+                    }
+                }
+
+                if (disponibles.length === 0) {
+                    resDiv.innerHTML = '<div class="p-4 text-center text-slate-500">No hay stock de estos ítems en el almacén seleccionado.</div>';
+                    return;
+                }
+
+                resDiv.innerHTML = '';
+                disponibles.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'result-item flex justify-between items-center';
+                    div.innerHTML = `
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-slate-200">${item.producto.descripcion}</div>
+                            <div class="text-xs text-slate-500">${item.producto.codigo}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-1 rounded">Stock: ${item.stock} ${item.producto.unidad_medida}</span>
+                        </div>
+                    `;
+                    div.onclick = () => seleccionarOrigen(item);
+                    resDiv.appendChild(div);
+                });
+
+            } catch (err) {
+                console.error(err);
+                resDiv.innerHTML = '<div class="p-4 text-center text-red-500">Error buscando items.</div>';
+            }
+        }
+
+        function seleccionarOrigen(itemInfo) {
+            origenSeleccionado = itemInfo;
+            document.getElementById('resultadosOrigen').classList.add('hidden');
+            document.getElementById('origenBuscadorContenedor').classList.add('hidden');
+            
+            document.getElementById('lblOrigenNombre').textContent = itemInfo.producto.descripcion;
+            document.getElementById('lblOrigenCodigo').textContent = itemInfo.producto.codigo;
+            document.getElementById('lblOrigenStock').textContent = itemInfo.stock;
+            
+            document.querySelectorAll('.lblOrigenUom').forEach(el => el.textContent = itemInfo.producto.unidad_medida);
+            
+            document.getElementById('cantidadOrigen').value = '';
+            document.getElementById('cantidadOrigen').max = itemInfo.stock;
+            
+            document.getElementById('origenSeleccionado').classList.remove('hidden');
+            document.getElementById('btnAgregarDestino').disabled = false;
+            
+            // Focus on quantity
+            setTimeout(() => document.getElementById('cantidadOrigen').focus(), 100);
+            
+            validarBalance();
+        }
+
+        function resetearTodo() {
+            origenSeleccionado = null;
+            itemsDestino = [];
+            
+            document.getElementById('origenBuscadorContenedor').classList.remove('hidden');
+            document.getElementById('buscadorOrigen').value = '';
+            document.getElementById('origenSeleccionado').classList.add('hidden');
+            
+            document.getElementById('btnAgregarDestino').disabled = true;
+            document.getElementById('destinoBuscadorContenedor').classList.add('hidden');
+            
+            renderTablaDestinos();
+            validarBalance();
+        }
+
+        // --- LÓGICA DE DESTINOS ---
+        async function buscarDestino(e) {
+            const termino = normalizarTexto(e.target.value.trim());
+            const resDiv = document.getElementById('resultadosDestino');
+
+            if (termino.length < 2) {
+                resDiv.classList.add('hidden');
+                return;
+            }
+
+            resDiv.innerHTML = '<div class="p-4 text-center text-slate-500"><i class="fas fa-spinner fa-spin"></i> Buscando catálogo...</div>';
+            resDiv.classList.remove('hidden');
+
+            try {
+                // Buscar CUALQUIER item (no necesita tener stock, porque vamos a INYECTARLE stock)
+                const { data: productos } = await supabaseClient
+                    .from('items')
+                    .select('id, codigo, descripcion, unidad_medida')
+                    .ilike('busqueda_vector', `%${termino}%`)
+                    .limit(15);
+
+                if (!productos || productos.length === 0) {
+                    resDiv.innerHTML = '<div class="p-4 text-center text-slate-500">No se encontraron productos.</div>';
+                    return;
+                }
+
+                resDiv.innerHTML = '';
+                productos.forEach(prod => {
+                    // Prevenir seleccionar el mismo item de origen como destino
+                    if (origenSeleccionado && prod.id === origenSeleccionado.producto.id) return;
+                    
+                    // Prevenir duplicados en la lista de destinos
+                    if (itemsDestino.some(d => d.producto.id === prod.id)) return;
+
+                    const div = document.createElement('div');
+                    div.className = 'result-item flex justify-between items-center';
+                    div.innerHTML = `
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-slate-200">${prod.descripcion}</div>
+                            <div class="text-xs text-slate-500">${prod.codigo}</div>
+                        </div>
+                        <span class="text-xs text-slate-400 border border-slate-200 rounded px-2 py-0.5">${prod.unidad_medida}</span>
+                    `;
+                    div.onclick = () => seleccionarDestino(prod);
+                    resDiv.appendChild(div);
+                });
+
+            } catch (err) {
+                console.error(err);
+                resDiv.innerHTML = '<div class="p-4 text-center text-red-500">Error buscando items.</div>';
+            }
+        }
+
+        function seleccionarDestino(producto) {
+            itemsDestino.push({
+                producto: producto,
+                cantidad: 0
+            });
+            
+            document.getElementById('resultadosDestino').classList.add('hidden');
+            document.getElementById('buscadorDestino').value = '';
+            document.getElementById('destinoBuscadorContenedor').classList.add('hidden');
+            
+            renderTablaDestinos();
+        }
+
+        function renderTablaDestinos() {
+            const tbody = document.getElementById('tablaDestinos');
+            
+            if (itemsDestino.length === 0) {
+                tbody.innerHTML = `
+                    <tr id="filaVaciaDestinos">
+                        <td colspan="3" class="p-8 text-center text-slate-400 dark:text-slate-500">
+                            <i class="fas fa-box-open text-3xl mb-2 opacity-50 block"></i>
+                            No hay ítems destino asignados. Presione "Añadir Destino" para agregar.
+                        </td>
+                    </tr>
+                `;
+                validarBalance();
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            
+            itemsDestino.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors';
+                
+                tr.innerHTML = `
+                    <td class="p-3">
+                        <div class="font-medium text-slate-800 dark:text-slate-200">${item.producto.descripcion}</div>
+                        <div class="text-xs text-slate-500">${item.producto.codigo}</div>
+                    </td>
+                    <td class="p-3 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <input type="number" min="0.01" step="0.01" value="${item.cantidad || ''}" 
+                                class="form-input text-right w-32 font-bold text-emerald-600 dark:text-emerald-400"
+                                oninput="actualizarCantDestino(${index}, this.value)" placeholder="0.00">
+                            <span class="text-xs text-slate-400 w-8 text-left">${item.producto.unidad_medida}</span>
+                        </div>
+                    </td>
+                    <td class="p-3 text-center">
+                        <button onclick="eliminarDestino(${index})" class="btn-delete p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            validarBalance();
+        }
+
+        // Must be global for the inline onclick handlers
+        window.actualizarCantDestino = function(index, valor) {
+            itemsDestino[index].cantidad = parseFloat(valor) || 0;
+            validarBalance();
+        }
+        
+        window.eliminarDestino = function(index) {
+            itemsDestino.splice(index, 1);
+            renderTablaDestinos();
+        }
+
+        // --- LÓGICA DE BALANCE Y VALIDACIÓN ---
+        function validarBalance() {
+            const qtyOrigen = parseFloat(document.getElementById('cantidadOrigen').value) || 0;
+            const sumDestinos = itemsDestino.reduce((sum, item) => sum + item.cantidad, 0);
+            
+            document.getElementById('lblTotalOrigenPanel').textContent = formatNum(qtyOrigen);
+            document.getElementById('lblTotalDestinoPanel').textContent = formatNum(sumDestinos);
+            
+            const badge = document.getElementById('badgeBalance');
+            const btnTransformar = document.getElementById('btnTransformar');
+            
+            // Tolerancia de 0.001 para errores de flotante
+            const diff = Math.abs(qtyOrigen - sumDestinos);
+            const isValid = qtyOrigen > 0 && itemsDestino.length > 0 && diff < 0.001;
+            
+            if (!origenSeleccionado) {
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center gap-2';
+                badge.innerHTML = '<i class="fas fa-balance-scale"></i> Pendiente';
+                btnTransformar.disabled = true;
+                return;
+            }
+            
+            if (qtyOrigen > origenSeleccionado.stock) {
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-red-100 text-red-600 dark:bg-red-900/30 flex items-center gap-2 border border-red-200 dark:border-red-800';
+                badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Excede Stock Disponible';
+                btnTransformar.disabled = true;
+                return;
+            }
+
+            if (isValid) {
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-green-100 text-green-700 dark:bg-green-900/40 flex items-center gap-2 border border-green-200 dark:border-green-800 shadow-sm';
+                badge.innerHTML = '<i class="fas fa-check-circle"></i> Balance Perfecto';
+                btnTransformar.disabled = false;
+            } else if (qtyOrigen > 0) {
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 flex items-center gap-2 border border-amber-200 dark:border-amber-800';
+                badge.innerHTML = '<i class="fas fa-exclamation-circle"></i> Desbalance de Masas';
+                btnTransformar.disabled = true;
+            } else {
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center gap-2';
+                badge.innerHTML = '<i class="fas fa-balance-scale"></i> Indique Cantidades';
+                btnTransformar.disabled = true;
+            }
+        }
+
+        // --- ENVÍO A RPC ---
+        async function procesarTransformacion() {
+            const btn = document.getElementById('btnTransformar');
+            const qtyOrigen = parseFloat(document.getElementById('cantidadOrigen').value) || 0;
+            const almacenId = document.getElementById('almacenSelect').value;
+            const fecha = document.getElementById('fechaTransformacion').value;
+            const obs = document.getElementById('observaciones').value;
+
+            if (!confirm('¿CONFIRMAR TRANSFORMACIÓN?\n\nEsta operación deducirá stock del ítem origen e incrementará el de los destinos atómicamente.')) return;
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+
+                const sesionStr = localStorage.getItem('microerp_session');
+                const userSession = JSON.parse(sesionStr);
+
+                const payload = {
+                    usuario_id: userSession.id,
+                    created_by: window.currentUserProfile?.nombre_completo || userSession.email || 'Sistema',
+                    almacen_id: almacenId,
+                    fecha_transformacion: fecha,
+                    observaciones: obs,
+                    item_origen: {
+                        item_id: origenSeleccionado.producto.id,
+                        cantidad: qtyOrigen
+                    },
+                    items_destino: itemsDestino.map(d => ({
+                        item_id: d.producto.id,
+                        cantidad: d.cantidad
+                    }))
+                };
+
+                const { data, error } = await supabaseClient.rpc('fn_transformar_inventario', { payload: payload });
+
+                if (error) {
+                    console.error("Error RPC:", error);
+                    throw new Error(error.message || 'Error en ejecución RPC de base de datos.');
+                }
+
+                alert(`✅ TRANSFORMACIÓN EXITOSA!\n\nSe procesó correctamente el despiece.\nCosto Unitario Transferido: S/ ${formatNum(data.costo_unitario_aplicado)}`);
+                window.location.reload();
+
+            } catch (err) {
+                console.error(err);
+                alert('❌ Error Crítico: ' + err.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> Ejecutar Transformación';
+            }
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('themeToggleBtn');
+            if(btn) {
+                if(isDark) {
+                    btn.querySelector('.fa-sun').classList.add('hidden');
+                    btn.querySelector('.fa-moon').classList.remove('hidden');
+                } else {
+                    btn.querySelector('.fa-sun').classList.remove('hidden');
+                    btn.querySelector('.fa-moon').classList.add('hidden');
+                }
+            }
+        }
+
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') document.documentElement.classList.add('dark');
+            document.addEventListener('DOMContentLoaded', () => {
+                updateThemeIcon(document.documentElement.classList.contains('dark'));
+            });
+        })();
+    </script>
+</body>
+</html>
