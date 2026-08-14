@@ -10,6 +10,17 @@
     const path = window.location.pathname;
     const page = path.split('/').pop() || 'index.html'; // Fallback a index si vacio
 
+    // 1.5. Inyectar Favicon corporativo (Hexágono MicroERP) de forma global antes de cualquier exclusión
+    if (!document.querySelector('link[rel="icon"]')) {
+        const favicon = document.createElement('link');
+        favicon.rel = 'icon';
+        favicon.type = 'image/svg+xml';
+        // SVG extraído de la cabecera del sidebar, con encoding URL-safe para los '#' (%23).
+        // ViewBox ajustado (12.5 10 75 75) para eliminar márgenes vacíos y maximizar el tamaño en la pestaña.
+        favicon.href = 'data:image/svg+xml;utf8,<svg viewBox="12.5 10 75 75" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23f59e0b;stop-opacity:1"/><stop offset="100%" style="stop-color:%23b45309;stop-opacity:1"/></linearGradient></defs><path d="M50 30 L80 45 L80 70 L50 85 L20 70 L20 45 Z" fill="url(%23cg)" opacity="0.9"/><path d="M50 10 L80 25 L80 45 L50 30 L20 45 L20 25 Z" fill="url(%23cg)" opacity="1"/><path d="M50 30 L50 85 L80 70 L80 45 Z" fill="%23ffffff" opacity="0.2"/></svg>';
+        document.head.appendChild(favicon);
+    }
+
     // La validación de inyección visual se hará después de exportar la configuración del menú.
 
     // 2. Configuración del Menú (ESTRICTA - No alterar orden)
