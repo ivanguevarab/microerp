@@ -378,8 +378,8 @@
 
                 <!-- Producto -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Item</label>
-                    <input type="text" id="busquedaProducto" placeholder="Buscar por Item, Código o Documento..."
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Item / Múltiples Códigos</label>
+                    <input type="text" id="busquedaProducto" placeholder="Buscar Item, Documento (o separar códigos por coma)..."
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                 </div>
 
@@ -681,14 +681,29 @@
 
                 let itemIds = [];
                 let busquedaActiva = false;
+                let esBusquedaMultiCodigo = false;
+                let terminosMultiCodigo = [];
 
                 if (productoBusqueda) {
                     busquedaActiva = true;
-                    const { data: itemsFound, error: errorItems } = await supabaseClient
-                        .from('items')
-                        .select('id')
-                        .ilike('busqueda_vector', `%${productoBusqueda}%`)
-                        .limit(50); // Limitamos para evitar queries gigantes
+                    
+                    const terminos = productoBusqueda.split(',').map(t => t.trim()).filter(t => t.length > 0);
+                    // Modo Multiproducto: Si hay más de un término y TODOS parecen códigos (empiezan con item- y no tienen espacios)
+                    const sonTodosCodigos = terminos.length > 1 && terminos.every(t => t.startsWith('item-') && !t.includes(' '));
+
+                    let itemsQueryBuilder = supabaseClient.from('items').select('id');
+
+                    if (sonTodosCodigos) {
+                        esBusquedaMultiCodigo = true;
+                        terminosMultiCodigo = terminos;
+                        
+                        const orQuery = terminos.map(t => `busqueda_vector.ilike.%${t}%`).join(',');
+                        itemsQueryBuilder = itemsQueryBuilder.or(orQuery).limit(200);
+                    } else {
+                        itemsQueryBuilder = itemsQueryBuilder.ilike('busqueda_vector', `%${productoBusqueda}%`).limit(50);
+                    }
+
+                    const { data: itemsFound, error: errorItems } = await itemsQueryBuilder;
 
                     if (errorItems) throw errorItems;
                     if (itemsFound) itemIds = itemsFound.map(i => i.id);
@@ -734,11 +749,22 @@
                 // Filtro Híbrido: (Item ID IN [...]) OR (Documento ILIKE %...%)
                 if (busquedaActiva) {
                     let orConditions = [];
-                    orConditions.push(`documento_referencia.ilike.%${productoBusqueda}%`);
+                    
+                    if (esBusquedaMultiCodigo) {
+                        terminosMultiCodigo.forEach(t => {
+                            orConditions.push(`documento_referencia.ilike.%${t}%`);
+                        });
+                    } else {
+                        orConditions.push(`documento_referencia.ilike.%${productoBusqueda}%`);
+                    }
+
                     if (itemIds.length > 0) {
                         orConditions.push(`item_id.in.(${itemIds.join(',')})`);
                     }
-                    query = query.or(orConditions.join(','));
+                    
+                    if (orConditions.length > 0) {
+                        query = query.or(orConditions.join(','));
+                    }
                 }
 
                 // Envolvemos en un objeto para que la función async no llame a .then() internamente

@@ -40,6 +40,22 @@
         .rank-1 { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: #020617; box-shadow: 0 0 10px rgba(245,158,11,0.5); }
         .rank-2 { background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; }
         .rank-3 { background: linear-gradient(135deg, #d97706 0%, #92400e 100%); color: white; }
+
+        /* Estilos Días de la semana */
+        .dia-btn { width: 28px; height: 28px; border-radius: 6px; font-size: 11px; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; color: #94a3b8; cursor: pointer; }
+        .dia-btn:hover { background: rgba(255,255,255,0.05); }
+        .btn-dia-activo { background: #10b981; color: white; border-color: #10b981; }
+        .btn-dia-activo:hover { background: #059669; }
+
+        @keyframes zoomIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .animate-zoom-in { animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
     </style>
 </head>
 <body>
@@ -56,23 +72,53 @@
 
     <main class="max-w-[1400px] mx-auto p-6 mt-6">
         
-        <!-- Controles de Mes/Año -->
+        <!-- Controles de Filtro Avanzados -->
         <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
             <h2 class="text-2xl font-bold text-white flex items-center gap-3">
                 <i class="fas fa-chart-pie text-emerald-500"></i> Rentabilidad Neta del Negocio
             </h2>
-            <div class="flex gap-4 items-center bg-slate-800/50 p-2 rounded-xl border border-slate-700/50">
-                <select id="mesSelect" class="bg-slate-700 border-none text-white rounded-lg px-4 py-2 font-medium focus:ring-2 focus:ring-emerald-500 outline-none">
-                    <option value="1">Enero</option> <option value="2">Febrero</option> <option value="3">Marzo</option> <option value="4">Abril</option>
-                    <option value="5">Mayo</option> <option value="6">Junio</option> <option value="7">Julio</option> <option value="8">Agosto</option>
-                    <option value="9">Septiembre</option> <option value="10">Octubre</option> <option value="11">Noviembre</option> <option value="12">Diciembre</option>
-                </select>
-                <select id="anioSelect" class="bg-slate-700 border-none text-white rounded-lg px-4 py-2 font-medium focus:ring-2 focus:ring-emerald-500 outline-none">
-                    <!-- Javascript lo llenará -->
-                </select>
-                <button onclick="cargarDashboard()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold transition shadow-lg shadow-emerald-500/20">
-                    <i class="fas fa-sync-alt mr-2"></i> Analizar
-                </button>
+            <div class="flex flex-col items-end gap-2">
+                <div class="flex gap-4 items-center bg-slate-800/50 p-2 rounded-xl border border-slate-700/50 flex-wrap">
+                    <label class="text-xs font-semibold text-emerald-400 cursor-pointer select-none flex items-center gap-1.5 border border-emerald-900/50 bg-emerald-900/20 px-3 py-2 rounded-lg hover:bg-emerald-900/40 transition">
+                        <input type="checkbox" id="toggleRango" class="form-checkbox h-4 w-4 text-emerald-600 rounded bg-slate-700 border-slate-600" onchange="toggleFiltroRango()">
+                        RANGO DE FECHAS
+                    </label>
+                    
+                    <!-- Selectores Mes/Año -->
+                    <div id="contenedorMesAnio" class="flex gap-2">
+                        <select id="mesSelect" class="bg-slate-700 border-none text-white rounded-lg px-4 py-2 font-medium focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="1">Enero</option> <option value="2">Febrero</option> <option value="3">Marzo</option> <option value="4">Abril</option>
+                            <option value="5">Mayo</option> <option value="6">Junio</option> <option value="7">Julio</option> <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option> <option value="10">Octubre</option> <option value="11">Noviembre</option> <option value="12">Diciembre</option>
+                        </select>
+                        <select id="anioSelect" class="bg-slate-700 border-none text-white rounded-lg px-4 py-2 font-medium focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </select>
+                    </div>
+
+                    <!-- Selectores Fechas (Ocultos por defecto) -->
+                    <div id="contenedorFechas" class="hidden gap-2 items-center text-slate-300 text-sm font-bold">
+                        <span>Desde</span>
+                        <input type="date" id="fechaDesde" class="bg-slate-700 border-none text-white rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500 outline-none">
+                        <span>Hasta</span>
+                        <input type="date" id="fechaHasta" class="bg-slate-700 border-none text-white rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </div>
+
+                    <button onclick="cargarDashboard()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold transition shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+                        <i class="fas fa-sync-alt"></i> Analizar
+                    </button>
+                </div>
+
+                <!-- Días de la Semana -->
+                <div class="flex gap-1 bg-slate-800/50 p-1.5 rounded-lg border border-slate-700/50">
+                    <span class="text-xs text-slate-400 self-center px-2 font-semibold tracking-wider">DÍAS:</span>
+                    <button class="dia-btn btn-dia-activo" data-dia="1">L</button>
+                    <button class="dia-btn btn-dia-activo" data-dia="2">M</button>
+                    <button class="dia-btn btn-dia-activo" data-dia="3">X</button>
+                    <button class="dia-btn btn-dia-activo" data-dia="4">J</button>
+                    <button class="dia-btn btn-dia-activo" data-dia="5">V</button>
+                    <button class="dia-btn btn-dia-activo" data-dia="6">S</button>
+                    <button class="dia-btn btn-dia-activo" data-dia="7">D</button>
+                </div>
             </div>
         </div>
 
@@ -105,7 +151,10 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Gráfico Evolución -->
-            <div class="glass-panel lg:col-span-2">
+            <div class="glass-panel lg:col-span-2 relative">
+                <button onclick="abrirGraficoExpandido()" class="absolute top-4 right-4 text-slate-400 hover:text-emerald-500 transition-colors z-10 bg-slate-800/80 p-1.5 rounded-lg border border-slate-700" title="Expandir a Pantalla Completa">
+                    <i class="fas fa-expand-arrows-alt"></i>
+                </button>
                 <div class="glass-header"><i class="fas fa-chart-area mr-2 text-emerald-500"></i> Evolución Diaria del Margen</div>
                 <div class="p-6 h-[400px]">
                     <canvas id="margenChart"></canvas>
@@ -114,8 +163,13 @@
 
             <!-- Top 10 Rentabilidad -->
             <div class="glass-panel">
-                <div class="glass-header"><i class="fas fa-trophy mr-2 text-amber-500"></i> Top 10 Rentables del Mes</div>
-                <div class="overflow-y-auto" style="max-height: 400px;">
+                <div class="glass-header flex justify-between items-center">
+                    <span><i class="fas fa-trophy mr-2 text-amber-500"></i> Top 10 Rentables</span>
+                    <button onclick="abrirModalRanking()" class="text-slate-400 hover:text-emerald-400 transition flex items-center gap-2 text-sm" title="Ver ranking completo">
+                        <i class="fas fa-eye"></i> Ver Todos
+                    </button>
+                </div>
+                <div class="overflow-y-auto custom-scrollbar" style="max-height: 400px;">
                     <table class="premium-table">
                         <thead>
                             <tr>
@@ -126,7 +180,54 @@
                         </thead>
                         <tbody id="rankingBody">
                             <!-- JS Inject -->
-                            <tr><td colspan="3" class="text-center py-8 text-slate-500">Seleccione un mes para analizar</td></tr>
+                            <tr><td colspan="3" class="text-center py-8 text-slate-500">Seleccione un periodo para analizar</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modales Añadidos -->
+        
+        <!-- Modal Gráfico Expandido -->
+        <div id="modal-grafico-expandido" class="fixed inset-0 bg-slate-950 bg-opacity-95 z-[120] hidden flex items-center justify-center p-6 backdrop-blur-md" onclick="cerrarGraficoExpandido()">
+            <button onclick="cerrarGraficoExpandido()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition z-20">
+                <i class="fas fa-times text-3xl"></i>
+            </button>
+            <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-6xl h-[80vh] overflow-hidden flex flex-col p-6 animate-zoom-in relative" onclick="event.stopPropagation()">
+                <h3 class="font-bold text-xl text-white mb-4 text-center">Evolución Detallada</h3>
+                <div class="flex-1 w-full h-full flex items-center justify-center relative">
+                    <canvas id="margenChartModal"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Ranking Completo -->
+        <div id="modal-ranking-completo" class="fixed inset-0 bg-slate-950 bg-opacity-95 z-[120] hidden flex items-center justify-center p-6 backdrop-blur-md" onclick="cerrarModalRanking()">
+            <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col animate-zoom-in" onclick="event.stopPropagation()">
+                <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800 text-white">
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        <i class="fas fa-list-ol text-emerald-400"></i> Ranking Completo de Rentabilidad
+                    </h3>
+                    <button onclick="cerrarModalRanking()" class="text-slate-400 hover:text-white transition">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    <table class="premium-table w-full">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Artículo / Servicio</th>
+                                <th>Tipo</th>
+                                <th class="text-right">Unidades</th>
+                                <th class="text-right text-blue-400">Ventas S/</th>
+                                <th class="text-right text-rose-400">Costos S/</th>
+                                <th class="text-right text-emerald-400">Margen S/</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingCompletoBody">
+                            <!-- Inyectado JS -->
                         </tbody>
                     </table>
                 </div>
@@ -139,6 +240,7 @@
     <script>
         let currentEmpresaId = null;
         let mainChart = null;
+        let modalChart = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
@@ -163,32 +265,91 @@
                 opt.textContent = i;
                 selAnio.appendChild(opt);
             }
+
+            // Defaults de fecha rango (primer y último día del mes actual)
+            const primerDia = new Date(cy, cm - 1, 1).toLocaleDateString('en-CA');
+            const ultimoDia = new Date(cy, cm, 0).toLocaleDateString('en-CA');
+            document.getElementById('fechaDesde').value = primerDia;
+            document.getElementById('fechaHasta').value = ultimoDia;
             
             document.getElementById('fechaActual').textContent = 'PERIODO ACTUAL: ' + document.getElementById('mesSelect').options[cm-1].text + ' ' + cy;
+
+            // Eventos días de la semana
+            document.querySelectorAll('.dia-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.target.classList.toggle('btn-dia-activo');
+                    cargarDashboard();
+                });
+            });
+        }
+
+        function toggleFiltroRango() {
+            const isRango = document.getElementById('toggleRango').checked;
+            if(isRango) {
+                document.getElementById('contenedorMesAnio').classList.add('hidden');
+                document.getElementById('contenedorFechas').classList.remove('hidden');
+                document.getElementById('contenedorFechas').classList.add('flex');
+            } else {
+                document.getElementById('contenedorFechas').classList.add('hidden');
+                document.getElementById('contenedorFechas').classList.remove('flex');
+                document.getElementById('contenedorMesAnio').classList.remove('hidden');
+            }
+            cargarDashboard();
+        }
+
+        function getFiltrosActuales() {
+            const isRango = document.getElementById('toggleRango').checked;
+            let desde, hasta;
+            let texto = '';
+            
+            if(isRango) {
+                desde = document.getElementById('fechaDesde').value;
+                hasta = document.getElementById('fechaHasta').value;
+                texto = `RANGO: ${desde} AL ${hasta}`;
+            } else {
+                const mes = parseInt(document.getElementById('mesSelect').value);
+                const anio = parseInt(document.getElementById('anioSelect').value);
+                desde = new Date(anio, mes - 1, 1).toLocaleDateString('en-CA');
+                hasta = new Date(anio, mes, 0).toLocaleDateString('en-CA');
+                texto = `PERIODO: ${document.getElementById('mesSelect').options[mes-1].text.toUpperCase()} ${anio}`;
+            }
+
+            // Días de semana (1 a 7)
+            const diasActivos = Array.from(document.querySelectorAll('.btn-dia-activo')).map(b => parseInt(b.dataset.dia));
+            const todosLosDias = diasActivos.length === 7 || diasActivos.length === 0;
+            const paramDias = todosLosDias ? [] : diasActivos; // array vacío significa no filtrar por día
+            
+            if(!todosLosDias && diasActivos.length > 0) {
+                texto += ' | DÍAS ESPECÍFICOS';
+            }
+
+            return { desde, hasta, paramDias, texto };
         }
 
         async function cargarDashboard() {
-            const mes = parseInt(document.getElementById('mesSelect').value);
-            const anio = parseInt(document.getElementById('anioSelect').value);
+            const f = getFiltrosActuales();
+            if(!f.desde || !f.hasta) return;
             
-            document.getElementById('fechaActual').textContent = 'ANALIZANDO: ' + document.getElementById('mesSelect').options[mes-1].text + ' ' + anio;
-
+            document.getElementById('fechaActual').textContent = f.texto;
             Swal.fire({ title: 'Analizando Rentabilidad', text: 'Ejecutando algoritmos financieros...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
 
             try {
-                // 1. Cargar Evolución Diaria (RPC 1)
-                const { data: dataDiaria, error: errDia } = await window.supabaseClient.rpc('fn_dashboard_margen_diario', {
+                // 1. Cargar Evolución con Rangos y Días
+                const { data: dataDiaria, error: errDia } = await window.supabaseClient.rpc('fn_dashboard_margen_rango', {
                     p_empresa_id: currentEmpresaId,
-                    p_mes: mes,
-                    p_anio: anio
+                    p_fecha_desde: f.desde,
+                    p_fecha_hasta: f.hasta,
+                    p_dias_semana: f.paramDias
                 });
                 if(errDia) throw errDia;
 
-                // 2. Cargar Ranking (RPC 2)
-                const { data: dataRanking, error: errRank } = await window.supabaseClient.rpc('fn_ranking_rentabilidad_mes', {
+                // 2. Cargar Ranking Top 10 con Rangos y Días
+                const { data: dataRanking, error: errRank } = await window.supabaseClient.rpc('fn_ranking_rentabilidad_rango', {
                     p_empresa_id: currentEmpresaId,
-                    p_mes: mes,
-                    p_anio: anio
+                    p_fecha_desde: f.desde,
+                    p_fecha_hasta: f.hasta,
+                    p_dias_semana: f.paramDias,
+                    p_limit: 10
                 });
                 if(errRank) throw errRank;
 
@@ -198,7 +359,7 @@
                 Swal.close();
             } catch (error) {
                 console.error("Error al cargar dashboard:", error);
-                Swal.fire('Error', 'Hubo un problema al procesar los algoritmos de rentabilidad.', 'error');
+                Swal.fire('Error', 'Hubo un problema al procesar los algoritmos de rentabilidad. Verifica que los RPCs estén actualizados en Supabase.', 'error');
             }
         }
 
@@ -233,10 +394,9 @@
 
         function dibujarGrafico(labels, ventas, costos) {
             const ctx = document.getElementById('margenChart').getContext('2d');
-            
             if(mainChart) mainChart.destroy();
 
-            mainChart = new Chart(ctx, {
+            const cfg = {
                 type: 'line',
                 data: {
                     labels: labels.length > 0 ? labels : ['Sin Datos'],
@@ -275,7 +435,14 @@
                         y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', callback: (val) => 'S/ ' + val } }
                     }
                 }
-            });
+            };
+            
+            mainChart = new Chart(ctx, cfg);
+            
+            // Si el modal expandido está abierto, actualizarlo también
+            if(!document.getElementById('modal-grafico-expandido').classList.contains('hidden')) {
+                abrirGraficoExpandido();
+            }
         }
 
         function actualizarRanking(datos) {
@@ -309,6 +476,77 @@
                 `;
             });
         }
+
+        // ---- MODALES EXTRAS ----
+
+        function abrirGraficoExpandido() {
+            document.getElementById('modal-grafico-expandido').classList.remove('hidden');
+            
+            const ctxModal = document.getElementById('margenChartModal').getContext('2d');
+            if(modalChart) modalChart.destroy();
+            
+            if(mainChart) {
+                const cfg = JSON.parse(JSON.stringify(mainChart.config)); 
+                // Restore callbacks since they are lost in JSON stringify
+                cfg.options.scales.y.ticks.callback = (val) => 'S/ ' + val;
+                
+                cfg.options.maintainAspectRatio = false;
+                modalChart = new Chart(ctxModal, cfg);
+            }
+        }
+
+        function cerrarGraficoExpandido() {
+            document.getElementById('modal-grafico-expandido').classList.add('hidden');
+        }
+
+        async function abrirModalRanking() {
+            document.getElementById('modal-ranking-completo').classList.remove('hidden');
+            document.getElementById('rankingCompletoBody').innerHTML = '<tr><td colspan="7" class="text-center py-10"><i class="fas fa-spinner fa-spin text-emerald-500 text-3xl"></i></td></tr>';
+            
+            const f = getFiltrosActuales();
+            try {
+                // p_limit: null devuelve todos
+                const { data, error } = await window.supabaseClient.rpc('fn_ranking_rentabilidad_rango', {
+                    p_empresa_id: currentEmpresaId,
+                    p_fecha_desde: f.desde,
+                    p_fecha_hasta: f.hasta,
+                    p_dias_semana: f.paramDias,
+                    p_limit: null 
+                });
+                if(error) throw error;
+                
+                const tbody = document.getElementById('rankingCompletoBody');
+                tbody.innerHTML = '';
+                
+                if(!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-500">No hay datos en este periodo.</td></tr>';
+                    return;
+                }
+
+                data.forEach((d, idx) => {
+                    const marg = parseFloat(d.margen_contribucion);
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="font-bold text-slate-500">${idx+1}</td>
+                            <td class="font-bold text-white">${d.nombre_item}</td>
+                            <td class="text-[10px] font-bold uppercase tracking-widest text-slate-500">${d.tipo_item}</td>
+                            <td class="text-right font-medium text-slate-300">${d.cantidad_vendida}</td>
+                            <td class="text-right text-blue-400">S/ ${parseFloat(d.ventas_netas).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                            <td class="text-right text-rose-400">S/ ${parseFloat(d.costo_ventas).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                            <td class="text-right font-bold text-emerald-400">S/ ${marg.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        </tr>
+                    `;
+                });
+            } catch(e) {
+                console.error(e);
+                document.getElementById('rankingCompletoBody').innerHTML = '<tr><td colspan="7" class="text-center text-red-500"><i class="fas fa-exclamation-triangle"></i> Error al cargar datos.</td></tr>';
+            }
+        }
+        
+        function cerrarModalRanking() {
+            document.getElementById('modal-ranking-completo').classList.add('hidden');
+        }
+
     </script>
 </body>
 </html>

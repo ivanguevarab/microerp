@@ -3476,9 +3476,12 @@
             }
 
             // 3. Validar Pasado (PRO: Safe Append por Item)
-            try {
-                // a. Recolectar IDs de items en el carrito
-                const itemIds = detalleIngreso.map(i => i.productoId);
+            // EXCEPCIÓN QUIRÚRGICA: El Inventario Inicial establece la base del FIFO y es siempre una adición positiva de stock.
+            // Por definición matemática y contable, aislar su inyección en el pasado es 100% seguro y necesario.
+            if (!isInicial) {
+                try {
+                    // a. Recolectar IDs de items en el carrito
+                    const itemIds = detalleIngreso.map(i => i.productoId);
 
                 // b. Calcular "Día Siguiente" a la fecha seleccionada (Límite 05:00 UTC = 00:00 Perú)
                 const fechaBase = new Date(fecha + 'T00:00:00'); // Fecha seleccionada (Local)
@@ -3548,6 +3551,7 @@
                 alert('Error interno validando fechas. Ver consola.');
                 return;
             }
+            } // Fin de excepción quirúrgica Inventario Inicial
 
             if (formaPago === 'CREDITO' && !fechaVencimiento) {
                 mostrarToast('Debe indicar la fecha de vencimiento para compras a crédito', 'warning');
