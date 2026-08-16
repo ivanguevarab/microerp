@@ -152,6 +152,7 @@
                         <tr>
                             <th class="p-3">Estado</th>
                             <th class="p-3">Item (MicroERP)</th>
+                            <th class="p-3 text-center">UM</th>
                             <th class="p-3 text-right">Cant. Original</th>
                             <th class="p-3 text-right">Cant. Corregida</th>
                             <th class="p-3 text-right">Total (S/)</th>
@@ -256,6 +257,7 @@
     <script>
         // Diccionario Integrado
         let configDicGlobal = {};
+        let unidadesMicroERP = {};
 
         let rawData = [];
         let itemsProcesados = []; // Fase 1
@@ -288,6 +290,13 @@
                 configDicGlobal = {};
                 data.forEach(row => {
                     configDicGlobal[row.nombre_crudo.toUpperCase()] = row.nombre_microerp;
+                });
+                
+                const { data: items, error: errItems } = await window.supabaseClient.from('items').select('descripcion, unidad_medida, unidades_medida(codigo)');
+                if (errItems) throw errItems;
+                unidadesMicroERP = {};
+                items.forEach(it => {
+                    unidadesMicroERP[it.descripcion.toUpperCase()] = (it.unidades_medida && it.unidades_medida.codigo) ? it.unidades_medida.codigo : (it.unidad_medida || '-');
                 });
             } catch (err) {
                 console.error("Error al cargar diccionario:", err);
@@ -571,6 +580,7 @@
                 let pu = item.cantidadCorregida > 0 ? (item.total / item.cantidadCorregida) : 0;
                 const puStr = Number(pu).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8, useGrouping: false });
                 const cantOrigStr = Number(item.cantidadOriginal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: false });
+                const umOficial = unidadesMicroERP[item.nombre.toUpperCase()] || '-';
                 
                 const tr = document.createElement('tr');
                 tr.className = item.esAnomalia && item.estado === 'PENDIENTE' ? 'anomalia-row hover:bg-rose-900/30' : 'ok-row hover:bg-emerald-900/20';
@@ -586,6 +596,7 @@
                 tr.innerHTML = `
                     <td class="p-3 badge-cell">${badge}</td>
                     <td class="p-3 font-bold text-white">${item.nombre}</td>
+                    <td class="p-3 text-center text-emerald-400 font-bold">${umOficial}</td>
                     <td class="p-3 text-right text-slate-500">${alignNum(cantOrigStr, '', 'w-12', 'w-16', true)}</td>
                     <td class="p-3 text-right">${inputHtml}</td>
                     <td class="p-3 text-right font-medium text-emerald-400">${alignNum(item.total.toFixed(2), 'S/', 'w-12', 'w-10')}</td>
@@ -598,6 +609,29 @@
                 } else if(item.estado === 'CORREGIDO') {
                     tr.style.borderLeft = '4px solid #3b82f6'; tr.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
                 }
+            });
+        }
+
+        function evaluarLotesCredito() {
+            let sumatorias = {};
+            lotesCreditoHTML.forEach(lote => {
+                lote.items.forEach(it => {
+                    if (!sumatorias[it.nombre]) sumatorias[it.nombre] = 0;
+                    sumatorias[it.nombre] += it.cantidadCorregida;
+                });
+            });
+
+            lotesCreditoHTML.forEach(lote => {
+                lote.items.forEach(it => {
+                    const itemFase1 = itemsProcesados.find(i => i.nombre === it.nombre);
+                    const techo = itemFase1 ? itemFase1.cantidadCorregida : 0;
+                    
+                    if (sumatorias[it.nombre] > techo) {
+                        it.estado = 'EXCEDIDO';
+                    } else if (it.estado === 'EXCEDIDO') {
+                        it.estado = 'PENDIENTE';
+                    }
+                });
             });
         }
 
@@ -614,15 +648,21 @@
 
             if (item && parseFloat(val.toFixed(6)) !== item.cantidadCorregida) {
                 item.cantidadCorregida = parseFloat(val.toFixed(6));
-                item.estado = 'CORREGIDO';
                 
-                if(fase === 'fase1') {
+                if(fase === 'fase2') {
+                    evaluarLotesCredito();
+                    if(item.estado !== 'EXCEDIDO') item.estado = 'CORREGIDO';
+                    else Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: `Límite excedido para ${item.nombre}.`, showConfirmButton: false, timer: 3000 });
+                    renderizarLotesHTML();
+                } else {
+                    item.estado = 'CORREGIDO';
                     let pu = item.cantidadCorregida > 0 ? (item.total / item.cantidadCorregida) : 0;
                     const puStr = Number(pu).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8, useGrouping: false });
                     document.getElementById(`pu_${id}`).innerHTML = window.alignNum(puStr, 'S/', 'w-12', 'w-20');
-                    renderizarTabla(); // Simplificado para actualizar el badge entero
-                } else {
-                    renderizarLotesHTML();
+                    renderizarTabla();
+                    
+                    // Si cambia la fase 1, reevaluar fase 2 silenciosamente
+                    if (lotesCreditoHTML.length > 0) evaluarLotesCredito();
                 }
             }
         }
@@ -637,10 +677,16 @@
                     if(lote) item = lote.items.find(i => i.id === id);
                 }
                 
-                if (item && item.estado !== 'CORREGIDO') {
-                    item.estado = 'CONFIRMADO';
-                    if(fase === 'fase1') renderizarTabla();
-                    else renderizarLotesHTML();
+                if (item) {
+                    if (fase === 'fase2' && item.estado === 'EXCEDIDO') {
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Ítem excedido. Ajusta la cantidad.', showConfirmButton: false, timer: 3000 });
+                        return;
+                    }
+                    if (item.estado !== 'CORREGIDO') {
+                        item.estado = 'CONFIRMADO';
+                        if(fase === 'fase1') renderizarTabla();
+                        else renderizarLotesHTML();
+                    }
                 }
             }
         }
@@ -690,56 +736,84 @@
                 const idLote = `HTML_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
                 const text = await file.text();
                 
-                // Parsear con DOMParser
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(text, 'text/html');
-                const tables = doc.querySelectorAll('table');
-                
                 let htmlItems = [];
-                // Estrategia: Buscar tabla que contenga "CANT." y "DESCRIPCIÓN"
-                tables.forEach(table => {
-                    const rows = table.querySelectorAll('tr');
-                    let idxCant = -1, idxDesc = -1;
+                
+                // Algoritmo Universal de Extracción de Créditos
+                // Aplana todas las celdas y busca secuencialmente: [Producto] -> [Num1 (Bultos)] -> [UM] -> [Num2 (Unid/Bulto)]
+                // Algoritmo Universal de Extracción de Créditos
+                // Usa una extracción profunda de TextNodes puros para evitar duplicación de texto por tablas anidadas (Ej. Crystal Reports)
+                function getTextNodes(el, acc = []) {
+                    el.childNodes.forEach(child => {
+                        if (child.nodeType === 3) { // Nodo de texto
+                            const txt = child.nodeValue.trim().replace(/,/g, '');
+                            if (txt) acc.push(txt.toUpperCase());
+                        } else if (child.nodeType === 1) { // Nodo elemento
+                            getTextNodes(child, acc);
+                        }
+                    });
+                    return acc;
+                }
+                
+                const textNodes = getTextNodes(doc.body);
+                
+                for (let c = 0; c < textNodes.length; c++) {
+                    const txt = textNodes[c];
                     
-                    rows.forEach((row, rIdx) => {
-                        const cells = Array.from(row.children).filter(c => c.tagName === 'TD' || c.tagName === 'TH');
-                        // Buscar Headers
-                        if (idxCant === -1 || idxDesc === -1) {
-                            let tempCant = -1, tempDesc = -1;
-                            cells.forEach((cell, cIdx) => {
-                                const t = cell.innerText.toUpperCase().trim();
-                                if(t.includes('CANT') || t === 'CANT.') tempCant = cIdx;
-                                if(t.includes('DESCRIP') || t.includes('PRODUCTO')) tempDesc = cIdx;
-                            });
-                            if (tempCant !== -1 && tempDesc !== -1) {
-                                idxCant = tempCant;
-                                idxDesc = tempDesc;
-                            }
-                        } else {
-                            // Extraer Data
-                            if (idxCant !== -1 && idxDesc !== -1 && cells.length > Math.max(idxCant, idxDesc)) {
-                                const descCruda = cells[idxDesc].innerText.trim();
-                                const cantStr = cells[idxCant].innerText.trim();
-                                const cantidad = parseFloat(cantStr.replace(/,/g, ''));
-                                
-                                if(descCruda && cantidad > 0) {
-                                    const descMicroERP = configDicGlobal[descCruda.toUpperCase()];
-                                    if(descMicroERP) {
-                                        // Agrupar si se repite en el mismo HTML
-                                        const exist = htmlItems.find(x => x.nombre === descMicroERP);
-                                        if(exist) exist.cantidadCorregida += cantidad;
-                                        else htmlItems.push({ 
-                                            id: `cred_${Math.random().toString(36).substr(2,6)}`, 
-                                            nombre: descMicroERP, 
-                                            cantidadCorregida: cantidad, 
-                                            estado: 'PENDIENTE' 
-                                        });
-                                    }
+                    if (configDicGlobal[txt]) {
+                        const descMicroERP = configDicGlobal[txt];
+                        let num1 = null, um = "", num2 = null;
+                        let numbersFound = 0;
+                        
+                        // Buscar en los siguientes nodos de texto sin límite
+                        for (let j = c + 1; j < textNodes.length; j++) {
+                            const nextTxt = textNodes[j];
+                            
+                            // Si topamos con otro producto del diccionario, cortamos la búsqueda para no robar sus valores
+                            if (configDicGlobal[nextTxt]) break;
+                            
+                            if (nextTxt.length > 20) continue; // Evitar textos largos basura
+                            
+                            const isNumeric = !isNaN(parseFloat(nextTxt)) && isFinite(nextTxt);
+                            
+                            if (isNumeric) {
+                                if (numbersFound === 0) {
+                                    num1 = parseFloat(nextTxt);
+                                    numbersFound++;
+                                } else if (numbersFound === 1) {
+                                    num2 = parseFloat(nextTxt);
+                                    break; // Al encontrar el segundo número, paramos la búsqueda
+                                }
+                            } else {
+                                // Si no es número y ya tenemos el primer número, asumimos que este texto es la Unidad de Medida
+                                if (numbersFound === 1 && um === "") {
+                                    um = nextTxt;
                                 }
                             }
                         }
-                    });
-                });
+                        
+                        if (num1 !== null) {
+                            if (num2 === null) num2 = 1; // Respaldo por si no existiera Num2
+                            
+                            const cantidadReal = parseFloat((num1 * num2).toFixed(6));
+                            const umOficial = unidadesMicroERP[descMicroERP.toUpperCase()] || '-';
+                            
+                            const exist = htmlItems.find(x => x.nombre === descMicroERP);
+                            if(exist) {
+                                exist.cantidadCorregida += cantidadReal;
+                            } else {
+                                htmlItems.push({ 
+                                    id: `cred_${Math.random().toString(36).substr(2,6)}`, 
+                                    nombre: descMicroERP, 
+                                    cantidadCorregida: cantidadReal,
+                                    um: umOficial, 
+                                    estado: 'PENDIENTE' 
+                                });
+                            }
+                        }
+                    }
+                }
 
                 if(htmlItems.length > 0) {
                     lotesCreditoHTML.push({
@@ -751,6 +825,7 @@
                     Swal.fire({ icon: 'warning', title: 'HTML Sin Datos', text: `No se encontraron ítems válidos en ${file.name}`, background: '#1e293b', color: '#fff' });
                 }
             }
+            evaluarLotesCredito();
             renderizarLotesHTML();
         }
 
@@ -764,12 +839,21 @@
                     let badge = '';
                     if(item.estado === 'CORREGIDO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-blue-900/30 text-blue-400 text-xs rounded font-bold border border-blue-900/50"><i class="fas fa-edit mr-1"></i>CORREGIDO</span>`;
                     else if(item.estado === 'CONFIRMADO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-indigo-900/30 text-indigo-400 text-xs rounded font-bold border border-indigo-900/50"><i class="fas fa-check mr-1"></i>CONFIRMADO</span>`;
+                    else if(item.estado === 'EXCEDIDO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-rose-900/50 text-rose-400 text-xs rounded font-bold border border-rose-900"><i class="fas fa-exclamation-triangle mr-1"></i>EXCEDIDO</span>`;
                     else badge = `<span class="whitespace-nowrap px-2 py-1 bg-amber-900/50 text-amber-400 text-xs rounded font-bold border border-amber-900">REVISAR</span>`;
                     
+                    let infoCircunscrita = '';
+                    if (item.estado === 'EXCEDIDO') {
+                        const itemFase1 = itemsProcesados.find(i => i.nombre === item.nombre);
+                        const techo = itemFase1 ? itemFase1.cantidadCorregida : 0;
+                        infoCircunscrita = `<i class="fas fa-info-circle text-rose-400 ml-2 cursor-help" title="Máximo permitido por Excel: ${techo}"></i> <span class="text-xs text-rose-400/80 ml-1">(Max: ${techo})</span>`;
+                    }
+
                     htmlRows += `
-                    <tr class="border-b border-slate-700/50 hover:bg-slate-800/50 ${item.estado === 'PENDIENTE' ? 'bg-amber-900/10' : ''}">
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-800/50 ${item.estado === 'PENDIENTE' ? 'bg-amber-900/10' : ''} ${item.estado === 'EXCEDIDO' ? 'bg-rose-900/10' : ''}">
                         <td class="p-2 w-32">${badge}</td>
-                        <td class="p-2 font-medium text-slate-200">${item.nombre}</td>
+                        <td class="p-2 font-medium text-slate-200">${item.nombre}${infoCircunscrita}</td>
+                        <td class="p-2 text-center text-emerald-400 font-bold w-24">${item.um || '-'}</td>
                         <td class="p-2 text-right">
                             <input type="text" inputmode="decimal" class="inline-edit w-24 text-center tabular-nums font-mono" value="${item.cantidadCorregida}" 
                             onchange="actualizarCantidad('${item.id}', this.value, 'fase2', '${lote.idLote}')" 
@@ -778,8 +862,9 @@
                     </tr>`;
                 });
 
-                const allConfirmed = lote.items.every(i => i.estado !== 'PENDIENTE');
-                const borderClass = allConfirmed ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-slate-700';
+                const allConfirmed = lote.items.length > 0 && lote.items.every(i => i.estado === 'CONFIRMADO');
+                const hasExcedidos = lote.items.some(i => i.estado === 'EXCEDIDO');
+                const borderClass = hasExcedidos ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.15)]' : (allConfirmed ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-slate-700');
 
                 container.innerHTML += `
                 <div class="bg-slate-900 rounded-lg border ${borderClass} overflow-hidden mb-4 relative">
@@ -806,11 +891,16 @@
         }
 
         function confirmarTodoLote(idLote) {
+            evaluarLotesCredito();
             const lote = lotesCreditoHTML.find(l => l.idLote === idLote);
             if(lote) {
+                if (lote.items.some(i => i.estado === 'EXCEDIDO')) {
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Ítems excedidos. Ajusta las cantidades.', showConfirmButton: false, timer: 3000 });
+                    renderizarLotesHTML();
+                    return;
+                }
                 lote.items.forEach(item => {
-                    // Solo cambiamos a confirmado si estaba pendiente. Si ya fue corregido (azul), se respeta.
-                    if(item.estado === 'PENDIENTE') {
+                    if(item.estado === 'PENDIENTE' || item.estado === 'CORREGIDO') {
                         item.estado = 'CONFIRMADO';
                     }
                 });
@@ -825,6 +915,14 @@
 
         // ========================== FASE 3: EXPORTACIÓN ==========================
         function irAFase3() {
+            evaluarLotesCredito();
+            let excedidos = 0;
+            lotesCreditoHTML.forEach(l => { if(l.items.some(i => i.estado === 'EXCEDIDO')) excedidos++; });
+            if(excedidos > 0) {
+                Swal.fire('Inconsistencia', 'Revisa los ítems marcados como EXCEDIDO en la Fase 2. El crédito no puede superar las ventas del Excel.', 'error');
+                return;
+            }
+
             // Validar HTMLs
             let incompletos = 0;
             lotesCreditoHTML.forEach(l => {
