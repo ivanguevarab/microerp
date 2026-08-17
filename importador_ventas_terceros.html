@@ -862,7 +862,7 @@
                     </tr>`;
                 });
 
-                const allConfirmed = lote.items.length > 0 && lote.items.every(i => i.estado === 'CONFIRMADO');
+                const allConfirmed = lote.items.length > 0 && lote.items.every(i => i.estado === 'CONFIRMADO' || i.estado === 'CORREGIDO');
                 const hasExcedidos = lote.items.some(i => i.estado === 'EXCEDIDO');
                 const borderClass = hasExcedidos ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.15)]' : (allConfirmed ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-slate-700');
 
@@ -900,7 +900,7 @@
                     return;
                 }
                 lote.items.forEach(item => {
-                    if(item.estado === 'PENDIENTE' || item.estado === 'CORREGIDO') {
+                    if(item.estado === 'PENDIENTE') {
                         item.estado = 'CONFIRMADO';
                     }
                 });

@@ -158,7 +158,7 @@
                         RANGO DE FECHAS
                     </label>
                     <button onclick="exportarFlujoCajaExcel()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-3 py-2 rounded-lg shadow transition flex items-center whitespace-nowrap">
-                        <i class="fas fa-file-excel mr-1.5"></i> Exportar a Sheets
+                        <i class="fas fa-file-excel mr-1.5"></i> Exportar
                     </button>
                     <button onclick="abrirModalInteligencia()" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-3 py-2 rounded-lg shadow transition flex items-center whitespace-nowrap">
                         <i class="fas fa-chart-line mr-1.5"></i> Análisis Financiero
@@ -246,12 +246,17 @@
             </div>
         </div>
 
-        <!-- Buscador Universal -->
-        <div class="mb-6 relative">
-            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <i class="fas fa-search text-blue-500"></i>
+        <!-- Buscador Universal y Sincronización -->
+        <div class="mb-6 flex items-center gap-3">
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="fas fa-search text-blue-500"></i>
+                </div>
+                <input type="text" id="buscadorFlujoCaja" class="w-full bg-white border border-gray-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-shadow placeholder-slate-400 text-slate-700 font-medium" placeholder="Buscar empleado, código... o ingresa =Monto (ej. =1500)">
             </div>
-            <input type="text" id="buscadorFlujoCaja" class="w-full bg-white border border-gray-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-shadow placeholder-slate-400 text-slate-700 font-medium" placeholder="Buscar empleado, código... o ingresa =Monto (ej. =1500)">
+            <button onclick="cargarTablero()" class="bg-white hover:bg-blue-50 text-blue-500 border border-gray-200 transition-colors rounded-xl w-12 h-12 shadow-sm flex flex-shrink-0 items-center justify-center text-lg" title="Sincronizar datos sin perder búsqueda">
+                <i class="fas fa-sync-alt"></i>
+            </button>
         </div>
 
         <!-- Resultados Búsqueda Plana (Oculto por defecto) -->
@@ -647,7 +652,11 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
             
-            const hoyStr = obtenerFechaLima();
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramFecha = urlParams.get('fecha');
+            const paramBuscar = urlParams.get('buscar');
+
+            const hoyStr = paramFecha || obtenerFechaLima();
             document.getElementById('fechaActualCaja').textContent = formatFechaTopBar(hoyStr);
             
             // Default: Flujo Diario (Desde HOY hasta HOY) en armonía con la visión del usuario
@@ -662,6 +671,14 @@
             await cargarContextoInicial();
             await asegurarCategoriasBase();
             await cargarTablero();
+            
+            if (paramBuscar) {
+                const inputBuscador = document.getElementById('buscadorFlujoCaja');
+                if(inputBuscador) {
+                    inputBuscador.value = paramBuscar;
+                    ejecutarBusquedaPlana(paramBuscar);
+                }
+            }
         });
 
         function obtenerFechaLima() {
@@ -997,6 +1014,38 @@
                     totEgreso += sumComprasCredito;
                 }
 
+                // 3.8 PAGOS A PROVEEDORES (AMORTIZACIONES DE CRÉDITO LOGÍSTICO)
+                const { data: pagosProveedores } = await window.supabaseClient.from('ingresos_credito_pagos')
+                    .select('id, created_at, fecha_pago, monto, created_by, estado, ingresos!inner(empresa_id, numero_ingreso)')
+                    .eq('ingresos.empresa_id', currentEmpresaId)
+                    .gte('fecha_pago', isoDesde)
+                    .lte('fecha_pago', isoHasta);
+
+                let sumPagosProveedores = 0;
+                let detPagosProveedores = [];
+
+                (pagosProveedores || []).forEach(p => {
+                    // Ignoramos pagos anulados (si aplica)
+                    if (p.estado === 'ANULADO') return;
+                    
+                    const val = Number(p.monto);
+                    sumPagosProveedores += val;
+                    const numIngreso = p.ingresos ? p.ingresos.numero_ingreso : 'Doc Desconocido';
+                    const refPago = `Amortización de Deuda (Ref: ${numIngreso})`;
+                    detPagosProveedores.push({ 
+                        fecha: p.created_at || p.fecha_pago, 
+                        fecha_movimiento: p.fecha_pago || p.created_at, 
+                        ref: refPago, 
+                        monto: val, 
+                        created_by: p.created_by 
+                    });
+                });
+                
+                if (sumPagosProveedores > 0) {
+                    objEgresos.push({ cat: 'Pago a Proveedores (Amortización de Créditos)', monto: sumPagosProveedores, sys: true, detalles: detPagosProveedores });
+                    totEgreso += sumPagosProveedores;
+                }
+
                 // 4. FC MOVIMIENTOS
                 const { data: mf } = await window.supabaseClient.from('fc_movimientos')
                     .select('id, created_at, fecha_movimiento, referencia, monto, categoria_id, codigo_correlativo, created_by, codigos_unicos(codigo, descripcion), fc_fuentes_categorias!inner(nombre, es_sistema, tipo_movimiento)')
@@ -1235,6 +1284,13 @@
                 // --- FIN INTELIGENCIA ---
 
                 Swal.close();
+
+                // RE-EJECUTAR BUSQUEDA SI HAY UN FILTRO ACTIVO (para Sincronización Suave)
+                const inputBuscadorSync = document.getElementById('buscadorFlujoCaja');
+                if (inputBuscadorSync && inputBuscadorSync.value.trim() !== '') {
+                    ejecutarBusquedaPlana(inputBuscadorSync.value.trim());
+                }
+
             } catch(e) { console.error(e); Swal.fire('Error Critico', 'No se pudo consolidar el Flujo de Caja', 'error'); }
         }
 
@@ -1249,11 +1305,15 @@
                         <span id="custom-cat-text" class="truncate block">-- Seleccione Categoría --</span>
                         <i class="fas fa-chevron-down text-gray-400 text-xs ml-2"></i>
                     </button>
-                    <div id="custom-cat-list" class="hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto custom-scrollbar">
-                        <div class="py-1">
-                            <div class="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-gray-500 custom-cat-option transition-colors" data-value="" data-text="-- Seleccione Categoría --">-- Seleccione Categoría --</div>`;
+                    <div id="custom-cat-list" class="hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 flex flex-col overflow-hidden">
+                        <div class="p-2 bg-white border-b border-gray-100 z-10 sticky top-0">
+                            <input type="text" id="custom-cat-search" class="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Buscar categoría..." autocomplete="off">
+                        </div>
+                        <div class="py-1 overflow-y-auto custom-scrollbar flex-1" id="custom-cat-options-container">
+                            <div class="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-gray-500 custom-cat-option transition-colors" data-value="" data-text="-- Seleccione Categoría --" data-search="">-- Seleccione Categoría --</div>`;
             catDisponibles.forEach(c => {
-                customDropdownHTML += `<div class="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-slate-700 border-t border-gray-50 custom-cat-option transition-colors" data-value="${c.id}" data-text="${c.nombre}">${c.nombre}</div>`;
+                const searchString = c.nombre.toLowerCase();
+                customDropdownHTML += `<div class="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-slate-700 border-t border-gray-50 custom-cat-option transition-colors" data-value="${c.id}" data-text="${c.nombre}" data-search="${searchString}">${c.nombre}</div>`;
             });
             customDropdownHTML += `
                         </div>
@@ -1550,9 +1610,10 @@
                         if (search) {
                             search.addEventListener('click', e => e.stopPropagation());
                             search.addEventListener('input', (e) => {
-                                const term = e.target.value.toLowerCase();
+                                const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+                                const term = normalize(e.target.value);
                                 options.forEach(opt => {
-                                    const searchableText = opt.getAttribute('data-search') || '';
+                                    const searchableText = normalize(opt.getAttribute('data-search') || '');
                                     if (!term || searchableText.includes(term)) {
                                         opt.style.display = '';
                                     } else {
@@ -2393,7 +2454,17 @@
             const iconClass = isIngreso ? 'fa-arrow-down text-emerald-500' : 'fa-arrow-up text-rose-500';
 
             let extraHTML = '';
-            if (res.correlativo) extraHTML += `<div class="mt-2 text-sm text-slate-500"><b>Correlativo:</b> ${res.correlativo}</div>`;
+            if (res.correlativo) {
+                let btnEditar = '';
+                if (res.correlativo.startsWith('VAR_INGRESO_') || res.correlativo.startsWith('VAR_EGRESO_')) {
+                    btnEditar = `<i class="fas fa-edit cursor-pointer text-amber-500 hover:text-amber-600 transition-colors" title="Inspeccionar Variante" onclick="Swal.close(); abrirModalInspeccionAdmin(); document.getElementById('inspeccion-codigo').value = '${res.correlativo}'; buscarVarianteAdmin();"></i>`;
+                }
+                extraHTML += `<div class="mt-2 text-sm text-slate-500 flex items-center gap-2">
+                    <span><b>Correlativo:</b> ${res.correlativo}</span>
+                    <i class="fas fa-copy cursor-pointer text-indigo-400 hover:text-indigo-600 transition-colors" title="Copiar y cerrar" onclick="navigator.clipboard.writeText('${res.correlativo}'); Swal.fire({toast: true, position: 'top-end', icon: 'success', title: 'Copiado', showConfirmButton: false, timer: 1000});"></i>
+                    ${btnEditar}
+                </div>`;
+            }
             if (res.orden) extraHTML += `<div class="mt-2 text-sm text-slate-500"><b>Orden Asociada:</b> ${res.orden}</div>`;
 
             Swal.fire({
@@ -2473,10 +2544,68 @@
             const textA = normalize(categoria);
             const textB = normalize(det.ref);
             const textoCompleto = `${textA} ${textB}`;
+
+            let queryRestante = originalQuery;
+
+            // 1. Extraer bloques de exclusión -(...)
+            const regexExclusiones = /-\(([^)]+)\)/g;
+            let matchEx;
+            let exclusiones = [];
+            while ((matchEx = regexExclusiones.exec(originalQuery)) !== null) {
+                exclusiones.push(matchEx[1].trim());
+                queryRestante = queryRestante.replace(matchEx[0], '');
+            }
+
+            // 2. Extraer bloques de alternativas +(...)
+            const regexAlternativas = /\+\(([^)]+)\)/g;
+            let matchAlt;
+            let alternativas = [];
+            while ((matchAlt = regexAlternativas.exec(originalQuery)) !== null) {
+                alternativas.push(matchAlt[1].trim());
+                queryRestante = queryRestante.replace(matchAlt[0], '');
+            }
+
+            // 3. Evaluar Exclusiones primero. Si CUALQUIERA coincide, queda excluido inmediatamente.
+            for (let i = 0; i < exclusiones.length; i++) {
+                if (evaluarGrupoBusqueda(exclusiones[i], textoCompleto, det)) {
+                    return false; // Rechazado por exclusión
+                }
+            }
+
+            // 4. Evaluar Búsqueda Positiva (Principal + Alternativas)
+            let queryPrincipal = queryRestante.trim();
             
-            // Separar la búsqueda por espacios para permitir múltiples palabras clave
-            const terminosRaw = originalQuery.split(' ').map(t => t.trim()).filter(t => t.length > 0);
+            // Caso especial: El usuario SOLO usó exclusiones, por ej: "-(fanny)"
+            if (queryPrincipal.length === 0 && alternativas.length === 0) {
+                return true; 
+            }
+
+            // Si hay query principal, evaluarlo
+            let coincidePrincipal = false;
+            if (queryPrincipal.length > 0) {
+                coincidePrincipal = evaluarGrupoBusqueda(queryPrincipal, textoCompleto, det);
+            }
+
+            // Si coincide la principal, es aceptado
+            if (coincidePrincipal) return true;
+
+            // Si no coincide la principal (o estaba vacía), evaluar alternativas
+            for (let i = 0; i < alternativas.length; i++) {
+                if (evaluarGrupoBusqueda(alternativas[i], textoCompleto, det)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // Sub-motor de evaluación de grupos de búsqueda (lógica AND)
+        function evaluarGrupoBusqueda(queryStr, textoCompleto, det) {
+            const terminosRaw = queryStr.split(' ').map(t => t.trim()).filter(t => t.length > 0);
+            if (terminosRaw.length === 0) return false;
             
+            const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+
             return terminosRaw.every(termino => {
                 if (termino.startsWith('=')) {
                     const numStr = termino.substring(1).trim();
@@ -3075,23 +3204,30 @@
                 }
 
                 // Renderizar resultados
-                let htmlRes = '';
+                let htmlCriticas = '';
+                let htmlRutinarias = '';
+                let countCriticas = 0;
+                let countRutinarias = 0;
+
                 data.forEach(alerta => {
                     let bgClass = 'bg-slate-50 border-slate-200';
                     let iconClass = 'text-slate-500 fa-info-circle';
                     let titleColor = 'text-slate-700';
                     let badgeClass = 'bg-slate-100 text-slate-600';
+                    let isCritica = false;
                     
                     if (alerta.riesgo === 'ALTO') {
                         bgClass = 'bg-rose-50 border-rose-200';
                         iconClass = 'text-rose-500 fa-exclamation-triangle';
                         titleColor = 'text-rose-700';
                         badgeClass = 'bg-rose-100 text-rose-700';
+                        isCritica = true;
                     } else if (alerta.riesgo === 'MEDIO') {
                         bgClass = 'bg-amber-50 border-amber-200';
                         iconClass = 'text-amber-500 fa-exclamation-circle';
                         titleColor = 'text-amber-700';
                         badgeClass = 'bg-amber-100 text-amber-700';
+                        isCritica = true;
                     } else if (alerta.riesgo === 'BAJO') {
                         bgClass = 'bg-blue-50 border-blue-200';
                         iconClass = 'text-blue-500 fa-info-circle';
@@ -3099,8 +3235,8 @@
                         badgeClass = 'bg-blue-100 text-blue-700';
                     }
 
-                    htmlRes += `
-                        <div class="rounded-xl border p-4 ${bgClass}">
+                    const cardHTML = `
+                        <div class="rounded-xl border p-4 ${bgClass} shadow-sm">
                             <div class="flex items-start gap-3">
                                 <i class="fas ${iconClass} text-xl mt-0.5"></i>
                                 <div class="flex-1">
@@ -3116,13 +3252,70 @@
                                         ${alerta.origenes ? `<div class="mb-1"><span class="font-bold text-slate-500">Módulos:</span> ${alerta.origenes.join(', ')}</div>` : ''}
                                         ${alerta.categorias ? `<div class="mb-1"><span class="font-bold text-slate-500">Categorías:</span> ${alerta.categorias.join(', ')}</div>` : ''}
                                     </div>
+                                    <div class="mt-3 flex justify-end">
+                                        <a href="flujo_de_caja.html?fecha=${alerta.fecha}&buscar=${encodeURIComponent('=' + alerta.monto_sospechoso)}" target="_blank" class="text-xs font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-2 rounded-lg border border-indigo-200 transition flex items-center gap-2 shadow-sm">
+                                            <i class="fas fa-search-dollar"></i> Aislar Movimientos
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     `;
+
+                    if (isCritica) {
+                        htmlCriticas += cardHTML;
+                        countCriticas++;
+                    } else {
+                        htmlRutinarias += cardHTML;
+                        countRutinarias++;
+                    }
                 });
                 
-                btnContainer.innerHTML = htmlRes;
+                if (countCriticas === 0) {
+                    htmlCriticas = `<div class="text-center py-8 text-slate-400 italic font-medium"><i class="fas fa-shield-check text-4xl text-emerald-200 mb-3 block"></i>No se detectaron alertas críticas.</div>`;
+                }
+                if (countRutinarias === 0) {
+                    htmlRutinarias = `<div class="text-center py-8 text-slate-400 italic font-medium">No hay repeticiones esperadas registradas.</div>`;
+                }
+
+                // Injecting the switch function into the global scope
+                window.switchAuditTab = function(tab) {
+                    const btnCriticas = document.getElementById('tab-btn-criticas');
+                    const btnRutinarias = document.getElementById('tab-btn-rutinarias');
+                    const contentCriticas = document.getElementById('tab-content-criticas');
+                    const contentRutinarias = document.getElementById('tab-content-rutinarias');
+
+                    if (tab === 'criticas') {
+                        btnCriticas.className = "px-6 py-3 text-sm font-bold text-rose-700 border-b-2 border-rose-600 transition flex items-center gap-2 outline-none bg-rose-50";
+                        btnRutinarias.className = "px-6 py-3 text-sm font-semibold text-slate-500 hover:text-slate-700 border-b-2 border-transparent transition flex items-center gap-2 outline-none hover:bg-slate-100";
+                        contentCriticas.classList.remove('hidden');
+                        contentRutinarias.classList.add('hidden');
+                    } else {
+                        btnRutinarias.className = "px-6 py-3 text-sm font-bold text-blue-700 border-b-2 border-blue-600 transition flex items-center gap-2 outline-none bg-blue-50";
+                        btnCriticas.className = "px-6 py-3 text-sm font-semibold text-slate-500 hover:text-slate-700 border-b-2 border-transparent transition flex items-center gap-2 outline-none hover:bg-slate-100";
+                        contentRutinarias.classList.remove('hidden');
+                        contentCriticas.classList.add('hidden');
+                    }
+                };
+
+                const tabsHTML = `
+                    <div class="flex border-b border-gray-200 mb-5 sticky top-0 bg-slate-50 z-10 pt-2">
+                        <button id="tab-btn-criticas" onclick="window.switchAuditTab('criticas')" class="px-6 py-3 text-sm font-bold text-rose-700 border-b-2 border-rose-600 transition flex items-center gap-2 outline-none bg-rose-50">
+                            <i class="fas fa-exclamation-triangle"></i> Alertas Críticas <span class="bg-rose-200 text-rose-800 text-[10px] font-black px-2 py-0.5 rounded-full ml-1">${countCriticas}</span>
+                        </button>
+                        <button id="tab-btn-rutinarias" onclick="window.switchAuditTab('rutinarias')" class="px-6 py-3 text-sm font-semibold text-slate-500 hover:text-slate-700 border-b-2 border-transparent transition flex items-center gap-2 outline-none hover:bg-slate-100">
+                            <i class="fas fa-info-circle"></i> Rutinarias <span class="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full ml-1">${countRutinarias}</span>
+                        </button>
+                    </div>
+                    <div id="tab-content-criticas" class="space-y-4 pb-4">
+                        ${htmlCriticas}
+                    </div>
+                    <div id="tab-content-rutinarias" class="space-y-4 pb-4 hidden">
+                        ${htmlRutinarias}
+                    </div>
+                `;
+                
+                btnContainer.innerHTML = tabsHTML;
 
             } catch (err) {
                 console.error("Error en Auditoria", err);
