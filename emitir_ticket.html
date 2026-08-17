@@ -1329,9 +1329,13 @@
                     if (esCredito) {
                         panelVuelto.style.display = 'none';
                         panelCredito.style.display = 'block';
+                        document.getElementById('fechaRecepcionPago').value = '';
                     } else {
                         panelVuelto.style.display = 'block';
                         panelCredito.style.display = 'none';
+                        if(!document.getElementById('fechaRecepcionPago').value) {
+                            document.getElementById('fechaRecepcionPago').value = document.getElementById('fechaEmision').value || new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+                        }
                     }
                 }
                 btn.disabled = false;
@@ -1401,7 +1405,7 @@
                     precio_venta_total: total.toFixed(2),
                     condicion_pago: condicionPago,
                     saldo_pendiente: saldoPendiente.toFixed(2),
-                    fecha_recepcion_pago: fechaRecepcionPagoStr,
+                    fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
                     estado: 'REGISTRADO',
                     created_by: window.cajeroName
                 };
@@ -1526,20 +1530,36 @@
                     text: `El ticket ${numTk} ha ingresado en finanzas y sus salidas descontaron el Kardex logístico (si hubo físico) usando la ruta limpia.`,
                     icon: 'success',
                     showDenyButton: true,
-                    confirmButtonText: '<i class="fas fa-plus"></i> Nueva Venta',
+                    confirmButtonText: (activeLoteIndex !== null && lotesTickets.length > 1) ? '<i class="fas fa-layer-group"></i> Siguiente Lote' : '<i class="fas fa-plus"></i> Nueva Venta',
                     denyButtonText: '<i class="fas fa-print"></i> Imprimir Ticket',
                     denyButtonColor: '#374151'
                 }).then((result) => {
+                    const accionPostVenta = async () => {
+                        if (activeLoteIndex !== null) {
+                            lotesTickets.splice(activeLoteIndex, 1);
+                            activeLoteIndex = null;
+                            if (lotesTickets.length > 0) {
+                                await limpiarPOSMantenido();
+                                renderizarModalLotes();
+                                document.getElementById('modalImportExcelPaso2').showModal();
+                                document.getElementById('modalImportExcelPaso2').classList.remove('hidden');
+                                document.getElementById('modalImportExcelPaso2').classList.add('flex');
+                                return;
+                            }
+                        }
+                        window.location.reload();
+                    };
+
                     if (result.isDenied) {
                         const reciInput = condicionPago === 'CREDITO' ? pagoInicial_input : (parseFloat(document.getElementById('inputMontoRecibido').value) || 0);
                         const vtaTot = parseFloat(ventaDB.precio_venta_total);
                         const vueltCalculado = condicionPago === 'CREDITO' ? 0 : Math.max(0, reciInput - vtaTot);
 
                         imprimirTicketCerrado(ventaDB.id, reciInput, vueltCalculado).then(()=>{
-                             window.location.reload();
-                        }).catch(()=>{});
+                             accionPostVenta();
+                        }).catch(()=>{ accionPostVenta(); });
                     } else {
-                        window.location.reload();
+                        accionPostVenta();
                     }
                 });
 
@@ -1568,6 +1588,55 @@
         // ==== IMPORTACIÓN DE EXCEL ====
         let excelPayloadTicket = [];
         let lotesTickets = [];
+        let activeLoteIndex = null;
+
+        function renderizarModalLotes() {
+            const lotesContainer = document.getElementById('lotesContainerTicket');
+            if(!lotesContainer) return;
+            let lotesHtml = `<div class="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-800 text-sm"><i class="fas fa-info-circle mr-2"></i> Análisis exitoso. Se generaron <b>${lotesTickets.length}</b> lotes transaccionales. Cargue uno a la vez para procesar el pago.</div>`;
+            let sumaTotalLotes = 0;
+            lotesTickets.forEach((lote, index) => {
+                const isCredito = lote.condicion === 'CREDITO';
+                const title = isCredito ? `Lote ${index+1}: CRÉDITO ${lote.referencia ? '['+lote.referencia+']' : ''}` : `Lote ${index+1}: CONTADO GENERAL`;
+                const bgCard = isCredito ? 'border-amber-200 dark:border-amber-800/50 bg-white dark:bg-slate-800/40' : 'border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-800/40';
+                const textType = isCredito ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400';
+                sumaTotalLotes += lote.total;
+                lotesHtml += `
+                <div class="border ${bgCard} rounded-lg p-4 shadow-sm flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-slate-200">${title}</h4>
+                        <div class="flex gap-3 text-xs mt-1">
+                            <span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-medium">${lote.items.length} ítems</span>
+                            <span class="${textType} font-bold">Total: S/ ${lote.total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <button type="button" onclick="cargarLoteAlTicket(${index})" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition text-sm flex items-center">
+                        Cargar Lote <i class="fas fa-arrow-right ml-1"></i>
+                    </button>
+                </div>`;
+            });
+            if(lotesTickets.length > 0) {
+                lotesHtml += `
+                <div class="mt-4 p-4 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex justify-between items-center shadow-inner">
+                    <span class="font-bold text-slate-700 dark:text-slate-300 uppercase text-sm"><i class="fas fa-calculator mr-2"></i> Sumatoria Total Lotes</span>
+                    <span class="font-bold text-xl text-emerald-600 dark:text-emerald-400">S/ ${sumaTotalLotes.toFixed(2)}</span>
+                </div>`;
+            }
+            lotesContainer.innerHTML = lotesHtml;
+        }
+
+        async function limpiarPOSMantenido() {
+            carrito = [];
+            renderizarCarrito();
+            await generarNuevoTicket();
+            document.getElementById('clienteSelect').value = 'NN';
+            document.getElementById('clienteSearchInput').value = '-- Cliente No Identificado (NN) --';
+            document.getElementById('tipoComprobante').value = 'TICKET';
+            document.getElementById('condicionPago').value = 'CONTADO';
+            if(document.getElementById('inputMontoRecibido')) document.getElementById('inputMontoRecibido').value = '';
+            if(document.getElementById('inputPagoInicial')) document.getElementById('inputPagoInicial').value = '';
+            if(typeof recalcularTotales === 'function') recalcularTotales();
+        }
 
         function abrirModalImportacionTicket() {
             document.getElementById('fileInputExcelTicket').value = '';
@@ -1952,31 +2021,7 @@
                         });
                         lotesTickets = Object.values(lotesMap);
                         
-                        // Renderizar Lotes
-                        let lotesHtml = `<div class="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-800 text-sm"><i class="fas fa-info-circle mr-2"></i> Análisis exitoso. Se generaron <b>${lotesTickets.length}</b> lotes transaccionales. Cargue uno a la vez para procesar el pago.</div>`;
-                        
-                        lotesTickets.forEach((lote, index) => {
-                            const isCredito = lote.condicion === 'CREDITO';
-                            const title = isCredito ? `Lote ${index+1}: CRÉDITO ${lote.referencia ? '['+lote.referencia+']' : ''}` : `Lote ${index+1}: CONTADO GENERAL`;
-                            const bgCard = isCredito ? 'border-amber-200 dark:border-amber-800/50 bg-white dark:bg-slate-800/40' : 'border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-800/40';
-                            const textType = isCredito ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400';
-                            
-                            lotesHtml += `
-                            <div class="border ${bgCard} rounded-lg p-4 shadow-sm flex justify-between items-center">
-                                <div>
-                                    <h4 class="font-bold text-slate-800 dark:text-slate-200">${title}</h4>
-                                    <div class="flex gap-3 text-xs mt-1">
-                                        <span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-medium">${lote.items.length} ítems</span>
-                                        <span class="${textType} font-bold">Total: S/ ${lote.total.toFixed(2)}</span>
-                                    </div>
-                                </div>
-                                <button type="button" onclick="cargarLoteAlTicket(${index})" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition text-sm flex items-center">
-                                    Cargar Lote <i class="fas fa-arrow-right ml-1"></i>
-                                </button>
-                            </div>`;
-                        });
-                        
-                        lotesContainer.innerHTML = lotesHtml;
+                        renderizarModalLotes();
                     }
 
                     cerrarModalImportacionTicket();
@@ -2036,6 +2081,7 @@
                 }
             }
 
+            activeLoteIndex = indexLote;
             cerrarModalValidacionTicket();
             
             Swal.fire({

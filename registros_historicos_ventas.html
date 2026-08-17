@@ -346,7 +346,11 @@
                 tr.className = isAnulado ? 'bg-gray-50' : '';
                 
                 tr.innerHTML = `
-                    <td class="${textColorClass}">${new Date(v.fecha_venta).toLocaleDateString('es-PE')}</td>
+                    <td class="${textColorClass}">${(() => {
+                        if(!v.fecha_venta) return '---';
+                        const [y, m, d] = v.fecha_venta.split('T')[0].split('-');
+                        return new Date(y, m - 1, d).toLocaleDateString('es-PE');
+                    })()}</td>
                     <td class="font-bold text-blue-600 ${textColorClass}">${v.numero_ticket}</td>
                     <td class="${textColorClass}">
                         <div class="font-medium">${v.clientes ? v.clientes.razon_social : '<span class="italic text-gray-400">Cliente No Identificado (NN)</span>'}</div>
@@ -453,7 +457,11 @@
                             </div>
                             <div>
                                 <p class="text-[10px] uppercase text-gray-400 font-bold tracking-wider mb-1">Fecha Emisión</p>
-                                <p class="font-medium text-gray-700 text-sm">${new Date(v.fecha_venta).toLocaleDateString('es-PE', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</p>
+                                <p class="font-medium text-gray-700 text-sm">${(() => {
+                                    if(!v.fecha_venta) return '---';
+                                    const [y, m, d] = v.fecha_venta.split('T')[0].split('-');
+                                    return new Date(y, m - 1, d).toLocaleDateString('es-PE', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+                                })()}</p>
                             </div>
                             <div class="col-span-2 border-t border-gray-100 pt-3">
                                 <p class="text-[10px] uppercase text-gray-400 font-bold tracking-wider mb-1">Cliente Receptor</p>

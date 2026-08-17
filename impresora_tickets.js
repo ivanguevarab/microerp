@@ -123,7 +123,13 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
             tc += 'Z'; // Forzar UTC internamente antes de que JS asuma local
         }
         const dateObj = new Date(tc);
-        const fechaStr = dateObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+        
+        let fechaStr = dateObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+        if (v.fecha_venta) {
+            const [y, m, d] = v.fecha_venta.split('T')[0].split('-');
+            fechaStr = new Date(y, m - 1, d).toLocaleDateString('es-PE');
+        }
+        
         const horaStr = dateObj.toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
 
         // Mapeo Diccionario Elementos
@@ -183,7 +189,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
             
             <p style="font-size: 16px; font-weight: bold; margin: 5px 0; text-align: center;">${v.tipo_comprobante} - ${v.numero_ticket}</p>
             <p style="text-align: left; margin-top: 10px;" class="ticket-text"><b>F. EMISIÓN:</b> ${fechaStr} ${horaStr}</p>
-            <p style="text-align: left;" class="ticket-text"><b>F. RECEPCIÓN PAGO:</b> ${v.fecha_recepcion_pago ? new Date(v.fecha_recepcion_pago + 'T00:00:00-05:00').toLocaleDateString('es-PE', { timeZone: 'America/Lima' }) : fechaStr}</p>
+            <p style="text-align: left;" class="ticket-text"><b>F. RECEPCIÓN PAGO:</b> ${v.fecha_recepcion_pago ? new Date(v.fecha_recepcion_pago + 'T00:00:00-05:00').toLocaleDateString('es-PE', { timeZone: 'America/Lima' }) : (v.condicion_pago === 'CREDITO' ? 'PENDIENTE' : fechaStr)}</p>
             <p style="text-align: left;" class="ticket-text"><b>CLIENTE:</b> ${clienteNombre}</p>
             <p style="text-align: left;" class="ticket-text"><b>DOC:</b> ${clienteDoc}</p>
             <p style="text-align: left;" class="ticket-text"><b>CAJERO:</b> ${v.created_by ? (v.created_by.includes('@') ? v.created_by.split('@')[0] : v.created_by) : 'Sistema'}</p>

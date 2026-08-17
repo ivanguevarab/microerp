@@ -647,14 +647,18 @@
             }
 
             if (item && parseFloat(val.toFixed(6)) !== item.cantidadCorregida) {
-                item.cantidadCorregida = parseFloat(val.toFixed(6));
-                
                 if(fase === 'fase2') {
+                    // El total de la deuda es inmutable (dictado por el documento físico original).
+                    // Si el usuario corrige la cantidad (ej. por límites excedidos),
+                    // el P.U. fluctuará dinámicamente, pero el Total se mantendrá intacto.
+                    item.cantidadCorregida = parseFloat(val.toFixed(6));
+                    
                     evaluarLotesCredito();
                     if(item.estado !== 'EXCEDIDO') item.estado = 'CORREGIDO';
                     else Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: `Límite excedido para ${item.nombre}.`, showConfirmButton: false, timer: 3000 });
                     renderizarLotesHTML();
                 } else {
+                    item.cantidadCorregida = parseFloat(val.toFixed(6));
                     item.estado = 'CORREGIDO';
                     let pu = item.cantidadCorregida > 0 ? (item.total / item.cantidadCorregida) : 0;
                     const puStr = Number(pu).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8, useGrouping: false });
@@ -734,7 +738,15 @@
                 if (!file.name.toLowerCase().endsWith('.html') && !file.name.toLowerCase().endsWith('.htm')) continue;
                 
                 const idLote = `HTML_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-                const text = await file.text();
+                
+                const buffer = await file.arrayBuffer();
+                let text = new TextDecoder('utf-8').decode(buffer);
+                
+                // Heurística de codificación: Crystal Reports y sistemas legacy exportan en windows-1252/iso-8859-1
+                // Si la lectura en UTF-8 genera caracteres corruptos () o incluye la directiva en el HTML, forzamos la lectura correcta.
+                if (text.includes('\ufffd') || text.toLowerCase().includes('windows-1252') || text.toLowerCase().includes('iso-8859-1')) {
+                    text = new TextDecoder('windows-1252').decode(buffer);
+                }
                 
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(text, 'text/html');
@@ -747,7 +759,7 @@
                 function getTextNodes(el, acc = []) {
                     el.childNodes.forEach(child => {
                         if (child.nodeType === 3) { // Nodo de texto
-                            const txt = child.nodeValue.trim().replace(/,/g, '');
+                            const txt = child.nodeValue.trim().replace(/\s+/g, ' ').replace(/,/g, '');
                             if (txt) acc.push(txt.toUpperCase());
                         } else if (child.nodeType === 1) { // Nodo elemento
                             getTextNodes(child, acc);
@@ -763,7 +775,7 @@
                     
                     if (configDicGlobal[txt]) {
                         const descMicroERP = configDicGlobal[txt];
-                        let num1 = null, um = "", num2 = null;
+                        let num1 = null, um = "", num2 = null, num3 = null, num4 = null;
                         let numbersFound = 0;
                         
                         // Buscar en los siguientes nodos de texto sin límite
@@ -778,13 +790,15 @@
                             const isNumeric = !isNaN(parseFloat(nextTxt)) && isFinite(nextTxt);
                             
                             if (isNumeric) {
-                                if (numbersFound === 0) {
-                                    num1 = parseFloat(nextTxt);
+                                if (numbersFound === 0) num1 = parseFloat(nextTxt);
+                                else if (numbersFound === 1) num2 = parseFloat(nextTxt);
+                                else if (numbersFound === 2) num3 = parseFloat(nextTxt);
+                                else if (numbersFound === 3) {
+                                    num4 = parseFloat(nextTxt);
                                     numbersFound++;
-                                } else if (numbersFound === 1) {
-                                    num2 = parseFloat(nextTxt);
-                                    break; // Al encontrar el segundo número, paramos la búsqueda
+                                    break; // Al encontrar el 4to número, asumimos que es el Total y paramos.
                                 }
+                                numbersFound++;
                             } else {
                                 // Si no es número y ya tenemos el primer número, asumimos que este texto es la Unidad de Medida
                                 if (numbersFound === 1 && um === "") {
@@ -794,19 +808,33 @@
                         }
                         
                         if (num1 !== null) {
-                            if (num2 === null) num2 = 1; // Respaldo por si no existiera Num2
+                            let factor = 1;
+                            let totalDinero = 0;
                             
-                            const cantidadReal = parseFloat((num1 * num2).toFixed(6));
+                            if (numbersFound === 4) {
+                                factor = num2;
+                                totalDinero = num4;
+                            } else if (numbersFound === 3) {
+                                factor = 1;
+                                totalDinero = num3;
+                            } else if (numbersFound === 2) {
+                                factor = 1;
+                                totalDinero = num2; 
+                            }
+                            
+                            const cantidadReal = parseFloat((num1 * factor).toFixed(6));
                             const umOficial = unidadesMicroERP[descMicroERP.toUpperCase()] || '-';
                             
                             const exist = htmlItems.find(x => x.nombre === descMicroERP);
                             if(exist) {
                                 exist.cantidadCorregida += cantidadReal;
+                                exist.totalDinero += totalDinero;
                             } else {
                                 htmlItems.push({ 
                                     id: `cred_${Math.random().toString(36).substr(2,6)}`, 
                                     nombre: descMicroERP, 
                                     cantidadCorregida: cantidadReal,
+                                    totalDinero: totalDinero,
                                     um: umOficial, 
                                     estado: 'PENDIENTE' 
                                 });
@@ -835,6 +863,8 @@
             
             lotesCreditoHTML.forEach((lote, index) => {
                 let htmlRows = '';
+                let totalSolesLote = 0;
+
                 lote.items.forEach(item => {
                     let badge = '';
                     if(item.estado === 'CORREGIDO') badge = `<span class="whitespace-nowrap px-2 py-1 bg-blue-900/30 text-blue-400 text-xs rounded font-bold border border-blue-900/50"><i class="fas fa-edit mr-1"></i>CORREGIDO</span>`;
@@ -849,6 +879,9 @@
                         infoCircunscrita = `<i class="fas fa-info-circle text-rose-400 ml-2 cursor-help" title="Máximo permitido por Excel: ${techo}"></i> <span class="text-xs text-rose-400/80 ml-1">(Max: ${techo})</span>`;
                     }
 
+                    let pu = item.cantidadCorregida > 0 ? (item.totalDinero / item.cantidadCorregida) : 0;
+                    totalSolesLote += item.totalDinero;
+
                     htmlRows += `
                     <tr class="border-b border-slate-700/50 hover:bg-slate-800/50 ${item.estado === 'PENDIENTE' ? 'bg-amber-900/10' : ''} ${item.estado === 'EXCEDIDO' ? 'bg-rose-900/10' : ''}">
                         <td class="p-2 w-32">${badge}</td>
@@ -859,6 +892,8 @@
                             onchange="actualizarCantidad('${item.id}', this.value, 'fase2', '${lote.idLote}')" 
                             onkeydown="manejarEnter(event, '${item.id}', this.value, 'fase2', '${lote.idLote}')">
                         </td>
+                        <td class="p-2 text-right text-slate-400 font-mono w-28 text-xs" title="Precio Unitario (Del Documento HTML)">S/ ${pu.toFixed(2)}</td>
+                        <td class="p-2 text-right text-emerald-400 font-bold tabular-nums w-28">S/ ${item.totalDinero.toFixed(2)}</td>
                     </tr>`;
                 });
 
@@ -881,10 +916,14 @@
                             <i class="fas fa-check-double mr-1"></i> Confirmar Todo
                         </button>
                     </div>
-                    <div class="p-4 flex justify-center">
-                        <table class="w-full max-w-2xl text-left text-sm">
+                    <div class="p-4 flex flex-col items-center">
+                        <table class="w-full max-w-3xl text-left text-sm">
                             <tbody>${htmlRows}</tbody>
                         </table>
+                        <div class="w-full max-w-3xl mt-4 p-3 bg-slate-950/50 rounded flex justify-between items-center border border-slate-700/50">
+                            <span class="text-slate-400 font-bold text-sm tracking-wide"><i class="fas fa-calculator mr-2"></i>TOTAL CALCULADO EN SOLES</span>
+                            <span class="text-xl font-bold text-emerald-400 tabular-nums">S/ ${totalSolesLote.toFixed(2)}</span>
+                        </div>
                     </div>
                 </div>`;
             });
@@ -954,36 +993,37 @@
                     
                     const excelItem = mapExcel[cItem.nombre];
                     if (excelItem) {
-                        // Calcular P.U original para mantener el monto
-                        let pu = excelItem.cantidad > 0 ? (excelItem.dineroTotal / excelItem.cantidad) : 0;
+                        // PU Crédito (basado en el HTML Fase 2)
+                        let puCredito = cItem.cantidadCorregida > 0 ? (cItem.totalDinero / cItem.cantidadCorregida) : 0;
                         
                         // Agregar fila de Crédito
                         datosFinales.push([
                             cItem.nombre,
                             cItem.cantidadCorregida,
-                            pu,
+                            puCredito,
                             'CREDITO',
                             lote.nombreArchivo // Lote_Referencia
                         ]);
 
-                        // Descontar del Excel Principal
+                        // Descontar del Excel Principal tanto la cantidad como el dinero!
                         excelItem.cantidad -= cItem.cantidadCorregida;
+                        excelItem.dineroTotal -= cItem.totalDinero;
                     }
                 });
             });
 
             // 3. Procesar Restante (CONTADO)
             Object.values(mapExcel).forEach(eItem => {
+                // Generar línea de CONTADO si sobró cantidad
                 if(eItem.cantidad > 0) {
-                    let pu = eItem.dineroTotal / (eItem.cantidad + (itemsProcesados.find(i=>i.nombre===eItem.nombre).cantidadCorregida - eItem.cantidad)); // Aproximacion PU
-                    // Mejor calculo de PU: Usar el PU global de fase 1
-                    let origItem = itemsProcesados.find(i => i.nombre === eItem.nombre);
-                    let puReal = origItem.cantidadCorregida > 0 ? (origItem.total / origItem.cantidadCorregida) : 0;
+                    // PU Contado (Dinero restante / Cantidad restante)
+                    let puContado = eItem.cantidad > 0 ? (eItem.dineroTotal / eItem.cantidad) : 0;
+                    if (puContado < 0) puContado = 0; // Salvaguarda en caso de diferencias de redondeo negativas
 
                     datosFinales.push([
                         eItem.nombre,
                         eItem.cantidad,
-                        puReal,
+                        puContado,
                         'CONTADO',
                         '' // Sin Lote Referencia
                     ]);
