@@ -123,6 +123,35 @@
             background-color: rgba(2, 6, 23, 0.85);
             backdrop-filter: blur(8px);
         }
+
+        /* Digital Wallet App */
+        .btn-key {
+            background-color: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f8fafc;
+            font-size: 26px;
+            font-weight: 700;
+            padding: 15px 0;
+            border-radius: 12px;
+            transition: all 0.1s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: pointer;
+        }
+        .btn-key:active {
+            background-color: rgba(16, 185, 129, 0.2);
+            border-color: rgba(16, 185, 129, 0.5);
+            transform: scale(0.95);
+        }
+        .dw-item-row {
+            transition: background-color 0.3s;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .dw-item-row.pressing {
+            background-color: rgba(245, 158, 11, 0.15); /* amber feedback */
+        }
     </style>
 </head>
 <body class="min-h-screen relative overflow-x-hidden flex flex-col">
@@ -151,10 +180,14 @@
                     <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Número de Caja</label>
                     <input type="tel" id="in-caja" required class="w-full rounded-lg px-4 py-3 text-lg" placeholder="Ej. 1" autocomplete="off">
                 </div>
-                <div class="pt-4">
+                <div class="pt-4 space-y-3">
+                    <button type="button" onclick="abrirCuadernoDigital()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-lg shadow-emerald-500/30 flex justify-center items-center gap-2">
+                        <i class="fas fa-mobile-screen text-lg"></i>
+                        <span>Cuaderno Digital</span>
+                    </button>
                     <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-lg shadow-blue-500/30 flex justify-center items-center gap-2">
-                        <span>Comenzar Conteo</span>
-                        <i class="fas fa-arrow-right"></i>
+                        <i class="fas fa-cash-register text-lg"></i>
+                        <span>Dinero en Gaveta</span>
                     </button>
                 </div>
             </form>
@@ -170,6 +203,7 @@
             <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-amber-400 to-blue-500"></div>
             
             <div class="text-center mb-4">
+                <button data-html2canvas-ignore="true" onclick="cerrarConteoFisico()" class="absolute left-4 top-4 w-8 h-8 flex justify-center items-center text-slate-400 hover:text-white bg-slate-800/50 rounded-full transition"><i class="fas fa-arrow-left"></i></button>
                 <h1 class="text-xl font-extrabold text-white tracking-tight" id="ui-empresa">Empresa</h1>
                 <p class="text-amber-400 text-xs font-bold uppercase tracking-widest mt-1">Conteo Físico de Gaveta</p>
             </div>
@@ -317,10 +351,76 @@
         </div>
     </div>
 
+    <!-- DIGITAL WALLET APP (Hidden initially) -->
+    <main id="digital-wallet-app" class="hidden flex-1 flex flex-col max-w-lg mx-auto w-full pb-8">
+        <!-- Header -->
+        <header class="glass-panel p-5 m-3 rounded-2xl relative overflow-hidden flex flex-col items-center justify-center border border-emerald-400/20 shadow-[0_5px_20px_rgba(16,185,129,0.15)]">
+            <button onclick="cerrarCuadernoDigital()" class="absolute left-4 top-4 w-10 h-10 flex justify-center items-center text-slate-400 hover:text-white bg-slate-800/50 rounded-full transition"><i class="fas fa-arrow-left"></i></button>
+            <p class="text-emerald-400 text-xs font-bold uppercase tracking-widest mb-1 mt-2">Total Acumulado Hoy</p>
+            <p class="text-4xl font-black text-white tracking-tight" id="dw-total">S/ 0.00</p>
+        </header>
+
+        <!-- Body -->
+        <div class="px-3 flex-1 flex flex-col">
+            <div class="glass-panel rounded-2xl flex-1 flex flex-col p-4 border border-slate-700/50 shadow-2xl">
+                <!-- Display area -->
+                <div class="bg-slate-900/60 rounded-xl p-5 mb-5 text-right border border-slate-700/50 shadow-inner">
+                    <p class="text-4xl font-bold text-slate-200 tracking-wider font-mono h-10 flex items-center justify-end" id="dw-display">0.00</p>
+                </div>
+
+                <!-- Keypad -->
+                <div class="grid grid-cols-3 gap-3 flex-1">
+                    <button class="btn-key" onclick="dwType('1')">1</button>
+                    <button class="btn-key" onclick="dwType('2')">2</button>
+                    <button class="btn-key" onclick="dwType('3')">3</button>
+                    <button class="btn-key" onclick="dwType('4')">4</button>
+                    <button class="btn-key" onclick="dwType('5')">5</button>
+                    <button class="btn-key" onclick="dwType('6')">6</button>
+                    <button class="btn-key" onclick="dwType('7')">7</button>
+                    <button class="btn-key" onclick="dwType('8')">8</button>
+                    <button class="btn-key" onclick="dwType('9')">9</button>
+                    <button class="btn-key text-rose-400" onclick="dwClear()">C</button>
+                    <button class="btn-key" onclick="dwType('0')">0</button>
+                    <button class="btn-key text-slate-400" onclick="dwType('.')">.</button>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-3 mt-5">
+                    <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-xl transition flex justify-center items-center gap-2 shadow-md" onclick="dwShowHistory()">
+                        <i class="fas fa-list"></i> Ver Historial
+                    </button>
+                    <button id="dw-add-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl transition flex justify-center items-center gap-2 shadow-lg shadow-emerald-500/20" onclick="dwAddAmount()">
+                        <i class="fas fa-plus"></i> Añadir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- DIGITAL WALLET HISTORY MODAL -->
+    <div id="dw-history-modal" class="fixed inset-0 z-[60] hidden bg-slate-950/90 backdrop-blur-md flex flex-col p-4 justify-center items-center">
+        <div class="glass-panel rounded-2xl w-full max-w-lg h-[80vh] flex flex-col overflow-hidden border border-slate-700/50 shadow-2xl">
+            <div class="p-5 border-b border-slate-700/50 flex justify-between items-center bg-slate-900/80">
+                <h3 class="text-white font-bold text-lg tracking-wide"><i class="fas fa-list text-emerald-400 mr-3"></i>Cuaderno Digital</h3>
+                <button onclick="dwCloseHistory()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex justify-center items-center transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-3" id="dw-history-list">
+                <!-- items go here -->
+            </div>
+            <div class="p-5 border-t border-slate-700/50 bg-slate-900/80">
+                <p class="text-[10px] text-slate-400 text-center mb-3">Mantén presionado un registro por 2 segundos para editar o eliminar.</p>
+                <button onclick="dwCopyHistory()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl transition flex justify-center items-center gap-2 shadow-lg shadow-blue-500/30">
+                    <i class="fas fa-copy"></i> Copiar al Portapapeles
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         let clockInterval;
         let empresaNombreGlobal = "Negocio";
+        let cfState = { date: '', inputs: {} };
 
         function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
@@ -356,6 +456,9 @@
             document.getElementById('ui-cajera-name').textContent = cajera;
             document.getElementById('ui-caja-num').textContent = `Caja ${caja}`;
 
+            // Cargar memoria persistente del Conteo Físico
+            cfLoadState();
+
             // Start Clock
             updateClock();
             clockInterval = setInterval(updateClock, 1000);
@@ -374,6 +477,17 @@
             }, 300);
         }
 
+        function cerrarConteoFisico() {
+            document.getElementById('main-app').classList.add('hidden');
+            const stickyBar = document.getElementById('sticky-bottom');
+            stickyBar.classList.add('translate-y-full');
+            setTimeout(() => {
+                stickyBar.classList.add('hidden');
+            }, 300);
+            document.getElementById('welcome-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+            if (clockInterval) clearInterval(clockInterval);
+        }
+
         function maskQty(input) {
             // Permitir solo números enteros, si está vacío se maneja como 0 en cálculo
             input.value = input.value.replace(/[^0-9]/g, '');
@@ -384,15 +498,58 @@
             return Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function cfLoadState() {
+            const today = dwGetDateStr(); // reusamos la funcion de fecha del cuaderno
+            const key = `microerp_cf_${empresaNombreGlobal}`;
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.date === today) {
+                        cfState = data;
+                        // Restaurar valores visualmente
+                        document.querySelectorAll('.qty-calc').forEach(inp => {
+                            const valMap = inp.getAttribute('data-val');
+                            if (cfState.inputs[valMap] !== undefined) {
+                                inp.value = cfState.inputs[valMap];
+                            }
+                        });
+                    } else {
+                        cfState = { date: today, inputs: {} };
+                        cfSaveState();
+                    }
+                } catch(e) {
+                    cfState = { date: today, inputs: {} };
+                }
+            } else {
+                cfState = { date: today, inputs: {} };
+            }
+            recalcularTodo();
+        }
+
+        function cfSaveState() {
+            if(!cfState.date) cfState.date = dwGetDateStr();
+            const key = `microerp_cf_${empresaNombreGlobal}`;
+            localStorage.setItem(key, JSON.stringify(cfState));
+        }
+
         function recalcularTodo() {
             let sumFisico = 0;
             let sumBilletes = 0;
             let sumMonedas = 0;
+            
+            // Limpiar inputs previos en memoria
+            cfState.inputs = {};
 
             document.querySelectorAll('.qty-calc').forEach(inp => {
                 let vInt = parseInt(inp.value) || 0;
                 let valMap = parseFloat(inp.getAttribute('data-val'));
                 let prod = vInt * valMap;
+                
+                // Guardar en memoria si hay input
+                if (inp.value !== '') {
+                    cfState.inputs[valMap] = inp.value;
+                }
                 
                 inp.parentElement.nextElementSibling.textContent = formatMoney(prod);
                 sumFisico += prod;
@@ -407,6 +564,9 @@
             document.getElementById('sub-billetes').textContent = `S/ ${formatMoney(sumBilletes)}`;
             document.getElementById('sub-monedas').textContent = `S/ ${formatMoney(sumMonedas)}`;
             document.getElementById('ui-total-efectivo').textContent = `S/ ${formatMoney(sumFisico)}`;
+            
+            // Guardar estado
+            cfSaveState();
         }
 
         function limpiarTodo() {
@@ -479,6 +639,239 @@
                 link.click();
             });
         }
+
+        // --- LÓGICA CUADERNO DIGITAL ---
+        function abrirCuadernoDigital() {
+            const cajera = document.getElementById('in-cajera').value.trim();
+            const caja = document.getElementById('in-caja').value.trim();
+            if (!cajera || !caja) {
+                alert('Por favor, ingresa tu Nombre y Número de Caja para el reporte del cuaderno.');
+                return;
+            }
+            // Transition UI
+            document.getElementById('welcome-modal').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                document.getElementById('welcome-modal').classList.add('hidden');
+                document.getElementById('digital-wallet-app').classList.remove('hidden');
+                dwLoadState();
+            }, 300);
+        }
+
+        function cerrarCuadernoDigital() {
+            document.getElementById('digital-wallet-app').classList.add('hidden');
+            document.getElementById('welcome-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        }
+
+        function dwGetDateStr() {
+            const lima = new Date().toLocaleString("en-US", { timeZone: "America/Lima" });
+            const p = new Date(lima);
+            return p.getFullYear() + "-" + String(p.getMonth() + 1).padStart(2,'0') + "-" + String(p.getDate()).padStart(2,'0');
+        }
+
+        function dwLoadState() {
+            const today = dwGetDateStr();
+            const key = `microerp_dw_${empresaNombreGlobal}`;
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.date === today) {
+                        dwState = data;
+                    } else {
+                        dwState = { date: today, items: [], editIndex: -1 };
+                        dwSaveState();
+                    }
+                } catch(e) {
+                    dwState = { date: today, items: [], editIndex: -1 };
+                }
+            } else {
+                dwState = { date: today, items: [], editIndex: -1 };
+            }
+            // Limpieza preventiva de editIndex si quedó pegado
+            dwState.editIndex = -1;
+            dwSaveState();
+            
+            dwClear();
+            dwUpdateTotal();
+        }
+
+        function dwSaveState() {
+            const key = `microerp_dw_${empresaNombreGlobal}`;
+            localStorage.setItem(key, JSON.stringify(dwState));
+        }
+
+        function dwType(char) {
+            if (char === '.' && dwCurrentInput.includes('.')) return;
+            if (dwCurrentInput.length > 8) return; // límite visual
+            
+            if (char === '.' && dwCurrentInput === '') {
+                dwCurrentInput = '0.';
+            } else {
+                // Prevenir múltiples ceros a la izquierda
+                if (dwCurrentInput === '0' && char !== '.') {
+                    dwCurrentInput = char;
+                } else {
+                    dwCurrentInput += char;
+                }
+            }
+            dwUpdateDisplay();
+        }
+
+        function dwClear() {
+            dwCurrentInput = '';
+            dwState.editIndex = -1; 
+            const btnAdd = document.getElementById('dw-add-btn');
+            btnAdd.innerHTML = '<i class="fas fa-plus"></i> Añadir';
+            btnAdd.classList.remove('bg-amber-500', 'hover:bg-amber-400', 'shadow-amber-500/20');
+            btnAdd.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/20');
+            dwUpdateDisplay();
+        }
+
+        function dwUpdateDisplay() {
+            document.getElementById('dw-display').textContent = dwCurrentInput || '0.00';
+        }
+
+        function dwUpdateTotal() {
+            const total = dwState.items.reduce((a, b) => a + b, 0);
+            document.getElementById('dw-total').textContent = `S/ ${formatMoney(total)}`;
+        }
+
+        function dwAddAmount() {
+            const amount = parseFloat(dwCurrentInput);
+            if (isNaN(amount) || amount <= 0) return;
+
+            if (dwState.editIndex >= 0) {
+                // Modo Edición
+                dwState.items[dwState.editIndex] = amount;
+            } else {
+                // Añadir nuevo
+                dwState.items.push(amount);
+            }
+            
+            dwSaveState();
+            
+            // Animación visual
+            const display = document.getElementById('dw-display');
+            display.classList.add('text-emerald-400');
+            setTimeout(() => {
+                display.classList.remove('text-emerald-400');
+                dwClear();
+                dwUpdateTotal();
+            }, 200);
+        }
+
+        function dwShowHistory() {
+            dwRenderHistory();
+            document.getElementById('dw-history-modal').classList.remove('hidden');
+        }
+
+        function dwCloseHistory() {
+            document.getElementById('dw-history-modal').classList.add('hidden');
+        }
+
+        function dwRenderHistory() {
+            const list = document.getElementById('dw-history-list');
+            list.innerHTML = '';
+            if (dwState.items.length === 0) {
+                list.innerHTML = '<p class="text-slate-500 text-center text-sm py-8 italic">No hay pagos registrados hoy.</p>';
+                return;
+            }
+            
+            dwState.items.forEach((monto, index) => {
+                const el = document.createElement('div');
+                el.className = 'dw-item-row bg-slate-800/50 rounded-xl p-4 flex justify-between items-center border border-slate-700/50 relative overflow-hidden';
+                
+                // Eventos Long Press
+                el.addEventListener('touchstart', (e) => dwTouchStart(e, el, index), {passive: true});
+                el.addEventListener('touchend', dwTouchEnd);
+                el.addEventListener('mousedown', (e) => dwTouchStart(e, el, index));
+                el.addEventListener('mouseup', dwTouchEnd);
+                el.addEventListener('mouseleave', dwTouchEnd);
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-slate-500 font-bold text-xs">${index + 1}.</span>
+                        <span class="text-white font-bold text-lg tracking-wide">S/ ${formatMoney(monto)}</span>
+                    </div>
+                    <div class="dw-actions-${index} absolute right-0 top-0 bottom-0 bg-slate-900/95 px-4 flex items-center gap-3 transform translate-x-full transition-transform duration-200">
+                        <button onclick="dwEdit(${index})" class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex justify-center items-center hover:bg-amber-500/40 shadow-lg transition"><i class="fas fa-pen"></i></button>
+                        <button onclick="dwDelete(${index})" class="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex justify-center items-center hover:bg-rose-500/40 shadow-lg transition"><i class="fas fa-trash-alt"></i></button>
+                        <button onclick="dwHideActions(${index}, event)" class="w-8 h-8 rounded-full text-slate-400 flex justify-center items-center hover:text-white ml-1 transition"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        function dwTouchStart(e, element, index) {
+            dwPressTimer = setTimeout(() => {
+                element.classList.remove('pressing');
+                // Mostrar acciones
+                const actions = document.querySelector(`.dw-actions-${index}`);
+                if(actions) actions.classList.remove('translate-x-full');
+            }, 2000); // 2 segundos de presión exigidos
+            element.classList.add('pressing');
+        }
+
+        function dwTouchEnd() {
+            clearTimeout(dwPressTimer);
+            document.querySelectorAll('.dw-item-row').forEach(el => el.classList.remove('pressing'));
+        }
+
+        function dwHideActions(index, e) {
+            e.stopPropagation();
+            const actions = document.querySelector(`.dw-actions-${index}`);
+            if(actions) actions.classList.add('translate-x-full');
+        }
+
+        function dwDelete(index) {
+            if(confirm('¿Seguro de eliminar este monto de la lista?')) {
+                dwState.items.splice(index, 1);
+                dwSaveState();
+                dwRenderHistory();
+                dwUpdateTotal();
+            }
+        }
+
+        function dwEdit(index) {
+            dwState.editIndex = index;
+            dwCurrentInput = dwState.items[index].toString();
+            
+            // UI Update para modo edición
+            const btnAdd = document.getElementById('dw-add-btn');
+            btnAdd.innerHTML = '<i class="fas fa-save"></i> Guardar';
+            btnAdd.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/20');
+            btnAdd.classList.add('bg-amber-500', 'hover:bg-amber-400', 'shadow-amber-500/20');
+            
+            dwUpdateDisplay();
+            dwCloseHistory();
+        }
+
+        function dwCopyHistory() {
+            const cajera = document.getElementById('in-cajera').value.trim() || 'Usuario';
+            const caja = document.getElementById('in-caja').value.trim() || '1';
+            const fecha = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            
+            let text = `Reporte Digital - ${fecha}\nCaja ${caja} - ${cajera}\n`;
+            
+            if (dwState.items.length === 0) {
+                text += "\nSin registros.\n";
+            } else {
+                dwState.items.forEach((monto, i) => {
+                    text += `${i + 1}. S/ ${formatMoney(monto)}\n`;
+                });
+            }
+            
+            const total = dwState.items.reduce((a, b) => a + b, 0);
+            text += `TOTAL: S/ ${formatMoney(total)}\n`;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert('¡Reporte copiado al portapapeles exitosamente!');
+            }).catch(() => {
+                alert('Error al copiar. Por favor, asegúrate de haber dado permisos al navegador.');
+            });
+        }
+        // --- FIN LÓGICA CUADERNO DIGITAL ---
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
