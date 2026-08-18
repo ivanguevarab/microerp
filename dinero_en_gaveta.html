@@ -435,6 +435,18 @@
             }
         }
 
+        function loadWelcomeState() {
+            const cajera = localStorage.getItem('microerp_welcome_cajera');
+            const caja = localStorage.getItem('microerp_welcome_caja');
+            if(cajera) document.getElementById('in-cajera').value = cajera;
+            if(caja) document.getElementById('in-caja').value = caja;
+        }
+
+        function saveWelcomeState(cajera, caja) {
+            localStorage.setItem('microerp_welcome_cajera', cajera);
+            localStorage.setItem('microerp_welcome_caja', caja);
+        }
+
         function updateClock() {
             const fechaLima = new Intl.DateTimeFormat('es-PE', { 
                 timeZone: 'America/Lima', 
@@ -451,6 +463,8 @@
             const caja = document.getElementById('in-caja').value.trim();
             
             if (!cajera || !caja) return;
+
+            saveWelcomeState(cajera, caja);
 
             // Set Data
             document.getElementById('ui-cajera-name').textContent = cajera;
@@ -648,6 +662,8 @@
                 alert('Por favor, ingresa tu Nombre y Número de Caja para el reporte del cuaderno.');
                 return;
             }
+            saveWelcomeState(cajera, caja);
+            
             // Transition UI
             document.getElementById('welcome-modal').classList.add('opacity-0', 'pointer-events-none');
             setTimeout(() => {
@@ -719,11 +735,7 @@
 
         function dwClear() {
             dwCurrentInput = '';
-            dwState.editIndex = -1; 
-            const btnAdd = document.getElementById('dw-add-btn');
-            btnAdd.innerHTML = '<i class="fas fa-plus"></i> Añadir';
-            btnAdd.classList.remove('bg-amber-500', 'hover:bg-amber-400', 'shadow-amber-500/20');
-            btnAdd.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/20');
+            // No reseteamos el editIndex ni el botón para permitir corregir el texto y luego guardar.
             dwUpdateDisplay();
         }
 
@@ -743,6 +755,13 @@
             if (dwState.editIndex >= 0) {
                 // Modo Edición
                 dwState.items[dwState.editIndex] = amount;
+                dwState.editIndex = -1; // Salir de modo edición
+                
+                // Restaurar UI del botón
+                const btnAdd = document.getElementById('dw-add-btn');
+                btnAdd.innerHTML = '<i class="fas fa-plus"></i> Añadir';
+                btnAdd.classList.remove('bg-amber-500', 'hover:bg-amber-400', 'shadow-amber-500/20');
+                btnAdd.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/20');
             } else {
                 // Añadir nuevo
                 dwState.items.push(amount);
@@ -809,7 +828,7 @@
                 // Mostrar acciones
                 const actions = document.querySelector(`.dw-actions-${index}`);
                 if(actions) actions.classList.remove('translate-x-full');
-            }, 2000); // 2 segundos de presión exigidos
+            }, 500); // Reducido a 0.5s para mejor respuesta
             element.classList.add('pressing');
         }
 
@@ -876,6 +895,7 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             getUrlParams();
+            loadWelcomeState();
             
             // Add event listeners to input fields to autoselect content on focus for rapid entry
             document.querySelectorAll('.qty-calc').forEach(inp => {
