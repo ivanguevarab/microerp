@@ -94,7 +94,7 @@
             margin-right: 12px;
         }
         .val-billete { color: #94a3b8; }
-        .val-moneda { color: #fcd34d; }
+        .val-moneda { color: #cbd5e1; }
         .val-centimo { color: #9ca3af; }
 
         .qty-input-wrap {
@@ -181,13 +181,17 @@
                     <input type="tel" id="in-caja" required class="w-full rounded-lg px-4 py-3 text-lg" placeholder="Ej. 1" autocomplete="off">
                 </div>
                 <div class="pt-4 space-y-3">
-                    <button type="button" onclick="abrirCuadernoDigital()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-lg shadow-emerald-500/30 flex justify-center items-center gap-2">
-                        <i class="fas fa-mobile-screen text-lg"></i>
+                    <button type="button" onclick="abrirCuadernoDigital()" class="w-full bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-md flex justify-center items-center gap-3">
+                        <i class="fas fa-mobile-screen text-slate-400 text-lg"></i>
                         <span>Cuaderno Digital</span>
                     </button>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-lg shadow-blue-500/30 flex justify-center items-center gap-2">
-                        <i class="fas fa-cash-register text-lg"></i>
+                    <button type="submit" class="w-full bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-md flex justify-center items-center gap-3">
+                        <i class="fas fa-money-bill-wave text-slate-400 text-lg"></i>
                         <span>Dinero en Gaveta</span>
+                    </button>
+                    <button type="button" onclick="abrirArqueo()" class="w-full bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-md flex justify-center items-center gap-3">
+                        <i class="fas fa-cash-register text-slate-400 text-lg"></i>
+                        <span>Arqueo de Caja</span>
                     </button>
                 </div>
             </form>
@@ -200,12 +204,12 @@
         <!-- HEADER (Optimized for screenshot) -->
         <header id="capture-header" class="glass-panel p-5 m-3 rounded-2xl relative overflow-hidden">
             <!-- Decorative gradient line at top -->
-            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-amber-400 to-blue-500"></div>
+            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-600 via-blue-400 to-slate-600"></div>
             
             <div class="text-center mb-4">
                 <button data-html2canvas-ignore="true" onclick="cerrarConteoFisico()" class="absolute left-4 top-4 w-8 h-8 flex justify-center items-center text-slate-400 hover:text-white bg-slate-800/50 rounded-full transition"><i class="fas fa-arrow-left"></i></button>
                 <h1 class="text-xl font-extrabold text-white tracking-tight" id="ui-empresa">Empresa</h1>
-                <p class="text-amber-400 text-xs font-bold uppercase tracking-widest mt-1">Conteo Físico de Gaveta</p>
+                <p class="text-blue-400 text-xs font-bold uppercase tracking-widest mt-1">Conteo Físico de Gaveta</p>
             </div>
             
             <div class="flex justify-between items-center bg-slate-900/50 rounded-xl p-3 border border-slate-700/50">
@@ -279,9 +283,9 @@
                 <!-- MONEDAS -->
                 <div class="glass-panel rounded-2xl p-2 flex flex-col">
                     <div class="flex items-center gap-1.5 mb-2 pb-2 border-b border-slate-700/50">
-                        <i class="fas fa-coins text-amber-400 text-xs"></i>
-                        <h3 class="font-bold text-amber-100 uppercase tracking-widest text-[10px]">Monedas</h3>
-                        <div class="ml-auto text-[10px] font-bold text-amber-300 truncate leading-relaxed pb-0.5" id="sub-monedas">S/ 0.00</div>
+                        <i class="fas fa-coins text-slate-400 text-xs"></i>
+                        <h3 class="font-bold text-slate-200 uppercase tracking-widest text-[10px]">Monedas</h3>
+                        <div class="ml-auto text-[10px] font-bold text-slate-300 truncate leading-relaxed pb-0.5" id="sub-monedas">S/ 0.00</div>
                     </div>
                     
                     <div class="calc-row">
@@ -416,6 +420,133 @@
         </div>
     </div>
 
+    <!-- MAIN ARQUEO (Hidden initially) -->
+    <main id="arqueo-app" class="hidden flex-1 flex flex-col max-w-lg mx-auto w-full pb-28">
+        <!-- HEADER -->
+        <header id="arq-header" class="glass-panel p-5 m-3 rounded-2xl relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-600 via-blue-400 to-slate-600"></div>
+            <div class="text-center mb-4">
+                <button data-html2canvas-ignore="true" onclick="cerrarArqueo()" class="absolute left-4 top-4 w-8 h-8 flex justify-center items-center text-slate-400 hover:text-white bg-slate-800/50 rounded-full transition"><i class="fas fa-arrow-left"></i></button>
+                <h1 class="text-xl font-extrabold text-white tracking-tight" id="arq-empresa">Empresa</h1>
+                <p class="text-blue-400 text-xs font-bold uppercase tracking-widest mt-1">Arqueo de Caja</p>
+            </div>
+            
+            <div class="flex justify-between items-center bg-slate-900/50 rounded-xl p-3 border border-slate-700/50">
+                <div>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Cajera(o)</p>
+                    <p class="text-sm font-bold text-white" id="arq-cajera-name">Usuario</p>
+                </div>
+                <div class="w-px h-8 bg-slate-700"></div>
+                <div>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5 text-right">Caja</p>
+                    <p class="text-sm font-bold text-white text-right" id="arq-caja-num">#0</p>
+                </div>
+            </div>
+            
+            <div class="mt-3 text-center">
+                <p class="text-xs text-slate-400 font-medium" id="arq-datetime">
+                    <i class="far fa-clock mr-1"></i> Calculando...
+                </p>
+            </div>
+        </header>
+
+        <div class="px-3 flex-1 flex flex-col space-y-3" id="arq-content">
+            <!-- TARJETA 1: LA REALIDAD -->
+            <div class="glass-panel rounded-2xl p-4">
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-wallet"></i> Análisis de Gaveta</h3>
+                
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center bg-slate-800/40 rounded-xl p-3 border border-slate-700/30">
+                        <span class="text-slate-300 text-sm font-medium"><i class="fas fa-coins text-slate-500 w-5"></i> Dinero Físico</span>
+                        <span class="text-white font-bold" id="arq-fisico">S/ 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-800/40 rounded-xl p-3 border border-slate-700/30">
+                        <span class="text-slate-300 text-sm font-medium"><i class="fas fa-mobile-screen text-slate-500 w-5"></i> Dinero Digital</span>
+                        <span class="text-white font-bold" id="arq-digital">S/ 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-800/40 rounded-xl p-3 border border-slate-700/30">
+                        <span class="text-slate-300 text-sm font-medium"><i class="fas fa-piggy-bank text-slate-500 w-5"></i> Fondo Inicial</span>
+                        <div class="flex items-center gap-1 w-28">
+                            <span class="text-slate-400 text-sm whitespace-nowrap">- S/</span>
+                            <input type="number" id="arq-in-fondo" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-right text-white font-bold text-sm" oninput="arqRecalcular()">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 border-t border-slate-700/50 pt-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-slate-400 text-xs font-bold uppercase">Movimientos Extra</span>
+                        <button onclick="abrirModalMovimiento()" data-html2canvas-ignore="true" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded border border-slate-700 transition"><i class="fas fa-plus"></i> Añadir</button>
+                    </div>
+                    <div id="arq-mov-list" class="space-y-1 mb-3">
+                        <!-- Movimientos -->
+                    </div>
+                </div>
+
+                <div class="mt-2 flex justify-between items-center bg-slate-900 rounded-xl p-3 border border-slate-700/50">
+                    <span class="text-slate-300 text-xs font-bold uppercase">TOTAL NETO</span>
+                    <span class="text-white font-extrabold text-xl tracking-wide" id="arq-total-neto">S/ 0.00</span>
+                </div>
+            </div>
+
+            <!-- TARJETA 2: EL SISTEMA -->
+            <div class="glass-panel rounded-2xl p-4">
+                <h3 class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-laptop"></i> Expectativa</h3>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-300 text-sm font-medium">Monto del Sistema</span>
+                    <div class="flex items-center gap-2 w-32">
+                        <span class="text-slate-400 font-bold">S/</span>
+                        <input type="number" id="arq-in-sistema" placeholder="0.00" class="w-full bg-slate-900 border border-blue-500/50 focus:border-blue-400 rounded-xl px-3 py-2 text-right text-white font-bold text-lg outline-none transition" oninput="arqRecalcular()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARJETA 3: VEREDICTO -->
+            <div id="arq-veredicto-card" class="rounded-2xl p-5 text-center transition-colors duration-300 bg-slate-800 border border-slate-700">
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1" id="arq-veredicto-lbl">Diferencia</p>
+                <h2 class="text-3xl font-black text-white tracking-tight" id="arq-veredicto-val">S/ 0.00</h2>
+            </div>
+            
+            <button data-html2canvas-ignore="true" onclick="tomarCapturaArqueo()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition flex justify-center items-center gap-2 shadow-lg shadow-blue-500/30 mt-2">
+                <i class="fas fa-camera"></i> Tomar Captura de Arqueo
+            </button>
+        </div>
+    </main>
+
+    <!-- MODAL MOVIMIENTOS -->
+    <div id="modal-movimiento" class="fixed inset-0 z-[70] hidden bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl w-full max-w-sm p-5 border border-slate-700/50 shadow-2xl">
+            <h3 class="text-white font-bold mb-4">Añadir Movimiento</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Motivo / Descripción</label>
+                    <input type="text" id="mov-motivo" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white" placeholder="Ej. Pago de agua">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Monto (S/)</label>
+                    <input type="number" id="mov-monto" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-lg" placeholder="0.00">
+                </div>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button onclick="arqAddMovimiento('ingreso')" class="bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/30 text-rose-400 font-bold py-2 rounded-xl transition text-sm">
+                        <div class="flex flex-col items-center">
+                            <span><i class="fas fa-arrow-down"></i> Otro Ingreso</span>
+                            <span class="text-[9px] font-normal opacity-80">(Resta del neto)</span>
+                        </div>
+                    </button>
+                    <button onclick="arqAddMovimiento('egreso')" class="bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/30 text-emerald-400 font-bold py-2 rounded-xl transition text-sm">
+                        <div class="flex flex-col items-center">
+                            <span><i class="fas fa-arrow-up"></i> Otro Egreso</span>
+                            <span class="text-[9px] font-normal opacity-80">(Suma al neto)</span>
+                        </div>
+                    </button>
+                </div>
+                <div class="pt-2 text-center">
+                    <button onclick="cerrarModalMovimiento()" class="text-slate-400 hover:text-white text-sm underline">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         let clockInterval;
@@ -456,6 +587,8 @@
             }).format(new Date());
             
             document.getElementById('ui-datetime').innerHTML = `<i class="far fa-clock mr-1"></i> ${fechaLima}`;
+            const arqDt = document.getElementById('arq-datetime');
+            if(arqDt) arqDt.innerHTML = `<i class="far fa-clock mr-1"></i> ${fechaLima}`;
         }
 
         function startCalculator() {
@@ -891,6 +1024,261 @@
             });
         }
         // --- FIN LÓGICA CUADERNO DIGITAL ---
+
+        // --- LÓGICA ARQUEO DE CAJA ---
+        let arqState = { date: '', fondo: 0, sistema: 0, movimientos: [] };
+
+        function abrirArqueo() {
+            const cajera = document.getElementById('in-cajera').value.trim();
+            const caja = document.getElementById('in-caja').value.trim();
+            if (!cajera || !caja) {
+                alert('Por favor, ingresa tu Nombre y Número de Caja para el Arqueo.');
+                return;
+            }
+            saveWelcomeState(cajera, caja);
+            
+            document.getElementById('arq-cajera-name').textContent = cajera;
+            document.getElementById('arq-caja-num').textContent = `Caja ${caja}`;
+            document.getElementById('arq-empresa').textContent = empresaNombreGlobal;
+
+            // Start Clock
+            updateClock();
+            clockInterval = setInterval(updateClock, 1000);
+
+            // Transition UI
+            document.getElementById('welcome-modal').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                document.getElementById('welcome-modal').classList.add('hidden');
+                document.getElementById('arqueo-app').classList.remove('hidden');
+                arqLoadState();
+            }, 300);
+        }
+
+        function cerrarArqueo() {
+            document.getElementById('arqueo-app').classList.add('hidden');
+            document.getElementById('welcome-modal').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+            if (clockInterval) clearInterval(clockInterval);
+        }
+
+        function arqLoadState() {
+            const today = dwGetDateStr();
+            const key = `microerp_arq_${empresaNombreGlobal}`;
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.date === today) {
+                        arqState = data;
+                    } else {
+                        arqState = { date: today, fondo: 0, sistema: 0, movimientos: [] };
+                        arqSaveState();
+                    }
+                } catch(e) {
+                    arqState = { date: today, fondo: 0, sistema: 0, movimientos: [] };
+                }
+            } else {
+                arqState = { date: today, fondo: 0, sistema: 0, movimientos: [] };
+            }
+            
+            document.getElementById('arq-in-fondo').value = arqState.fondo || '';
+            document.getElementById('arq-in-sistema').value = arqState.sistema || '';
+            
+            // Forzar carga de fisico y digital silenciosamente
+            cfLoadStateSilently();
+            dwLoadStateSilently();
+            
+            arqRecalcular();
+        }
+
+        function arqSaveState() {
+            if(!arqState.date) arqState.date = dwGetDateStr();
+            const key = `microerp_arq_${empresaNombreGlobal}`;
+            localStorage.setItem(key, JSON.stringify(arqState));
+        }
+
+        function cfLoadStateSilently() {
+            const today = dwGetDateStr();
+            const key = `microerp_cf_${empresaNombreGlobal}`;
+            const saved = localStorage.getItem(key);
+            if(saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if(data.date === today) cfState = data;
+                } catch(e){}
+            }
+        }
+
+        function dwLoadStateSilently() {
+            const today = dwGetDateStr();
+            const key = `microerp_dw_${empresaNombreGlobal}`;
+            const saved = localStorage.getItem(key);
+            if(saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if(data.date === today) dwState = data;
+                } catch(e){}
+            }
+        }
+
+        function arqGetTotalFisico() {
+            if(!cfState || !cfState.inputs) return 0;
+            let sum = 0;
+            for(let k in cfState.inputs) {
+                sum += (parseInt(cfState.inputs[k]) || 0) * parseFloat(k);
+            }
+            return sum;
+        }
+
+        function arqGetTotalDigital() {
+            if(!dwState || !dwState.items) return 0;
+            return dwState.items.reduce((a,b) => a+b, 0);
+        }
+
+        function arqRecalcular() {
+            const vFondo = parseFloat(document.getElementById('arq-in-fondo').value) || 0;
+            const vSist = parseFloat(document.getElementById('arq-in-sistema').value) || 0;
+            
+            arqState.fondo = vFondo;
+            arqState.sistema = vSist;
+            arqSaveState();
+
+            const tFisico = arqGetTotalFisico();
+            const tDigital = arqGetTotalDigital();
+            
+            document.getElementById('arq-fisico').textContent = `S/ ${formatMoney(tFisico)}`;
+            document.getElementById('arq-digital').textContent = `S/ ${formatMoney(tDigital)}`;
+
+            let totalMovs = 0;
+            const list = document.getElementById('arq-mov-list');
+            list.innerHTML = '';
+            
+            arqState.movimientos.forEach((mov, i) => {
+                const el = document.createElement('div');
+                el.className = 'flex justify-between items-center text-xs px-2 py-1 bg-slate-800/30 rounded border border-slate-700/20';
+                
+                let valStr = formatMoney(mov.monto);
+                let lblColor = '';
+                if(mov.tipo === 'egreso') {
+                    totalMovs += mov.monto;
+                    lblColor = 'text-emerald-400';
+                    valStr = '+ S/ ' + valStr;
+                } else {
+                    totalMovs -= mov.monto;
+                    lblColor = 'text-rose-400';
+                    valStr = '- S/ ' + valStr;
+                }
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <button onclick="arqDeleteMov(${i})" data-html2canvas-ignore="true" class="text-slate-500 hover:text-rose-500 transition"><i class="fas fa-times-circle"></i></button>
+                        <span class="text-slate-300">${mov.motivo}</span>
+                    </div>
+                    <span class="font-bold ${lblColor}">${valStr}</span>
+                `;
+                list.appendChild(el);
+            });
+
+            // Matemáticas
+            const totalNeto = tFisico + tDigital - vFondo + totalMovs;
+            document.getElementById('arq-total-neto').textContent = `S/ ${formatMoney(totalNeto)}`;
+
+            const diff = totalNeto - vSist;
+            
+            const card = document.getElementById('arq-veredicto-card');
+            const lbl = document.getElementById('arq-veredicto-lbl');
+            const val = document.getElementById('arq-veredicto-val');
+            
+            card.className = 'rounded-2xl p-5 text-center transition-colors duration-300 border shadow-xl';
+            
+            if(Math.abs(diff) < 0.01) {
+                // Cuadra
+                card.classList.add('bg-emerald-900/40', 'border-emerald-500', 'shadow-emerald-500/20');
+                lbl.textContent = '¡CUADRA EXACTO!';
+                lbl.className = 'text-emerald-400 text-xs font-bold uppercase tracking-widest mb-1';
+                val.textContent = 'S/ 0.00';
+                val.className = 'text-3xl font-black text-emerald-300 tracking-tight';
+            } else if(diff < 0) {
+                // Falta
+                card.classList.add('bg-rose-900/40', 'border-rose-500', 'shadow-rose-500/20');
+                lbl.textContent = 'FALTA';
+                lbl.className = 'text-rose-400 text-xs font-bold uppercase tracking-widest mb-1';
+                val.textContent = `S/ ${formatMoney(Math.abs(diff))}`;
+                val.className = 'text-3xl font-black text-rose-300 tracking-tight';
+            } else {
+                // Sobra
+                card.classList.add('bg-blue-900/40', 'border-blue-500', 'shadow-blue-500/20');
+                lbl.textContent = 'SOBRA';
+                lbl.className = 'text-blue-400 text-xs font-bold uppercase tracking-widest mb-1';
+                val.textContent = `S/ ${formatMoney(diff)}`;
+                val.className = 'text-3xl font-black text-blue-300 tracking-tight';
+            }
+        }
+
+        function abrirModalMovimiento() {
+            document.getElementById('mov-motivo').value = '';
+            document.getElementById('mov-monto').value = '';
+            document.getElementById('modal-movimiento').classList.remove('hidden');
+            // Auto focus
+            setTimeout(() => document.getElementById('mov-motivo').focus(), 100);
+        }
+
+        function cerrarModalMovimiento() {
+            document.getElementById('modal-movimiento').classList.add('hidden');
+        }
+
+        function arqAddMovimiento(tipo) {
+            const m = document.getElementById('mov-motivo').value.trim();
+            const v = parseFloat(document.getElementById('mov-monto').value) || 0;
+            if(!m || v <= 0) {
+                alert('Ingresa un motivo y monto válidos.');
+                return;
+            }
+            arqState.movimientos.push({ motivo: m, monto: v, tipo: tipo });
+            arqSaveState();
+            cerrarModalMovimiento();
+            arqRecalcular();
+        }
+
+        function arqDeleteMov(index) {
+            if(confirm('¿Eliminar este movimiento?')) {
+                arqState.movimientos.splice(index, 1);
+                arqSaveState();
+                arqRecalcular();
+            }
+        }
+
+        function tomarCapturaArqueo() {
+            const mainApp = document.getElementById('arqueo-app');
+            const btn = event.currentTarget;
+            const originalBtnHtml = btn.innerHTML;
+            
+            // Forzar top scroll
+            window.scrollTo(0, 0);
+
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+            btn.classList.add('opacity-50', 'pointer-events-none');
+            
+            setTimeout(() => {
+                html2canvas(mainApp, {
+                    backgroundColor: '#020617', // slate-950 for dark mode background
+                    scale: 2,
+                    scrollY: -window.scrollY
+                }).then(canvas => {
+                    const a = document.createElement('a');
+                    a.href = canvas.toDataURL('image/jpeg', 0.9);
+                    a.download = `Auditoria_${empresaNombreGlobal}_${new Date().getTime()}.jpg`;
+                    a.click();
+                    btn.innerHTML = originalBtnHtml;
+                    btn.classList.remove('opacity-50', 'pointer-events-none');
+                }).catch(err => {
+                    alert("Error al capturar: " + err);
+                    btn.innerHTML = originalBtnHtml;
+                    btn.classList.remove('opacity-50', 'pointer-events-none');
+                });
+            }, 300);
+        }
+
+        // --- FIN LÓGICA ARQUEO DE CAJA ---
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
