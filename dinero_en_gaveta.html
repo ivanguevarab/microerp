@@ -406,7 +406,10 @@
         <div class="glass-panel rounded-2xl w-full max-w-lg h-[80vh] flex flex-col overflow-hidden border border-slate-700/50 shadow-2xl">
             <div class="p-5 border-b border-slate-700/50 flex justify-between items-center bg-slate-900/80">
                 <h3 class="text-white font-bold text-lg tracking-wide"><i class="fas fa-list text-emerald-400 mr-3"></i>Cuaderno Digital</h3>
-                <button onclick="dwCloseHistory()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex justify-center items-center transition"><i class="fas fa-times"></i></button>
+                <div class="flex items-center gap-2">
+                    <button id="btn-highlight-mode" onclick="dwToggleHighlightMode()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex justify-center items-center transition"><i class="fas fa-highlighter"></i></button>
+                    <button onclick="dwCloseHistory()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex justify-center items-center transition"><i class="fas fa-times"></i></button>
+                </div>
             </div>
             <div class="flex-1 overflow-y-auto p-4 space-y-3" id="dw-history-list">
                 <!-- items go here -->
@@ -529,14 +532,12 @@
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <button onclick="arqAddMovimiento('ingreso')" class="bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/30 text-rose-400 font-bold py-2 rounded-xl transition text-sm">
                         <div class="flex flex-col items-center">
-                            <span><i class="fas fa-arrow-down"></i> Otro Ingreso</span>
-                            <span class="text-[9px] font-normal opacity-80">(Resta del neto)</span>
+                            <span><i class="fas fa-arrow-down"></i> Resta al neto</span>
                         </div>
                     </button>
                     <button onclick="arqAddMovimiento('egreso')" class="bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/30 text-emerald-400 font-bold py-2 rounded-xl transition text-sm">
                         <div class="flex flex-col items-center">
-                            <span><i class="fas fa-arrow-up"></i> Otro Egreso</span>
-                            <span class="text-[9px] font-normal opacity-80">(Suma al neto)</span>
+                            <span><i class="fas fa-arrow-up"></i> Suma al neto</span>
                         </div>
                     </button>
                 </div>
@@ -552,6 +553,19 @@
         let clockInterval;
         let empresaNombreGlobal = "Negocio";
         let cfState = { date: '', inputs: {} };
+        let dwIsHighlightMode = false;
+
+        function dwToggleHighlightMode() {
+            dwIsHighlightMode = !dwIsHighlightMode;
+            const btn = document.getElementById('btn-highlight-mode');
+            if(dwIsHighlightMode) {
+                btn.classList.remove('bg-slate-800', 'text-slate-400');
+                btn.classList.add('bg-amber-500/20', 'text-amber-400', 'shadow-[0_0_10px_rgba(245,158,11,0.3)]');
+            } else {
+                btn.classList.add('bg-slate-800', 'text-slate-400');
+                btn.classList.remove('bg-amber-500/20', 'text-amber-400', 'shadow-[0_0_10px_rgba(245,158,11,0.3)]');
+            }
+        }
 
         function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
@@ -826,15 +840,16 @@
                     const data = JSON.parse(saved);
                     if (data.date === today) {
                         dwState = data;
+                        if (!dwState.highlights) dwState.highlights = [];
                     } else {
-                        dwState = { date: today, items: [], editIndex: -1 };
+                        dwState = { date: today, items: [], editIndex: -1, highlights: [] };
                         dwSaveState();
                     }
                 } catch(e) {
-                    dwState = { date: today, items: [], editIndex: -1 };
+                    dwState = { date: today, items: [], editIndex: -1, highlights: [] };
                 }
             } else {
-                dwState = { date: today, items: [], editIndex: -1 };
+                dwState = { date: today, items: [], editIndex: -1, highlights: [] };
             }
             // Limpieza preventiva de editIndex si quedó pegado
             dwState.editIndex = -1;
@@ -898,6 +913,8 @@
             } else {
                 // Añadir nuevo
                 dwState.items.push(amount);
+                if (!dwState.highlights) dwState.highlights = [];
+                dwState.highlights.push(false);
             }
             
             dwSaveState();
@@ -931,8 +948,22 @@
             
             dwState.items.forEach((monto, index) => {
                 const el = document.createElement('div');
-                el.className = 'dw-item-row bg-slate-800/50 rounded-xl p-4 flex justify-between items-center border border-slate-700/50 relative overflow-hidden';
+                const isHighlighted = dwState.highlights && dwState.highlights[index];
+                const bgClass = isHighlighted ? 'bg-amber-500/20 border-amber-500/50' : 'bg-slate-800/50 border-slate-700/50';
+                const textClass = isHighlighted ? 'text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]' : 'text-white';
                 
+                el.className = `dw-item-row ${bgClass} rounded-xl p-4 flex justify-between items-center border relative overflow-hidden transition-all duration-300 cursor-pointer`;
+                
+                // Evento click rápido para resaltar
+                el.addEventListener('click', (e) => {
+                    if (dwIsHighlightMode) {
+                        if (!dwState.highlights) dwState.highlights = [];
+                        dwState.highlights[index] = !dwState.highlights[index];
+                        dwSaveState();
+                        dwRenderHistory();
+                    }
+                });
+
                 // Eventos Long Press
                 el.addEventListener('touchstart', (e) => dwTouchStart(e, el, index), {passive: true});
                 el.addEventListener('touchend', dwTouchEnd);
@@ -941,9 +972,9 @@
                 el.addEventListener('mouseleave', dwTouchEnd);
                 
                 el.innerHTML = `
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 pointer-events-none">
                         <span class="text-slate-500 font-bold text-xs">${index + 1}.</span>
-                        <span class="text-white font-bold text-lg tracking-wide">S/ ${formatMoney(monto)}</span>
+                        <span class="${textClass} font-bold text-lg tracking-wide transition-all duration-300">S/ ${formatMoney(monto)}</span>
                     </div>
                     <div class="dw-actions-${index} absolute right-0 top-0 bottom-0 bg-slate-900/95 px-4 flex items-center gap-3 transform translate-x-full transition-transform duration-200">
                         <button onclick="dwEdit(${index})" class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex justify-center items-center hover:bg-amber-500/40 shadow-lg transition"><i class="fas fa-pen"></i></button>
@@ -979,6 +1010,7 @@
         function dwDelete(index) {
             if(confirm('¿Seguro de eliminar este monto de la lista?')) {
                 dwState.items.splice(index, 1);
+                if(dwState.highlights) dwState.highlights.splice(index, 1);
                 dwSaveState();
                 dwRenderHistory();
                 dwUpdateTotal();
