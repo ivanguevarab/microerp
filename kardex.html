@@ -610,6 +610,21 @@
                 cargarTiposMovimiento();
                 cargarKardex();
 
+                // Interceptar parámetro de auto-apertura desde Flujo de Caja
+                const urlParams = new URLSearchParams(window.location.search);
+                const autoOpenRef = urlParams.get('autoOpen');
+                if (autoOpenRef) {
+                    const isIngreso = autoOpenRef.includes('INGRESO');
+                    const mockedMov = encodeURIComponent(JSON.stringify({
+                        tipo_movimiento: isIngreso ? 'INGRESO' : 'EGRESO',
+                        documento_referencia: autoOpenRef,
+                        fecha_movimiento: new Date().toISOString(),
+                        created_by: 'Sistema' // Fallback
+                    }));
+                    // Pequeño retraso para asegurar que los scripts y Supabase estén listos
+                    setTimeout(() => abrirModalDetalles(mockedMov), 600);
+                }
+
                 // Event Listeners for Pagination
                 document.getElementById('btnPrev').addEventListener('click', () => {
                     if (currentPage > 1) {
@@ -1209,6 +1224,20 @@
 
                 if (errGastos) throw errGastos;
 
+                // 4. Fetch Amortizaciones (si es crédito)
+                let amortizaciones = [];
+                if (ingreso.forma_pago === 'CREDITO') {
+                    const { data: amortData, error: errAmort } = await window.supabaseClient
+                        .from('ingresos_credito_pagos')
+                        .select('*')
+                        .eq('ingreso_id', ingreso.id)
+                        .eq('estado', 'PAGADO')
+                        .order('fecha_pago', { ascending: true });
+                    
+                    if (errAmort) console.error('Error fetching amortizaciones:', errAmort);
+                    if (amortData) amortizaciones = amortData;
+                }
+
                 // ACTIVAR BOTÓN EDICIÓN
                 const btnEditar = document.getElementById('btnEditarIngresoModal');
                 if (btnEditar) {
@@ -1217,10 +1246,11 @@
                 }
 
                 // Render HTML
-                // Helper para formatear fecha YYYY-MM-DD a DD/MM/YYYY sin timezone shift
+                // Helper para formatear fecha YYYY-MM-DD o ISO a DD/MM/YYYY sin timezone shift
                 const formatDateSafe = (dateStr) => {
                     if (!dateStr) return '-';
-                    const [y, m, d] = dateStr.split('-');
+                    const datePart = dateStr.split('T')[0];
+                    const [y, m, d] = datePart.split('-');
                     return `${d}/${m}/${y}`;
                 };
 
@@ -1294,11 +1324,55 @@
                         <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                             <i class="fas fa-credit-card text-orange-600"></i> Información de Crédito
                         </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-orange-50 p-5 rounded-xl border border-orange-200">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-orange-50 p-5 rounded-xl border border-orange-200 mb-6">
                             <div><p class="text-xs text-gray-500 uppercase">Pago Inicial</p><p class="font-bold text-gray-800">S/ ${formatMoney(ingreso.pago_inicial)}</p></div>
-                            <div><p class="text-xs text-gray-500 uppercase">Saldo Pendiente</p><p class="font-bold text-red-600">S/ ${formatMoney(ingreso.saldo_credito)}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Saldo Pendiente</p><p class="font-bold ${ingreso.saldo_credito > 0 ? 'text-red-600' : 'text-emerald-600'}">S/ ${formatMoney(ingreso.saldo_credito)}</p></div>
                             <div><p class="text-xs text-gray-500 uppercase">Fecha Vencimiento</p><p class="font-medium">${fechaVenc}</p></div>
                         </div>
+                        
+                        ${amortizaciones.length > 0 ? `
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+                            <!-- Fondo decorativo sutil -->
+                            <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-orange-50 rounded-full opacity-50 pointer-events-none"></div>
+                            
+                            <h5 class="text-sm font-bold text-gray-700 mb-6 uppercase tracking-wide flex items-center gap-2">
+                                <i class="fas fa-history text-gray-400"></i> Historial de Amortizaciones
+                            </h5>
+                            <div class="space-y-0 relative before:absolute before:inset-0 before:ml-1.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent">
+                                ${amortizaciones.map((amort, index) => {
+                                    return `
+                                    <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active py-3">
+                                        <!-- Icono Timeline -->
+                                        <div class="flex items-center justify-center w-4 h-4 rounded-full border-4 border-white bg-emerald-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm z-10 absolute left-0 md:left-1/2 -ml-0.5 md:ml-0"></div>
+                                        
+                                        <!-- Contenedor de la tarjeta -->
+                                        <div class="w-[calc(100%-2rem)] md:w-[calc(50%-1.5rem)] ml-6 md:ml-0 p-3 rounded-lg border border-gray-100 bg-gray-50 shadow-sm hover:shadow-md hover:bg-white transition-all">
+                                            <div class="flex justify-between items-start mb-1">
+                                                <div class="font-bold text-gray-900 text-sm">S/ ${formatMoney(amort.monto)}</div>
+                                                <div class="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">${formatDateSafe(amort.fecha_pago || amort.created_at)}</div>
+                                            </div>
+                                            <div class="text-xs text-gray-600 mt-1">
+                                                <span class="font-semibold text-gray-700">${amort.tipo_pago || 'AMORTIZACIÓN'}</span> 
+                                                ${amort.metodo_pago ? `&bull; ${amort.metodo_pago.replace('_', ' ')}` : ''} 
+                                            </div>
+                                            ${amort.referencia_pago && amort.referencia_pago !== '-' ? `
+                                            <div class="text-[10px] text-gray-500 mt-1.5 pt-1.5 border-t border-gray-100">
+                                                Ref: <span class="font-mono">${amort.referencia_pago}</span>
+                                            </div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                        ` : `
+                        <div class="text-center p-6 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
+                            <i class="fas fa-file-invoice-dollar text-3xl text-gray-300 mb-3 block"></i>
+                            <p class="text-sm text-gray-500 font-medium">No se han registrado amortizaciones aún.</p>
+                            <p class="text-xs text-gray-400 mt-1">El historial de pagos aparecerá aquí.</p>
+                        </div>
+                        `}
                     </section>
                     ` : ''}
 

@@ -101,44 +101,95 @@
             </div>
         </div>
 
-        <!-- KPIs Dashboard -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="card-stat border-l-4 border-rose-500 relative overflow-hidden">
-                <div class="absolute right-0 top-0 opacity-10 text-rose-500 text-6xl -mr-4 -mt-4"><i class="fas fa-chart-pie"></i></div>
-                <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Deuda Global (Pasivos)</div>
-                <div class="text-3xl font-bold text-rose-600 z-10" id="kpi-deuda-total">S/ 0.00</div>
+        <!-- Tabs de Navegación -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button onclick="switchTab('vigentes')" id="tab-vigentes" class="py-3 px-6 text-sm font-bold border-b-2 border-blue-600 text-blue-600 focus:outline-none transition-colors">
+                <i class="fas fa-file-invoice-dollar mr-2"></i>Deudas Vigentes
+            </button>
+            <button onclick="switchTab('historial')" id="tab-historial" class="py-3 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors">
+                <i class="fas fa-history mr-2"></i>Historial de Pagos
+            </button>
+        </div>
+
+        <!-- VISTA 1: DEUDAS VIGENTES -->
+        <div id="view-vigentes">
+            <!-- KPIs Dashboard -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="card-stat border-l-4 border-rose-500 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 text-rose-500 text-6xl -mr-4 -mt-4"><i class="fas fa-chart-pie"></i></div>
+                    <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Deuda Global (Pasivos)</div>
+                    <div class="text-3xl font-bold text-rose-600 z-10" id="kpi-deuda-total">S/ 0.00</div>
+                </div>
+
+                <div class="card-stat border-l-4 border-blue-500 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 text-blue-500 text-6xl -mr-4 -mt-4"><i class="fas fa-truck-loading"></i></div>
+                    <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Proveedores por Pagar</div>
+                    <div class="text-3xl font-bold text-slate-800 z-10" id="kpi-proveedores">0</div>
+                </div>
+
+                <div class="card-stat border-l-4 border-amber-500 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 text-amber-500 text-6xl -mr-4 -mt-4"><i class="fas fa-file-invoice"></i></div>
+                    <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Compras Pendientes</div>
+                    <div class="text-3xl font-bold text-slate-800 z-10" id="kpi-tickets">0</div>
+                </div>
             </div>
 
-            <div class="card-stat border-l-4 border-blue-500 relative overflow-hidden">
-                <div class="absolute right-0 top-0 opacity-10 text-blue-500 text-6xl -mr-4 -mt-4"><i class="fas fa-truck-loading"></i></div>
-                <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Proveedores por Pagar</div>
-                <div class="text-3xl font-bold text-slate-800 z-10" id="kpi-proveedores">0</div>
-            </div>
-
-            <div class="card-stat border-l-4 border-amber-500 relative overflow-hidden">
-                <div class="absolute right-0 top-0 opacity-10 text-amber-500 text-6xl -mr-4 -mt-4"><i class="fas fa-file-invoice"></i></div>
-                <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Compras Pendientes</div>
-                <div class="text-3xl font-bold text-slate-800 z-10" id="kpi-tickets">0</div>
+            <!-- Tabla Principal (Agrupada) -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="35%">Proveedor / Razón Social</th>
+                                <th width="15%">RUC / DNI</th>
+                                <th width="15%" class="text-center">Ingresos Adeudados</th>
+                                <th width="20%" class="text-right">Saldo Total Pendiente</th>
+                                <th width="15%" class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaDeudores">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- Tabla Principal (Agrupada) -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th width="35%">Proveedor / Razón Social</th>
-                            <th width="15%">RUC / DNI</th>
-                            <th width="15%" class="text-center">Ingresos Adeudados</th>
-                            <th width="20%" class="text-right">Saldo Total Pendiente</th>
-                            <th width="15%" class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tablaDeudores">
-                        <!-- Inyectado por JS -->
-                    </tbody>
-                </table>
+        <!-- VISTA 2: HISTORIAL DE PAGOS -->
+        <div id="view-historial" class="hidden">
+            <!-- KPIs Historial -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="card-stat border-l-4 border-emerald-500 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 text-emerald-500 text-6xl -mr-4 -mt-4"><i class="fas fa-check-circle"></i></div>
+                    <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Total Histórico Amortizado</div>
+                    <div class="text-3xl font-bold text-emerald-600 z-10" id="kpi-total-pagado">S/ 0.00</div>
+                </div>
+                <div class="card-stat border-l-4 border-indigo-500 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 text-indigo-500 text-6xl -mr-4 -mt-4"><i class="fas fa-handshake"></i></div>
+                    <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Amortizaciones Realizadas</div>
+                    <div class="text-3xl font-bold text-slate-800 z-10" id="kpi-total-amortizaciones">0</div>
+                </div>
+            </div>
+
+            <!-- Tabla Historial -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="15%">Fecha de Pago</th>
+                                <th width="25%">Proveedor</th>
+                                <th width="20%">Compra / Doc.</th>
+                                <th width="15%" class="text-right">Monto Amortizado</th>
+                                <th width="15%">Método de Pago</th>
+                                <th width="10%">Referencia</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaHistorialBody">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </main>
@@ -148,6 +199,9 @@
         let currentEmpresaId = null;
         let dataGlobalCartera = []; // Almacena array agrupado
         let dataGlobalTickets = []; // Almacena raw db (todos los ingresos deudores)
+        
+        let activeTab = 'vigentes';
+        let dataGlobalHistorial = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
@@ -272,14 +326,128 @@
         }
 
         function filtrarTabla() {
-            const term = document.getElementById('buscadorGlobal').value.toLowerCase();
-            if(!term) { renderTabla(dataGlobalCartera); return; }
+            const query = document.getElementById('buscadorGlobal').value.toLowerCase();
+            
+            if (activeTab === 'vigentes') {
+                if(!query) { renderTabla(dataGlobalCartera); return; }
+                const filtrados = dataGlobalCartera.filter(c => 
+                    c.razon_social.toLowerCase().includes(query) || 
+                    c.numero_documento.toLowerCase().includes(query)
+                );
+                renderTabla(filtrados);
+            } else {
+                if(!query) { renderTablaHistorial(dataGlobalHistorial); return; }
+                const filtrados = dataGlobalHistorial.filter(h => {
+                    const prov = h.ingresos?.proveedores?.razon_social?.toLowerCase() || '';
+                    const ruc = h.ingresos?.proveedores?.ruc?.toLowerCase() || '';
+                    const doc = h.ingresos?.numero_ingreso?.toLowerCase() || '';
+                    const ref = h.referencia_pago?.toLowerCase() || '';
+                    return prov.includes(query) || ruc.includes(query) || doc.includes(query) || ref.includes(query);
+                });
+                renderTablaHistorial(filtrados);
+            }
+        }
+        
+        // ==========================================
+        //  LÓGICA DE TABS Y HISTORIAL
+        // ==========================================
+        function switchTab(tabId) {
+            activeTab = tabId;
+            
+            // Update Tab UI
+            document.getElementById('tab-vigentes').className = tabId === 'vigentes' 
+                ? 'py-3 px-6 text-sm font-bold border-b-2 border-blue-600 text-blue-600 focus:outline-none transition-colors' 
+                : 'py-3 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors';
+                
+            document.getElementById('tab-historial').className = tabId === 'historial' 
+                ? 'py-3 px-6 text-sm font-bold border-b-2 border-blue-600 text-blue-600 focus:outline-none transition-colors' 
+                : 'py-3 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors';
 
-            const filtrados = dataGlobalCartera.filter(c => 
-                c.razon_social.toLowerCase().includes(term) || 
-                c.numero_documento.toLowerCase().includes(term)
-            );
-            renderTabla(filtrados);
+            // Update Views
+            if (tabId === 'vigentes') {
+                document.getElementById('view-vigentes').classList.remove('hidden');
+                document.getElementById('view-historial').classList.add('hidden');
+                renderTabla(dataGlobalCartera);
+            } else {
+                document.getElementById('view-vigentes').classList.add('hidden');
+                document.getElementById('view-historial').classList.remove('hidden');
+                if (dataGlobalHistorial.length === 0) {
+                    cargarHistorialAmortizaciones();
+                } else {
+                    renderTablaHistorial(dataGlobalHistorial);
+                }
+            }
+            
+            // Reset Search
+            document.getElementById('buscadorGlobal').value = '';
+            filtrarTabla();
+        }
+
+        async function cargarHistorialAmortizaciones() {
+            const tbody = document.getElementById('tablaHistorialBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-gray-500"><i class="fas fa-circle-notch fa-spin text-3xl mb-3 text-blue-500"></i><br>Cargando historial de pagos...</td></tr>';
+
+            try {
+                const { data: historial, error } = await window.supabaseClient.from('ingresos_credito_pagos')
+                    .select('id, monto, fecha_pago, tipo_pago, metodo_pago, referencia_pago, ingresos(numero_ingreso, proveedores(id, razon_social, ruc))')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('estado', 'PAGADO')
+                    .order('fecha_pago', { ascending: false });
+
+                if(error) throw error;
+
+                dataGlobalHistorial = historial || [];
+                
+                // Actualizar KPIs Historial
+                let totalAmortizado = 0;
+                dataGlobalHistorial.forEach(h => totalAmortizado += Number(h.monto));
+                
+                document.getElementById('kpi-total-pagado').textContent = `S/ ${formatMoney(totalAmortizado)}`;
+                document.getElementById('kpi-total-amortizaciones').textContent = dataGlobalHistorial.length;
+                
+                renderTablaHistorial(dataGlobalHistorial);
+
+            } catch (e) {
+                console.error("Error al cargar historial:", e);
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-red-500">Error de conexión al cargar el historial.</td></tr>';
+            }
+        }
+
+        function renderTablaHistorial(datosAMostrar) {
+            const tbody = document.getElementById('tablaHistorialBody');
+            tbody.innerHTML = '';
+
+            if (datosAMostrar.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">No se encontraron pagos registrados en el historial.</td></tr>';
+                return;
+            }
+
+            datosAMostrar.forEach(h => {
+                const tr = document.createElement('tr');
+                
+                const provNombre = h.ingresos?.proveedores?.razon_social || 'Desconocido';
+                const numDoc = h.ingresos?.numero_ingreso || 'S/D';
+                const fecha = h.fecha_pago ? new Date(h.fecha_pago).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '-';
+                const ref = h.referencia_pago && h.referencia_pago !== '-' ? h.referencia_pago : '-';
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-4 text-xs font-mono text-gray-500 dark:text-slate-400">${fecha}</td>
+                    <td class="px-4 py-4">
+                        <div class="font-bold text-gray-800 dark:text-slate-200 text-sm">${provNombre}</div>
+                        <div class="text-xs text-gray-400 dark:text-slate-500 font-mono">RUC: ${h.ingresos?.proveedores?.ruc || 'S/D'}</div>
+                    </td>
+                    <td class="px-4 py-4 text-xs font-mono text-gray-600 dark:text-slate-300">${numDoc}</td>
+                    <td class="px-4 py-4 text-right">
+                        <span class="font-bold text-emerald-600 dark:text-emerald-400 text-sm">S/ ${formatMoney(h.monto)}</span>
+                    </td>
+                    <td class="px-4 py-4">
+                        <div class="text-[11px] uppercase tracking-wider text-gray-700 dark:text-slate-300 font-bold">${h.tipo_pago || 'AMORTIZACIÓN'}</div>
+                        <div class="text-[10px] text-gray-500 dark:text-slate-400 font-semibold">${h.metodo_pago ? h.metodo_pago.replace('_', ' ') : '-'}</div>
+                    </td>
+                    <td class="px-4 py-4 text-xs font-mono text-gray-500 dark:text-slate-400">${ref}</td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
         // ==========================================
@@ -297,10 +465,10 @@
             // Botón superior para realizar un abono o amortización
             let actionBtn = `
                 <div class="mb-4">
-                    <button onclick="abrirModalAmortizacion('${proveedor.proveedor_id}', '${proveedor.razon_social}', ${proveedor.deuda_total})" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md flex justify-center items-center gap-2 transition-colors">
+                    <button onclick="abrirModalAmortizacion('${proveedor.proveedor_id}', '${proveedor.razon_social}', null)" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md flex justify-center items-center gap-2 transition-colors">
                         <i class="fas fa-hand-holding-usd text-lg"></i> Ingresar Pago a este Proveedor (FIFO)
                     </button>
-                    <p class="text-center text-[10px] text-slate-500 mt-1 opacity-75">El sistema distribuirá el pago a las facturas más antiguas primero de forma automática.</p>
+                    <p class="text-center text-[10px] text-slate-500 mt-1 opacity-75">El sistema distribuirá el pago a las facturas marcadas, empezando por las más antiguas.</p>
                 </div>
             `;
 
@@ -326,16 +494,25 @@
                 const docVisual = (t.serie_factura && t.numero_factura) ? `${t.serie_factura}-${t.numero_factura}` : t.numero_ingreso;
 
                 htmlTickets += `
-                    <div class="mb-3 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
+                    <div class="mb-3 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm transition-opacity duration-300" id="ticket-card-${t.id}">
                         <!-- Cabecera del Ticket -->
                         <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-800 p-3 border-b border-slate-100 dark:border-slate-700">
                             <div>
-                                <div class="font-bold text-blue-700 dark:text-blue-400 text-sm"><i class="fas fa-file-invoice mr-1 opacity-50"></i> ${docVisual}</div>
-                                <div class="text-[10px] text-slate-500 mt-0.5">${new Date(t.fecha_ingreso).toLocaleDateString('es-PE', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric'})}</div>
+                                <div class="font-bold text-blue-700 dark:text-blue-400 text-sm flex items-center gap-2">
+                                    <label class="relative inline-flex items-center cursor-pointer" title="Incluir en Pago Automático FIFO">
+                                        <input type="checkbox" class="sr-only peer ticket-toggle" value="${t.id}" data-monto="${t.saldo_credito}" checked onchange="recalcularTotalFIFO()">
+                                        <div class="w-8 h-4 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                    </label>
+                                    <span><i class="fas fa-file-invoice mr-1 opacity-50"></i> ${docVisual}</span>
+                                </div>
+                                <div class="text-[10px] text-slate-500 mt-1 ml-10">${new Date(t.fecha_ingreso).toLocaleDateString('es-PE', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric'})}</div>
                             </div>
-                            <div class="text-right">
-                                <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Saldo Adeudado</div>
-                                <div class="font-black text-rose-500 text-lg leading-none">S/ ${formatMoney(t.saldo_credito)}</div>
+                            <div class="text-right flex flex-col items-end">
+                                <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Saldo Adeudado</div>
+                                <div class="font-black text-rose-500 text-lg leading-none mb-2">S/ ${formatMoney(t.saldo_credito)}</div>
+                                <button onclick="abrirModalAmortizacionDirecta('${proveedor.proveedor_id}', '${proveedor.razon_social}', '${t.id}', '${docVisual}', ${t.saldo_credito})" class="text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 px-2 py-1 rounded transition-colors flex items-center gap-1 font-bold">
+                                    <i class="fas fa-bolt"></i> Pagar Directo
+                                </button>
                             </div>
                         </div>
                         
@@ -356,8 +533,8 @@
                             <p class="font-mono text-xs text-slate-500">${proveedor.numero_documento}</p>
                         </div>
                         <div class="text-right">
-                            <p class="text-xs uppercase font-bold text-slate-400 tracking-wider mb-1">Deuda Total</p>
-                            <p class="font-black text-rose-600 dark:text-rose-500 text-2xl">S/ ${formatMoney(proveedor.deuda_total)}</p>
+                            <p class="text-xs uppercase font-bold text-slate-400 tracking-wider mb-1">Deuda Seleccionada (FIFO)</p>
+                            <p class="font-black text-rose-600 dark:text-rose-500 text-2xl" id="modalTotalFIFO">S/ ${formatMoney(proveedor.deuda_total)}</p>
                         </div>
                     </div>
                     
@@ -381,17 +558,143 @@
             });
         }
 
+        function recalcularTotalFIFO() {
+            let total = 0;
+            const toggles = document.querySelectorAll('.ticket-toggle');
+            toggles.forEach(t => {
+                const card = document.getElementById(`ticket-card-${t.value}`);
+                if (t.checked) {
+                    total += parseFloat(t.getAttribute('data-monto'));
+                    if(card) card.classList.remove('opacity-50');
+                } else {
+                    if(card) card.classList.add('opacity-50');
+                }
+            });
+            const totalEl = document.getElementById('modalTotalFIFO');
+            if(totalEl) totalEl.textContent = `S/ ${formatMoney(total)}`;
+        }
+
         // ==========================================
-        //  MODAL: REGISTRAR AMORTIZACIÓN
+        //  MODAL: REGISTRAR AMORTIZACIÓN DIRECTA (1 SOLO TICKET)
         // ==========================================
-        function abrirModalAmortizacion(proveedorId, razonSocial, deudaTotal) {
+        function abrirModalAmortizacionDirecta(proveedorId, razonSocial, ticketId, docVisual, deudaTicket) {
             Swal.fire({
-                title: 'Registrar Pago a Proveedor',
+                title: 'Pago Directo',
                 html: `
                     <div class="text-left mt-2">
                         <p class="text-xs text-slate-500 mb-4 bg-slate-100 dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700">
                             Proveedor: <strong class="text-slate-800 dark:text-slate-200">${razonSocial}</strong><br>
-                            Deuda Total: <strong class="text-rose-500">S/ ${formatMoney(deudaTotal)}</strong>
+                            Documento: <strong class="text-slate-800 dark:text-slate-200">${docVisual}</strong><br>
+                            Tope a Pagar: <strong class="text-rose-500">S/ ${formatMoney(deudaTicket)}</strong>
+                        </p>
+                        
+                        <div class="mb-3">
+                            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Monto a Amortizar (S/) *</label>
+                            <input type="number" id="pago_monto" class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-600 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-lg font-bold" placeholder="0.00" step="0.01" max="${deudaTicket}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Fecha de Pago *</label>
+                            <input type="date" id="pago_fecha" class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-600 dark:text-white outline-none focus:border-blue-500 transition-all" value="${new Date().toISOString().split('T')[0]}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Método de Pago *</label>
+                            <select id="pago_metodo" class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-600 dark:text-white outline-none focus:border-blue-500 transition-all">
+                                <option value="EFECTIVO">Efectivo</option>
+                                <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                                <option value="YAPE">Yape</option>
+                                <option value="PLIN">Plin</option>
+                                <option value="CHEQUE">Cheque</option>
+                                <option value="TARJETA_CREDITO">Tarjeta de Crédito</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Referencia / N° Operación</label>
+                            <input type="text" id="pago_ref" class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-600 dark:text-white outline-none focus:border-blue-500 transition-all" placeholder="Ej: OP-123456">
+                        </div>
+                        
+                        <p class="text-[10px] text-emerald-600 dark:text-emerald-400 italic mt-3 text-center"><i class="fas fa-link"></i> Este pago se aplicará EXCLUSIVAMENTE a este documento.</p>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-bolt"></i> Procesar Pago',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#10b981', // Verde esmeralda para el pago directo
+                cancelButtonColor: '#64748b',
+                customClass: { popup: 'swal-wide-dark-compatible' },
+                preConfirm: () => {
+                    const monto = parseFloat(document.getElementById('pago_monto').value);
+                    const fecha = document.getElementById('pago_fecha').value;
+                    const metodo = document.getElementById('pago_metodo').value;
+                    const ref = document.getElementById('pago_ref').value || '-';
+
+                    if (!monto || monto <= 0) {
+                        Swal.showValidationMessage('Por favor ingrese un monto válido mayor a 0');
+                        return false;
+                    }
+                    if (monto > deudaTicket) {
+                        Swal.showValidationMessage('El monto no puede superar la deuda del documento');
+                        return false;
+                    }
+                    if (!fecha) {
+                        Swal.showValidationMessage('Por favor seleccione la fecha de pago');
+                        return false;
+                    }
+
+                    return { monto, fecha, metodo, ref };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await ejecutarRPCAmortizacion(proveedorId, result.value, [], [ticketId]);
+                } else if(result.dismiss === Swal.DismissReason.cancel) {
+                    // Reabrir trazabilidad al cancelar
+                    verDetalleProveedor(proveedorId);
+                }
+            });
+        }
+
+        // ==========================================
+        //  MODAL: REGISTRAR AMORTIZACIÓN (FIFO)
+        // ==========================================
+        function abrirModalAmortizacion(proveedorId, razonSocial, overrideDeudaTotal = null) {
+            
+            let excluirIds = [];
+            let deudaTotal = 0;
+
+            if (overrideDeudaTotal === null) {
+                const toggles = document.querySelectorAll('.ticket-toggle');
+                toggles.forEach(t => {
+                    if (t.checked) {
+                        deudaTotal += parseFloat(t.getAttribute('data-monto'));
+                    } else {
+                        excluirIds.push(t.value);
+                    }
+                });
+            } else {
+                deudaTotal = overrideDeudaTotal;
+            }
+
+            if (deudaTotal <= 0) {
+                Swal.fire({
+                    title: 'Atención', 
+                    text: 'No hay deuda seleccionada para pagar. Active al menos un documento.', 
+                    icon: 'warning',
+                    customClass: { popup: 'swal-wide-dark-compatible' }
+                }).then(() => {
+                    verDetalleProveedor(proveedorId);
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Registrar Pago a Proveedor (FIFO)',
+                html: `
+                    <div class="text-left mt-2">
+                        <p class="text-xs text-slate-500 mb-4 bg-slate-100 dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700">
+                            Proveedor: <strong class="text-slate-800 dark:text-slate-200">${razonSocial}</strong><br>
+                            Tope Seleccionado: <strong class="text-rose-500">S/ ${formatMoney(deudaTotal)}</strong>
                         </p>
                         
                         <div class="mb-3">
@@ -421,7 +724,7 @@
                             <input type="text" id="pago_ref" class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-600 dark:text-white outline-none focus:border-blue-500 transition-all" placeholder="Ej: OP-123456">
                         </div>
                         
-                        <p class="text-[10px] text-emerald-600 dark:text-emerald-400 italic mt-3 text-center"><i class="fas fa-link"></i> Este pago se registrará automáticamente en el Flujo de Caja bajo la categoría "Compras Logística / Inventario".</p>
+                        <p class="text-[10px] text-emerald-600 dark:text-emerald-400 italic mt-3 text-center"><i class="fas fa-link"></i> El pago se distribuirá automáticamente en los documentos seleccionados (FIFO).</p>
                     </div>
                 `,
                 showCancelButton: true,
@@ -441,7 +744,7 @@
                         return false;
                     }
                     if (monto > deudaTotal) {
-                        Swal.showValidationMessage('El monto no puede superar la deuda total');
+                        Swal.showValidationMessage('El monto no puede superar el tope seleccionado');
                         return false;
                     }
                     if (!fecha) {
@@ -453,7 +756,7 @@
                 }
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    await ejecutarRPCAmortizacion(proveedorId, result.value);
+                    await ejecutarRPCAmortizacion(proveedorId, result.value, excluirIds, []);
                 } else if(result.dismiss === Swal.DismissReason.cancel) {
                     // Reabrir trazabilidad al cancelar
                     verDetalleProveedor(proveedorId);
@@ -461,16 +764,16 @@
             });
         }
 
-        async function ejecutarRPCAmortizacion(proveedorId, datosPago) {
+        async function ejecutarRPCAmortizacion(proveedorId, datosPago, excluirIds = [], objetivoIds = []) {
             Swal.fire({
                 title: 'Procesando Pago...',
-                html: 'Distribuyendo monto en las facturas más antiguas (FIFO) e interconectando con Flujo de Caja.',
+                html: objetivoIds.length > 0 ? 'Aplicando pago directo al documento...' : 'Distribuyendo monto en facturas seleccionadas (FIFO)...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
 
             try {
-                // Invocar al RPC (Asegurarse que 0198_crear_estructuras_cuentas_por_pagar.sql ya fue ejecutado)
+                // Invocar al RPC (Asegurarse que 0255_update_amortizacion_proveedores.sql ya fue ejecutado)
                 const { error } = await window.supabaseClient.rpc('fn_amortizar_credito_proveedor', {
                     p_empresa_id: currentEmpresaId,
                     p_proveedor_id: proveedorId,
@@ -478,7 +781,9 @@
                     p_fecha_pago: datosPago.fecha,
                     p_metodo_pago: datosPago.metodo,
                     p_referencia: datosPago.ref,
-                    p_created_by: window.currentUser.nombre || window.currentUser.email
+                    p_created_by: window.currentUser.nombre || window.currentUser.email,
+                    p_excluir_ids: excluirIds,
+                    p_objetivo_ids: objetivoIds
                 });
 
                 if (error) throw error;

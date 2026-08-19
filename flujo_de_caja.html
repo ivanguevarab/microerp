@@ -1000,7 +1000,7 @@
                 });
 
                 if(sumComprasContado > 0) {
-                    objEgresos.push({ cat: 'Compras al Contado (Logística)', monto: sumComprasContado, sys: true, detalles: detComprasContado });
+                    objEgresos.push({ cat: 'Compras al Contado (Kardex)', monto: sumComprasContado, sys: true, detalles: detComprasContado });
                     totEgreso += sumComprasContado;
                 }
 
@@ -1014,37 +1014,6 @@
                     totEgreso += sumComprasCredito;
                 }
 
-                // 3.8 PAGOS A PROVEEDORES (AMORTIZACIONES DE CRÉDITO LOGÍSTICO)
-                const { data: pagosProveedores } = await window.supabaseClient.from('ingresos_credito_pagos')
-                    .select('id, created_at, fecha_pago, monto, created_by, estado, ingresos!inner(empresa_id, numero_ingreso)')
-                    .eq('ingresos.empresa_id', currentEmpresaId)
-                    .gte('fecha_pago', isoDesde)
-                    .lte('fecha_pago', isoHasta);
-
-                let sumPagosProveedores = 0;
-                let detPagosProveedores = [];
-
-                (pagosProveedores || []).forEach(p => {
-                    // Ignoramos pagos anulados (si aplica)
-                    if (p.estado === 'ANULADO') return;
-                    
-                    const val = Number(p.monto);
-                    sumPagosProveedores += val;
-                    const numIngreso = p.ingresos ? p.ingresos.numero_ingreso : 'Doc Desconocido';
-                    const refPago = `Amortización de Deuda (Ref: ${numIngreso})`;
-                    detPagosProveedores.push({ 
-                        fecha: p.created_at || p.fecha_pago, 
-                        fecha_movimiento: p.fecha_pago || p.created_at, 
-                        ref: refPago, 
-                        monto: val, 
-                        created_by: p.created_by 
-                    });
-                });
-                
-                if (sumPagosProveedores > 0) {
-                    objEgresos.push({ cat: 'Pago a Proveedores (Amortización de Créditos)', monto: sumPagosProveedores, sys: true, detalles: detPagosProveedores });
-                    totEgreso += sumPagosProveedores;
-                }
 
                 // 4. FC MOVIMIENTOS
                 const { data: mf } = await window.supabaseClient.from('fc_movimientos')
@@ -1119,7 +1088,7 @@
 
                 // --- INTELIGENCIA FINANCIERA ---
                 const isOperativo = (catName) => {
-                    if(catName === 'Ventas al Contado' || catName === 'Ventas al Crédito (Pagos Recibidos)' || catName === 'Compras al Contado (Logística)' || catName === 'Otros Egresos Asociados (Logística)' || catName === 'Compras al Crédito (Logística / Pago Inicial)') {
+                    if(catName === 'Ventas al Contado' || catName === 'Ventas al Crédito (Pagos Recibidos)' || catName === 'Compras al Contado (Kardex)' || catName === 'Otros Egresos Asociados (Logística)' || catName === 'Compras al Crédito (Logística / Pago Inicial)') {
                         let cNameNorm = catName;
                         if(catName === 'Ventas al Crédito (Pagos Recibidos)') cNameNorm = 'Ventas al Crédito (Pagos)';
                         if(catName.includes('Compras al Contado') || catName.includes('Compras al Crédito')) cNameNorm = 'Compras Logísticas / Inventario';
@@ -2129,15 +2098,22 @@
                     let refContent = mini.ref;
                     let iconCopy = textToCopy => `<i class="fas fa-copy text-indigo-400 hover:text-indigo-600 cursor-pointer mx-1" onclick="navigator.clipboard.writeText('${textToCopy}'); Swal.fire({toast: true, position: 'top-end', icon: 'success', title: 'Copiado', showConfirmButton: false, timer: 1000})" title="Copiar"></i>`;
                     
+                    let injectKardexLink = (text) => {
+                        if (!text) return text;
+                        return text.replace(/(INGRESO(?:-ITEMS)?-\d+-\d+)/g, (match) => {
+                            return `${match} <a href="kardex.html?autoOpen=${match}" target="_blank" class="ml-1 text-blue-500 hover:text-blue-700 transition-colors" title="Abrir comprobante en Kardex"><i class="fas fa-external-link-alt"></i></a>`;
+                        });
+                    };
+                    
                     if (mini.correlativo) {
                         let spanAutor = mini.created_by ? `<span class="ml-2 font-normal text-slate-500 italic tracking-normal">Por: ${mini.created_by}</span>` : '';
-                        refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider mb-1 flex items-center">${mini.correlativo}${iconCopy(mini.correlativo)}${spanAutor}</div>${refContent}`;
+                        refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider mb-1 flex items-center">${injectKardexLink(mini.correlativo)}${iconCopy(mini.correlativo)}${spanAutor}</div>${injectKardexLink(mini.ref)}`;
                     } else {
                         let isCode = /^[A-Z0-9_-]+$/.test(mini.ref);
                         if (isCode) {
-                            refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider flex items-center">${mini.ref}${iconCopy(mini.ref)}</div>`;
+                            refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider flex items-center">${injectKardexLink(mini.ref)}${iconCopy(mini.ref)}</div>`;
                         } else {
-                            refContent = `<div>${mini.ref}</div>`;
+                            refContent = `<div>${injectKardexLink(mini.ref)}</div>`;
                         }
                         if (mini.created_by) {
                             refContent += `<div class="mt-1"><span class="font-normal text-[10px] text-slate-500 italic tracking-normal">Por: ${mini.created_by}</span></div>`;

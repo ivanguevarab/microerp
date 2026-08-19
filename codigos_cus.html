@@ -1750,7 +1750,7 @@
                 didOpen: async () => {
                     const select = document.getElementById('swal-gasto-cat');
                     try {
-                        const permitidas = ['Gasto de Ventas', 'Compras Logística / Inventario', 'Otros Egresos'];
+                        const permitidas = ['Gasto de Ventas', 'Compras al Contado (Manuales)', 'Otros Egresos'];
                         const { data } = await window.supabaseClient.from('fc_fuentes_categorias')
                             .select('id, nombre')
                             .eq('empresa_id', window.currentEmpresaId)
