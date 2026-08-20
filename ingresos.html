@@ -2708,6 +2708,8 @@
 
                     let erroresEncontrados = [];
                     let validRows = [];
+                    let advertenciaCantidadesMostrada = false;
+                    let canceladoPorUsuario = false;
 
                     for(let i = startRow; i < rows.length; i++) {
                         const row = rows[i];
@@ -2741,7 +2743,16 @@
                         if(typeof excelPrecioTotal === 'string') excelPrecioTotal = parseFloat(excelPrecioTotal.replace(/,/g, ''));
                         else excelPrecioTotal = parseFloat(excelPrecioTotal);
 
-                        if(isNaN(excelCant) || excelCant <= 0) errFila.push("Cantidad inválida o cero.");
+                        if(isNaN(excelCant) || excelCant <= 0) {
+                            errFila.push("Cantidad inválida o cero.");
+                        } else if(excelCant > 30000 && !advertenciaCantidadesMostrada) {
+                            const msj = `⚠️ ADVERTENCIA DE INTEGRIDAD DE DATOS\n\nSe ha detectado una cantidad masiva inusual (${excelCant} unidades).\n\nCausa frecuente: La columna 'Cantidad' en su archivo Excel tiene 'Formato de Fecha' en lugar de 'Número', o ingresó decimales con un separador incorrecto (ej. coma en vez de punto).\n\n• Presione CANCELAR para detener la importación y corregir su archivo Excel.\n• Presione ACEPTAR únicamente si está 100% seguro de que esta cantidad es real.`;
+                            if (!confirm(msj)) {
+                                canceladoPorUsuario = true;
+                                break;
+                            }
+                            advertenciaCantidadesMostrada = true;
+                        }
                         if(isNaN(excelPrecioTotal) || excelPrecioTotal < 0) errFila.push("Precio Total inválido.");
 
                         // 2. Validar Proveedor
@@ -2798,6 +2809,12 @@
                                 vencimiento: fechaVencReal
                             });
                         }
+                    }
+
+                    if (canceladoPorUsuario) {
+                        mostrarToast('Importación cancelada por el usuario.', 'info');
+                        cerrarModalImportacionIngresos();
+                        return;
                     }
 
                     const htmlContainer = document.getElementById('contenedorLotesIngresos');
@@ -3475,83 +3492,11 @@
                 return;
             }
 
-            // 3. Validar Pasado (PRO: Safe Append por Item)
-            // EXCEPCIÓN QUIRÚRGICA: El Inventario Inicial establece la base del FIFO y es siempre una adición positiva de stock.
-            // Por definición matemática y contable, aislar su inyección en el pasado es 100% seguro y necesario.
-            if (!isInicial) {
-                try {
-                    // a. Recolectar IDs de items en el carrito
-                    const itemIds = detalleIngreso.map(i => i.productoId);
-
-                // b. Calcular "Día Siguiente" a la fecha seleccionada (Límite 05:00 UTC = 00:00 Perú)
-                const fechaBase = new Date(fecha + 'T00:00:00'); // Fecha seleccionada (Local)
-                fechaBase.setDate(fechaBase.getDate() + 1); // Sumar 1 día (Mañana Local)
-
-                // Formatear manualmente a YYYY-MM-DDT05:00:00Z para precisión absoluta
-                const yyyy = fechaBase.getFullYear();
-                const mm = String(fechaBase.getMonth() + 1).padStart(2, '0');
-                const dd = String(fechaBase.getDate()).padStart(2, '0');
-                const nextDay = `${yyyy}-${mm}-${dd}T05:00:00Z`; // Límite exacto: 05:00 AM UTC (Medianoche Perú)
-
-                // c. Consultar Kardex: ¿Hay movimientos de ESTOS items en ESTE almacén a partir de MAÑANA?
-                const { data: conflictos, error: errorConflictos } = await supabaseApp
-                    .from('kardex')
-                    .select(`
-                        item_id, 
-                        fecha_movimiento,
-                        items ( codigo, descripcion )
-                    `)
-                    .eq('almacen_id', almacen)
-                    .in('item_id', itemIds)
-                    .gte('fecha_movimiento', nextDay);
-
-                if (errorConflictos) throw errorConflictos;
-
-                // d. Analizar Conflictos
-                if (conflictos && conflictos.length > 0) {
-                    // Agrupar por item para mostrar el conflicto más reciente de cada uno
-                    const conflictosMap = {};
-                    conflictos.forEach(c => {
-                        const id = c.item_id;
-                        if (!conflictosMap[id] || c.fecha_movimiento > conflictosMap[id].fecha_movimiento) {
-                            conflictosMap[id] = c;
-                        }
-                    });
-
-                    // Construir Mensaje de Error
-                    let mensajeError = `❌ BLOQUEO DE SEGURIDAD (SAFE APPEND PRO)\n\n`;
-                    mensajeError += `No se puede registrar con fecha ${fecha} porque los siguientes items tienen movimientos posteriores:\n\n`;
-
-                    Object.values(conflictosMap).forEach(c => {
-                        // FIX VISUAL: Mostrar hora Perú (UTC-5) restando 5 horas al UTC
-                        let fechaRaw = c.fecha_movimiento;
-                        if (!fechaRaw.endsWith('Z') && !fechaRaw.includes('+')) fechaRaw += 'Z';
-
-                        const d = new Date(fechaRaw);
-                        const perTimeMs = d.getTime() - (5 * 3600000);
-                        const perDate = new Date(perTimeMs);
-
-                        // Formato: YYYY-MM-DD HH:mm:ss
-                        const fechaMov = perDate.toISOString().replace('T', ' ').substring(0, 19);
-                        mensajeError += `• ${c.items.descripcion} (Último: ${fechaMov})\n`;
-                    });
-
-                    mensajeError += `\n✅ Soluciones:\n`;
-                    mensajeError += `1. Cambie la fecha a una posterior.\n`;
-                    mensajeError += `2. O retire estos items y regístrelos en otro documento.`;
-
-                    alert(mensajeError);
-                    return;
-                }
-
-                // Si no hay conflictos, PASE USTED (Aunque el almacén tenga otros movimientos de otros items)
-
-            } catch (errVal) {
-                console.error('Error en validación Safe Append PRO:', errVal);
-                alert('Error interno validando fechas. Ver consola.');
-                return;
-            }
-            } // Fin de excepción quirúrgica Inventario Inicial
+            // 3. Validar Pasado (REMOVIDO - SAFE APPEND PRO DELEGADO A BACKEND)
+            // Ya no bloqueamos la inserción retroactiva de ingresos ordinarios en el frontend.
+            // El backend, a través del "Time Travel Fix" y el Oráculo Financiero 
+            // (fn_registrar_ingreso -> fn_recalcular_kardex_fifo_item) 
+            // se encarga de resanar la línea de tiempo matemáticamente.
 
             if (formaPago === 'CREDITO' && !fechaVencimiento) {
                 mostrarToast('Debe indicar la fecha de vencimiento para compras a crédito', 'warning');

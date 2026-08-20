@@ -1,197 +1,115 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MicroERP - Gestión CRM</title>
+    <title>Gestión CRM - MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = { theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'], } } } }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase & Auth -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="auth-guard.js"></script>
-    <link rel="stylesheet" href="styles.css"> <!-- Estilos Globales -->
-    <script src="sidebar.js"></script>
+    <link rel="stylesheet" href="styles.css">
     <style>
-        /* Estilos Locales (Resets globales delegados a styles.css) */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f6fa;
-            /* mix-height manejado por styles.css */
+        /* =========================================================
+           AMBIENT BLOBS (ILUMINACIÓN DE FONDO)
+           ========================================================= */
+        .ambient-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            pointer-events: none;
         }
-
-        /* Header Adaptado a Sidebar (Replicado de gestion_inventarios.html) */
-        .header {
-            background: var(--header-bg-gradient);
-            color: var(--header-text-color);
-            height: 80px;
-            padding: 0 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: var(--header-shadow);
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            letter-spacing: 1px;
-        }
-
-        /* Container */
-        .container {
-            padding: 40px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .section-title {
-            color: #2c3e50;
-            margin-bottom: 25px;
-            font-size: 20px;
-            border-bottom: 2px solid #e0e0e0;
-            padding-bottom: 10px;
-        }
-
-        /* Grid */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
-        }
-
-        /* Cards */
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            transition: all 0.3s;
-            cursor: pointer;
-            border: 1px solid transparent;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            height: 100%;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-            border-color: #0070f2;
-        }
-
-        .card-icon {
-            font-size: 40px;
-            margin-bottom: 15px;
-        }
-
-        .card h3 {
-            color: #354a5f;
-            margin-bottom: 10px;
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .card p {
-            color: #7f8c8d;
-            font-size: 14px;
-            line-height: 1.4;
-        }
-
-        /* Disabled Card Style */
-        .card.disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            background-color: #f8fafc;
-        }
-
-        .card.disabled:hover {
-            transform: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            border-color: transparent;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-            }
-
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .header {
-                position: relative;
-                padding: 15px;
-                flex-direction: column;
-                gap: 15px;
-                align-items: flex-start;
-            }
-
-            .header-left {
-                width: 100%;
-                justify-content: space-between;
-            }
-
-            .header h1 {
-                font-size: 18px;
-            }
-
-            .btn-text-desktop {
-                display: none;
-            }
-
-            .btn-text-mobile {
-                display: inline;
-            }
-        }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.15); }
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.10); }
     </style>
 </head>
-
-<body>
-    <header class="header">
-        <div class="header-left">
+<body class="bg-slate-950 text-slate-200">
+    <!-- Ambient Blobs -->
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
+    <!-- Cabecera Central -->
+    <header class="submodule-header">
+        <div class="submodule-header-content">
             <button class="btn-back-std" onclick="window.location.href='dashboard.html'">
-                <i class="fas fa-arrow-left"></i>
-                <span class="btn-text-desktop">Volver al Dashboard</span>
-                <span class="btn-text-mobile" style="display:none">Volver</span>
+                ← Volver al Panel
             </button>
-            <h1 style="margin-left: 20px; font-size: 1.5rem; font-weight: 700;">Gestión CRM</h1>
+            <h1 class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Gestión CRM</h1>
+            <div class="submodule-version">MICRO ERP v2.0</div>
         </div>
     </header>
 
-    <main class="container">
+    <main class="max-w-[1400px] mx-auto px-6 py-10 pt-12">
+        <section class="mb-12">
+            <h2 class="text-2xl font-bold text-white tracking-tight mb-2">Relación con Clientes</h2>
+            <p class="text-slate-400 text-sm lg:text-base tracking-wide">Fidelización de cartera, administración de contactos y desarrollo del embudo de ventas estratégico.</p>
+        </section>
 
-        <h2 class="section-title">👥 Relación con Clientes</h2>
-        <div class="grid">
-            <!-- Tarjeta 1: Clientes -->
-            <div class="card" onclick="window.location.href='clientes.html'">
-                <div class="card-icon">👥</div>
-                <h3>Clientes</h3>
-                <p>Gestión de cartera de clientes y contactos</p>
-            </div>
+        <!-- OPERACIONES -->
+        <section class="mb-14">
+            <h3 class="text-slate-300 text-xl font-bold tracking-tight mb-5 flex items-center gap-3">
+                <i class="fa-solid fa-users-viewfinder text-amber-500"></i>
+                Cartera Activa
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                
+                <!-- Clientes -->
+                <a href="clientes.html" class="bg-slate-900/50 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between hover:-translate-y-2 hover:border-amber-500/40 shadow-xl hover:shadow-[0_15px_30px_rgba(245,158,11,0.15)] hover:bg-slate-900/80 no-underline">
+                    <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-800 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                    <div class="relative z-10 h-full flex flex-col pt-1">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950 flex items-center justify-center text-[1.4rem] border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 group-hover:text-amber-500 transition-colors">Base CRM</span>
+                        </div>
+                        <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors leading-tight mb-3">Clientes</div>
+                        <div class="text-slate-500 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                            Administra tu padrón de clientes (DNI/RUC), gestiona perfiles de contacto y automatiza la emisión de comprobantes fiscales.
+                        </div>
+                        <div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest group-hover:text-amber-500/90 transition-colors">
+                            <span>Gestionar Cartera</span>
+                            <i class="fa-solid fa-arrow-right-long group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                    </div>
+                </a>
 
-            <!-- Tarjeta 2: Placeholder -->
-            <div class="card disabled" onclick="alert('Funcionalidad en desarrollo.')">
-                <div class="card-icon">📊</div>
-                <h3>Oportunidades</h3>
-                <p>Gestión de leads y embudo de ventas (Próximamente)</p>
+                <!-- Oportunidades (En Desarrollo) -->
+                <div onclick="alert('Funcionalidad en desarrollo.')" class="bg-slate-900/30 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800/50 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between opacity-80 hover:opacity-100 hover:bg-slate-900/50 shadow-none hover:shadow-xl hover:border-slate-700/80">
+                    <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-800 to-transparent"></div>
+                    <div class="relative z-10 h-full flex flex-col pt-1">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950/50 flex items-center justify-center text-[1.4rem] border border-slate-800 shadow-inner text-slate-600">
+                                <i class="fas fa-chart-bar"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-amber-500/60 uppercase tracking-widest bg-amber-500/5 px-3 py-1 rounded-full border border-amber-500/20">Próximamente</span>
+                        </div>
+                        <div class="text-lg font-bold text-slate-400 leading-tight mb-3">Oportunidades</div>
+                        <div class="text-slate-600 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                            Gestión de leads y seguimiento del embudo de ventas. (Módulo actualmente en fase final de desarrollo).
+                        </div>
+                        <div class="pt-4 border-t border-slate-800/50 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                            <span>Acceso Restringido</span>
+                            <i class="fa-solid fa-lock text-slate-700"></i>
+                        </div>
+                    </div>
+                </div>
+
             </div>
-        </div>
+        </section>
 
     </main>
 
+    <!-- Inserción del Sidebar que gobierna el panel lateral base -->
+    <script src="sidebar.js"></script>
 </body>
-
 </html>

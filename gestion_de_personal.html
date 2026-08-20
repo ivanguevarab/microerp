@@ -186,9 +186,26 @@
             }
         }
     </script>
+    <style>
+        /* =========================================================
+           AMBIENT BLOBS (ILUMINACIÓN DE FONDO)
+           ========================================================= */
+        .ambient-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            pointer-events: none;
+        }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.15); }
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.10); }
+    </style>
 </head>
 
 <body class="bg-slate-950 text-slate-200">
+    <!-- Ambient Blobs -->
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
     <!-- Header Standarizado del Módulo (Garantía styles.css) -->
     <header class="submodule-header">
         <div class="submodule-header-content">
@@ -258,54 +275,66 @@
         
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
 
-            <a href="asistencia_reloj.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
-                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
-                <div class="flex justify-between items-start z-10 w-full pl-2">
-                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
-                         <i class="fas fa-calendar-check"></i>
+            <!-- Asistencia y Reloj -->
+            <a href="asistencia_reloj.html" class="bg-slate-900/50 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between hover:-translate-y-2 hover:border-amber-500/40 shadow-xl hover:shadow-[0_15px_30px_rgba(245,158,11,0.15)] hover:bg-slate-900/80 no-underline">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-800 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="relative z-10 h-full flex flex-col pt-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950 flex items-center justify-center text-[1.4rem] border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 group-hover:text-amber-500 transition-colors">Registro Diario</span>
                     </div>
-                    <!-- Badge Corporate -->
-                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Registro Diario</span>
-                </div>
-                <div class="z-10 pl-2">
-                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Asistencia y Reloj</div>
-                   <div class="text-slate-500 text-sm leading-relaxed">
-                       Control diario de entradas y salidas. Gestión de almuerzos flexibles y alimentación automática del Banco de Horas.
-                   </div>
+                    <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors leading-tight mb-3">Asistencia y Reloj</div>
+                    <div class="text-slate-500 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                        Control diario de entradas y salidas. Gestión de almuerzos flexibles y alimentación automática del Banco de Horas.
+                    </div>
+                    <div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest group-hover:text-amber-500/90 transition-colors">
+                        <span>Ingresar a Control</span>
+                        <i class="fa-solid fa-arrow-right-long group-hover:translate-x-1 transition-transform"></i>
+                    </div>
                 </div>
             </a>
 
-            <a href="banco_de_horas.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
-                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
-                <div class="flex justify-between items-start z-10 w-full pl-2">
-                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
-                         <i class="fas fa-hourglass-half"></i>
+            <!-- Banco de Horas -->
+            <a href="banco_de_horas.html" class="bg-slate-900/50 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between hover:-translate-y-2 hover:border-amber-500/40 shadow-xl hover:shadow-[0_15px_30px_rgba(245,158,11,0.15)] hover:bg-slate-900/80 no-underline">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-800 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="relative z-10 h-full flex flex-col pt-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950 flex items-center justify-center text-[1.4rem] border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                            <i class="fas fa-hourglass-half"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 group-hover:text-amber-500 transition-colors">Trazabilidad Central</span>
                     </div>
-                    <!-- Badge Corporate -->
-                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Trazabilidad Central</span>
-                </div>
-                <div class="z-10 pl-2">
-                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Banco de Horas</div>
-                   <div class="text-slate-500 text-sm leading-relaxed">
-                       Visualiza el saldo exacto de cada trabajador. Trazabilidad de cómo se acumularon deudas o excedentes minuto a minuto.
-                   </div>
+                    <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors leading-tight mb-3">Banco de Horas</div>
+                    <div class="text-slate-500 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                        Visualiza el saldo exacto de cada trabajador. Trazabilidad de cómo se acumularon deudas o excedentes minuto a minuto.
+                    </div>
+                    <div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest group-hover:text-amber-500/90 transition-colors">
+                        <span>Ver Reporte</span>
+                        <i class="fa-solid fa-arrow-right-long group-hover:translate-x-1 transition-transform"></i>
+                    </div>
                 </div>
             </a>
 
-            <a href="liquidaciones.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
-                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
-                <div class="flex justify-between items-start z-10 w-full pl-2">
-                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
-                         <i class="fas fa-money-check-alt"></i>
+            <!-- Planillas y Liquidaciones -->
+            <a href="liquidaciones.html" class="bg-slate-900/50 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between hover:-translate-y-2 hover:border-emerald-500/40 shadow-xl hover:shadow-[0_15px_30px_rgba(16,185,129,0.15)] hover:bg-slate-900/80 no-underline">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-800 to-transparent group-hover:via-emerald-500 transition-colors duration-500"></div>
+                <div class="relative z-10 h-full flex flex-col pt-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950 flex items-center justify-center text-[1.4rem] border border-slate-800 shadow-inner group-hover:border-emerald-500/30 group-hover:text-emerald-500 transition-all text-slate-400">
+                            <i class="fas fa-money-check-alt"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 group-hover:text-emerald-500 transition-colors">Hub Financiero</span>
                     </div>
-                    <!-- Badge Corporate -->
-                    <span class="px-3 py-1 bg-slate-950 border border-emerald-900 rounded-full text-[10px] font-bold text-emerald-500 uppercase tracking-widest shadow-inner">Hub Financiero</span>
-                </div>
-                <div class="z-10 pl-2">
-                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Planillas y Liquidaciones</div>
-                   <div class="text-slate-500 text-sm leading-relaxed">
-                       Cierre de mes. Emisión de boletas A4. Gestión de Adelantos de Sueldo y Bonificaciones/Descuentos manuales de libre concepto.
-                   </div>
+                    <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors leading-tight mb-3">Planillas y Liquidaciones</div>
+                    <div class="text-slate-500 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                        Cierre de mes. Emisión de boletas A4. Gestión de Adelantos de Sueldo y Bonificaciones/Descuentos manuales de libre concepto.
+                    </div>
+                    <div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest group-hover:text-emerald-500/90 transition-colors">
+                        <span>Gestionar Planillas</span>
+                        <i class="fa-solid fa-arrow-right-long group-hover:translate-x-1 transition-transform"></i>
+                    </div>
                 </div>
             </a>
 
@@ -318,51 +347,66 @@
         
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-            <a href="calendario_esperado_de_trabajadores.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
-                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
-                <div class="flex justify-between items-start z-10 w-full pl-2">
-                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
-                         <i class="fas fa-calendar-alt"></i>
+            <!-- Calendario Esperado -->
+            <a href="calendario_esperado_de_trabajadores.html" class="bg-slate-900/50 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between hover:-translate-y-2 hover:border-amber-500/40 shadow-xl hover:shadow-[0_15px_30px_rgba(245,158,11,0.15)] hover:bg-slate-900/80 no-underline">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-800 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="relative z-10 h-full flex flex-col pt-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950 flex items-center justify-center text-[1.4rem] border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 group-hover:text-amber-500 transition-colors">Programación</span>
                     </div>
-                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Programación</span>
-                </div>
-                <div class="z-10 pl-2">
-                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Calendario Esperado</div>
-                   <div class="text-slate-500 text-sm leading-relaxed">
-                       Define los días laborables, feriados y descansos de cada trabajador. Configura sus horarios meta de entrada, salida y almuerzo para calcular saldos del Banco de Horas.
-                   </div>
+                    <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors leading-tight mb-3">Calendario Esperado</div>
+                    <div class="text-slate-500 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                        Define los días laborables, feriados y descansos de cada trabajador. Configura sus horarios meta de entrada, salida y almuerzo para calcular saldos del Banco de Horas.
+                    </div>
+                    <div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest group-hover:text-amber-500/90 transition-colors">
+                        <span>Configurar Horarios</span>
+                        <i class="fa-solid fa-arrow-right-long group-hover:translate-x-1 transition-transform"></i>
+                    </div>
                 </div>
             </a>
 
-            <a href="padron_personal.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
-                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
-                <div class="flex justify-between items-start z-10 w-full pl-2">
-                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
-                         <i class="fas fa-users-cog"></i>
+            <!-- Padrón de Personal -->
+            <a href="padron_personal.html" class="bg-slate-900/50 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between hover:-translate-y-2 hover:border-amber-500/40 shadow-xl hover:shadow-[0_15px_30px_rgba(245,158,11,0.15)] hover:bg-slate-900/80 no-underline">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-800 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="relative z-10 h-full flex flex-col pt-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950 flex items-center justify-center text-[1.4rem] border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                            <i class="fas fa-users-cog"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 group-hover:text-amber-500 transition-colors">Base Maestra</span>
                     </div>
-                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Base Maestra</span>
-                </div>
-                <div class="z-10 pl-2">
-                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Padrón de Personal</div>
-                   <div class="text-slate-500 text-sm leading-relaxed">
-                       Registra nuevos trabajadores, asigna Funciones Clave, salarios base/KPI y establece políticas de horas.
-                   </div>
+                    <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors leading-tight mb-3">Padrón de Personal</div>
+                    <div class="text-slate-500 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                        Registra nuevos trabajadores, asigna Funciones Clave, salarios base/KPI y establece políticas de horas.
+                    </div>
+                    <div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest group-hover:text-amber-500/90 transition-colors">
+                        <span>Gestionar Padrón</span>
+                        <i class="fa-solid fa-arrow-right-long group-hover:translate-x-1 transition-transform"></i>
+                    </div>
                 </div>
             </a>
 
-            <a href="politicas_empresa.html" class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900/80 transition-all duration-300 cursor-pointer group flex flex-col gap-4 relative overflow-hidden shadow-xl hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(245,158,11,0.1)] h-full">
-                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-700 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
-                <div class="flex justify-between items-start z-10 w-full pl-2">
-                    <div class="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-xl border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
-                         <i class="fas fa-cogs"></i>
+            <!-- Políticas de la Empresa -->
+            <a href="politicas_empresa.html" class="bg-slate-900/50 backdrop-blur-xl rounded-[1.25rem] p-[1.5rem] transition-all duration-300 border border-slate-800 relative overflow-hidden group cursor-pointer h-full flex flex-col justify-between hover:-translate-y-2 hover:border-amber-500/40 shadow-xl hover:shadow-[0_15px_30px_rgba(245,158,11,0.15)] hover:bg-slate-900/80 no-underline">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-transparent via-slate-800 to-transparent group-hover:via-amber-500 transition-colors duration-500"></div>
+                <div class="relative z-10 h-full flex flex-col pt-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-12 h-12 shrink-0 rounded-xl bg-slate-950 flex items-center justify-center text-[1.4rem] border border-slate-800 shadow-inner group-hover:border-amber-500/30 group-hover:text-amber-500 transition-all text-slate-400">
+                            <i class="fas fa-cogs"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 group-hover:text-amber-500 transition-colors">Regulación Global</span>
                     </div>
-                    <span class="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-inner">Regulación Global</span>
-                </div>
-                <div class="z-10 pl-2">
-                   <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors mb-2">Políticas de la Empresa</div>
-                   <div class="text-slate-500 text-sm leading-relaxed">
-                       Ajusta reglas de tolerancia cero, escalas de penalización dura por tardanzas y tiempos esperados de almuerzo.
-                   </div>
+                    <div class="text-lg font-bold text-slate-200 group-hover:text-white transition-colors leading-tight mb-3">Políticas de la Empresa</div>
+                    <div class="text-slate-500 text-sm leading-relaxed mb-6 font-medium flex-grow">
+                        Ajusta reglas de tolerancia cero, escalas de penalización dura por tardanzas y tiempos esperados de almuerzo.
+                    </div>
+                    <div class="pt-4 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest group-hover:text-amber-500/90 transition-colors">
+                        <span>Ajustar Reglas</span>
+                        <i class="fa-solid fa-arrow-right-long group-hover:translate-x-1 transition-transform"></i>
+                    </div>
                 </div>
             </a>
 

@@ -854,27 +854,27 @@
             }
 
             // 2. Sumamos la matemática cronológica ÚNICAMENTE entre limiteInferiorMatematico y desdeLim
-            const {data:vC} = await window.supabaseClient.from('ventas').select('precio_venta_total').eq('empresa_id', currentEmpresaId).eq('estado', 'REGISTRADO').eq('condicion_pago', 'CONTADO').gte('fecha_recepcion_pago', limiteInferiorMatematico).lt('fecha_recepcion_pago', desdeLim);
-            (vC||[]).forEach(x => totalIn += Number(x.precio_venta_total));
-
             const dateLimite = limiteInferiorMatematico === '2000-01-01' ? '2000-01-01T05:00:00Z' : new Date(limiteInferiorMatematico + 'T00:00:00-05:00').toISOString();
             const isoDesdeLim = new Date(desdeLim + 'T00:00:00-05:00').toISOString();
 
-            const {data:vP} = await window.supabaseClient.from('ventas_credito_pagos').select('monto').eq('empresa_id', currentEmpresaId).eq('estado', 'PAGADO').gte('fecha_pago', dateLimite).lt('fecha_pago', isoDesdeLim);
+            const [
+                { data: vC },
+                { data: vP },
+                { data: cL },
+                { data: gL },
+                { data: mL }
+            ] = await Promise.all([
+                window.supabaseClient.from('ventas').select('precio_venta_total').eq('empresa_id', currentEmpresaId).eq('estado', 'REGISTRADO').eq('condicion_pago', 'CONTADO').gte('fecha_recepcion_pago', limiteInferiorMatematico).lt('fecha_recepcion_pago', desdeLim),
+                window.supabaseClient.from('ventas_credito_pagos').select('monto').eq('empresa_id', currentEmpresaId).eq('estado', 'PAGADO').gte('fecha_pago', dateLimite).lt('fecha_pago', isoDesdeLim),
+                window.supabaseClient.from('ingresos').select('egreso_real_pagado').eq('empresa_id', currentEmpresaId).in('estado', ['REGISTRADO', 'CONFIRMADO']).gte('fecha_pago', limiteInferiorMatematico).lt('fecha_pago', desdeLim),
+                window.supabaseClient.from('gastos_ingreso').select('precio_gasto, ingresos!inner(empresa_id, estado)').eq('ingresos.empresa_id', currentEmpresaId).in('ingresos.estado', ['REGISTRADO', 'CONFIRMADO']).gte('fecha_pago', limiteInferiorMatematico).lt('fecha_pago', desdeLim),
+                window.supabaseClient.from('fc_movimientos').select('monto, fc_fuentes_categorias!inner(tipo_movimiento)').eq('empresa_id', currentEmpresaId).eq('estado', 'APROBADO').gte('fecha_movimiento', limiteInferiorMatematico).lt('fecha_movimiento', desdeLim)
+            ]);
+
+            (vC||[]).forEach(x => totalIn += Number(x.precio_venta_total));
             (vP||[]).forEach(x => totalIn += Number(x.monto));
-
-            const {data:cL} = await window.supabaseClient.from('ingresos').select('egreso_real_pagado').eq('empresa_id', currentEmpresaId).in('estado', ['REGISTRADO', 'CONFIRMADO']).gte('fecha_pago', limiteInferiorMatematico).lt('fecha_pago', desdeLim);
-            (cL||[]).forEach(x => {
-                totalOut += Number(x.egreso_real_pagado || 0);
-            });
-
-            // Sumar Gastos Asociados con su propia fecha_pago
-            const {data: gL} = await window.supabaseClient.from('gastos_ingreso').select('precio_gasto, ingresos!inner(empresa_id, estado)').eq('ingresos.empresa_id', currentEmpresaId).in('ingresos.estado', ['REGISTRADO', 'CONFIRMADO']).gte('fecha_pago', limiteInferiorMatematico).lt('fecha_pago', desdeLim);
-            (gL||[]).forEach(x => {
-                totalOut += Number(x.precio_gasto || 0);
-            });
-
-            const {data:mL} = await window.supabaseClient.from('fc_movimientos').select('monto, fc_fuentes_categorias!inner(tipo_movimiento)').eq('empresa_id', currentEmpresaId).eq('estado', 'APROBADO').gte('fecha_movimiento', limiteInferiorMatematico).lt('fecha_movimiento', desdeLim);
+            (cL||[]).forEach(x => totalOut += Number(x.egreso_real_pagado || 0));
+            (gL||[]).forEach(x => totalOut += Number(x.precio_gasto || 0));
             (mL||[]).forEach(x => { if(x.fc_fuentes_categorias?.tipo_movimiento === 'INGRESO') totalIn += Number(x.monto); else totalOut += Number(x.monto); });
 
             return totalIn - totalOut;
@@ -904,18 +904,26 @@
                 let totIngreso = 0;
                 let totEgreso = 0;
 
-                // 0. CALCULAR SALDO INICIAL EXACTO MATEMÁTICAMENTE (Todo lo ocurrido antes de "desde")
-                const saldoInicial = await calcularSaldoApertura(desde);
+                // 0. DESCARGA CONCURRENTE DE DATOS
+                const [
+                    saldoInicial,
+                    { data: vtaContado },
+                    { data: cobrosCredito },
+                    { data: cmLogistica },
+                    { data: oeaList },
+                    { data: mf },
+                    { data: cDia }
+                ] = await Promise.all([
+                    calcularSaldoApertura(desde),
+                    window.supabaseClient.from('ventas').select('id, created_at, fecha_venta, fecha_recepcion_pago, numero_ticket, precio_venta_total, created_by').eq('empresa_id', currentEmpresaId).eq('estado', 'REGISTRADO').eq('condicion_pago', 'CONTADO').gte('fecha_recepcion_pago', desde).lte('fecha_recepcion_pago', hasta),
+                    window.supabaseClient.from('ventas_credito_pagos').select('id, created_at, fecha_pago, monto, created_by, ventas(numero_ticket, clientes(razon_social))').eq('empresa_id', currentEmpresaId).eq('estado', 'PAGADO').gte('fecha_pago', isoDesde).lte('fecha_pago', isoHasta),
+                    window.supabaseClient.from('ingresos').select('id, created_at, fecha_pago, numero_ingreso, egreso_real_pagado, forma_pago, created_by').eq('empresa_id', currentEmpresaId).in('estado', ['REGISTRADO', 'CONFIRMADO']).gte('fecha_pago', desde).lte('fecha_pago', hasta),
+                    window.supabaseClient.from('gastos_ingreso').select('id, created_at, fecha_pago, precio_gasto, descripcion, ingresos!inner(empresa_id, numero_ingreso, estado, created_by)').eq('ingresos.empresa_id', currentEmpresaId).in('ingresos.estado', ['REGISTRADO', 'CONFIRMADO']).gte('fecha_pago', desde).lte('fecha_pago', hasta),
+                    window.supabaseClient.from('fc_movimientos').select('id, created_at, fecha_movimiento, referencia, monto, categoria_id, codigo_correlativo, created_by, codigos_unicos(codigo, descripcion), fc_fuentes_categorias!inner(nombre, es_sistema, tipo_movimiento)').eq('empresa_id', currentEmpresaId).eq('estado', 'APROBADO').gte('fecha_movimiento', desde).lte('fecha_movimiento', hasta),
+                    window.supabaseClient.from('fc_saldos_diarios').select('saldo_bancos_declarado, estado_cuadre').eq('empresa_id', currentEmpresaId).eq('fecha', hasta).maybeSingle()
+                ]);
 
                 // 1. VENTAS CONTADO
-                const { data: vtaContado } = await window.supabaseClient.from('ventas')
-                    .select('id, created_at, fecha_venta, fecha_recepcion_pago, numero_ticket, precio_venta_total, created_by')
-                    .eq('empresa_id', currentEmpresaId)
-                    .eq('estado', 'REGISTRADO')
-                    .eq('condicion_pago', 'CONTADO')
-                    .gte('fecha_recepcion_pago', desde)
-                    .lte('fecha_recepcion_pago', hasta);
-                
                 let sumVtaContado = 0;
                 let detVtaContado = [];
                 (vtaContado || []).forEach(v => {
@@ -929,13 +937,6 @@
                 }
 
                 // 2. VENTAS CREDITO (COBROS/ADELANTOS)
-                const { data: cobrosCredito } = await window.supabaseClient.from('ventas_credito_pagos')
-                    .select('id, created_at, fecha_pago, monto, created_by, ventas(numero_ticket, clientes(razon_social))')
-                    .eq('empresa_id', currentEmpresaId)
-                    .eq('estado', 'PAGADO')
-                    .gte('fecha_pago', isoDesde)
-                    .lte('fecha_pago', isoHasta);
-
                 let sumCobrosCredito = 0;
                 let detCobrosCredito = [];
                 (cobrosCredito || []).forEach(v => {
@@ -952,13 +953,6 @@
                 }
 
                 // 3. COMPRAS LOGISTICA (CONTADO Y CRÉDITO)
-                const { data: cmLogistica } = await window.supabaseClient.from('ingresos')
-                    .select('id, created_at, fecha_pago, numero_ingreso, egreso_real_pagado, forma_pago, created_by') 
-                    .eq('empresa_id', currentEmpresaId)
-                    .in('estado', ['REGISTRADO', 'CONFIRMADO']) 
-                    .gte('fecha_pago', desde)
-                    .lte('fecha_pago', hasta);
-                
                 let sumComprasContado = 0;
                 let sumComprasCredito = 0;
                 let detComprasContado = [];
@@ -980,13 +974,6 @@
                 });
 
                 // 3.5 OTROS EGRESOS ASOCIADOS (OEA)
-                const { data: oeaList } = await window.supabaseClient.from('gastos_ingreso')
-                    .select('id, created_at, fecha_pago, precio_gasto, descripcion, ingresos!inner(empresa_id, numero_ingreso, estado, created_by)')
-                    .eq('ingresos.empresa_id', currentEmpresaId)
-                    .in('ingresos.estado', ['REGISTRADO', 'CONFIRMADO'])
-                    .gte('fecha_pago', desde)
-                    .lte('fecha_pago', hasta);
-
                 let sumOtrosEgresos = 0;
                 let detOtrosEgresos = [];
 
@@ -1016,13 +1003,6 @@
 
 
                 // 4. FC MOVIMIENTOS
-                const { data: mf } = await window.supabaseClient.from('fc_movimientos')
-                    .select('id, created_at, fecha_movimiento, referencia, monto, categoria_id, codigo_correlativo, created_by, codigos_unicos(codigo, descripcion), fc_fuentes_categorias!inner(nombre, es_sistema, tipo_movimiento)')
-                    .eq('empresa_id', currentEmpresaId)
-                    .eq('estado', 'APROBADO')
-                    .gte('fecha_movimiento', desde)
-                    .lte('fecha_movimiento', hasta);
-                
                 let agru = {};
                 (mf || []).forEach(m => {
                     const cNombre = m.fc_fuentes_categorias?.nombre || 'Categoría Genérica';
@@ -1063,7 +1043,6 @@
                 document.getElementById('ui-saldo-final').textContent = `S/ ${formatMoney(saldoFinal)}`;
 
                 // Validar si concuerda con lo auditado en FC_SALDOS_DIARIOS de "hasta" (Día final seleccionado)
-                const {data: cDia} = await window.supabaseClient.from('fc_saldos_diarios').select('saldo_bancos_declarado, estado_cuadre').eq('empresa_id', currentEmpresaId).eq('fecha', hasta).maybeSingle();
                 
                 const btnCuadrar = document.getElementById('btnCuadre');
                 const inpAuditoria = document.getElementById('inputAuditoria');
@@ -2096,22 +2075,37 @@
                     const celdaFecha = formatearCeldaFecha(mini.fecha);
                     
                     let refContent = mini.ref;
-                    let iconCopy = textToCopy => `<i class="fas fa-copy text-indigo-400 hover:text-indigo-600 cursor-pointer mx-1" onclick="navigator.clipboard.writeText('${textToCopy}'); Swal.fire({toast: true, position: 'top-end', icon: 'success', title: 'Copiado', showConfirmButton: false, timer: 1000})" title="Copiar"></i>`;
+                    let iconCopy = textToCopy => `<i class="fas fa-copy text-[10px] text-indigo-400 hover:text-indigo-600 cursor-pointer mx-1" onclick="navigator.clipboard.writeText('${textToCopy}'); Swal.fire({toast: true, position: 'top-end', icon: 'success', title: 'Copiado', showConfirmButton: false, timer: 1000})" title="Copiar"></i>`;
                     
                     let injectKardexLink = (text) => {
                         if (!text) return text;
                         return text.replace(/(INGRESO(?:-ITEMS)?-\d+-\d+)/g, (match) => {
-                            return `${match} <a href="kardex.html?autoOpen=${match}" target="_blank" class="ml-1 text-blue-500 hover:text-blue-700 transition-colors" title="Abrir comprobante en Kardex"><i class="fas fa-external-link-alt"></i></a>`;
+                            return `${match} <a href="kardex.html?autoOpen=${match}" target="_blank" class="mx-1 text-[10px] text-blue-500 hover:text-blue-700 transition-colors" title="Abrir comprobante en Kardex"><i class="fas fa-external-link-alt"></i></a>`;
                         });
+                    };
+
+                    let getKardexIconOnly = (text) => {
+                        if (!text) return '';
+                        const match = text.match(/(INGRESO(?:-ITEMS)?-\d+-\d+)/);
+                        if (match) {
+                            return `<a href="kardex.html?autoOpen=${match[0]}" target="_blank" class="mx-1 text-[10px] text-blue-500 hover:text-blue-700 transition-colors" title="Abrir comprobante en Kardex"><i class="fas fa-external-link-alt"></i></a>`;
+                        }
+                        return '';
                     };
                     
                     if (mini.correlativo) {
                         let spanAutor = mini.created_by ? `<span class="ml-2 font-normal text-slate-500 italic tracking-normal">Por: ${mini.created_by}</span>` : '';
-                        refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider mb-1 flex items-center">${injectKardexLink(mini.correlativo)}${iconCopy(mini.correlativo)}${spanAutor}</div>${injectKardexLink(mini.ref)}`;
+                        let iconInspect = '';
+                        if (mini.correlativo.startsWith('VAR_INGRESO_') || mini.correlativo.startsWith('VAR_EGRESO_')) {
+                            iconInspect = `<i class="fas fa-edit text-[10px] cursor-pointer text-amber-500 hover:text-amber-600 transition-colors mx-1" title="Inspeccionar Variante" onclick="Swal.close(); abrirModalInspeccionAdmin(); document.getElementById('inspeccion-codigo').value = '${mini.correlativo}'; buscarVarianteAdmin();"></i>`;
+                        }
+                        let iconKardex = getKardexIconOnly(mini.correlativo);
+                        refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider mb-1 flex items-center">${mini.correlativo}${iconCopy(mini.correlativo)}${iconKardex}${iconInspect}${spanAutor}</div>${injectKardexLink(mini.ref)}`;
                     } else {
                         let isCode = /^[A-Z0-9_-]+$/.test(mini.ref);
                         if (isCode) {
-                            refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider flex items-center">${injectKardexLink(mini.ref)}${iconCopy(mini.ref)}</div>`;
+                            let iconKardex = getKardexIconOnly(mini.ref);
+                            refContent = `<div class="font-bold text-[10px] text-slate-800 tracking-wider flex items-center">${mini.ref}${iconCopy(mini.ref)}${iconKardex}</div>`;
                         } else {
                             refContent = `<div>${injectKardexLink(mini.ref)}</div>`;
                         }

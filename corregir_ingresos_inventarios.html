@@ -2165,7 +2165,7 @@
                             operacionesEval.push({
                                 item_id: d.item_id,
                                 almacen_id: almacen,
-                                fecha_objetivo: fechaOriginal + 'T00:00:00Z',
+                                fecha_objetivo: fechaOriginal + 'T05:00:01Z', // Ajuste UTC-5 y tie-breaker
                                 delta_cantidad: -d.cantidad
                             });
                         });
@@ -2179,7 +2179,7 @@
                                 operacionesEval.push({
                                     item_id: viejo.item_id,
                                     almacen_id: almacen,
-                                    fecha_objetivo: fechaOriginal + 'T00:00:00Z',
+                                    fecha_objetivo: fechaOriginal + 'T05:00:01Z', // Ajuste UTC-5 y tie-breaker
                                     delta_cantidad: delta
                                 });
                             }

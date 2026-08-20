@@ -894,18 +894,36 @@
                         <span class="badge ${badgeClass}">${mov.tipo_movimiento}</span>
                     </td>
                     <td class="p-4 text-right font-mono font-medium ${isIngreso ? 'text-green-600' : 'text-red-600'}">
-                        ${signo}${parseFloat(mov.cantidad).toFixed(2)} ${mov.items?.unidad_medida || ''}
+                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.cantidad}', 'Cantidad')">
+                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                <i class="fas fa-copy text-gray-400 hover:text-gray-600"></i>
+                            </span>
+                            <span>${signo}${parseFloat(mov.cantidad).toFixed(2)} ${mov.items?.unidad_medida || ''}</span>
+                        </div>
                     </td>
                     <td class="p-4 text-right font-mono text-gray-600">
-                        S/ ${formatMoney(mov.costo_unitario)}
+                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.costo_unitario}', 'Costo Adq. Unitario')">
+                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                <i class="fas fa-copy text-gray-400 hover:text-gray-800"></i>
+                            </span>
+                            <span>S/ ${formatMoney(mov.costo_unitario)}</span>
+                        </div>
                     </td>
                     <td class="p-4 text-right font-mono font-medium text-gray-900">
-                        S/ ${formatMoney(mov.costo_total)}
+                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.costo_total}', 'Total')">
+                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                <i class="fas fa-copy text-gray-400 hover:text-gray-800"></i>
+                            </span>
+                            <span>S/ ${formatMoney(mov.costo_total)}</span>
+                        </div>
                     </td>
                     <td class="p-4 text-right font-mono font-bold text-blue-600" title="Saldo garantizado por FIFO BD">
-                        <span class="relative inline-block">
-                            ${parseFloat(saldoVisual || 0).toFixed(2)}
-                        </span>
+                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${saldoVisual}', 'Saldo')">
+                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                <i class="fas fa-copy text-gray-400 hover:text-blue-500"></i>
+                            </span>
+                            <span>${parseFloat(saldoVisual || 0).toFixed(2)}</span>
+                        </div>
                     </td>
                     <td class="p-4 text-right">
                         <div class="flex justify-end gap-2">
@@ -928,6 +946,22 @@
                 `;
                 tbody.appendChild(summaryRow);
 
+            }
+
+            function copiarValorExacto(valor, campo) {
+                navigator.clipboard.writeText(valor).then(() => {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: campo + ' exacto copiado: ' + valor,
+                        showConfirmButton: false,
+                        timer: 2000,
+                        timerProgressBar: true
+                    });
+                }).catch(err => {
+                    console.error('Error al copiar al portapapeles: ', err);
+                });
             }
 
             function updatePagination(totalItems, currentItemsCount) {

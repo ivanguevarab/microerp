@@ -50,7 +50,7 @@
                     subtitle: 'Consultas',
                     items: [
                         { label: 'Histórico de Ventas', url: 'registros_historicos_ventas.html' },
-                        { label: 'Inteligencia de Negocio', url: 'metricas_ventas.html' }
+                        { label: 'Métricas de Ventas', url: 'metricas_ventas.html' }
                     ]
                 },
                 {
@@ -75,7 +75,8 @@
                         { label: 'Items', url: 'items.html' },
                         { label: 'Ingresos', url: 'ingresos.html' },
                         { label: 'Egresos', url: 'egresos.html' },
-                        { label: 'Traslados', url: 'traslados.html' }
+                        { label: 'Traslados', url: 'traslados.html' },
+                        { label: 'Transformar', url: 'transformar.html' }
                     ]
                 },
                 {
@@ -128,6 +129,7 @@
             icon: 'fas fa-industry', // Icono de fábrica
             id: 'menu-produccion',
             url: 'gestion_produccion_y_servicios.html',
+            required_industry: true, // FILTRO DURO DE GIRO DE NEGOCIO
             defaultOpen: false,
             groups: [
                 {
@@ -229,10 +231,14 @@
         // PERMISOS GRANULARES Y ESPECIALIDADES
         let finalMenu = menuConfig;
         
-        // 1. Filtrado universal por Especialidades Contratadas (Aplica a TODOS, incluyendo ADMIN)
+        // 1. Filtrado universal por Especialidades Contratadas y Giro del Negocio (Aplica a TODOS, incluyendo ADMIN)
         const especialidadesEmpresa = (profileData && profileData.empresas && profileData.empresas.especialidades) ? profileData.empresas.especialidades : [];
+        const esIndustrial = (profileData && profileData.empresas && profileData.empresas.es_industrial === true);
         
         finalMenu = finalMenu.map(module => {
+            // Evaluacion de giro de negocio para cualquier módulo que lo requiera
+            if (module.required_industry && !esIndustrial) return null;
+
             if (module.type === 'link') {
                 if (module.required_specialty && !especialidadesEmpresa.includes(module.required_specialty)) return null;
                 return module;
@@ -533,7 +539,10 @@
             const icon = document.getElementById('icon-' + id);
             const parentDiv = content.previousElementSibling;
 
-            if (content.style.maxHeight || content.classList.contains('expanded')) {
+            // BugFix (Doble Clic): Nunca confiar en classList.contains('expanded') como único indicador, 
+            // ya que el JS de renderizado inicial (setTimeout) puede fallar al medir el scrollHeight (0)
+            // dejando el elemento "lógicamente" expandido pero "visualmente" cerrado (maxHeight ausente).
+            if (content.style.maxHeight && content.style.maxHeight !== '0px') {
                 content.style.maxHeight = null;
                 content.classList.remove('expanded');
                 icon.classList.remove('rotate-180', 'text-amber-500');
