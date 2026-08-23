@@ -97,7 +97,12 @@
 
                     <!-- Selectores Fechas (Ocultos por defecto) -->
                     <div id="contenedorFechas" class="hidden gap-2 items-center text-slate-300 text-sm font-bold">
-                        <span>Desde</span>
+                        <div class="flex items-center gap-1">
+                            <span>Desde</span>
+                            <button onclick="fijarDiaEspecifico()" title="Fijar la búsqueda únicamente en este día" class="text-[9px] bg-emerald-900/40 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/50 px-1.5 py-0.5 rounded transition-colors uppercase tracking-wider">
+                                Solo este día
+                            </button>
+                        </div>
                         <input type="date" id="fechaDesde" class="bg-slate-700 border-none text-white rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500 outline-none">
                         <span>Hasta</span>
                         <input type="date" id="fechaHasta" class="bg-slate-700 border-none text-white rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500 outline-none">
@@ -220,7 +225,7 @@
                                 <th>#</th>
                                 <th>Artículo / Servicio</th>
                                 <th>Tipo</th>
-                                <th class="text-right">Unidades</th>
+                                <th class="text-right">CANTIDAD</th>
                                 <th class="text-right text-blue-400">Ventas S/</th>
                                 <th class="text-right text-rose-400">Costos S/</th>
                                 <th class="text-right text-emerald-400">Margen S/</th>
@@ -297,6 +302,22 @@
             cargarDashboard();
         }
 
+        function fijarDiaEspecifico() {
+            const desde = document.getElementById('fechaDesde').value;
+            if (desde) {
+                document.getElementById('fechaHasta').value = desde;
+                cargarDashboard();
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Falta Fecha',
+                    text: 'Primero selecciona una fecha en "Desde" para poder igualarla.',
+                    background: '#1e293b', color: '#f8fafc',
+                    confirmButtonColor: '#10b981'
+                });
+            }
+        }
+
         function getFiltrosActuales() {
             const isRango = document.getElementById('toggleRango').checked;
             let desde, hasta;
@@ -354,7 +375,7 @@
                 if(errRank) throw errRank;
 
                 actualizarKPIsYGrafico(dataDiaria);
-                actualizarRanking(dataRanking);
+                await actualizarRanking(dataRanking);
 
                 Swal.close();
             } catch (error) {
@@ -445,13 +466,21 @@
             }
         }
 
-        function actualizarRanking(datos) {
+        async function actualizarRanking(datos) {
             const tbody = document.getElementById('rankingBody');
             tbody.innerHTML = '';
             
             if(!datos || datos.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="3" class="text-center py-8 text-slate-500"><i class="fas fa-inbox text-3xl mb-2 block"></i> No hay datos de rentabilidad para este periodo.</td></tr>';
                 return;
+            }
+
+            // Consultar unidades de medida reales
+            const itemIds = [...new Set(datos.filter(d => d.tipo_item === 'ITEMS').map(d => d.referencia_id))];
+            const unidadesMap = {};
+            if (itemIds.length > 0) {
+                const { data: itemsData } = await window.supabaseClient.from('items').select('id, unidad_medida').in('id', itemIds);
+                if (itemsData) itemsData.forEach(it => unidadesMap[it.id] = it.unidad_medida);
             }
 
             datos.forEach((d, idx) => {
@@ -461,13 +490,14 @@
                 else if(idx === 2) badgeClass = 'rank-3';
 
                 const marg = parseFloat(d.margen_contribucion);
+                const udm = d.tipo_item === 'ITEMS' ? (unidadesMap[d.referencia_id] || 'UND') : 'UND';
 
                 tbody.innerHTML += `
                     <tr>
                         <td><span class="ranking-badge ${badgeClass}">${idx+1}</span></td>
                         <td>
                             <div class="font-bold text-white">${d.nombre_item}</div>
-                            <div class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">${d.tipo_item} • ${d.cantidad_vendida} Unidades</div>
+                            <div class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">${d.tipo_item} • ${d.cantidad_vendida} ${udm}</div>
                         </td>
                         <td class="text-right font-bold text-emerald-400">
                             S/ ${marg.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}
@@ -523,17 +553,28 @@
                     return;
                 }
 
+                // Obtener unidades de medida (en bloques si son muchos)
+                const itemIds = [...new Set(data.filter(d => d.tipo_item === 'ITEMS').map(d => d.referencia_id))];
+                const unidadesMap = {};
+                for (let i = 0; i < itemIds.length; i += 100) {
+                    const chunk = itemIds.slice(i, i + 100);
+                    const { data: itemsData } = await window.supabaseClient.from('items').select('id, unidad_medida').in('id', chunk);
+                    if (itemsData) itemsData.forEach(it => unidadesMap[it.id] = it.unidad_medida);
+                }
+
                 let totalMargenAcumulado = 0;
 
                 data.forEach((d, idx) => {
                     const marg = parseFloat(d.margen_contribucion);
                     totalMargenAcumulado += marg;
+                    const udm = d.tipo_item === 'ITEMS' ? (unidadesMap[d.referencia_id] || 'UND') : 'UND';
+                    
                     tbody.innerHTML += `
                         <tr>
                             <td class="font-bold text-slate-500">${idx+1}</td>
                             <td class="font-bold text-white">${d.nombre_item}</td>
                             <td class="text-[10px] font-bold uppercase tracking-widest text-slate-500">${d.tipo_item}</td>
-                            <td class="text-right font-medium text-slate-300">${d.cantidad_vendida}</td>
+                            <td class="text-right font-medium text-slate-300">${d.cantidad_vendida} <span class="text-[9px] ml-0.5">${udm}</span></td>
                             <td class="text-right text-blue-400">S/ ${parseFloat(d.ventas_netas).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                             <td class="text-right text-rose-400">S/ ${parseFloat(d.costo_ventas).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                             <td class="text-right font-bold text-emerald-400">S/ ${marg.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>

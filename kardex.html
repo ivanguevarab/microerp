@@ -365,33 +365,42 @@
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <!-- Rango Fechas -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Desde</label>
-                    <input type="date" id="fechaDesde"
+                <div class="relative">
+                    <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                        Desde
+                        <button onclick="fijarDiaEspecifico()" title="Fijar la búsqueda únicamente en este día" class="ml-2 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 px-2.5 py-0.5 rounded border transition-colors">
+                            Solo este día
+                        </button>
+                    </label>
+                    <input type="date" id="fechaDesde" onchange="currentPage=1; cargarKardex()"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
-                    <input type="date" id="fechaHasta"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                </div>
-
-                <!-- Producto -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Item / Múltiples Códigos</label>
-                    <input type="text" id="busquedaProducto" placeholder="Buscar Item, Documento (o separar códigos por coma)..."
+                <div class="relative">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Hasta
+                    </label>
+                    <input type="date" id="fechaHasta" onchange="currentPage=1; cargarKardex()"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                 </div>
 
                 <!-- Tipo Movimiento -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Movimiento</label>
-                    <select id="tipoMovimiento"
+                    <select id="tipoMovimiento" onchange="currentPage=1; cargarKardex()"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <option value="">Todos</option>
                         <option value="INGRESO">Ingresos (Todos)</option>
                         <option value="EGRESO">Egresos (Todos)</option>
-                        <option value="INVENTARIO_INICIAL">Inventario Inicial</option>
+                        <option value="TRANSFORMACION">Transformaciones</option>
+                    </select>
+                </div>
+
+                <!-- Modo de Vista -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Modo de Vista</label>
+                    <select id="modoVista" onchange="cambioModoVista()" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="DETALLADO">Detallado (Por Item)</option>
+                        <option value="AGRUPADO">Agrupado (Por Documento)</option>
                     </select>
                 </div>
                 
@@ -407,11 +416,19 @@
                     </select>
                 </div>
             </div>
-            <div class="mt-4 flex justify-end">
-                <button onclick="currentPage=1; cargarKardex()"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
-                    Filtrar Resultados
-                </button>
+            
+            <div class="mt-4">
+                <!-- Producto / Buscador Ampliado -->
+                <div class="w-full">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Búsqueda Inteligente</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                        <input type="text" id="busquedaProducto" placeholder="Buscar item, documento, cliente, proveedor... o ingresa =Monto (ej. =150.50)" 
+                            class="w-full pl-10 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -619,11 +636,37 @@
                         tipo_movimiento: isIngreso ? 'INGRESO' : 'EGRESO',
                         documento_referencia: autoOpenRef,
                         fecha_movimiento: new Date().toISOString(),
-                        created_by: 'Sistema' // Fallback
+                        created_by: 'Sistema'
                     }));
-                    // Pequeño retraso para asegurar que los scripts y Supabase estén listos
                     setTimeout(() => abrirModalDetalles(mockedMov), 600);
                 }
+
+                // Buscador inteligente con debounce
+                let debounceTimer;
+                document.getElementById('busquedaProducto').addEventListener('input', function() {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        currentPage = 1;
+                        cargarKardex();
+                    }, 500);
+                });
+
+                // Cerrar modales con tecla ESC
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape' || event.key === 'Esc') {
+                        const modales = ['modalDetalles', 'modalEditar', 'modalEliminar'];
+                        modales.forEach(id => {
+                            const modal = document.getElementById(id);
+                            if (modal && !modal.classList.contains('hidden')) {
+                                cerrarModal(id);
+                            }
+                        });
+                        // También cerrar SweetAlerts si están abiertos
+                        if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+                            Swal.close();
+                        }
+                    }
+                });
 
                 // Event Listeners for Pagination
                 document.getElementById('btnPrev').addEventListener('click', () => {
@@ -638,6 +681,34 @@
                     cargarKardex();
                 });
             });
+
+            function fijarDiaEspecifico() {
+                const desde = document.getElementById('fechaDesde').value;
+                if (desde) {
+                    document.getElementById('fechaHasta').value = desde;
+                    currentPage = 1;
+                    cargarKardex();
+                } else {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Falta Fecha',
+                        text: 'Primero selecciona una fecha en "Desde" para poder igualarla.',
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                        color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                    });
+                }
+            }
+
+            function cambioModoVista() {
+                const modo = document.getElementById('modoVista').value;
+                if (modo === 'AGRUPADO') {
+                    document.getElementById('registrosPorPagina').value = "1000000"; // Todos para agrupar sin perder data
+                } else {
+                    document.getElementById('registrosPorPagina').value = "10";
+                }
+                currentPage = 1;
+                cargarKardex();
+            }
 
             async function cargarTiposMovimiento() {
                 try {
@@ -695,33 +766,158 @@
                 const tipoMovimiento = document.getElementById('tipoMovimiento').value;
 
                 let itemIds = [];
+                let docsEncontrados = [];
                 let busquedaActiva = false;
                 let esBusquedaMultiCodigo = false;
                 let terminosMultiCodigo = [];
+                let buscarMonto = null;
+                let buscarCantidad = null;
+                let queryRestantePre = "";
 
                 if (productoBusqueda) {
                     busquedaActiva = true;
+                    queryRestantePre = productoBusqueda;
                     
-                    const terminos = productoBusqueda.split(',').map(t => t.trim()).filter(t => t.length > 0);
-                    // Modo Multiproducto: Si hay más de un término y TODOS parecen códigos (empiezan con item- y no tienen espacios)
-                    const sonTodosCodigos = terminos.length > 1 && terminos.every(t => t.startsWith('item-') && !t.includes(' '));
-
-                    let itemsQueryBuilder = supabaseClient.from('items').select('id');
-
-                    if (sonTodosCodigos) {
-                        esBusquedaMultiCodigo = true;
-                        terminosMultiCodigo = terminos;
-                        
-                        const orQuery = terminos.map(t => `busqueda_vector.ilike.%${t}%`).join(',');
-                        itemsQueryBuilder = itemsQueryBuilder.or(orQuery).limit(200);
-                    } else {
-                        itemsQueryBuilder = itemsQueryBuilder.ilike('busqueda_vector', `%${productoBusqueda}%`).limit(50);
+                    const regexMonto = /=([\d.]+)/g;
+                    let matchMonto;
+                    while ((matchMonto = regexMonto.exec(productoBusqueda)) !== null) {
+                        const parsedNum = parseFloat(matchMonto[1]);
+                        if (!isNaN(parsedNum)) buscarMonto = parsedNum;
+                        queryRestantePre = queryRestantePre.replace(matchMonto[0], '');
                     }
+                    
+                    const regexCantidad = /#([\d.]+)/g;
+                    let matchCantidad;
+                    while ((matchCantidad = regexCantidad.exec(productoBusqueda)) !== null) {
+                        const parsedNum = parseFloat(matchCantidad[1]);
+                        if (!isNaN(parsedNum)) buscarCantidad = parsedNum;
+                        queryRestantePre = queryRestantePre.replace(matchCantidad[0], '');
+                    }
+                    
+                    queryRestantePre = queryRestantePre.trim();
+                    
+                    if (queryRestantePre.length > 0 || buscarMonto !== null || buscarCantidad !== null) {
+                        const terminos = queryRestantePre.split(',').map(t => t.trim()).filter(t => t.length > 0);
+                        // Modo Multiproducto: Si hay más de un término y TODOS parecen códigos
+                        const sonTodosCodigos = terminos.length > 1 && terminos.every(t => t.startsWith('item-') && !t.includes(' '));
 
-                    const { data: itemsFound, error: errorItems } = await itemsQueryBuilder;
+                        let itemsQueryBuilder = supabaseClient.from('items').select('id');
 
-                    if (errorItems) throw errorItems;
-                    if (itemsFound) itemIds = itemsFound.map(i => i.id);
+                        if (sonTodosCodigos) {
+                            esBusquedaMultiCodigo = true;
+                            terminosMultiCodigo = terminos;
+                            
+                            const orQuery = terminos.map(t => `busqueda_vector.ilike.%${t}%`).join(',');
+                            itemsQueryBuilder = itemsQueryBuilder.or(orQuery).limit(200);
+                        } else if (queryRestantePre.length > 0) {
+                            itemsQueryBuilder = itemsQueryBuilder.ilike('busqueda_vector', `%${queryRestantePre}%`).limit(50);
+                        }
+
+                        const { data: itemsFound, error: errorItems } = await itemsQueryBuilder;
+
+                        if (errorItems) throw errorItems;
+                        if (itemsFound) itemIds = itemsFound.map(i => i.id);
+                        
+                        // Si no es multi-codigo, ejecutamos el nuevo Compilador de Búsqueda Avanzada
+                        if (!sonTodosCodigos && queryRestantePre.length > 0) {
+                            // 1. Extraer bloques de exclusión -(...)
+                            const regexExclusiones = /-\(([^)]+)\)/g;
+                            let queryRestante = queryRestantePre;
+                            let matchEx;
+                            let exclusiones = [];
+                            while ((matchEx = regexExclusiones.exec(queryRestantePre)) !== null) {
+                                exclusiones.push(matchEx[1].trim());
+                                queryRestante = queryRestante.replace(matchEx[0], '');
+                            }
+
+                            // 2. Extraer bloques de alternativas +(...)
+                            const regexAlternativas = /\+\(([^)]+)\)/g;
+                            let matchAlt;
+                            let alternativas = [];
+                            while ((matchAlt = regexAlternativas.exec(queryRestantePre)) !== null) {
+                                alternativas.push(matchAlt[1].trim());
+                                queryRestante = queryRestante.replace(matchAlt[0], '');
+                            }
+
+                            // 3. Palabras principales (AND implícito)
+                            let principales = queryRestante.split(/\s+/).filter(t => t.length > 0);
+
+                            const resolveWordCondition = async (w) => {
+                                if (!w) return null;
+                                let orTerms = [];
+                                try {
+                                    const { data: items } = await supabaseClient.from('items').select('id').ilike('busqueda_vector', `%${w}%`).limit(50);
+                                    if (items && items.length > 0) orTerms.push(`item_id.in.(${items.map(i=>i.id).join(',')})`);
+                                    
+                                    let docs = [];
+                                    const { data: provs } = await supabaseClient.from('proveedores').select('id').ilike('razon_social', `%${w}%`).limit(20);
+                                    if (provs && provs.length > 0) {
+                                        const { data: ings } = await supabaseClient.from('ingresos').select('numero_ingreso').in('proveedor_id', provs.map(p=>p.id)).limit(100);
+                                        if (ings) docs.push(...ings.map(i=>i.numero_ingreso));
+                                    }
+                                    
+                                    const { data: clis } = await supabaseClient.from('clientes').select('id').ilike('razon_social', `%${w}%`).limit(20);
+                                    if (clis && clis.length > 0) {
+                                        const { data: vens } = await supabaseClient.from('ventas').select('numero_ticket').in('cliente_id', clis.map(c=>c.id)).limit(100);
+                                        if (vens && vens.length > 0) {
+                                            const tcks = vens.map(v=>v.numero_ticket);
+                                            const egrOr = tcks.map(t => `codigo_venta.eq.${t},observaciones.ilike.%${t}%`).join(',');
+                                            const { data: egrs } = await supabaseClient.from('egresos').select('numero_egreso').or(egrOr).limit(100);
+                                            if (egrs) docs.push(...egrs.map(e=>e.numero_egreso));
+                                        }
+                                    }
+                                    
+                                    const { data: tcks } = await supabaseClient.from('egresos').select('numero_egreso').or(`codigo_venta.ilike.%${w}%,observaciones.ilike.%${w}%`).limit(50);
+                                    if (tcks) docs.push(...tcks.map(e=>e.numero_egreso));
+                                    
+                                    const uniqueDocs = [...new Set(docs)];
+                                    if (uniqueDocs.length > 0) orTerms.push(`documento_referencia.in.(${uniqueDocs.slice(0,100).join(',')})`);
+                                } catch (e) { console.warn('Error silencioso en sub-busqueda:', e); }
+                                
+                                orTerms.push(`documento_referencia.ilike.%${w}%`);
+                                return `or(${orTerms.join(',')})`;
+                            };
+
+                            const compileBlock = async (blockStr) => {
+                                const words = blockStr.split(/\s+/).filter(w => w.length > 0);
+                                if (words.length === 0) return null;
+                                const conditions = await Promise.all(words.map(resolveWordCondition));
+                                const valid = conditions.filter(c => c);
+                                if (valid.length === 0) return null;
+                                if (valid.length === 1) return valid[0];
+                                return `and(${valid.join(',')})`;
+                            };
+
+                            const condPrincipal = await compileBlock(principales.join(' '));
+                            const condAlts = await Promise.all(alternativas.map(compileBlock));
+                            const condExcs = await Promise.all(exclusiones.map(compileBlock));
+
+                            let inclusionTerms = [];
+                            if (condPrincipal) inclusionTerms.push(condPrincipal);
+                            condAlts.filter(c => c).forEach(c => inclusionTerms.push(c));
+                            
+                            let inclusionQuery = null;
+                            if (inclusionTerms.length > 0) {
+                                if (inclusionTerms.length === 1) inclusionQuery = inclusionTerms[0];
+                                else inclusionQuery = `or(${inclusionTerms.join(',')})`;
+                            }
+
+                            window.advancedKardexQuery = null;
+                            let postgRestFilters = [];
+                            if (inclusionQuery) postgRestFilters.push(inclusionQuery);
+                            condExcs.filter(c => c).forEach(c => postgRestFilters.push(`not.${c}`));
+                            
+                            if (postgRestFilters.length > 0) {
+                                if (postgRestFilters.length === 1) {
+                                    window.advancedKardexQuery = postgRestFilters[0];
+                                } else {
+                                    window.advancedKardexQuery = `and(${postgRestFilters.join(',')})`;
+                                }
+                            } else {
+                                busquedaActiva = false;
+                            }
+                        }
+                    }
                 }
 
                 // Ajuste manual UTC-5 para timestamp without time zone
@@ -749,7 +945,9 @@
                     .order('id', { ascending: false });
 
                 // Filtro por Tipo de Movimiento
-                if (tipoMovimiento === 'INVENTARIO_INICIAL') {
+                if (tipoMovimiento === 'TRANSFORMACION') {
+                    query = query.ilike('motivo', '%Transformaci%');
+                } else if (tipoMovimiento === 'INVENTARIO_INICIAL') {
                     query = query.eq('tipo_movimiento', 'INGRESO').ilike('motivo', '%Inventario Inicial%');
                 } else if (tipoMovimiento.startsWith('TIPO_INGRESO:')) {
                     const motivoStr = tipoMovimiento.split(':')[1];
@@ -761,24 +959,32 @@
                     query = query.eq('tipo_movimiento', tipoMovimiento);
                 }
 
-                // Filtro Híbrido: (Item ID IN [...]) OR (Documento ILIKE %...%)
+                // Filtro Híbrido Avanzado
                 if (busquedaActiva) {
-                    let orConditions = [];
-                    
-                    if (esBusquedaMultiCodigo) {
-                        terminosMultiCodigo.forEach(t => {
-                            orConditions.push(`documento_referencia.ilike.%${t}%`);
-                        });
-                    } else {
-                        orConditions.push(`documento_referencia.ilike.%${productoBusqueda}%`);
+                    if (buscarMonto !== null) {
+                        query = query.eq('costo_total', buscarMonto);
                     }
-
-                    if (itemIds.length > 0) {
-                        orConditions.push(`item_id.in.(${itemIds.join(',')})`);
+                    if (buscarCantidad !== null) {
+                        // Busca la cantidad exacta, ya sea en positivo (Ingresos) o negativo (Egresos)
+                        query = query.or(`cantidad.eq.${buscarCantidad},cantidad.eq.-${buscarCantidad}`);
                     }
-                    
-                    if (orConditions.length > 0) {
-                        query = query.or(orConditions.join(','));
+                    if (queryRestantePre.length > 0) {
+                        if (esBusquedaMultiCodigo) {
+                            let orConditions = [];
+                            terminosMultiCodigo.forEach(t => {
+                                orConditions.push(`documento_referencia.ilike.%${t}%`);
+                            });
+                            if (itemIds.length > 0) {
+                                orConditions.push(`item_id.in.(${itemIds.join(',')})`);
+                            }
+                            if (orConditions.length > 0) {
+                                query = query.or(orConditions.join(','));
+                            }
+                        } else {
+                            if (window.advancedKardexQuery) {
+                                query = query.or(window.advancedKardexQuery);
+                            }
+                        }
                     }
                 }
 
@@ -825,14 +1031,43 @@
                 const tbody = document.getElementById('tablaKardex');
                 tbody.innerHTML = '';
                 let sumatoriaCostoTotal = 0;
+                
+                const modoVistaSelect = document.getElementById('modoVista');
+                const modoVista = modoVistaSelect ? modoVistaSelect.value : 'DETALLADO';
 
                 if (data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500">No se encontraron movimientos en este periodo.</td></tr>';
                     return;
                 }
+                
+                // Procesamiento para Agrupación
+                let dataARenderizar = data;
+                if (modoVista === 'AGRUPADO') {
+                    const agrupadosMap = new Map();
+                    data.forEach(mov => {
+                        const isIngreso = mov.tipo_movimiento === 'INGRESO';
+                        const ref = mov.documento_referencia || 'SIN_REFERENCIA';
+                        
+                        if (!agrupadosMap.has(ref)) {
+                            agrupadosMap.set(ref, {
+                                ...mov, // Clon superficial para base
+                                cantidad: parseFloat(mov.cantidad || 0),
+                                costo_total: parseFloat(mov.costo_total || 0),
+                                isIngresoGlobal: isIngreso,
+                                countItems: 1
+                            });
+                        } else {
+                            const docObj = agrupadosMap.get(ref);
+                            docObj.cantidad += parseFloat(mov.cantidad || 0);
+                            docObj.costo_total += parseFloat(mov.costo_total || 0);
+                            docObj.countItems++;
+                        }
+                    });
+                    dataARenderizar = Array.from(agrupadosMap.values());
+                }
 
-                data.forEach((mov, index) => {
-                    const isIngreso = mov.tipo_movimiento === 'INGRESO';
+                dataARenderizar.forEach((mov, index) => {
+                    const isIngreso = modoVista === 'AGRUPADO' ? mov.isIngresoGlobal : (mov.tipo_movimiento === 'INGRESO');
                     
                     const signoNum = isIngreso ? 1 : -1;
                     sumatoriaCostoTotal += parseFloat(mov.costo_total || 0) * signoNum;
@@ -847,24 +1082,16 @@
                     row.className = 'border-b border-gray-100 hover:bg-gray-50 transition-colors group';
 
                     // Formato de fecha UTC-5
-                    // Fix Timezone: Ensure date is treated as UTC if no offset provided
                     let fechaStr = mov.fecha_movimiento;
                     if (fechaStr && !fechaStr.includes('Z') && !fechaStr.includes('+') && !fechaStr.includes('-')) {
                         fechaStr += 'Z';
                     } else if (fechaStr && !fechaStr.includes('Z') && !fechaStr.includes('+') && fechaStr.includes('T')) {
-                        // Check for negative offset? No, ISO uses - for date separators too.
-                        // Safer: If it looks like YYYY-MM-DDTHH:MM:SS and no Z/+, assume UTC.
-                        // Actually, Supabase usually sends '2025-11-26T06:34:49'.
-                        // If we just append Z, it works for UTC timestamps.
                         if (fechaStr.split('-').length === 3 && fechaStr.includes('T') && !fechaStr.slice(10).includes('-')) {
                             fechaStr += 'Z';
                         }
                     }
 
-                    // Simplification: Just append Z if it doesn't end in Z and doesn't have a timezone offset (checking for + or - after the time part is hard with regex, but usually Supabase sends simple strings).
-                    // Let's try the simple approach:
                     const dateObj = new Date(fechaStr);
-
                     const fecha = dateObj.toLocaleString('es-PE', {
                         timeZone: 'America/Lima',
                         day: '2-digit', month: '2-digit', year: 'numeric',
@@ -880,59 +1107,99 @@
                         });
                     };
 
-                    // Delegación Absoluta a BD: El saldo visual es exactamente el saldo de BD garantizado por FIFO
-                    const saldoVisual = mov.stock_resultante;
-
-                    row.innerHTML = `
-                    <td class="p-4 text-gray-600">${fecha}</td>
-                    <td class="p-4 font-medium text-gray-900">${mov.items?.codigo || '-'}</td>
-                    <td class="p-4">
-                        <div class="font-medium text-gray-900">${mov.items?.descripcion || 'Producto desconocido'}</div>
-                        <div class="text-xs text-gray-500">${mov.documento_referencia || ''}</div>
-                    </td>
-                    <td class="p-4">
-                        <span class="badge ${badgeClass}">${mov.tipo_movimiento}</span>
-                    </td>
-                    <td class="p-4 text-right font-mono font-medium ${isIngreso ? 'text-green-600' : 'text-red-600'}">
-                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.cantidad}', 'Cantidad')">
-                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
-                                <i class="fas fa-copy text-gray-400 hover:text-gray-600"></i>
-                            </span>
-                            <span>${signo}${parseFloat(mov.cantidad).toFixed(2)} ${mov.items?.unidad_medida || ''}</span>
-                        </div>
-                    </td>
-                    <td class="p-4 text-right font-mono text-gray-600">
-                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.costo_unitario}', 'Costo Adq. Unitario')">
-                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
-                                <i class="fas fa-copy text-gray-400 hover:text-gray-800"></i>
-                            </span>
-                            <span>S/ ${formatMoney(mov.costo_unitario)}</span>
-                        </div>
-                    </td>
-                    <td class="p-4 text-right font-mono font-medium text-gray-900">
-                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.costo_total}', 'Total')">
-                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
-                                <i class="fas fa-copy text-gray-400 hover:text-gray-800"></i>
-                            </span>
-                            <span>S/ ${formatMoney(mov.costo_total)}</span>
-                        </div>
-                    </td>
-                    <td class="p-4 text-right font-mono font-bold text-blue-600" title="Saldo garantizado por FIFO BD">
-                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${saldoVisual}', 'Saldo')">
-                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
-                                <i class="fas fa-copy text-gray-400 hover:text-blue-500"></i>
-                            </span>
-                            <span>${parseFloat(saldoVisual || 0).toFixed(2)}</span>
-                        </div>
-                    </td>
-                    <td class="p-4 text-right">
-                        <div class="flex justify-end gap-2">
-                            <button onclick="abrirModalDetalles('${movData}')" class="btn-icon btn-view" title="Ver Detalles">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
+                    if (modoVista === 'AGRUPADO') {
+                        row.innerHTML = `
+                        <td class="p-4 text-gray-600">${fecha}</td>
+                        <td class="p-4 font-medium text-gray-400 text-center">-</td>
+                        <td class="p-4">
+                            <div class="font-bold text-indigo-700"><i class="fas fa-layer-group mr-1"></i> Consolidado de ${mov.countItems} ítem(s)</div>
+                            <div class="text-xs text-gray-500 font-bold mt-1">${mov.documento_referencia || 'Sin Referencia'}</div>
+                        </td>
+                        <td class="p-4">
+                            <span class="badge ${badgeClass}">${mov.tipo_movimiento}</span>
+                        </td>
+                        <td class="p-4 text-right font-mono font-medium ${isIngreso ? 'text-green-600' : 'text-red-600'}">
+                            <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.cantidad}', 'Cantidad Consolidada')">
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                    <i class="fas fa-copy text-gray-400 hover:text-gray-600"></i>
+                                </span>
+                                <span>${signo}${parseFloat(mov.cantidad).toFixed(2)}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-right font-mono text-gray-400 text-center">-</td>
+                        <td class="p-4 text-right font-mono font-bold text-gray-900">
+                            <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.costo_total}', 'Total Consolidado')">
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                    <i class="fas fa-copy text-gray-400 hover:text-gray-800"></i>
+                                </span>
+                                <span>S/ ${formatMoney(mov.costo_total)}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-right font-mono text-gray-400 text-center">-</td>
+                        <td class="p-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button onclick="abrirModalDetalles('${movData}')" class="btn-icon btn-view" title="Ver Detalles del Documento">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                        `;
+                    } else {
+                        // Delegación Absoluta a BD: El saldo visual es exactamente el saldo de BD garantizado por FIFO
+                        const saldoVisual = mov.stock_resultante;
+                        
+                        row.innerHTML = `
+                        <td class="p-4 text-gray-600">${fecha}</td>
+                        <td class="p-4 font-medium text-gray-900">${mov.items?.codigo || '-'}</td>
+                        <td class="p-4">
+                            <div class="font-medium text-gray-900">${mov.items?.descripcion || 'Producto desconocido'}</div>
+                            <div class="text-xs text-gray-500">${mov.documento_referencia || ''}</div>
+                        </td>
+                        <td class="p-4">
+                            <span class="badge ${badgeClass}">${mov.tipo_movimiento}</span>
+                        </td>
+                        <td class="p-4 text-right font-mono font-medium ${isIngreso ? 'text-green-600' : 'text-red-600'}">
+                            <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.cantidad}', 'Cantidad')">
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                    <i class="fas fa-copy text-gray-400 hover:text-gray-600"></i>
+                                </span>
+                                <span>${signo}${parseFloat(mov.cantidad).toFixed(2)} ${mov.items?.unidad_medida || ''}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-right font-mono text-gray-600">
+                            <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.costo_unitario}', 'Costo Adq. Unitario')">
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                    <i class="fas fa-copy text-gray-400 hover:text-gray-800"></i>
+                                </span>
+                                <span>S/ ${formatMoney(mov.costo_unitario)}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-right font-mono font-medium text-gray-900">
+                            <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.costo_total}', 'Total')">
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                    <i class="fas fa-copy text-gray-400 hover:text-gray-800"></i>
+                                </span>
+                                <span>S/ ${formatMoney(mov.costo_total)}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-right font-mono font-bold text-blue-600" title="Saldo garantizado por FIFO BD">
+                            <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${saldoVisual}', 'Saldo')">
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                    <i class="fas fa-copy text-gray-400 hover:text-blue-500"></i>
+                                </span>
+                                <span>${parseFloat(saldoVisual || 0).toFixed(2)}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button onclick="abrirModalDetalles('${movData}')" class="btn-icon btn-view" title="Ver Detalles">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    }
+                    
                     tbody.appendChild(row);
                 });
 
@@ -1239,8 +1506,8 @@
                 console.log('Ingreso Data:', ingreso); // DEBUG
                 if (!ingreso) throw new Error('Ingreso no encontrado');
 
-                // 2. Fetch Items
-                const { data: items, error: errItems } = await supabaseClient
+                // Ejecución en paralelo de todas las subconsultas dependientes
+                const pItems = supabaseClient
                     .from('ingresos_detalle')
                     .select(`
                     *,
@@ -1248,28 +1515,33 @@
                 `)
                     .eq('ingreso_id', ingreso.id);
 
-                if (errItems) throw errItems;
-
-                // 3. Fetch Gastos
-                const { data: gastos, error: errGastos } = await supabaseClient
+                const pGastos = supabaseClient
                     .from('gastos_ingreso')
                     .select('*')
                     .eq('ingreso_id', ingreso.id);
 
-                if (errGastos) throw errGastos;
-
-                // 4. Fetch Amortizaciones (si es crédito)
-                let amortizaciones = [];
-                if (ingreso.forma_pago === 'CREDITO') {
-                    const { data: amortData, error: errAmort } = await window.supabaseClient
+                const pAmort = ingreso.forma_pago === 'CREDITO' 
+                    ? window.supabaseClient
                         .from('ingresos_credito_pagos')
                         .select('*')
                         .eq('ingreso_id', ingreso.id)
                         .eq('estado', 'PAGADO')
-                        .order('fecha_pago', { ascending: true });
-                    
-                    if (errAmort) console.error('Error fetching amortizaciones:', errAmort);
-                    if (amortData) amortizaciones = amortData;
+                        .order('fecha_pago', { ascending: true })
+                    : Promise.resolve({ data: [] });
+
+                const [resItems, resGastos, resAmort] = await Promise.all([pItems, pGastos, pAmort]);
+
+                if (resItems.error) throw resItems.error;
+                if (resGastos.error) throw resGastos.error;
+
+                const items = resItems.data || [];
+                const gastos = resGastos.data || [];
+                let amortizaciones = [];
+                
+                if (resAmort.error) {
+                    console.error('Error fetching amortizaciones:', resAmort.error);
+                } else if (resAmort.data) {
+                    amortizaciones = resAmort.data;
                 }
 
                 // ACTIVAR BOTÓN EDICIÓN
@@ -1582,6 +1854,34 @@
 
                 const fechaSalida = formatDateSafe(egreso.fecha_egreso);
 
+                // Extraer el nombre del cliente desde la venta si corresponde
+                let nombreCliente = '-';
+                
+                // Retrocompatibilidad: El ticket puede estar en codigo_venta o incrustado en observaciones
+                let ticketRef = egreso.codigo_venta;
+                if (!ticketRef && egreso.observaciones && egreso.observaciones.includes('VENTA_REF:')) {
+                    const match = egreso.observaciones.match(/VENTA_REF:(TCK-\d+-\d+)/);
+                    if (match) ticketRef = match[1];
+                }
+
+                if (ticketRef) {
+                    try {
+                        const { data: ventaData } = await supabaseClient
+                            .from('ventas')
+                            .select('cliente_id, clientes(razon_social)')
+                            .eq('numero_ticket', ticketRef)
+                            .maybeSingle();
+                            
+                        if (ventaData && ventaData.clientes) {
+                            nombreCliente = ventaData.clientes.razon_social;
+                        } else if (ventaData && !ventaData.clientes) {
+                            nombreCliente = 'Cliente NN / Sin Registrar';
+                        }
+                    } catch(e) {
+                        console.warn('No se pudo cargar el cliente de la venta', e);
+                    }
+                }
+
                 let html = `
                 <div class="space-y-8">
                     <!-- Datos Generales -->
@@ -1593,7 +1893,8 @@
                             <div><p class="text-xs text-gray-500 uppercase">Almacén de Origen</p><p class="font-medium">${egreso.almacenes?.nombre || '-'}</p></div>
                             <div><p class="text-xs text-gray-500 uppercase">Tipo de Egreso</p><p class="font-medium">${egreso.tipos_egresos?.nombre || '-'}</p></div>
                             <div><p class="text-xs text-gray-500 uppercase">Fecha de Salida</p><p class="font-medium">${fechaSalida}</p></div>
-                            <div><p class="text-xs text-gray-500 uppercase">Código Venta</p><p class="font-medium">${egreso.codigo_venta || '-'}</p></div>
+                            <div><p class="text-xs text-gray-500 uppercase">Código Venta</p><p class="font-medium">${ticketRef || '-'}</p></div>
+                            <div class="md:col-span-2 bg-white p-3 rounded-lg border border-gray-100 shadow-sm"><p class="text-xs text-gray-500 uppercase mb-1">Cliente</p><p class="font-bold text-blue-800 text-base">${nombreCliente}</p></div>
                             <div class="md:col-span-2"><p class="text-xs text-gray-500 uppercase">Observaciones</p><p class="font-medium text-gray-800">${egreso.observaciones || '-'}</p></div>
                         </div>
                     </section>
