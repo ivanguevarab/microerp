@@ -362,7 +362,12 @@
         </div>
 
         <!-- Filters -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 relative">
+            <!-- Botón Fijar Configuración (Absoluto) -->
+            <button onclick="toggleFijarConfig()" id="btnFijarConfig" title="Recordar esta configuración" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-base bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shadow-sm z-10 cursor-pointer">
+                <span class="opacity-60 transition-opacity" id="iconFijarConfig">📌</span>
+            </button>
+            
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <!-- Rango Fechas -->
                 <div class="relative">
@@ -614,17 +619,30 @@
             // CARGA INICIAL Y FILTROS
             // ==========================================
 
-            document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('DOMContentLoaded', async () => {
+                document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                
+                await cargarTiposMovimiento();
+                
                 // Set default dates (current month)
                 const date = new Date();
                 const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
                 const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-                document.getElementById('fechaDesde').valueAsDate = firstDay;
-                document.getElementById('fechaHasta').valueAsDate = lastDay;
-                document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                if (localStorage.getItem('kardex_remember') === 'true') {
+                    document.getElementById('fechaDesde').value = localStorage.getItem('kardex_fechaDesde') || firstDay.toISOString().split('T')[0];
+                    document.getElementById('fechaHasta').value = localStorage.getItem('kardex_fechaHasta') || lastDay.toISOString().split('T')[0];
+                    document.getElementById('tipoMovimiento').value = localStorage.getItem('kardex_tipoMovimiento') || '';
+                    document.getElementById('modoVista').value = localStorage.getItem('kardex_modoVista') || 'DETALLADO';
+                    document.getElementById('registrosPorPagina').value = localStorage.getItem('kardex_registrosPorPagina') || '10';
+                    document.getElementById('busquedaProducto').value = localStorage.getItem('kardex_busquedaProducto') || '';
+                    actualizarUiBotonFijar(true);
+                } else {
+                    document.getElementById('fechaDesde').valueAsDate = firstDay;
+                    document.getElementById('fechaHasta').valueAsDate = lastDay;
+                    actualizarUiBotonFijar(false);
+                }
 
-                cargarTiposMovimiento();
                 cargarKardex();
 
                 // Interceptar parámetro de auto-apertura desde Flujo de Caja
@@ -681,6 +699,48 @@
                     cargarKardex();
                 });
             });
+
+            function actualizarUiBotonFijar(activo) {
+                const btn = document.getElementById('btnFijarConfig');
+                const icon = document.getElementById('iconFijarConfig');
+                if (!btn) return;
+                
+                if (activo) {
+                    btn.className = 'absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-base bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-700 transition-colors shadow-sm z-10 cursor-pointer';
+                    if (icon) icon.className = 'opacity-100 transition-opacity';
+                } else {
+                    btn.className = 'absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-base bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shadow-sm z-10 cursor-pointer';
+                    if (icon) icon.className = 'opacity-60 transition-opacity';
+                }
+            }
+
+            function toggleFijarConfig() {
+                const activoActualmente = localStorage.getItem('kardex_remember') === 'true';
+                if (activoActualmente) {
+                    localStorage.setItem('kardex_remember', 'false');
+                    localStorage.removeItem('kardex_fechaDesde');
+                    localStorage.removeItem('kardex_fechaHasta');
+                    localStorage.removeItem('kardex_tipoMovimiento');
+                    localStorage.removeItem('kardex_modoVista');
+                    localStorage.removeItem('kardex_registrosPorPagina');
+                    localStorage.removeItem('kardex_busquedaProducto');
+                    actualizarUiBotonFijar(false);
+                } else {
+                    localStorage.setItem('kardex_remember', 'true');
+                    guardarConfiguracionFiltros();
+                    actualizarUiBotonFijar(true);
+                }
+            }
+
+            function guardarConfiguracionFiltros() {
+                if (localStorage.getItem('kardex_remember') !== 'true') return;
+                localStorage.setItem('kardex_fechaDesde', document.getElementById('fechaDesde').value);
+                localStorage.setItem('kardex_fechaHasta', document.getElementById('fechaHasta').value);
+                localStorage.setItem('kardex_tipoMovimiento', document.getElementById('tipoMovimiento').value);
+                localStorage.setItem('kardex_modoVista', document.getElementById('modoVista').value);
+                localStorage.setItem('kardex_registrosPorPagina', document.getElementById('registrosPorPagina').value);
+                localStorage.setItem('kardex_busquedaProducto', document.getElementById('busquedaProducto').value);
+            }
 
             function fijarDiaEspecifico() {
                 const desde = document.getElementById('fechaDesde').value;
@@ -1019,6 +1079,7 @@
             }
 
             async function cargarKardex() {
+                guardarConfiguracionFiltros();
                 const tbody = document.getElementById('tablaKardex');
                 tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando movimientos...</td></tr>';
                 pageSize = parseInt(document.getElementById('registrosPorPagina').value) || 10;
