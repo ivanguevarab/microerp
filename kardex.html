@@ -769,9 +769,10 @@
                 let docsEncontrados = [];
                 let busquedaActiva = false;
                 let esBusquedaMultiCodigo = false;
-                let terminosMultiCodigo = [];
                 let buscarMonto = null;
+                let buscarMontoStr = null;
                 let buscarCantidad = null;
+                let buscarCantidadStr = null;
                 let queryRestantePre = "";
 
                 if (productoBusqueda) {
@@ -782,7 +783,10 @@
                     let matchMonto;
                     while ((matchMonto = regexMonto.exec(productoBusqueda)) !== null) {
                         const parsedNum = parseFloat(matchMonto[1]);
-                        if (!isNaN(parsedNum)) buscarMonto = parsedNum;
+                        if (!isNaN(parsedNum)) {
+                            buscarMonto = parsedNum;
+                            buscarMontoStr = matchMonto[1];
+                        }
                         queryRestantePre = queryRestantePre.replace(matchMonto[0], '');
                     }
                     
@@ -790,7 +794,10 @@
                     let matchCantidad;
                     while ((matchCantidad = regexCantidad.exec(productoBusqueda)) !== null) {
                         const parsedNum = parseFloat(matchCantidad[1]);
-                        if (!isNaN(parsedNum)) buscarCantidad = parsedNum;
+                        if (!isNaN(parsedNum)) {
+                            buscarCantidad = parsedNum;
+                            buscarCantidadStr = matchCantidad[1];
+                        }
                         queryRestantePre = queryRestantePre.replace(matchCantidad[0], '');
                     }
                     
@@ -845,36 +852,41 @@
                             const resolveWordCondition = async (w) => {
                                 if (!w) return null;
                                 let orTerms = [];
+                                
+                                // Escudo de Tildes (Comodín de Vocales SQL)
+                                // Reemplaza todas las vocales por el comodín "_" para que "ilike" ignore acentos nativamente
+                                const wWild = w.replace(/[aeiou]/gi, '_');
+
                                 try {
                                     const { data: items } = await supabaseClient.from('items').select('id').ilike('busqueda_vector', `%${w}%`).limit(50);
                                     if (items && items.length > 0) orTerms.push(`item_id.in.(${items.map(i=>i.id).join(',')})`);
                                     
                                     let docs = [];
-                                    const { data: provs } = await supabaseClient.from('proveedores').select('id').ilike('razon_social', `%${w}%`).limit(20);
+                                    const { data: provs } = await supabaseClient.from('proveedores').select('id').ilike('razon_social', `%${wWild}%`).limit(20);
                                     if (provs && provs.length > 0) {
                                         const { data: ings } = await supabaseClient.from('ingresos').select('numero_ingreso').in('proveedor_id', provs.map(p=>p.id)).limit(100);
                                         if (ings) docs.push(...ings.map(i=>i.numero_ingreso));
                                     }
                                     
-                                    const { data: clis } = await supabaseClient.from('clientes').select('id').ilike('razon_social', `%${w}%`).limit(20);
+                                    const { data: clis } = await supabaseClient.from('clientes').select('id').ilike('razon_social', `%${wWild}%`).limit(20);
                                     if (clis && clis.length > 0) {
                                         const { data: vens } = await supabaseClient.from('ventas').select('numero_ticket').in('cliente_id', clis.map(c=>c.id)).limit(100);
                                         if (vens && vens.length > 0) {
                                             const tcks = vens.map(v=>v.numero_ticket);
-                                            const egrOr = tcks.map(t => `codigo_venta.eq.${t},observaciones.ilike.%${t}%`).join(',');
+                                            const egrOr = tcks.map(t => `codigo_venta.eq.${t},observaciones.ilike.%${wWild}%`).join(',');
                                             const { data: egrs } = await supabaseClient.from('egresos').select('numero_egreso').or(egrOr).limit(100);
                                             if (egrs) docs.push(...egrs.map(e=>e.numero_egreso));
                                         }
                                     }
                                     
-                                    const { data: tcks } = await supabaseClient.from('egresos').select('numero_egreso').or(`codigo_venta.ilike.%${w}%,observaciones.ilike.%${w}%`).limit(50);
+                                    const { data: tcks } = await supabaseClient.from('egresos').select('numero_egreso').or(`codigo_venta.ilike.%${wWild}%,observaciones.ilike.%${wWild}%`).limit(50);
                                     if (tcks) docs.push(...tcks.map(e=>e.numero_egreso));
                                     
                                     const uniqueDocs = [...new Set(docs)];
                                     if (uniqueDocs.length > 0) orTerms.push(`documento_referencia.in.(${uniqueDocs.slice(0,100).join(',')})`);
                                 } catch (e) { console.warn('Error silencioso en sub-busqueda:', e); }
                                 
-                                orTerms.push(`documento_referencia.ilike.%${w}%`);
+                                orTerms.push(`documento_referencia.ilike.%${wWild}%`);
                                 return `or(${orTerms.join(',')})`;
                             };
 
@@ -961,12 +973,26 @@
 
                 // Filtro Híbrido Avanzado
                 if (busquedaActiva) {
-                    if (buscarMonto !== null) {
-                        query = query.eq('costo_total', buscarMonto);
-                    }
-                    if (buscarCantidad !== null) {
-                        // Busca la cantidad exacta, ya sea en positivo (Ingresos) o negativo (Egresos)
-                        query = query.or(`cantidad.eq.${buscarCantidad},cantidad.eq.-${buscarCantidad}`);
+                    const modoVistaActual = document.getElementById('modoVista').value;
+                    if (modoVistaActual !== 'AGRUPADO') {
+                        if (buscarMontoStr !== null) {
+                            const min = parseFloat(buscarMontoStr);
+                            let max = min + 1;
+                            if (buscarMontoStr.includes('.')) {
+                                const decimals = buscarMontoStr.split('.')[1].length;
+                                max = min + Math.pow(10, -decimals);
+                            }
+                            query = query.or(`and(costo_total.gte.${min},costo_total.lt.${max}),and(costo_total.lte.-${min},costo_total.gt.-${max})`);
+                        }
+                        if (buscarCantidadStr !== null) {
+                            const min = parseFloat(buscarCantidadStr);
+                            let max = min + 1;
+                            if (buscarCantidadStr.includes('.')) {
+                                const decimals = buscarCantidadStr.split('.')[1].length;
+                                max = min + Math.pow(10, -decimals);
+                            }
+                            query = query.or(`and(cantidad.gte.${min},cantidad.lt.${max}),and(cantidad.lte.-${min},cantidad.gt.-${max})`);
+                        }
                     }
                     if (queryRestantePre.length > 0) {
                         if (esBusquedaMultiCodigo) {
@@ -1027,7 +1053,75 @@
                 }
             }
 
+            function aplicarFiltrosConsolidados(dataRows) {
+                const modoVista = document.getElementById('modoVista').value;
+                if (modoVista !== 'AGRUPADO') return dataRows;
+
+                const productoBusqueda = normalizarTexto(document.getElementById('busquedaProducto').value);
+                if (!productoBusqueda) return dataRows;
+
+                let bMontoStr = null;
+                let bCantStr = null;
+                
+                const regexMonto = /=([\d.]+)/g;
+                let matchMonto;
+                while ((matchMonto = regexMonto.exec(productoBusqueda)) !== null) {
+                    bMontoStr = matchMonto[1];
+                }
+                
+                const regexCantidad = /#([\d.]+)/g;
+                let matchCantidad;
+                while ((matchCantidad = regexCantidad.exec(productoBusqueda)) !== null) {
+                    bCantStr = matchCantidad[1];
+                }
+                
+                if (bMontoStr === null && bCantStr === null) return dataRows;
+
+                // 1. Agrupar la data para hallar las sumatorias por documento
+                const agrupadosMap = new Map();
+                dataRows.forEach(mov => {
+                    const ref = mov.documento_referencia || 'SIN_REFERENCIA';
+                    if (!agrupadosMap.has(ref)) {
+                        agrupadosMap.set(ref, {
+                            cantidad: parseFloat(mov.cantidad || 0),
+                            costo_total: parseFloat(mov.costo_total || 0)
+                        });
+                    } else {
+                        const docObj = agrupadosMap.get(ref);
+                        docObj.cantidad += parseFloat(mov.cantidad || 0);
+                        docObj.costo_total += parseFloat(mov.costo_total || 0);
+                    }
+                });
+
+                // 2. Encontrar referencias válidas
+                const validRefs = new Set();
+                agrupadosMap.forEach((doc, ref) => {
+                    let match = true;
+                    if (bMontoStr !== null) {
+                        const absTotalStr = Math.abs(doc.costo_total).toFixed(2);
+                        if (!absTotalStr.startsWith(bMontoStr)) {
+                            match = false;
+                        }
+                    }
+                    if (bCantStr !== null && match) {
+                        const absCantStr = Math.abs(doc.cantidad).toFixed(2);
+                        if (!absCantStr.startsWith(bCantStr)) {
+                            match = false;
+                        }
+                    }
+                    if (match) {
+                        validRefs.add(ref);
+                    }
+                });
+
+                // 3. Filtrar la data original (items detallados que pertenecen a documentos válidos)
+                return dataRows.filter(mov => validRefs.has(mov.documento_referencia || 'SIN_REFERENCIA'));
+            }
+
             function renderTabla(data) {
+                // Aplicar filtrado cruzado post-agrupación si corresponde
+                data = aplicarFiltrosConsolidados(data);
+
                 const tbody = document.getElementById('tablaKardex');
                 tbody.innerHTML = '';
                 let sumatoriaCostoTotal = 0;
@@ -1036,7 +1130,7 @@
                 const modoVista = modoVistaSelect ? modoVistaSelect.value : 'DETALLADO';
 
                 if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500">No se encontraron movimientos en este periodo.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500">No se encontraron movimientos en este periodo para esta búsqueda.</td></tr>';
                     return;
                 }
                 
@@ -1252,9 +1346,15 @@
                     const { queryBuilder } = await construirQueryBaseKardex();
                     let query = queryBuilder;
                     query = query.limit(5000);
-                    const { data: kardexRows, error } = await query;
+                    let { data: kardexRows, error } = await query;
                     
                     if (error) throw error;
+                    
+                    // Aplicar filtrado cruzado post-agrupación para el reporte Excel
+                    if (kardexRows) {
+                        kardexRows = aplicarFiltrosConsolidados(kardexRows);
+                    }
+
                     if (!kardexRows || kardexRows.length === 0) {
                         Swal.fire('Atención', 'No hay registros en esta selección para exportar.', 'warning');
                         return;
