@@ -443,9 +443,9 @@
                             <th class="p-4 border-b border-gray-200">Item</th>
                             <th class="p-4 border-b border-gray-200">Movimiento</th>
                             <th class="p-4 border-b border-gray-200 text-right">Cantidad</th>
-                            <th class="p-4 border-b border-gray-200 text-right">COSTO ADQ. UNIT.</th>
+                            <th id="thCostoUnitario" class="p-4 border-b border-gray-200 text-right">COSTO ADQ. UNIT.</th>
                             <th class="p-4 border-b border-gray-200 text-right">TOTAL</th>
-                            <th class="p-4 border-b border-gray-200 text-right">SALDO</th>
+                            <th id="thSaldo" class="p-4 border-b border-gray-200 text-right">SALDO</th>
                             <th class="p-4 border-b border-gray-200 text-right">ACCIONES</th>
                         </tr>
                     </thead>
@@ -1044,6 +1044,35 @@
                     console.log("Datos recibidos:", data);
                     console.log("Total registros:", count);
 
+                    const modoVistaActual = document.getElementById('modoVista').value;
+                    const tipoMovimientoActual = document.getElementById('tipoMovimiento').value;
+
+                    if (data && data.length > 0 && modoVistaActual === 'AGRUPADO' && tipoMovimientoActual === 'TIPO_INGRESO:Compras') {
+                        const refs = [...new Set(data.map(m => m.documento_referencia).filter(Boolean))];
+                        if (refs.length > 0) {
+                            const { data: ingresosMetas, error: errIng } = await supabaseClient
+                                .from('ingresos')
+                                .select('numero_ingreso, forma_pago, proveedores(razon_social)')
+                                .in('numero_ingreso', refs);
+                            
+                            if (!errIng && ingresosMetas) {
+                                const metaMap = {};
+                                ingresosMetas.forEach(i => {
+                                    metaMap[i.numero_ingreso] = {
+                                        forma_pago: i.forma_pago,
+                                        proveedor: i.proveedores?.razon_social || 'SIN PROVEEDOR'
+                                    };
+                                });
+                                data.forEach(m => {
+                                    if (m.documento_referencia && metaMap[m.documento_referencia]) {
+                                        m.forma_pago_extra = metaMap[m.documento_referencia].forma_pago;
+                                        m.proveedor_extra = metaMap[m.documento_referencia].proveedor;
+                                    }
+                                });
+                            }
+                        }
+                    }
+
                     renderTabla(data);
                     updatePagination(count, data ? data.length : 0);
 
@@ -1125,9 +1154,30 @@
                 const tbody = document.getElementById('tablaKardex');
                 tbody.innerHTML = '';
                 let sumatoriaCostoTotal = 0;
+                let sumatoriaContado = 0;
+                let sumatoriaCredito = 0;
                 
                 const modoVistaSelect = document.getElementById('modoVista');
                 const modoVista = modoVistaSelect ? modoVistaSelect.value : 'DETALLADO';
+                const tipoMovimientoSelect = document.getElementById('tipoMovimiento');
+                const tipoMovimiento = tipoMovimientoSelect ? tipoMovimientoSelect.value : '';
+
+                // Modificación dinámica de cabeceras
+                const thCostoUnitario = document.getElementById('thCostoUnitario');
+                const thSaldo = document.getElementById('thSaldo');
+                if (thCostoUnitario && thSaldo) {
+                    if (modoVista === 'AGRUPADO' && tipoMovimiento === 'TIPO_INGRESO:Compras') {
+                        thCostoUnitario.textContent = 'PROVEEDOR';
+                        thCostoUnitario.className = 'p-4 border-b border-gray-200 text-left';
+                        thSaldo.textContent = 'CONDICIÓN';
+                        thSaldo.className = 'p-4 border-b border-gray-200 text-center';
+                    } else {
+                        thCostoUnitario.textContent = 'COSTO ADQ. UNIT.';
+                        thCostoUnitario.className = 'p-4 border-b border-gray-200 text-right';
+                        thSaldo.textContent = 'SALDO';
+                        thSaldo.className = 'p-4 border-b border-gray-200 text-right';
+                    }
+                }
 
                 if (data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-500">No se encontraron movimientos en este periodo para esta búsqueda.</td></tr>';
@@ -1148,6 +1198,8 @@
                                 cantidad: parseFloat(mov.cantidad || 0),
                                 costo_total: parseFloat(mov.costo_total || 0),
                                 isIngresoGlobal: isIngreso,
+                                forma_pago_extra: mov.forma_pago_extra,
+                                proveedor_extra: mov.proveedor_extra,
                                 countItems: 1
                             });
                         } else {
@@ -1164,7 +1216,13 @@
                     const isIngreso = modoVista === 'AGRUPADO' ? mov.isIngresoGlobal : (mov.tipo_movimiento === 'INGRESO');
                     
                     const signoNum = isIngreso ? 1 : -1;
-                    sumatoriaCostoTotal += parseFloat(mov.costo_total || 0) * signoNum;
+                    const valorRowTotal = parseFloat(mov.costo_total || 0) * signoNum;
+                    sumatoriaCostoTotal += valorRowTotal;
+
+                    if (modoVista === 'AGRUPADO' && tipoMovimiento === 'TIPO_INGRESO:Compras') {
+                        if (mov.forma_pago_extra === 'CONTADO') sumatoriaContado += valorRowTotal;
+                        else if (mov.forma_pago_extra === 'CREDITO') sumatoriaCredito += valorRowTotal;
+                    }
                     
                     const badgeClass = isIngreso ? 'badge-ingreso' : 'badge-egreso';
                     const signo = isIngreso ? '+' : '-';
@@ -1202,6 +1260,24 @@
                     };
 
                     if (modoVista === 'AGRUPADO') {
+                        let col6Html = '<td class="p-4 text-right font-mono text-gray-400 text-center">-</td>';
+                        let col8Html = '<td class="p-4 text-right font-mono text-gray-400 text-center">-</td>';
+
+                        if (tipoMovimiento === 'TIPO_INGRESO:Compras') {
+                            col6Html = `<td class="p-4 text-left font-medium text-gray-600 truncate max-w-[150px]" title="${mov.proveedor_extra || 'SIN PROVEEDOR'}">${mov.proveedor_extra || 'SIN PROVEEDOR'}</td>`;
+                            
+                            let badgeCondicion = '-';
+                            if (mov.forma_pago_extra === 'CREDITO') {
+                                badgeCondicion = '<span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-600 border border-yellow-500/30 rounded text-[10px] font-bold tracking-wider uppercase"><i class="fas fa-clock mr-1"></i>Crédito</span>';
+                            } else if (mov.forma_pago_extra === 'CONTADO') {
+                                badgeCondicion = '<span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 rounded text-[10px] font-bold tracking-wider uppercase"><i class="fas fa-check-circle mr-1"></i>Contado</span>';
+                            } else if (mov.forma_pago_extra) {
+                                badgeCondicion = `<span class="px-2 py-0.5 bg-gray-500/20 text-gray-600 border border-gray-500/30 rounded text-[10px] font-bold tracking-wider uppercase">${mov.forma_pago_extra}</span>`;
+                            }
+                            
+                            col8Html = `<td class="p-4 text-center">${badgeCondicion}</td>`;
+                        }
+
                         row.innerHTML = `
                         <td class="p-4 text-gray-600">${fecha}</td>
                         <td class="p-4 font-medium text-gray-400 text-center">-</td>
@@ -1220,7 +1296,7 @@
                                 <span>${signo}${parseFloat(mov.cantidad).toFixed(2)}</span>
                             </div>
                         </td>
-                        <td class="p-4 text-right font-mono text-gray-400 text-center">-</td>
+                        ${col6Html}
                         <td class="p-4 text-right font-mono font-bold text-gray-900">
                             <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${mov.costo_total}', 'Total Consolidado')">
                                 <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
@@ -1229,7 +1305,7 @@
                                 <span>S/ ${formatMoney(mov.costo_total)}</span>
                             </div>
                         </td>
-                        <td class="p-4 text-right font-mono text-gray-400 text-center">-</td>
+                        ${col8Html}
                         <td class="p-4 text-right">
                             <div class="flex justify-end gap-2">
                                 <button onclick="abrirModalDetalles('${movData}')" class="btn-icon btn-view" title="Ver Detalles del Documento">
@@ -1300,8 +1376,27 @@
                 // Inyectar fila de sumatoria al final del tbody
                 const summaryRow = document.createElement('tr');
                 summaryRow.className = "bg-gray-50 border-t-2 border-gray-300 font-bold text-gray-800";
+                let desgloseHtml = '';
+                if (modoVista === 'AGRUPADO' && tipoMovimiento === 'TIPO_INGRESO:Compras') {
+                    desgloseHtml = `
+                    <div class="flex items-center gap-4 text-xs font-bold normal-case tracking-normal">
+                        <span class="bg-emerald-500/10 text-emerald-600 px-3 py-1.5 rounded border border-emerald-500/20 shadow-sm">
+                            <i class="fas fa-check-circle mr-1"></i>Contado: <span class="font-mono ml-1">S/ ${parseFloat(sumatoriaContado).toLocaleString('es-PE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </span>
+                        <span class="bg-yellow-500/10 text-yellow-600 px-3 py-1.5 rounded border border-yellow-500/20 shadow-sm">
+                            <i class="fas fa-clock mr-1"></i>Crédito: <span class="font-mono ml-1">S/ ${parseFloat(sumatoriaCredito).toLocaleString('es-PE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </span>
+                    </div>
+                    `;
+                }
+
                 summaryRow.innerHTML = `
-                    <td colspan="6" class="p-4 text-right uppercase text-xs tracking-wider">Flujo Neto Total de la Página:</td>
+                    <td colspan="6" class="p-4">
+                        <div class="flex justify-between items-center w-full">
+                            <div>${desgloseHtml}</div>
+                            <span class="uppercase text-xs tracking-wider text-right">Flujo Neto Total de la Página:</span>
+                        </div>
+                    </td>
                     <td class="p-4 text-right font-mono text-blue-700">S/ ${parseFloat(sumatoriaCostoTotal).toLocaleString('es-PE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td colspan="2"></td>
                 `;
