@@ -391,12 +391,15 @@
                 <!-- Tipo Movimiento -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Movimiento</label>
-                    <select id="tipoMovimiento" onchange="currentPage=1; cargarKardex()"
+                    <select id="tipoMovimiento" onchange="manejarCambioTipoMovimiento()"
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <option value="">Todos</option>
                         <option value="INGRESO">Ingresos (Todos)</option>
                         <option value="EGRESO">Egresos (Todos)</option>
                         <option value="TRANSFORMACION">Transformaciones</option>
+                        <optgroup id="optgroupSaldos" label="Saldos Actuales">
+                            <option value="INVENTARIO_FINAL">Inventario Final (Stock Disponible)</option>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -643,6 +646,7 @@
                     actualizarUiBotonFijar(false);
                 }
 
+                actualizarUiFechasPorTipoMovimiento();
                 cargarKardex();
 
                 // Interceptar parámetro de auto-apertura desde Flujo de Caja
@@ -770,6 +774,39 @@
                 cargarKardex();
             }
 
+            function actualizarUiFechasPorTipoMovimiento() {
+                const tipo = document.getElementById('tipoMovimiento').value;
+                const inputDesde = document.getElementById('fechaDesde');
+                const inputHasta = document.getElementById('fechaHasta');
+                
+                if (tipo === 'INVENTARIO_FINAL') {
+                    inputDesde.disabled = true;
+                    inputHasta.disabled = true;
+                    inputDesde.parentElement.style.opacity = '0.4';
+                    inputHasta.parentElement.style.opacity = '0.4';
+                    inputDesde.parentElement.title = 'El Inventario Final muestra el stock en tiempo real. No aplica rango de fechas.';
+                    inputHasta.parentElement.title = 'El Inventario Final muestra el stock en tiempo real. No aplica rango de fechas.';
+                } else {
+                    inputDesde.disabled = false;
+                    inputHasta.disabled = false;
+                    inputDesde.parentElement.style.opacity = '1';
+                    inputHasta.parentElement.style.opacity = '1';
+                    inputDesde.parentElement.title = '';
+                    inputHasta.parentElement.title = '';
+                }
+            }
+
+            function manejarCambioTipoMovimiento() {
+                const tipo = document.getElementById('tipoMovimiento').value;
+                if (tipo === 'INVENTARIO_FINAL') {
+                    // Forzar mostrar "Todos"
+                    document.getElementById('registrosPorPagina').value = "1000000";
+                }
+                actualizarUiFechasPorTipoMovimiento();
+                currentPage = 1;
+                cargarKardex();
+            }
+
             async function cargarTiposMovimiento() {
                 try {
                     const select = document.getElementById('tipoMovimiento');
@@ -808,6 +845,12 @@
                             optgroupEg.appendChild(opt);
                         });
                         select.appendChild(optgroupEg);
+                    }
+                    
+                    // Mover 'Saldos Actuales' al final de toda la lista
+                    const optgroupSaldos = document.getElementById('optgroupSaldos');
+                    if (optgroupSaldos) {
+                        select.appendChild(optgroupSaldos);
                     }
                 } catch(e) {
                     console.error("Error al cargar tipos de movimiento:", e);
@@ -1004,31 +1047,39 @@
                 const dd = String(dateHastaObj.getDate()).padStart(2, '0');
                 const fechaLte = `${yyyy}-${mm}-${dd} 04:59:59`;
 
-                let query = supabaseClient
-                    .from('kardex')
-                    .select(`
-                    *,
-                    items:item_id!inner (codigo, descripcion, unidad_medida)
-                `, { count: 'exact' })
-                    .gte('fecha_movimiento', fechaGte)
-                    .lte('fecha_movimiento', fechaLte)
-                    .order('fecha_movimiento', { ascending: false })
-                    .order('documento_referencia', { ascending: false })
-                    .order('id', { ascending: false });
+                let query;
+                if (tipoMovimiento === 'INVENTARIO_FINAL') {
+                    query = supabaseClient
+                        .rpc('fn_kardex_inventario_final', {}, { count: 'exact' })
+                        .select('*');
+                    // Nota: No aplicamos gte y lte de fechas, queremos ver todo el stock actual disponible independientemente de cuándo ingresó
+                } else {
+                    query = supabaseClient
+                        .from('kardex')
+                        .select(`
+                        *,
+                        items:item_id!inner (codigo, descripcion, unidad_medida)
+                    `, { count: 'exact' })
+                        .gte('fecha_movimiento', fechaGte)
+                        .lte('fecha_movimiento', fechaLte)
+                        .order('fecha_movimiento', { ascending: false })
+                        .order('documento_referencia', { ascending: false })
+                        .order('id', { ascending: false });
 
-                // Filtro por Tipo de Movimiento
-                if (tipoMovimiento === 'TRANSFORMACION') {
-                    query = query.ilike('motivo', '%Transformaci%');
-                } else if (tipoMovimiento === 'INVENTARIO_INICIAL') {
-                    query = query.eq('tipo_movimiento', 'INGRESO').ilike('motivo', '%Inventario Inicial%');
-                } else if (tipoMovimiento.startsWith('TIPO_INGRESO:')) {
-                    const motivoStr = tipoMovimiento.split(':')[1];
-                    query = query.eq('tipo_movimiento', 'INGRESO').ilike('motivo', `%${motivoStr}%`);
-                } else if (tipoMovimiento.startsWith('TIPO_EGRESO:')) {
-                    const motivoStr = tipoMovimiento.split(':')[1];
-                    query = query.eq('tipo_movimiento', 'EGRESO').ilike('motivo', `%${motivoStr}%`);
-                } else if (tipoMovimiento) {
-                    query = query.eq('tipo_movimiento', tipoMovimiento);
+                    // Filtro por Tipo de Movimiento (Solo aplicable a kardex nativo)
+                    if (tipoMovimiento === 'TRANSFORMACION') {
+                        query = query.ilike('motivo', '%Transformaci%');
+                    } else if (tipoMovimiento === 'INVENTARIO_INICIAL') {
+                        query = query.eq('tipo_movimiento', 'INGRESO').ilike('motivo', '%Inventario Inicial%');
+                    } else if (tipoMovimiento.startsWith('TIPO_INGRESO:')) {
+                        const motivoStr = tipoMovimiento.split(':')[1];
+                        query = query.eq('tipo_movimiento', 'INGRESO').ilike('motivo', `%${motivoStr}%`);
+                    } else if (tipoMovimiento.startsWith('TIPO_EGRESO:')) {
+                        const motivoStr = tipoMovimiento.split(':')[1];
+                        query = query.eq('tipo_movimiento', 'EGRESO').ilike('motivo', `%${motivoStr}%`);
+                    } else if (tipoMovimiento) {
+                        query = query.eq('tipo_movimiento', tipoMovimiento);
+                    }
                 }
 
                 // Filtro Híbrido Avanzado

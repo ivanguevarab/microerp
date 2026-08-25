@@ -89,15 +89,15 @@
           </div>
         </div>
 
-        <!-- Tarjeta 3: Produccion -->
-        <div class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-slate-600 transition-all duration-300 relative overflow-hidden group hover:bg-slate-900/80 flex items-center gap-5 shadow-xl">
-          <div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all"></div>
-          <div class="w-14 h-14 shrink-0 rounded-xl flex items-center justify-center text-2xl bg-slate-950 border border-slate-800 shadow-inner group-hover:border-slate-600 transition-colors text-slate-400 group-hover:text-amber-500">
-            <i class="fa-solid fa-industry"></i>
+        <!-- Tarjeta 3: Margen de Contribución -->
+        <div class="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-800/80 hover:border-emerald-600/50 transition-all duration-300 relative overflow-hidden group hover:bg-slate-900/80 flex items-center gap-5 shadow-xl">
+          <div class="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all"></div>
+          <div class="w-14 h-14 shrink-0 rounded-xl flex items-center justify-center text-2xl bg-slate-950 border border-slate-800 shadow-inner group-hover:border-emerald-500/50 transition-colors text-slate-400 group-hover:text-emerald-500">
+            <i class="fa-solid fa-coins"></i>
           </div>
           <div class="flex flex-col relative z-10 w-full min-w-0">
-            <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">Órdenes de Producción</h4>
-            <div id="kpi-produccion" class="text-2xl font-bold text-slate-200 truncate">...</div>
+            <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">Margen de Contribución</h4>
+            <div id="kpi-margen" class="text-2xl font-bold text-emerald-400 truncate">...</div>
           </div>
         </div>
 
@@ -463,7 +463,7 @@
           }
 
           // Carga los KPIs dinámicamente usando las métricas maestras
-          loadDashboardKPIs();
+          loadDashboardKPIs(userData.empresaId);
 
           console.log('✅ Perfil Empresa cargado:', userData.company, userData.role, '| Exclusivo Comercial:', userData.isOnlyCommercial);
         }
@@ -491,7 +491,7 @@
       updateHeaderInfo(userData);
     }
 
-    async function loadDashboardKPIs() {
+    async function loadDashboardKPIs(empresaId) {
       // 1. Fechas del mes en curso UTC Local
       const now = new Date();
       const year = now.getFullYear();
@@ -522,8 +522,8 @@
           .from('ventas')
           .select('precio_venta_total')
           .eq('estado', 'REGISTRADO')
-          .gte('fecha_recepcion_pago', firstDayStr)
-          .lte('fecha_recepcion_pago', lastDayStr);
+          .gte('fecha_venta', firstDayStr)
+          .lte('fecha_venta', lastDayStr);
 
         let totalVentas = 0;
         if (!error && data) {
@@ -532,18 +532,21 @@
         document.getElementById('kpi-ventas').textContent = formatCurrency(totalVentas);
       } catch (err) { console.error('Error KPI Ventas', err); }
 
-      // --- KPI 3: ORDENES DE PRODUCCIÓN ---
+      // --- KPI 3: MARGEN DE CONTRIBUCIÓN ---
       try {
-        const { count, error } = await window.supabaseClient
-          .from('codigos_unicos')
-          .select('id', { count: 'exact', head: true })
-          .eq('tipo', 'PRODUCCION')
-          .neq('estado', 'TERMINADO')
-          .gte('fecha_inicio', firstDayStr)
-          .lte('fecha_inicio', lastDayStr);
+        const { data, error } = await window.supabaseClient.rpc('fn_dashboard_margen_rango', {
+            p_empresa_id: empresaId,
+            p_fecha_desde: firstDayStr,
+            p_fecha_hasta: lastDayStr,
+            p_dias_semana: []
+        });
 
-        document.getElementById('kpi-produccion').textContent = !error && count !== null ? count : '0';
-      } catch (err) { console.error('Error KPI Producción', err); }
+        let totalMargen = 0;
+        if (!error && data) {
+            totalMargen = data.reduce((acc, curr) => acc + parseFloat(curr.margen_contribucion || 0), 0);
+        }
+        document.getElementById('kpi-margen').textContent = formatCurrency(totalMargen);
+      } catch (err) { console.error('Error KPI Margen', err); }
 
       // --- KPI 4: VARIACIÓN NETA DE EFECTIVO ---
       try {

@@ -230,6 +230,8 @@
                     <tbody id="tablaVentas">
                         <!-- Las filas se inyectan acá -->
                     </tbody>
+                    <tfoot id="tablaVentasFooter" class="bg-gray-50 dark:bg-slate-800 border-t-2 border-gray-200 dark:border-gray-700 hidden">
+                    </tfoot>
                 </table>
             </div>
             
@@ -328,11 +330,13 @@
 
         function renderTabla(ventas) {
             const tbody = document.getElementById('tablaVentas');
+            const tfoot = document.getElementById('tablaVentasFooter');
             tbody.innerHTML = '';
             
             if(ventas.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-500"><i class="fas fa-receipt text-4xl mb-3 text-gray-300"></i><p>No se encontraron ventas con estos filtros.</p></td></tr>`;
                 document.getElementById('paginacionInfo').textContent = 'Mostrando 0 resultados';
+                if(tfoot) tfoot.classList.add('hidden');
                 return;
             }
 
@@ -381,6 +385,21 @@
                 `;
                 tbody.appendChild(tr);
             });
+
+            const sumaTotal = ventas
+                .filter(v => v.estado !== 'ANULADO')
+                .reduce((acc, curr) => acc + Number(curr.precio_venta_total || 0), 0);
+            
+            if(tfoot) {
+                tfoot.classList.remove('hidden');
+                tfoot.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider pr-4">Total Ventas:</td>
+                        <td class="text-right font-bold text-green-600 dark:text-green-400 text-[15px]">S/ ${formatMoney(sumaTotal)}</td>
+                        <td colspan="2"></td>
+                    </tr>
+                `;
+            }
         }
 
         // ==========================================

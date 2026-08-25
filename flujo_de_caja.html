@@ -2848,8 +2848,8 @@
 
         function renderizarGraficosApex(data, margenPorcentaje) {
             // Destruir instancias previas si existen
-            Object.values(instanciasGraficos).forEach(chart => {
-                if(chart) chart.destroy();
+            Object.values(instanciasGraficos).forEach(item => {
+                if(item && item.instance) item.instance.destroy();
             });
             instanciasGraficos = {};
 
@@ -2875,6 +2875,12 @@
             };
 
             // 1. Gráfico de Líneas: Evolución Operativa
+            const formatterEjeXMini = function (val) {
+                if(!val || typeof val !== 'string' || !val.includes('-')) return val;
+                const [y, m, d] = val.split('-');
+                return d + '/' + m;
+            };
+
             const dataIngresos = data.serieHistorica.map(item => item.inOp);
             const dataEgresos = data.serieHistorica.map(item => item.outOp);
             
@@ -2884,7 +2890,7 @@
                 colors: ['#10b981', '#f43f5e'],
                 dataLabels: { enabled: false },
                 stroke: { curve: 'smooth', width: 2 },
-                xaxis: { type: 'category', categories: catsFechas, labels: { style: { colors: '#94a3b8' } }, tickAmount: 10 },
+                xaxis: { type: 'category', categories: catsFechas, labels: { style: { colors: '#94a3b8' }, formatter: formatterEjeXMini }, tickAmount: 10 },
                 yaxis: { labels: { formatter: formatterSoles, style: { colors: '#94a3b8' } } },
                 tooltip: { y: { formatter: formatterSoles }, x: { formatter: formatterFechaDia }, theme: 'light' },
                 legend: { show: true, position: 'bottom', labels: { colors: '#64748b' } },
@@ -2925,7 +2931,7 @@
                 colors: ['#0ea5e9'],
                 dataLabels: { enabled: false },
                 stroke: { curve: 'straight', width: 2 },
-                xaxis: { type: 'category', categories: catsFechas, labels: { style: { colors: '#94a3b8' } }, tickAmount: 10 },
+                xaxis: { type: 'category', categories: catsFechas, labels: { style: { colors: '#94a3b8' }, formatter: formatterEjeXMini }, tickAmount: 10 },
                 yaxis: { labels: { formatter: formatterSoles, style: { colors: '#94a3b8' } } },
                 tooltip: { y: { formatter: formatterSoles }, x: { formatter: formatterFechaDia }, theme: 'light' },
                 fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.6, opacityTo: 0.1, stops: [0, 90, 100] } }
@@ -3024,6 +3030,16 @@
                 return fechaStr + ' , ' + dias[d.getDay()];
             };
             
+            const formatterEjeXExpandido = function (val) {
+                if(!val || typeof val !== 'string' || !val.includes('-')) return val;
+                const [y, m, d] = val.split('-');
+                if(!y || !m || !d) return val;
+                const dateObj = new Date(val + "T12:00:00");
+                if (isNaN(dateObj.getTime())) return val;
+                const diasCortos = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                return [d + '/' + m, diasCortos[dateObj.getDay()]];
+            };
+            
             if (key === 'gauge') {
                  if (optsClonadas.plotOptions && optsClonadas.plotOptions.radialBar && optsClonadas.plotOptions.radialBar.dataLabels) {
                      optsClonadas.plotOptions.radialBar.dataLabels.value.formatter = function (val) { return val.toFixed(1) + "%"; };
@@ -3044,6 +3060,12 @@
                      else optsClonadas.tooltip.x = { formatter: formatterFechaDia };
                  } else {
                      optsClonadas.tooltip = { y: { formatter: formatterSoles }, x: { formatter: formatterFechaDia } };
+                 }
+                 if (optsClonadas.xaxis && optsClonadas.xaxis.labels) {
+                     optsClonadas.xaxis.labels.formatter = formatterEjeXExpandido;
+                 } else {
+                     if (!optsClonadas.xaxis) optsClonadas.xaxis = {};
+                     optsClonadas.xaxis.labels = { formatter: formatterEjeXExpandido };
                  }
             }
 

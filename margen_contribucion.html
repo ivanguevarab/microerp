@@ -148,33 +148,47 @@
                 <div class="text-xs font-semibold text-emerald-900/60 mt-2">Ganancia Operativa Directa</div>
             </div>
             <div class="kpi-card relative overflow-hidden" style="background: linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(59,130,246,0.1) 100%); border-color: rgba(16, 185, 129, 0.3);">
-                <div class="kpi-title text-white">Rentabilidad (%)</div>
+                <div class="kpi-title text-white">Razón de MC (%)</div>
                 <div class="kpi-value text-white" id="kpiRentabilidad">0.0%</div>
                 <div class="text-xs font-semibold text-emerald-300 mt-2">Retorno sobre la Venta (ROS)</div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Gráfico Evolución -->
-            <div class="glass-panel lg:col-span-2 relative">
-                <button onclick="abrirGraficoExpandido()" class="absolute top-4 right-4 text-slate-400 hover:text-emerald-500 transition-colors z-10 bg-slate-800/80 p-1.5 rounded-lg border border-slate-700" title="Expandir a Pantalla Completa">
-                    <i class="fas fa-expand-arrows-alt"></i>
-                </button>
-                <div class="glass-header"><i class="fas fa-chart-area mr-2 text-emerald-500"></i> Evolución Diaria del Margen</div>
-                <div class="p-6 h-[400px]">
-                    <canvas id="margenChart"></canvas>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+            <!-- Contenedor Izquierdo: Gráficos -->
+            <div class="lg:col-span-2 flex flex-col gap-8">
+                <!-- Gráfico Evolución -->
+                <div class="glass-panel relative flex-1">
+                    <button onclick="abrirGraficoExpandido('conjunta')" class="absolute top-4 right-4 text-slate-400 hover:text-emerald-500 transition-colors z-10 bg-slate-800/80 p-1.5 rounded-lg border border-slate-700" title="Expandir a Pantalla Completa">
+                        <i class="fas fa-expand-arrows-alt"></i>
+                    </button>
+                    <div class="glass-header"><i class="fas fa-chart-line mr-2 text-blue-400"></i> Ingreso de Ventas vs Costo de Ventas</div>
+                    <div class="p-6 h-[350px]">
+                        <canvas id="margenChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Área (Solo Margen) -->
+                <div class="glass-panel relative flex-1">
+                    <button onclick="abrirGraficoExpandido('margen')" class="absolute top-4 right-4 text-slate-400 hover:text-emerald-500 transition-colors z-10 bg-slate-800/80 p-1.5 rounded-lg border border-slate-700" title="Expandir a Pantalla Completa">
+                        <i class="fas fa-expand-arrows-alt"></i>
+                    </button>
+                    <div class="glass-header"><i class="fas fa-chart-area mr-2 text-emerald-500"></i> Margen de Contribución</div>
+                    <div class="p-6 h-[350px]">
+                        <canvas id="margenSoloChart"></canvas>
+                    </div>
                 </div>
             </div>
 
             <!-- Top 10 Rentabilidad -->
-            <div class="glass-panel">
+            <div class="glass-panel flex flex-col h-full">
                 <div class="glass-header flex justify-between items-center">
-                    <span><i class="fas fa-trophy mr-2 text-amber-500"></i> Top 10 Rentables</span>
+                    <span><i class="fas fa-trophy mr-2 text-amber-500"></i> Top 20 Aportantes</span>
                     <button onclick="abrirModalRanking()" class="text-slate-400 hover:text-emerald-400 transition flex items-center gap-2 text-sm" title="Ver ranking completo">
                         <i class="fas fa-eye"></i> Ver Todos
                     </button>
                 </div>
-                <div class="overflow-y-auto custom-scrollbar" style="max-height: 400px;">
+                <div class="overflow-y-auto custom-scrollbar flex-1" style="max-height: 800px;">
                     <table class="premium-table">
                         <thead>
                             <tr>
@@ -200,7 +214,7 @@
                 <i class="fas fa-times text-3xl"></i>
             </button>
             <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-6xl h-[80vh] overflow-hidden flex flex-col p-6 animate-zoom-in relative" onclick="event.stopPropagation()">
-                <h3 class="font-bold text-xl text-white mb-4 text-center">Evolución Detallada</h3>
+                <h3 id="modal-titulo-grafico" class="font-bold text-xl text-white mb-4 text-center">Evolución Detallada</h3>
                 <div class="flex-1 w-full h-full flex items-center justify-center relative">
                     <canvas id="margenChartModal"></canvas>
                 </div>
@@ -245,6 +259,7 @@
     <script>
         let currentEmpresaId = null;
         let mainChart = null;
+        let margenSoloChart = null;
         let modalChart = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -352,7 +367,7 @@
             if(!f.desde || !f.hasta) return;
             
             document.getElementById('fechaActual').textContent = f.texto;
-            Swal.fire({ title: 'Analizando Rentabilidad', text: 'Ejecutando algoritmos financieros...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+            Swal.fire({ title: 'Analizando Margen de Contribución', text: 'Ejecutando algoritmos financieros...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
 
             try {
                 // 1. Cargar Evolución con Rangos y Días
@@ -370,7 +385,7 @@
                     p_fecha_desde: f.desde,
                     p_fecha_hasta: f.hasta,
                     p_dias_semana: f.paramDias,
-                    p_limit: 10
+                    p_limit: 20
                 });
                 if(errRank) throw errRank;
 
@@ -389,6 +404,8 @@
             const labels = [];
             const dVentas = [];
             const dCostos = [];
+            const dMargen = [];
+            window.margenFechasFull = [];
 
             if (datos && datos.length > 0) {
                 datos.forEach(d => {
@@ -397,9 +414,17 @@
                     totMargen += parseFloat(d.margen_contribucion);
 
                     const [y, m, day] = d.fecha.split('-');
-                    labels.push(day + '/' + m);
+                    const dateObj = new Date(d.fecha + "T12:00:00");
+                    let shortDay = "";
+                    if (!isNaN(dateObj.getTime())) {
+                        const diasCortos = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                        shortDay = diasCortos[dateObj.getDay()];
+                    }
+                    labels.push([day + '/' + m, shortDay]);
                     dVentas.push(parseFloat(d.ventas_netas));
                     dCostos.push(parseFloat(d.costo_ventas));
+                    dMargen.push(parseFloat(d.margen_contribucion));
+                    window.margenFechasFull.push(d.fecha);
                 });
             }
 
@@ -410,10 +435,10 @@
             const rent = totVentas > 0 ? (totMargen / totVentas) * 100 : 0;
             document.getElementById('kpiRentabilidad').textContent = `${rent.toFixed(1)}%`;
 
-            dibujarGrafico(labels, dVentas, dCostos);
+            dibujarGrafico(labels, dVentas, dCostos, dMargen);
         }
 
-        function dibujarGrafico(labels, ventas, costos) {
+        function dibujarGrafico(labels, ventas, costos, margen) {
             const ctx = document.getElementById('margenChart').getContext('2d');
             if(mainChart) mainChart.destroy();
 
@@ -449,7 +474,35 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { labels: { color: '#cbd5e1' } },
-                        tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', titleColor: '#fff', bodyColor: '#cbd5e1', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }
+                        tooltip: { 
+                            backgroundColor: 'rgba(15,23,42,0.9)', 
+                            titleColor: '#fff', 
+                            bodyColor: '#cbd5e1', 
+                            borderColor: 'rgba(255,255,255,0.1)', 
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const idx = tooltipItems[0].dataIndex;
+                                    const originalLabel = tooltipItems[0].label;
+                                    if (window.margenFechasFull && window.margenFechasFull[idx]) {
+                                        const d = new Date(window.margenFechasFull[idx] + "T12:00:00");
+                                        if (!isNaN(d.getTime())) {
+                                            const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                                            return window.margenFechasFull[idx] + ' , ' + dias[d.getDay()];
+                                        }
+                                    }
+                                    return originalLabel;
+                                },
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        label += 'S/ ' + context.parsed.y.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
                     },
                     scales: {
                         x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
@@ -459,6 +512,54 @@
             };
             
             mainChart = new Chart(ctx, cfg);
+
+            // -----------------------------------------
+            // 2. Gráfico de Área: Liquidez de Margen
+            // -----------------------------------------
+            const ctxMargen = document.getElementById('margenSoloChart').getContext('2d');
+            if(margenSoloChart) margenSoloChart.destroy();
+
+            const cfgMargen = {
+                type: 'line',
+                data: {
+                    labels: labels.length > 0 ? labels : ['Sin Datos'],
+                    datasets: [
+                        {
+                            label: 'Margen de Contribución',
+                            data: margen.length > 0 ? margen : [0],
+                            borderColor: '#10b981', // emerald
+                            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { 
+                            backgroundColor: 'rgba(15,23,42,0.9)', 
+                            titleColor: '#fff', 
+                            bodyColor: '#cbd5e1', 
+                            borderColor: 'rgba(255,255,255,0.1)', 
+                            borderWidth: 1,
+                            callbacks: {
+                                title: cfg.options.plugins.tooltip.callbacks.title,
+                                label: cfg.options.plugins.tooltip.callbacks.label
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', callback: (val) => 'S/ ' + val } }
+                    }
+                }
+            };
+            margenSoloChart = new Chart(ctxMargen, cfgMargen);
             
             // Si el modal expandido está abierto, actualizarlo también
             if(!document.getElementById('modal-grafico-expandido').classList.contains('hidden')) {
@@ -509,18 +610,80 @@
 
         // ---- MODALES EXTRAS ----
 
-        function abrirGraficoExpandido() {
+        let chartActualExpandido = 'conjunta';
+
+        function abrirGraficoExpandido(tipo) {
+            if (tipo) chartActualExpandido = tipo;
+            else tipo = chartActualExpandido;
+
             document.getElementById('modal-grafico-expandido').classList.remove('hidden');
             
             const ctxModal = document.getElementById('margenChartModal').getContext('2d');
             if(modalChart) modalChart.destroy();
             
-            if(mainChart) {
-                const cfg = JSON.parse(JSON.stringify(mainChart.config)); 
-                // Restore callbacks since they are lost in JSON stringify
-                cfg.options.scales.y.ticks.callback = (val) => 'S/ ' + val;
+            let targetChart = null;
+            let titulo = "Evolución Detallada";
+
+            if (tipo === 'conjunta') {
+                targetChart = mainChart;
+                titulo = "Ingreso de Ventas vs Costo de Ventas";
+            } else if (tipo === 'margen') {
+                targetChart = margenSoloChart;
+                titulo = "Margen de Contribución";
+            }
+
+            document.getElementById('modal-titulo-grafico').textContent = titulo;
+
+            if(targetChart) {
+                const cfg = {
+                    type: 'line',
+                    data: {
+                        labels: [...targetChart.data.labels],
+                        datasets: targetChart.data.datasets.map(d => ({ ...d, data: [...d.data] }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                        legend: { labels: { color: '#cbd5e1' } },
+                        tooltip: { 
+                            backgroundColor: 'rgba(15,23,42,0.9)', 
+                            titleColor: '#fff', 
+                            bodyColor: '#cbd5e1', 
+                            borderColor: 'rgba(255,255,255,0.1)', 
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const idx = tooltipItems[0].dataIndex;
+                                    const originalLabel = tooltipItems[0].label;
+                                    if (window.margenFechasFull && window.margenFechasFull[idx]) {
+                                        const d = new Date(window.margenFechasFull[idx] + "T12:00:00");
+                                        if (!isNaN(d.getTime())) {
+                                            const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                                            return window.margenFechasFull[idx] + ' , ' + dias[d.getDay()];
+                                        }
+                                    }
+                                    return originalLabel;
+                                },
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        label += 'S/ ' + context.parsed.y.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                        },
+                        scales: {
+                            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', callback: (val) => 'S/ ' + val } }
+                        }
+                    }
+                };
                 
-                cfg.options.maintainAspectRatio = false;
                 modalChart = new Chart(ctxModal, cfg);
             }
         }
@@ -597,6 +760,18 @@
         function cerrarModalRanking() {
             document.getElementById('modal-ranking-completo').classList.add('hidden');
         }
+
+        // Cierre de modales con tecla ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                if (!document.getElementById('modal-grafico-expandido').classList.contains('hidden')) {
+                    cerrarGraficoExpandido();
+                }
+                if (!document.getElementById('modal-ranking-completo').classList.contains('hidden')) {
+                    cerrarModalRanking();
+                }
+            }
+        });
 
     </script>
 </body>

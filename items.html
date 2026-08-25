@@ -23,6 +23,7 @@
         }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <!-- Supabase & Auth -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -777,9 +778,14 @@
     <main class="container">
         <div class="page-header">
             <h2>📦 Gestión de Items</h2>
-            <button class="btn-primary" onclick="abrirModalNuevo()">
-                + Nuevo Item
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="exportarExcel()" class="btn-primary" style="background: linear-gradient(135deg, #107c41 0%, #185c37 100%);">
+                    <i class="fas fa-file-excel"></i> Exportar
+                </button>
+                <button class="btn-primary" onclick="abrirModalNuevo()">
+                    + Nuevo Item
+                </button>
+            </div>
         </div>
 
         <div class="table-container">
@@ -1023,6 +1029,56 @@
             } catch (error) {
                 console.error('Error al cargar items:', error);
                 mostrarToast('Error al cargar items', 'error');
+            }
+        }
+
+        // ============================================
+        // EXPORTAR EXCEL
+        // ============================================
+        async function exportarExcel() {
+            try {
+                if (!itemsData || itemsData.length === 0) {
+                    mostrarToast('No hay datos para exportar', 'warning');
+                    return;
+                }
+
+                // Filtrar items con stock mayor a cero
+                const dataAExportar = itemsData
+                    .filter(item => (item.stock_total || 0) > 0)
+                    .map(item => [
+                        item.descripcion || '',
+                        item.unidades_medida?.codigo || '-',
+                        item.stock_total || 0
+                    ]);
+
+                if (dataAExportar.length === 0) {
+                    mostrarToast('No hay items con stock mayor a cero para exportar', 'warning');
+                    return;
+                }
+
+                // Agregar encabezados
+                dataAExportar.unshift(['Descripción', 'Unidad', 'Stock Total']);
+
+                // Crear hoja de Excel
+                const ws = XLSX.utils.aoa_to_sheet(dataAExportar);
+                
+                // Ajustar ancho de columnas
+                ws['!cols'] = [
+                    { wch: 50 }, // Descripción
+                    { wch: 15 }, // Unidad
+                    { wch: 15 }  // Stock Total
+                ];
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Inventario");
+                
+                const fecha = new Date().toISOString().split('T')[0];
+                XLSX.writeFile(wb, `Inventario_Items_${fecha}.xlsx`);
+                
+                mostrarToast('Excel exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar a Excel:', error);
+                mostrarToast('Error al exportar a Excel', 'error');
             }
         }
 
