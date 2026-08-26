@@ -1,89 +1,128 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Micro ERP | Acceso Seguro</title>
+  <title>MicroERP | Acceso Seguro</title>
+
+  <!-- Favicon Corporativo -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=7">
+  <link rel="icon" type="image/png" href="favicon.png?v=7">
 
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Supabase JS Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
+
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+
   <style>
     :root {
       --bg-dark: #020617;
       --card-bg: #0f172a;
     }
+
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
       background-color: var(--bg-dark);
       color: #f8fafc;
       overflow-x: hidden;
     }
+
     .text-gradient {
       background: linear-gradient(to right, #ffffff, #94a3b8);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
+
     .glass-card {
       background: rgba(15, 23, 42, 0.8);
       backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
+
     .glow-button {
       box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
       transition: all 0.3s ease;
     }
+
     .glow-button:hover {
       box-shadow: 0 0 40px rgba(245, 158, 11, 0.6);
       transform: translateY(-2px);
     }
+
     .reveal {
       animation: reveal 1s ease-out forwards;
     }
+
     @keyframes reveal {
-      from { opacity: 0; transform: translateY(30px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
+
     .spinner {
-      border: 3px solid rgba(255,255,255,0.1);
-      border-top: 3px solid #f59e0b; /* Amber */
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid #f59e0b;
+      /* Amber */
       border-radius: 50%;
       width: 40px;
       height: 40px;
       animation: spin 1s linear infinite;
       margin: 0 auto;
     }
+
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
+
     @keyframes heartbeat {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
     }
+
     .animate-heartbeat {
       animation: heartbeat 2s ease-in-out infinite;
     }
   </style>
 </head>
+
 <body class="relative min-h-screen flex items-center justify-center p-4">
 
   <!-- Ambient Light Blobs -->
   <div class="fixed inset-0 z-0 pointer-events-none">
-      <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px]"></div>
-      <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-600/20 rounded-full blur-[120px]"></div>
+    <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px]"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-600/20 rounded-full blur-[120px]"></div>
   </div>
 
   <!-- Top Pricing Tab (Solo Escritorio) -->
   <div class="hidden lg:flex fixed top-6 left-0 w-full justify-center pointer-events-none z-50">
     <div class="w-full max-w-6xl px-4 lg:px-0 pointer-events-auto flex justify-start">
-      <a href="planes_precios_microerp.html" class="inline-block text-slate-300 font-semibold px-4 py-2 border border-slate-700/50 rounded-lg hover:text-white hover:bg-white/5 transition-all outline-none animate-heartbeat">
+      <a href="planes_precios_microerp.html"
+        class="inline-block text-slate-300 font-semibold px-4 py-2 border border-slate-700/50 rounded-lg hover:text-white hover:bg-white/5 transition-all outline-none animate-heartbeat">
         Ver Planes
       </a>
     </div>
@@ -91,18 +130,20 @@
 
   <!-- Contenedor Principal -->
   <div class="relative z-10 w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-    
+
     <!-- Sección Izquierda: Branding -->
     <div class="reveal px-4 lg:px-0 text-center lg:text-left">
-      
+
       <!-- Botón Ver Planes (Solo Móvil) -->
       <div class="flex lg:hidden justify-center mb-8 pointer-events-auto">
-        <a href="planes_precios_microerp.html" class="inline-block text-slate-300 font-semibold px-4 py-2 border border-slate-700/50 rounded-lg hover:text-white hover:bg-white/5 transition-all outline-none animate-heartbeat">
+        <a href="planes_precios_microerp.html"
+          class="inline-block text-slate-300 font-semibold px-4 py-2 border border-slate-700/50 rounded-lg hover:text-white hover:bg-white/5 transition-all outline-none animate-heartbeat">
           Ver Planes
         </a>
       </div>
 
-      <div class="inline-flex items-center gap-3 py-1 px-4 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-widest mb-6">
+      <div
+        class="inline-flex items-center gap-3 py-1 px-4 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-widest mb-6">
         <i class="fas fa-shield-halved"></i>
         <span>Acceso Corporativo Seguro</span>
       </div>
@@ -116,7 +157,8 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-left max-w-lg mx-auto lg:mx-0">
         <div class="flex items-start gap-4">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center flex-shrink-0">
+          <div
+            class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center flex-shrink-0">
             <i class="fas fa-lock"></i>
           </div>
           <div>
@@ -138,11 +180,12 @@
 
     <!-- Sección Derecha: Login Panel -->
     <div class="reveal glass-card rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative" style="animation-delay: 0.2s;">
-      
+
       <!-- Login Form -->
       <div id="loginForm" class="flex flex-col">
         <div class="text-center mb-10">
-          <div class="w-20 h-20 bg-slate-800 rounded-2xl mx-auto mb-6 flex items-center justify-center border border-slate-700 shadow-inner">
+          <div
+            class="w-20 h-20 bg-slate-800 rounded-2xl mx-auto mb-6 flex items-center justify-center border border-slate-700 shadow-inner">
             <i class="fas fa-fingerprint text-4xl text-amber-500"></i>
           </div>
           <h2 class="text-3xl font-bold mb-2">Iniciar Sesión</h2>
@@ -161,30 +204,37 @@
         </div>
 
         <div class="bg-blue-900/20 border-l-4 border-l-blue-500 p-4 rounded-r-xl">
-          <h4 class="text-blue-400 font-bold text-sm mb-1"><i class="fas fa-shield-check mr-2"></i>Seguridad Confirmada</h4>
-          <p class="text-xs text-slate-400 leading-relaxed">No almacenamos contraseñas. Tu inicio de sesión se procesa externamente mediante los protocolos OAuth 2.0 de Google.</p>
+          <h4 class="text-blue-400 font-bold text-sm mb-1"><i class="fas fa-shield-check mr-2"></i>Seguridad Confirmada
+          </h4>
+          <p class="text-xs text-slate-400 leading-relaxed">No almacenamos contraseñas. Tu inicio de sesión se procesa
+            externamente mediante los protocolos OAuth 2.0 de Google.</p>
         </div>
       </div>
 
       <!-- User Profile (Hidden Initially) -->
       <div id="userProfile" class="hidden flex-col items-center text-center">
-        <img id="userAvatar" src="" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-amber-500 p-1 mb-4 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+        <img id="userAvatar" src="" alt="Avatar"
+          class="w-24 h-24 rounded-full border-4 border-amber-500 p-1 mb-4 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
         <h3 id="userName" class="text-2xl font-bold mb-1"></h3>
         <p id="userEmail" class="text-slate-400 text-sm mb-3"></p>
-        
-        <span id="userRole" class="inline-block py-1 px-4 bg-slate-800 text-amber-500 border border-amber-500/30 rounded-full text-xs font-bold uppercase tracking-widest mb-8">
+
+        <span id="userRole"
+          class="inline-block py-1 px-4 bg-slate-800 text-amber-500 border border-amber-500/30 rounded-full text-xs font-bold uppercase tracking-widest mb-8">
           Obteniendo rol...
         </span>
 
-        <div id="actionInfoBox" class="w-full mb-8 text-left bg-emerald-500/10 border-l-4 border-l-emerald-500 p-4 rounded-r-xl">
+        <div id="actionInfoBox"
+          class="w-full mb-8 text-left bg-emerald-500/10 border-l-4 border-l-emerald-500 p-4 rounded-r-xl">
           <!-- Text Injected dynamically -->
         </div>
 
         <div class="w-full space-y-4">
-          <button id="primaryActionButton" onclick="goToDashboard()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-black rounded-xl font-bold text-lg glow-button uppercase tracking-widest transition-all hover:scale-[1.02]">
+          <button id="primaryActionButton" onclick="goToDashboard()"
+            class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-black rounded-xl font-bold text-lg glow-button uppercase tracking-widest transition-all hover:scale-[1.02]">
             <!-- Text Injected dynamically -->
           </button>
-          <button onclick="logout()" class="w-full py-3 bg-transparent hover:bg-white/5 border border-slate-700 text-slate-400 rounded-xl font-semibold transition-colors">
+          <button onclick="logout()"
+            class="w-full py-3 bg-transparent hover:bg-white/5 border border-slate-700 text-slate-400 rounded-xl font-semibold transition-colors">
             Cerrar Sesión
           </button>
         </div>
@@ -193,23 +243,27 @@
       <!-- Loading State -->
       <div id="loading" class="hidden flex-col items-center justify-center py-10">
         <div class="spinner mb-6"></div>
-        <p class="text-amber-500 font-semibold tracking-wider animate-pulse uppercase text-sm">Verificando Encriptación...</p>
+        <p class="text-amber-500 font-semibold tracking-wider animate-pulse uppercase text-sm">Verificando
+          Encriptación...</p>
       </div>
 
       <!-- Access Denied -->
       <div id="accessDenied" class="hidden flex-col text-center">
-        <div class="w-20 h-20 bg-red-900/20 rounded-2xl mx-auto mb-6 flex items-center justify-center border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-            <i class="fas fa-ban text-4xl text-red-500"></i>
+        <div
+          class="w-20 h-20 bg-red-900/20 rounded-2xl mx-auto mb-6 flex items-center justify-center border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+          <i class="fas fa-ban text-4xl text-red-500"></i>
         </div>
         <h2 class="text-3xl font-bold mb-2">Acceso Restringido</h2>
         <p class="text-slate-400 mb-8">Credenciales no vinculadas.</p>
 
         <div class="bg-red-900/20 border-l-4 border-l-red-500 p-4 rounded-r-xl text-left mb-8">
           <h4 class="text-red-400 font-bold text-sm mb-1">Inquilino No Encontrado</h4>
-          <p class="text-xs text-slate-400">El correo <strong id="deniedEmail" class="text-white"></strong> no pertenece a ningún Tenant. Contacta a Soporte Micro ERP.</p>
+          <p class="text-xs text-slate-400">El correo <strong id="deniedEmail" class="text-white"></strong> no pertenece
+            a ningún Tenant. Contacta a Soporte Micro ERP.</p>
         </div>
 
-        <button onclick="resetLogin()" class="w-full py-3 bg-transparent hover:bg-white/5 border border-slate-700 text-slate-300 rounded-xl font-semibold transition-colors">
+        <button onclick="resetLogin()"
+          class="w-full py-3 bg-transparent hover:bg-white/5 border border-slate-700 text-slate-300 rounded-xl font-semibold transition-colors">
           ← Volver al inicio
         </button>
       </div>
@@ -267,7 +321,7 @@
       const loginForm = document.getElementById('loginForm');
 
       loginForm.classList.add('hidden');
-      loginForm.classList.remove('flex'); 
+      loginForm.classList.remove('flex');
       loading.classList.remove('hidden');
       loading.classList.add('flex');
 
@@ -294,14 +348,14 @@
 
     async function handleSuccessfulLogin(user) {
       const loading = document.getElementById('loading');
-      
+
       console.log("🔄 Verificando vinculación de usuario en Base de Datos...");
       const { data: profile, error } = await supabaseClient
         .from('perfiles_usuario')
         .select('id')
         .eq('id', user.id)
         .single();
-      
+
       const isAssigned = (profile && !error);
       loading.classList.add('hidden');
       loading.classList.remove('flex');
@@ -342,7 +396,7 @@
       const loginForm = document.getElementById('loginForm');
       loginForm.classList.add('hidden');
       loginForm.classList.remove('flex');
-      
+
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('accessDenied').classList.add('hidden');
 
@@ -354,25 +408,25 @@
 
       const actionButton = document.getElementById('primaryActionButton');
       const actionInfoBox = document.getElementById('actionInfoBox');
-      
+
       if (userData.isAssigned) {
-          actionButton.textContent = 'Ingresar al Panel →';
-          actionButton.onclick = () => window.location.href = 'dashboard.html';
-          
-          actionInfoBox.innerHTML = `
+        actionButton.textContent = 'Ingresar al Panel →';
+        actionButton.onclick = () => window.location.href = 'dashboard.html';
+
+        actionInfoBox.innerHTML = `
             <h4 class="text-emerald-400 font-bold text-sm mb-1"><i class="fas fa-check-circle mr-2"></i>Acceso Autorizado</h4>
             <p class="text-xs text-slate-400">Tus datos han sido validados. Procediendo al entorno seguro.</p>
           `;
-          actionInfoBox.className = 'w-full mb-8 text-left bg-emerald-500/10 border-l-4 border-l-emerald-500 p-4 rounded-r-xl';
+        actionInfoBox.className = 'w-full mb-8 text-left bg-emerald-500/10 border-l-4 border-l-emerald-500 p-4 rounded-r-xl';
       } else {
-          actionButton.textContent = 'Ir a Sala de Espera →';
-          actionButton.onclick = () => window.location.href = 'bienvenida.html';
-          
-          actionInfoBox.innerHTML = `
+        actionButton.textContent = 'Ir a Sala de Espera →';
+        actionButton.onclick = () => window.location.href = 'bienvenida.html';
+
+        actionInfoBox.innerHTML = `
             <h4 class="text-amber-400 font-bold text-sm mb-1"><i class="fas fa-user-clock mr-2"></i>Perfil en Espera</h4>
             <p class="text-xs text-slate-400">Debes ser asignado a una empresa por tu administrador para continuar.</p>
           `;
-          actionInfoBox.className = 'w-full mb-8 text-left bg-amber-500/10 border-l-4 border-l-amber-500 p-4 rounded-r-xl';
+        actionInfoBox.className = 'w-full mb-8 text-left bg-amber-500/10 border-l-4 border-l-amber-500 p-4 rounded-r-xl';
       }
 
       profile.classList.remove('hidden');
@@ -394,13 +448,13 @@
     function resetLogin() {
       document.getElementById('accessDenied').classList.add('hidden');
       document.getElementById('accessDenied').classList.remove('flex');
-      
+
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('loading').classList.remove('flex');
-      
+
       document.getElementById('userProfile').classList.add('hidden');
       document.getElementById('userProfile').classList.remove('flex');
-      
+
       const loginForm = document.getElementById('loginForm');
       loginForm.classList.remove('hidden');
       loginForm.classList.add('flex');
@@ -412,4 +466,5 @@
 
   </script>
 </body>
+
 </html>

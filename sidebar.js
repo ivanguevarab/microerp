@@ -12,13 +12,17 @@
 
     // 1.5. Inyectar Favicon corporativo (Hexágono MicroERP) de forma global antes de cualquier exclusión
     if (!document.querySelector('link[rel="icon"]')) {
-        const favicon = document.createElement('link');
-        favicon.rel = 'icon';
-        favicon.type = 'image/svg+xml';
-        // SVG extraído de la cabecera del sidebar, con encoding URL-safe para los '#' (%23).
-        // ViewBox ajustado (12.5 10 75 75) para eliminar márgenes vacíos y maximizar el tamaño en la pestaña.
-        favicon.href = 'data:image/svg+xml;utf8,<svg viewBox="12.5 10 75 75" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23f59e0b;stop-opacity:1"/><stop offset="100%" style="stop-color:%23b45309;stop-opacity:1"/></linearGradient></defs><path d="M50 30 L80 45 L80 70 L50 85 L20 70 L20 45 Z" fill="url(%23cg)" opacity="0.9"/><path d="M50 10 L80 25 L80 45 L50 30 L20 45 L20 25 Z" fill="url(%23cg)" opacity="1"/><path d="M50 30 L50 85 L80 70 L80 45 Z" fill="%23ffffff" opacity="0.2"/></svg>';
-        document.head.appendChild(favicon);
+        const faviconIco = document.createElement('link');
+        faviconIco.rel = 'icon';
+        faviconIco.type = 'image/x-icon';
+        faviconIco.href = 'favicon.ico?v=7';
+        document.head.appendChild(faviconIco);
+
+        const faviconPng = document.createElement('link');
+        faviconPng.rel = 'icon';
+        faviconPng.type = 'image/png';
+        faviconPng.href = 'favicon.png?v=7';
+        document.head.appendChild(faviconPng);
     }
 
     // La validación de inyección visual se hará después de exportar la configuración del menú.
@@ -198,7 +202,7 @@
             label: 'Especialidades',
             icon: 'fas fa-star',
             id: 'menu-especialidades',
-            url: '', 
+            url: '',
             defaultOpen: false,
             groups: [
                 {
@@ -230,11 +234,11 @@
 
         // PERMISOS GRANULARES Y ESPECIALIDADES
         let finalMenu = menuConfig;
-        
+
         // 1. Filtrado universal por Especialidades Contratadas y Giro del Negocio (Aplica a TODOS, incluyendo ADMIN)
         const especialidadesEmpresa = (profileData && profileData.empresas && profileData.empresas.especialidades) ? profileData.empresas.especialidades : [];
         const esIndustrial = (profileData && profileData.empresas && profileData.empresas.es_industrial === true);
-        
+
         finalMenu = finalMenu.map(module => {
             // Evaluacion de giro de negocio para cualquier módulo que lo requiera
             if (module.required_industry && !esIndustrial) return null;
@@ -251,7 +255,7 @@
                     });
                     return newItems.length > 0 ? { ...group, items: newItems } : null;
                 }).filter(g => g !== null);
-                
+
                 return newGroups.length > 0 ? { ...module, groups: newGroups } : null;
             }
             return module;
@@ -306,7 +310,6 @@
                 .sidebar.collapsed .sidebar-footer span {
                     display: none !important;
                 }
-                .sidebar.collapsed .sidebar-header { padding: 1rem 0; justify-content: center; }
                 .sidebar.collapsed .flex-grow { justify-content: center; margin: 0; }
                 
                 .sidebar {
@@ -358,7 +361,7 @@
         // Crear content area
         const contentArea = document.createElement('main');
         // Aseguramos que retenga la clase original pero con margin reajustable
-        contentArea.className = 'content-area h-full'; 
+        contentArea.className = 'content-area h-full';
         contentArea.style.marginLeft = '280px';
         contentArea.style.transition = 'margin-left 0.3s ease';
 
@@ -370,7 +373,7 @@
         // --- 2. Crear Sidebar ---
         const sidebar = document.createElement('aside');
         sidebar.className = 'sidebar';
-        
+
         // Recuperar memoria de sidebar contraída
         if (localStorage.getItem('sidebar_is_collapsed') === 'true') {
             sidebar.classList.add('collapsed');
@@ -417,7 +420,7 @@
         finalMenu.forEach(itemConfig => {
             if (itemConfig.type === 'link') {
                 const li = document.createElement('li');
-                li.className = 'mb-2'; 
+                li.className = 'mb-2';
                 const isActive = page === itemConfig.url;
 
                 li.innerHTML = `
@@ -505,7 +508,7 @@
 
                     // Items del grupo
                     const ul = document.createElement('ul');
-                    ul.className = 'space-y-[2px] mx-2'; 
+                    ul.className = 'space-y-[2px] mx-2';
 
                     group.items.forEach(subItem => {
                         const subLi = document.createElement('li');
@@ -597,7 +600,7 @@
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s max timeout
-                
+
                 // Usamos no-cors a un recurso diminuto y universal (Google favicon) 
                 // con un cache-buster para evitar que el navegador nos mienta.
                 // Esto no gasta cuota de Supabase.
@@ -605,7 +608,7 @@
                     mode: 'no-cors',
                     signal: controller.signal
                 });
-                
+
                 clearTimeout(timeoutId);
                 return true;
             } catch (error) {
@@ -639,7 +642,7 @@
         // Reacción inmediata ante desconexión de cable/wifi reportada por el SO
         window.addEventListener('online', updateConnectionStatus);
         window.addEventListener('offline', updateConnectionStatus);
-        
+
         // Ping activo de comprobación cada 10 segundos
         setTimeout(updateConnectionStatus, 100);
         setInterval(updateConnectionStatus, 10000);
