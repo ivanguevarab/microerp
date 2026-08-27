@@ -1196,10 +1196,10 @@
                             ${c.descripcion}
                         </td>
                         <td class="text-center">
-                            <input type="text" inputmode="decimal" class="qty-input" value="${c.cantidad}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'cantidad', this)" ${c.tipo==='ITEMS'?'disabled title="Eliminar y volver a añadir para recalcular FIFO"':''}>
+                            <input type="text" inputmode="decimal" class="qty-input" value="${c.cantidad}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'cantidad', this)" ${c.tipo==='ITEMS'?'disabled title="Eliminar y volver a añadir para recalcular FIFO"':''}>
                         </td>
                         <td class="text-right">
-                            <input type="text" inputmode="decimal" class="price-input" value="${c.precioFinalIngresado}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'precioFinalIngresado', this)">
+                            <input type="text" inputmode="decimal" class="price-input" value="${c.precioFinalIngresado}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'precioFinalIngresado', this)">
                         </td>
                         <td class="text-center text-red-400 hover:text-red-600 cursor-pointer" onclick="removerDelCarrito('${c.idFront}')">
                             <i class="fas fa-trash"></i>

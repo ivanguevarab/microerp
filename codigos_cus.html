@@ -8,11 +8,11 @@
     <!-- JsBarcode -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
     <!-- Iconos -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
     <!-- Supabase -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="styles.css">
@@ -1312,7 +1312,8 @@
                             horas_invertidas: 1, // Fix: 1 unidad para trazar subtotal
                             responsabilidad: resp,
                             costo_hora_efectiva: parseFloat(montoDigitado),
-                            detalle_tramos: tramosArr
+                            detalle_tramos: tramosArr,
+                            es_costo_pactado: true
                         });
 
                     } else {
@@ -1381,7 +1382,8 @@
                             horas_invertidas: parseFloat(horas),
                             responsabilidad: resp,
                             costo_hora_efectiva: parseFloat(costoHora),
-                            detalle_tramos: tramosArr
+                            detalle_tramos: tramosArr,
+                            es_costo_pactado: false
                         });
                     }
                 }
@@ -1811,7 +1813,6 @@
                             fecha_movimiento: v.fecha,
                             referencia: v.ref,
                             codigo_unico_id: cupId,
-                            tipo_movimiento: 'EGRESO',
                             estado: 'APROBADO',
                             codigo_correlativo: correlativo,
                             created_by: window.currentUser.email,
@@ -2212,6 +2213,34 @@
             const dd = document.getElementById('cliente-dropdown');
             const inp = document.getElementById('cliente_search');
             if (dd && inp && !inp.contains(e.target)) dd.style.display = 'none';
+        });
+
+        // Cierre ordenado de modales con tecla ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                if (typeof Swal !== 'undefined' && Swal.isVisible()) return;
+
+                if (document.getElementById('modal-calculadora-horas') && document.getElementById('modal-calculadora-horas').classList.contains('active')) {
+                    if (typeof closeCalculadoraHoras === 'function') closeCalculadoraHoras();
+                    return;
+                }
+                if (document.getElementById('modal-etiqueta') && document.getElementById('modal-etiqueta').classList.contains('active')) {
+                    if (typeof window.closeModalEtiqueta === 'function') window.closeModalEtiqueta();
+                    return;
+                }
+                if (document.getElementById('modal-traceability') && document.getElementById('modal-traceability').classList.contains('active')) {
+                    if (typeof window.closeTraceability === 'function') window.closeTraceability();
+                    return;
+                }
+                if (document.getElementById('modal-config-mo') && document.getElementById('modal-config-mo').classList.contains('active')) {
+                    if (typeof closeConfigMO === 'function') closeConfigMO();
+                    return;
+                }
+                if (document.getElementById('modal-cus') && document.getElementById('modal-cus').classList.contains('active')) {
+                    if (typeof closeModal === 'function') closeModal();
+                    return;
+                }
+            }
         });
 
     </script>

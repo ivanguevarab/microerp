@@ -1106,16 +1106,22 @@
                 // Supabase JS v2 -> we can't easily upsert only specific columns of multiple dynamic rows without fetching full row, 
                 // OR looping thru updates. Since the user might update 5-10 records at a time, a loop is safe enough.
                 const promesas = Object.keys(modifiedRecords).map(id => {
+                    let payload = { precio_venta: modifiedRecords[id] };
+                    if (tableToUpdate === 'items') {
+                        payload.updated_at = new Date().toISOString();
+                    }
                     return window.supabaseClient
                         .from(tableToUpdate)
-                        .update({ 
-                            precio_venta: modifiedRecords[id],
-                            updated_at: new Date().toISOString()
-                        })
+                        .update(payload)
                         .eq('id', id);
                 });
 
-                await Promise.all(promesas);
+                const resultados = await Promise.all(promesas);
+                
+                const errores = resultados.filter(r => r.error);
+                if (errores.length > 0) {
+                    throw new Error(errores[0].error.message || "Error silencioso devuelto por Supabase al actualizar.");
+                }
 
                 Swal.fire({
                     title: '¡Éxito!',
