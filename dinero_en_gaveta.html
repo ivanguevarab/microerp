@@ -946,11 +946,25 @@
                 return;
             }
             
+            // Contar frecuencias de los montos para detectar duplicados
+            const frecuencias = {};
+            dwState.items.forEach(m => frecuencias[m] = (frecuencias[m] || 0) + 1);
+            
             dwState.items.forEach((monto, index) => {
                 const el = document.createElement('div');
                 const isHighlighted = dwState.highlights && dwState.highlights[index];
-                const bgClass = isHighlighted ? 'bg-amber-500/20 border-amber-500/50' : 'bg-slate-800/50 border-slate-700/50';
-                const textClass = isHighlighted ? 'text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]' : 'text-white';
+                const isDuplicate = frecuencias[monto] > 1;
+                
+                let bgClass = 'bg-slate-800/50 border-slate-700/50';
+                let textClass = 'text-white';
+                
+                if (isHighlighted) {
+                    bgClass = 'bg-amber-500/20 border-amber-500/50';
+                    textClass = 'text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]';
+                } else if (isDuplicate) {
+                    bgClass = 'bg-pink-500/20 border-pink-500/50';
+                    textClass = 'text-pink-400 drop-shadow-[0_0_5px_rgba(244,114,182,0.5)]';
+                }
                 
                 el.className = `dw-item-row ${bgClass} rounded-xl p-4 flex justify-between items-center border relative overflow-hidden transition-all duration-300 cursor-pointer`;
                 
@@ -989,10 +1003,16 @@
         function dwTouchStart(e, element, index) {
             dwPressTimer = setTimeout(() => {
                 element.classList.remove('pressing');
+                
+                // Ocultar cualquier contenedor de acciones abierto en otros registros
+                document.querySelectorAll('[class*="dw-actions-"]').forEach(el => {
+                    el.classList.add('translate-x-full');
+                });
+
                 // Mostrar acciones
                 const actions = document.querySelector(`.dw-actions-${index}`);
                 if(actions) actions.classList.remove('translate-x-full');
-            }, 500); // Reducido a 0.5s para mejor respuesta
+            }, 1250);
             element.classList.add('pressing');
         }
 
