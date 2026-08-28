@@ -223,17 +223,23 @@
 
         <!-- Modal Ranking Completo -->
         <div id="modal-ranking-completo" class="fixed inset-0 bg-slate-950 bg-opacity-95 z-[120] hidden flex items-center justify-center p-6 backdrop-blur-md" onclick="cerrarModalRanking()">
-            <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col animate-zoom-in" onclick="event.stopPropagation()">
-                <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800 text-white">
+            <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[85vh] overflow-hidden flex flex-col animate-zoom-in" onclick="event.stopPropagation()">
+                <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800 text-white flex-wrap gap-4">
                     <h3 class="font-bold text-lg flex items-center gap-2">
-                        <i class="fas fa-list-ol text-emerald-400"></i> Ranking Completo de Rentabilidad
+                        <i class="fas fa-list-ol text-emerald-400"></i> Ranking Completo de Aportantes al Margen de Contribución
                     </h3>
-                    <button onclick="cerrarModalRanking()" class="text-slate-400 hover:text-white transition">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
+                    <div class="flex items-center gap-4">
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="buscadorRanking" placeholder="Buscar aportante..." class="bg-slate-900 border border-slate-700 text-sm text-white rounded-lg pl-9 pr-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none w-64 transition-all" onkeyup="filtrarRankingCompleto()">
+                        </div>
+                        <button onclick="cerrarModalRanking()" class="text-slate-400 hover:text-white transition">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                    <table class="premium-table w-full">
+                <div class="flex-1 overflow-y-auto overflow-x-auto p-4 custom-scrollbar">
+                    <table class="premium-table w-full min-w-[800px]">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -243,6 +249,9 @@
                                 <th class="text-right text-blue-400">Ventas S/</th>
                                 <th class="text-right text-rose-400">Costos S/</th>
                                 <th class="text-right text-emerald-400">Margen S/</th>
+                                <th class="text-right text-purple-400 cursor-pointer hover:text-purple-300 select-none group transition" onclick="ordenarPorRazonMC()" title="Ordenar por Razón MC">
+                                    Razón MC (%) <i id="iconoOrdenMC" class="fas fa-sort ml-1 opacity-50 group-hover:opacity-100 transition-opacity"></i>
+                                </th>
                             </tr>
                         </thead>
                         <tbody id="rankingCompletoBody">
@@ -261,6 +270,9 @@
         let mainChart = null;
         let margenSoloChart = null;
         let modalChart = null;
+        
+        let datosRankingGlobal = [];
+        let ordenMCTipo = 'ninguno';
 
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
@@ -694,7 +706,7 @@
 
         async function abrirModalRanking() {
             document.getElementById('modal-ranking-completo').classList.remove('hidden');
-            document.getElementById('rankingCompletoBody').innerHTML = '<tr><td colspan="7" class="text-center py-10"><i class="fas fa-spinner fa-spin text-emerald-500 text-3xl"></i></td></tr>';
+            document.getElementById('rankingCompletoBody').innerHTML = '<tr><td colspan="8" class="text-center py-10"><i class="fas fa-spinner fa-spin text-emerald-500 text-3xl"></i></td></tr>';
             
             const f = getFiltrosActuales();
             try {
@@ -712,7 +724,7 @@
                 tbody.innerHTML = '';
                 
                 if(!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-500">No hay datos en este periodo.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-500">No hay datos en este periodo.</td></tr>';
                     return;
                 }
 
@@ -725,40 +737,112 @@
                     if (itemsData) itemsData.forEach(it => unidadesMap[it.id] = it.unidad_medida);
                 }
 
-                let totalMargenAcumulado = 0;
-
-                data.forEach((d, idx) => {
+                // Preparar datos globales
+                data.forEach(d => {
                     const marg = parseFloat(d.margen_contribucion);
-                    totalMargenAcumulado += marg;
-                    const udm = d.tipo_item === 'ITEMS' ? (unidadesMap[d.referencia_id] || 'UND') : 'UND';
-                    
-                    tbody.innerHTML += `
-                        <tr>
-                            <td class="font-bold text-slate-500">${idx+1}</td>
-                            <td class="font-bold text-white">${d.nombre_item}</td>
-                            <td class="text-[10px] font-bold uppercase tracking-widest text-slate-500">${d.tipo_item}</td>
-                            <td class="text-right font-medium text-slate-300">${d.cantidad_vendida} <span class="text-[9px] ml-0.5">${udm}</span></td>
-                            <td class="text-right text-blue-400">S/ ${parseFloat(d.ventas_netas).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                            <td class="text-right text-rose-400">S/ ${parseFloat(d.costo_ventas).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                            <td class="text-right font-bold text-emerald-400">S/ ${marg.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                        </tr>
-                    `;
+                    const ventas = parseFloat(d.ventas_netas);
+                    d.razonMC = ventas > 0 ? Math.round((marg / ventas) * 100) : 0;
+                    d.udm = d.tipo_item === 'ITEMS' ? (unidadesMap[d.referencia_id] || 'UND') : 'UND';
                 });
+                
+                datosRankingGlobal = data;
+                ordenMCTipo = 'ninguno';
+                const icono = document.getElementById('iconoOrdenMC');
+                if (icono) icono.className = 'fas fa-sort ml-1 opacity-50 group-hover:opacity-100 transition-opacity';
+                
+                renderizarRanking(datosRankingGlobal);
 
-                tbody.innerHTML += `
-                    <tr class="bg-slate-800/80 border-t-2 border-emerald-500/30">
-                        <td colspan="6" class="text-right font-bold text-slate-400 py-4 uppercase tracking-widest text-xs">Total Margen:</td>
-                        <td class="text-right font-black text-emerald-400 py-4 text-[16px] bg-emerald-900/20">S/ ${totalMargenAcumulado.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                    </tr>
-                `;
             } catch(e) {
                 console.error(e);
-                document.getElementById('rankingCompletoBody').innerHTML = '<tr><td colspan="7" class="text-center text-red-500"><i class="fas fa-exclamation-triangle"></i> Error al cargar datos.</td></tr>';
+                document.getElementById('rankingCompletoBody').innerHTML = '<tr><td colspan="8" class="text-center text-red-500"><i class="fas fa-exclamation-triangle"></i> Error al cargar datos.</td></tr>';
             }
+        }
+
+        function renderizarRanking(dataArray) {
+            const tbody = document.getElementById('rankingCompletoBody');
+            tbody.innerHTML = '';
+            
+            if(!dataArray || dataArray.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-500">No hay datos para mostrar.</td></tr>';
+                return;
+            }
+
+            let totalMargenAcumulado = 0;
+
+            dataArray.forEach((d, idx) => {
+                const marg = parseFloat(d.margen_contribucion);
+                const ventas = parseFloat(d.ventas_netas);
+                totalMargenAcumulado += marg;
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="font-bold text-slate-500">${idx+1}</td>
+                        <td class="font-bold text-white">${d.nombre_item}</td>
+                        <td class="text-[10px] font-bold uppercase tracking-widest text-slate-500">${d.tipo_item}</td>
+                        <td class="text-right font-medium text-slate-300">${d.cantidad_vendida} <span class="text-[9px] ml-0.5">${d.udm}</span></td>
+                        <td class="text-right text-blue-400">S/ ${ventas.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td class="text-right text-rose-400">S/ ${parseFloat(d.costo_ventas).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td class="text-right font-bold text-emerald-400">S/ ${marg.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td class="text-right font-bold text-purple-400">${d.razonMC}%</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML += `
+                <tr class="bg-slate-800/80 border-t-2 border-emerald-500/30 fila-total">
+                    <td colspan="6" class="text-right font-bold text-slate-400 py-4 uppercase tracking-widest text-xs">Total Margen:</td>
+                    <td class="text-right font-black text-emerald-400 py-4 text-[16px] bg-emerald-900/20">S/ ${totalMargenAcumulado.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                    <td class="bg-emerald-900/20"></td>
+                </tr>
+            `;
+            
+            filtrarRankingCompleto();
+        }
+
+        function ordenarPorRazonMC() {
+            if (!datosRankingGlobal || datosRankingGlobal.length === 0) return;
+            
+            const icono = document.getElementById('iconoOrdenMC');
+            
+            if (ordenMCTipo === 'ninguno' || ordenMCTipo === 'asc') {
+                ordenMCTipo = 'desc';
+                datosRankingGlobal.sort((a, b) => b.razonMC - a.razonMC);
+                if(icono) icono.className = 'fas fa-sort-amount-down ml-1 text-purple-300 opacity-100';
+            } else {
+                ordenMCTipo = 'asc';
+                datosRankingGlobal.sort((a, b) => a.razonMC - b.razonMC);
+                if(icono) icono.className = 'fas fa-sort-amount-up ml-1 text-purple-300 opacity-100';
+            }
+            
+            renderizarRanking(datosRankingGlobal);
         }
         
         function cerrarModalRanking() {
             document.getElementById('modal-ranking-completo').classList.add('hidden');
+            const buscador = document.getElementById('buscadorRanking');
+            if(buscador) buscador.value = '';
+        }
+
+        function filtrarRankingCompleto() {
+            const input = document.getElementById('buscadorRanking');
+            if (!input) return;
+            
+            const normalizar = (texto) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            const query = normalizar(input.value);
+            const tbody = document.getElementById('rankingCompletoBody');
+            
+            const filas = tbody.querySelectorAll('tr');
+            
+            filas.forEach(fila => {
+                if (fila.classList.contains('fila-total') || fila.cells.length < 8) return; 
+                
+                const nombreItem = normalizar(fila.cells[1].textContent);
+                if (nombreItem.includes(query)) {
+                    fila.style.display = '';
+                } else {
+                    fila.style.display = 'none';
+                }
+            });
         }
 
         // Cierre de modales con tecla ESC
