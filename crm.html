@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM (Embudo Kanban) | MICRO ERP</title>
+
+    <!-- Tailwind & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { 
+          theme: { 
+              extend: { 
+                  fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'], } 
+              } 
+          } 
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    
+    <!-- Supabase, Auth & SortableJS -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="auth-guard.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- SweetAlert2 para Modales Rápidos -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        /* =========================================================
+           AMBIENT BLOBS & BACKGROUND (DARK SAAS ESTÉTICA)
+           ========================================================= */
+        body {
+            background-color: #020617; /* bg-slate-950 */
+            color: #f1f5f9; /* text-slate-100 */
+        }
+        
+        .ambient-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            pointer-events: none;
+        }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.12); } /* Blue */
+        .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(245, 158, 11, 0.08); } /* Amber */
+
+        /* =========================================================
+           KANBAN SPECIFIC STYLES
+           ========================================================= */
+        .kanban-board {
+            display: flex;
+            gap: 1.25rem;
+            height: calc(100vh - 160px);
+            overflow-x: auto;
+            padding-bottom: 1rem;
+            align-items: flex-start; 
+        }
+
+        /* Custom Scrollbar for the Board */
+        .kanban-board::-webkit-scrollbar { height: 10px; }
+        .kanban-board::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 5px; }
+        .kanban-board::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 5px; }
+        .kanban-board::-webkit-scrollbar-thumb:hover { background: rgba(71, 85, 105, 1); }
+
+        .kanban-col {
+            flex: 1 1 320px; /* Crece para llenar el espacio vacío, base 320px */
+            min-width: 280px; /* Evita que se aplasten demasiado en pantallas pequeñas */
+            max-width: 600px; /* Evita que se estiren de forma absurda en monitores ultrawide */
+            background: rgba(15, 23, 42, 0.6); /* bg-slate-900/60 */
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.5); /* border-slate-700/50 */
+            border-radius: 1rem;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+        }
+
+        .kanban-col-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .kanban-dropzone {
+            padding: 1rem;
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            min-height: 150px;
+        }
+
+        /* Dropzone Scrollbar */
+        .kanban-dropzone::-webkit-scrollbar { width: 6px; }
+        .kanban-dropzone::-webkit-scrollbar-track { background: transparent; }
+        .kanban-dropzone::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.5); border-radius: 3px; }
+
+        .kanban-card {
+            background: rgba(2, 6, 23, 0.7); /* bg-slate-950/70 */
+            border: 1px solid rgba(51, 65, 85, 0.8); /* border-slate-700/80 */
+            border-radius: 0.75rem;
+            padding: 1rem;
+            cursor: grab;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .kanban-card:hover {
+            border-color: rgba(59, 130, 246, 0.5); /* hover:border-blue-500/50 */
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+        }
+
+        .kanban-card:active {
+            cursor: grabbing;
+        }
+
+        .ghost-card {
+            opacity: 0.4;
+            background: rgba(51, 65, 85, 0.5);
+            border: 2px dashed rgba(148, 163, 184, 0.5);
+        }
+
+        /* Utility classes */
+        .btn-glass {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+            color: #e2e8f0;
+            transition: all 0.2s ease;
+        }
+        .btn-glass:hover {
+            background: rgba(51, 65, 85, 0.8);
+            border-color: rgba(71, 85, 105, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 overflow-hidden">
+    
+    <!-- Ambient Blobs -->
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
+
+    <!-- Cabecera -->
+    <header class="submodule-header">
+        <div class="submodule-header-content flex justify-between items-center w-full">
+            <div class="flex items-center gap-4">
+                <button class="btn-back-std" onclick="window.location.href='gestion_crm.html'">
+                    ← Volver
+                </button>
+                <h1 class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 text-2xl font-bold tracking-tight">Embudo de Ventas (CRM)</h1>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="abrirModalNuevoLead()" class="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Nuevo Lead
+                </button>
+                <button onclick="configurarFases()" class="btn-glass px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2">
+                    <i class="fas fa-cog text-slate-400"></i> Fases
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal (Kanban Board) -->
+    <main class="w-full px-6 py-6" style="height: calc(100vh - 80px);">
+        <div id="kanban-board" class="kanban-board">
+            <!-- Cargando Skeleton -->
+            <div class="w-full flex justify-center items-center h-full text-slate-500 flex-col gap-3">
+                <i class="fas fa-circle-notch fa-spin text-3xl text-emerald-500/50"></i>
+                <p class="font-medium animate-pulse">Cargando Embudo...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Nuevo Lead -->
+    <div id="modalNuevoLead" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="cerrarModalNuevoLead()"></div>
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md relative z-10 shadow-2xl flex flex-col transform scale-95 opacity-0 transition-all duration-200" id="modalLeadContent">
+            
+            <div class="flex justify-between items-center p-5 border-b border-slate-800">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-user-plus text-emerald-500"></i> Nuevo Prospecto
+                </h3>
+                <button onclick="cerrarModalNuevoLead()" class="text-slate-400 hover:text-white transition-colors"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="p-6 flex flex-col gap-4">
+                <input type="hidden" id="leadId" value="">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Título de la Oportunidad <span class="text-red-500">*</span></label>
+                    <input type="text" id="leadTitulo" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all placeholder-slate-600" placeholder="Ej: Venta 50 Laptops">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Contacto Principal</label>
+                        <input type="text" id="leadContacto" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-emerald-500 outline-none transition-all placeholder-slate-600" placeholder="Nombre completo">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Empresa</label>
+                        <input type="text" id="leadEmpresa" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-emerald-500 outline-none transition-all placeholder-slate-600" placeholder="Razón Social">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Valor Estimado (S/)</label>
+                        <input type="text" id="leadValor" inputmode="decimal" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-emerald-400 font-semibold focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0.00" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onblur="if(this.value) this.value = Number(this.value).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});" onfocus="if(this.value) this.value = this.value.replace(/,/g, '');">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Cierre Esperado</label>
+                        <input type="date" id="leadFecha" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:ring-1 focus:ring-emerald-500 outline-none transition-all [color-scheme:dark]">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Fase Inicial</label>
+                    <select id="leadFaseSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-emerald-500 outline-none transition-all cursor-pointer">
+                        <!-- Opciones dinámicas -->
+                    </select>
+                </div>
+            </div>
+            
+            <div class="p-5 border-t border-slate-800 bg-slate-900/50 rounded-b-2xl flex justify-between gap-3">
+                <button onclick="eliminarLead()" class="hidden px-5 py-2 rounded-lg font-semibold text-red-400 hover:text-white hover:bg-red-500/20 transition-colors" id="btnEliminarLead">Eliminar</button>
+                <div class="flex gap-3 ml-auto">
+                    <button onclick="cerrarModalNuevoLead()" class="px-5 py-2 rounded-lg font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancelar</button>
+                    <button onclick="guardarLead()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg transition-all" id="btnGuardarLead">
+                        Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Configuración de Fases -->
+    <div id="modalConfigFases" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="cerrarModalConfigFases()"></div>
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl relative z-10 shadow-2xl flex flex-col transform scale-95 opacity-0 transition-all duration-200 max-h-[85vh]" id="modalConfigContent">
+            
+            <div class="flex justify-between items-center p-5 border-b border-slate-800 shrink-0">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-layer-group text-emerald-500"></i> Configurar Fases del Embudo
+                </h3>
+                <button onclick="cerrarModalConfigFases()" class="text-slate-400 hover:text-white transition-colors"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="p-6 flex-grow overflow-y-auto">
+                <div class="bg-blue-500/10 border border-blue-500/20 text-blue-400 px-4 py-3 rounded-lg text-sm mb-6 flex gap-3">
+                    <i class="fas fa-info-circle mt-0.5"></i>
+                    <p>Arrastra las fases para cambiar su orden. Las fases de "Sistema" no pueden eliminarse. Tampoco puedes eliminar fases que tengan prospectos asignados.</p>
+                </div>
+                
+                <div id="fasesList" class="flex flex-col gap-3">
+                    <!-- Fases renderizadas dinámicamente -->
+                </div>
+                
+                <button onclick="agregarFaseFila()" class="mt-4 w-full border-2 border-dashed border-slate-700 hover:border-emerald-500/50 text-slate-400 hover:text-emerald-400 py-3 rounded-xl transition-colors flex items-center justify-center gap-2 font-medium">
+                    <i class="fas fa-plus"></i> Añadir nueva fase
+                </button>
+            </div>
+            
+            <div class="p-5 border-t border-slate-800 bg-slate-900/50 rounded-b-2xl flex justify-end gap-3 shrink-0">
+                <button onclick="cerrarModalConfigFases()" class="px-5 py-2 rounded-lg font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancelar</button>
+                <button onclick="guardarConfiguracionFases()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg transition-all" id="btnGuardarFases">
+                    Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Selector de Colores (Color Picker) -->
+    <div id="modalColorPicker" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onclick="cerrarColorPicker()"></div>
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm relative z-10 shadow-2xl flex flex-col transform scale-95 opacity-0 transition-all duration-200" id="modalColorContent">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800">
+                <h3 class="text-md font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-palette text-emerald-500"></i> Elegir Color
+                </h3>
+                <button onclick="cerrarColorPicker()" class="text-slate-400 hover:text-white transition-colors"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-5">
+                <div id="colorPaletteGrid" class="grid grid-cols-6 gap-3">
+                    <!-- Se llena vía JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT PRINCIPAL -->
+    <script>
+        let sortables = [];
+        let globalFases = [];
+        let globalLeads = [];
+        let modalStack = []; // Pila para manejar el cierre con ESC
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modalStack.length > 0) {
+                const topModal = modalStack[modalStack.length - 1];
+                if (topModal === 'modalNuevoLead') cerrarModalNuevoLead();
+                else if (topModal === 'modalColorPicker') cerrarColorPicker();
+                else if (topModal === 'modalConfigFases') cerrarModalConfigFases();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check session
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            if (session) {
+                window.currentUser = session.user;
+                await cargarDatosKanban();
+            }
+        });
+
+        // ==========================================
+        // CARGA Y RENDERIZADO
+        // ==========================================
+        async function cargarDatosKanban() {
+            try {
+                // 1. Obtener Empresa ID actual (usamos RPC de admin o de alguna tabla existente, pero auth-guard puede no tenerlo si no está en el token).
+                // Al ser RLS estricto basado en auth.uid(), asumo que la conexión directa filtra por el inquilino correspondiente automáticamente (via Policy).
+                
+                // Fetch Fases (Columnas)
+                const { data: fases, error: errFases } = await window.supabaseClient
+                    .from('crm_fases')
+                    .select('*')
+                    .order('orden', { ascending: true });
+                
+                if (errFases) throw errFases;
+                globalFases = fases || [];
+
+                // Si no hay fases (empresa nueva), alertamos al usuario para que se auto-creen
+                if (globalFases.length === 0) {
+                    await crearFasesPorDefecto();
+                    return; // Return and re-run will happen inside crearFasesPorDefecto
+                }
+
+                // Fetch Leads
+                const { data: leads, error: errLeads } = await window.supabaseClient
+                    .from('crm_leads')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (errLeads) throw errLeads;
+                globalLeads = leads || [];
+
+                renderBoard();
+
+            } catch (error) {
+                console.error("Error al cargar Kanban:", error);
+                document.getElementById('kanban-board').innerHTML = `<div class="text-red-500 w-full text-center mt-10">Error cargando el tablero CRM: ${error.message}</div>`;
+            }
+        }
+
+        async function crearFasesPorDefecto() {
+            // Llama a una función o realiza inserts directos. 
+            // Si el RLS exige empresa_id, debemos obtenerlo. 
+            // Buscamos empresa_id en base a perfil de usuario:
+            const { data: perfiles } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id');
+            if (perfiles && perfiles.length > 0) {
+                const eId = perfiles[0].empresa_id;
+                
+                const fasesDefault = [
+                    { empresa_id: eId, nombre: 'Nuevo Prospecto', orden: 0, color_hexa: 'border-slate-500', es_sistema: false, created_by: 'Sistema' },
+                    { empresa_id: eId, nombre: 'Contactado', orden: 1, color_hexa: 'border-amber-500', es_sistema: false, created_by: 'Sistema' },
+                    { empresa_id: eId, nombre: 'En Negociación', orden: 2, color_hexa: 'border-emerald-500', es_sistema: false, created_by: 'Sistema' },
+                    { empresa_id: eId, nombre: 'Ganado', orden: 3, color_hexa: 'border-blue-500', es_sistema: true, created_by: 'Sistema' },
+                    { empresa_id: eId, nombre: 'Perdido', orden: 4, color_hexa: 'border-rose-500', es_sistema: true, created_by: 'Sistema' }
+                ];
+                
+                await window.supabaseClient.from('crm_fases').insert(fasesDefault);
+                await cargarDatosKanban();
+            } else {
+                alert("Error crítico: No se encontró empresa asociada al usuario.");
+            }
+        }
+
+        function renderBoard() {
+            const board = document.getElementById('kanban-board');
+            board.innerHTML = '';
+            
+            // Destruir instancias previas de Sortable
+            sortables.forEach(s => s.destroy());
+            sortables = [];
+            
+            // Actualizar Select del Modal
+            const select = document.getElementById('leadFaseSelect');
+            select.innerHTML = '';
+
+            globalFases.forEach(fase => {
+                // Rellenar Select Modal
+                const opt = document.createElement('option');
+                opt.value = fase.id;
+                opt.textContent = fase.nombre;
+                select.appendChild(opt);
+
+                // Crear Columna
+                const colLeads = globalLeads.filter(l => l.fase_id === fase.id);
+                const totalMonetario = colLeads.reduce((acc, l) => acc + Number(l.valor_estimado || 0), 0);
+                
+                const colHtml = `
+                    <div class="kanban-col">
+                        <div class="kanban-col-header border-t-4 ${fase.color_hexa || 'border-slate-500'} rounded-t-xl">
+                            <span class="text-slate-200">${fase.nombre}</span>
+                            <div class="flex items-center gap-2">
+                                <span id="count-fase-${fase.id}" class="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">${colLeads.length}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- DROPZONE -->
+                        <div class="kanban-dropzone" data-fase-id="${fase.id}" id="dropzone-${fase.id}">
+                            ${colLeads.map(l => generarLeadHtml(l)).join('')}
+                        </div>
+                        
+                        <div class="p-3 border-t border-slate-800/50 flex justify-between items-center text-xs font-semibold">
+                            <span class="text-slate-500">Valor Total:</span>
+                            <span id="total-fase-${fase.id}" class="text-emerald-400 font-mono">S/ ${totalMonetario.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                    </div>
+                `;
+                
+                board.insertAdjacentHTML('beforeend', colHtml);
+            });
+
+            // Inicializar SortableJS
+            document.querySelectorAll('.kanban-dropzone').forEach(el => {
+                sortables.push(new Sortable(el, {
+                    group: 'crm-embudo',
+                    animation: 150,
+                    ghostClass: 'ghost-card',
+                    onEnd: async function (evt) {
+                        const itemEl = evt.item;
+                        const newContainer = evt.to;
+                        const oldContainer = evt.from;
+                        
+                        if (newContainer !== oldContainer) {
+                            const leadId = itemEl.getAttribute('data-id');
+                            const nuevaFaseId = newContainer.getAttribute('data-fase-id');
+                            await updateLeadPhase(leadId, nuevaFaseId);
+                        }
+                    }
+                }));
+            });
+        }
+
+        function actualizarTotalesUI() {
+            globalFases.forEach(fase => {
+                const colLeads = globalLeads.filter(l => l.fase_id === fase.id);
+                const totalMonetario = colLeads.reduce((acc, l) => acc + Number(l.valor_estimado || 0), 0);
+                
+                const spanCount = document.getElementById(`count-fase-${fase.id}`);
+                if(spanCount) spanCount.textContent = colLeads.length;
+                
+                const spanTotal = document.getElementById(`total-fase-${fase.id}`);
+                if(spanTotal) spanTotal.textContent = 'S/ ' + totalMonetario.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            });
+        }
+
+        function generarLeadHtml(lead) {
+            const formatSoles = (val) => Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            let extras = '';
+            
+            let arrExtras = [];
+            if(lead.empresa_cliente) arrExtras.push(`<span class="flex items-center gap-1"><i class="far fa-building text-slate-500"></i> ${lead.empresa_cliente}</span>`);
+            if(lead.nombre_contacto) arrExtras.push(`<span class="flex items-center gap-1"><i class="far fa-user text-slate-500"></i> ${lead.nombre_contacto}</span>`);
+            
+            if(arrExtras.length > 0) {
+                extras += `<div class="text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center gap-2">${arrExtras.join('<span class="text-slate-600">•</span>')}</div>`;
+            }
+            
+            let fechHtml = '';
+            if(lead.fecha_cierre_esperada) {
+                fechHtml = `<span class="text-[10px] text-slate-500 flex items-center gap-1"><i class="far fa-calendar-alt"></i> ${lead.fecha_cierre_esperada}</span>`;
+            }
+
+            return `
+                <div class="kanban-card group" data-id="${lead.id}" onclick="editarLead('${lead.id}')">
+                    <h4 class="font-semibold text-slate-200 text-sm leading-tight mb-1 group-hover:text-emerald-400 transition-colors">${lead.titulo_oportunidad}</h4>
+                    ${extras}
+                    
+                    <div class="mt-3 flex justify-between items-center border-t border-slate-700/50 pt-2">
+                        <span class="font-mono text-emerald-400 font-bold text-xs">S/ ${formatSoles(lead.valor_estimado)}</span>
+                        ${fechHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // LÓGICA DE DATOS (CRUD)
+        // ==========================================
+        async function updateLeadPhase(leadId, nuevaFaseId) {
+            try {
+                // UI Optimista (Instantáneo)
+                const lead = globalLeads.find(l => l.id === leadId);
+                let oldFase = null;
+                if(lead) {
+                    oldFase = lead.fase_id;
+                    lead.fase_id = nuevaFaseId;
+                    actualizarTotalesUI();
+                }
+
+                // Actualización en Background DB
+                const userMetadata = window.currentUser?.user_metadata || {};
+                const currentName = userMetadata.full_name || window.currentUser?.email || 'Sistema';
+
+                const { error } = await window.supabaseClient
+                    .from('crm_leads')
+                    .update({ 
+                        fase_id: nuevaFaseId,
+                        updated_by: currentName
+                    })
+                    .eq('id', leadId);
+
+                if (error) {
+                    // Revertir localmente si falla la DB
+                    if(lead && oldFase) {
+                        lead.fase_id = oldFase;
+                        actualizarTotalesUI();
+                    }
+                    throw error;
+                }
+                
+                // Ya no necesitamos await cargarDatosKanban() aquí porque la UI ya se actualizó al instante.
+
+            } catch (err) {
+                console.error("Error moviendo lead:", err);
+                Swal.fire('Error', 'No se pudo mover el lead. Verifique la conexión.', 'error');
+                await cargarDatosKanban(); // Revert visual
+            }
+        }
+
+        // ==========================================
+        // MODALES (PILA GLOBAL)
+        // ==========================================
+        function abrirModalNuevoLead() {
+            document.getElementById('leadId').value = '';
+            document.getElementById('leadTitulo').value = '';
+            document.getElementById('leadContacto').value = '';
+            document.getElementById('leadEmpresa').value = '';
+            document.getElementById('leadValor').value = '';
+            document.getElementById('leadFecha').value = '';
+            
+            if(globalFases.length > 0) {
+                document.getElementById('leadFaseSelect').value = globalFases[0].id;
+            }
+
+            document.getElementById('btnGuardarLead').textContent = 'Crear Lead';
+            document.getElementById('btnEliminarLead').classList.add('hidden');
+            
+            modalStack.push('modalNuevoLead');
+            const modal = document.getElementById('modalNuevoLead');
+            const content = document.getElementById('modalLeadContent');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function cerrarModalNuevoLead() {
+            modalStack = modalStack.filter(id => id !== 'modalNuevoLead');
+            const modal = document.getElementById('modalNuevoLead');
+            const content = document.getElementById('modalLeadContent');
+            
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        async function guardarLead() {
+            const titulo = document.getElementById('leadTitulo').value.trim();
+            const contacto = document.getElementById('leadContacto').value.trim();
+            const empresa_c = document.getElementById('leadEmpresa').value.trim();
+            const rawValor = document.getElementById('leadValor').value.replace(/,/g, '');
+            const valor = parseFloat(rawValor) || 0;
+            const fecha = document.getElementById('leadFecha').value;
+            const faseId = document.getElementById('leadFaseSelect').value;
+            const id = document.getElementById('leadId').value;
+
+            if(!titulo) return Swal.fire('Atención', 'El título de la oportunidad es obligatorio.', 'warning');
+            
+            // Obtener empresa_id del tenant actual
+            const { data: perfiles } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id');
+            if (!perfiles || perfiles.length === 0) return Swal.fire('Error', 'No se pudo verificar el Tenant.', 'error');
+            const eId = perfiles[0].empresa_id;
+
+            const userMetadata = window.currentUser?.user_metadata || {};
+            const currentName = userMetadata.full_name || window.currentUser?.email || 'Sistema';
+
+            const payload = {
+                empresa_id: eId,
+                fase_id: faseId,
+                titulo_oportunidad: titulo,
+                nombre_contacto: contacto,
+                empresa_cliente: empresa_c,
+                valor_estimado: valor,
+                fecha_cierre_esperada: fecha || null,
+                updated_by: currentName
+            };
+
+            const btn = document.getElementById('btnGuardarLead');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            btn.disabled = true;
+
+            try {
+                if (id) {
+                    // Update
+                    const { error } = await window.supabaseClient.from('crm_leads').update(payload).eq('id', id);
+                    if (error) throw error;
+                } else {
+                    // Insert
+                    payload.created_by = currentName;
+                    const { error } = await window.supabaseClient.from('crm_leads').insert([payload]);
+                    if (error) throw error;
+                }
+                
+                cerrarModalNuevoLead();
+                await cargarDatosKanban();
+                
+            } catch(err) {
+                console.error(err);
+                Swal.fire('Error DB', err.message, 'error');
+            } finally {
+                btn.innerHTML = 'Guardar';
+                btn.disabled = false;
+            }
+        }
+
+        function editarLead(id) {
+            const lead = globalLeads.find(l => l.id === id);
+            if(!lead) return;
+
+            document.getElementById('leadId').value = lead.id;
+            document.getElementById('leadTitulo').value = lead.titulo_oportunidad || '';
+            document.getElementById('leadContacto').value = lead.nombre_contacto || '';
+            document.getElementById('leadEmpresa').value = lead.empresa_cliente || '';
+            document.getElementById('leadValor').value = lead.valor_estimado ? Number(lead.valor_estimado).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '';
+            document.getElementById('leadFecha').value = lead.fecha_cierre_esperada || '';
+            document.getElementById('leadFaseSelect').value = lead.fase_id;
+            
+            document.getElementById('btnGuardarLead').textContent = 'Guardar Cambios';
+            document.getElementById('btnEliminarLead').classList.remove('hidden');
+            
+            modalStack.push('modalNuevoLead');
+            const modal = document.getElementById('modalNuevoLead');
+            const content = document.getElementById('modalLeadContent');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        async function eliminarLead() {
+            const leadId = document.getElementById('leadId').value;
+            if (!leadId) return;
+
+            const confirmacion = await Swal.fire({
+                title: '¿Eliminar Prospecto?',
+                text: "Esta acción no se puede deshacer.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#334155',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (confirmacion.isConfirmed) {
+                try {
+                    const { error } = await window.supabaseClient.from('crm_leads').delete().eq('id', leadId);
+                    if (error) throw error;
+                    
+                    Swal.fire({
+                        title: 'Eliminado',
+                        text: 'El prospecto ha sido eliminado del embudo.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    
+                    cerrarModalNuevoLead();
+                    await cargarDatosKanban();
+                } catch (err) {
+                    console.error(err);
+                    Swal.fire('Error', 'No se pudo eliminar el prospecto.', 'error');
+                }
+            }
+        }
+
+        let sortableFasesList = null;
+
+        function configurarFases() {
+            modalStack.push('modalConfigFases');
+            renderFasesConfigList();
+            
+            const modal = document.getElementById('modalConfigFases');
+            const content = document.getElementById('modalConfigContent');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function cerrarModalConfigFases() {
+            modalStack = modalStack.filter(id => id !== 'modalConfigFases');
+            const modal = document.getElementById('modalConfigFases');
+            const content = document.getElementById('modalConfigContent');
+            
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function renderFasesConfigList() {
+            const container = document.getElementById('fasesList');
+            container.innerHTML = '';
+            
+            globalFases.forEach(fase => {
+                container.insertAdjacentHTML('beforeend', generarFilaFaseHtml(fase));
+            });
+
+            if (sortableFasesList) sortableFasesList.destroy();
+            
+            sortableFasesList = new Sortable(container, {
+                animation: 150,
+                handle: '.fase-drag-handle',
+                ghostClass: 'ghost-card'
+            });
+        }
+
+        function generarFilaFaseHtml(fase) {
+            const hasLeads = globalLeads.some(l => l.fase_id === fase.id);
+            const isSistema = fase.es_sistema;
+            const canDelete = !isSistema && !hasLeads;
+            
+            const colorActual = fase.color_hexa || 'border-slate-500';
+            const bgClass = colorActual.replace('border-', 'bg-');
+
+            return `
+                <div class="fase-row flex items-center gap-3 bg-slate-950 border border-slate-800 p-3 rounded-xl" data-id="${fase.id || 'new'}">
+                    <div class="fase-drag-handle cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 px-2">
+                        <i class="fas fa-grip-vertical"></i>
+                    </div>
+                    
+                    <div class="flex-grow relative group/input">
+                        <input type="text" class="fase-nombre w-full bg-slate-900/50 hover:bg-slate-800 focus:bg-slate-900 border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded-lg px-3 py-1.5 outline-none text-white transition-all" value="${fase.nombre}" placeholder="Nombre de la fase">
+                        <i class="fas fa-pen absolute right-3 top-2.5 text-xs text-slate-500 opacity-0 group-hover/input:opacity-100 transition-opacity pointer-events-none"></i>
+                    </div>
+                    
+                    <div class="flex items-center px-3" title="Clic para cambiar color">
+                        <input type="hidden" class="fase-color" value="${colorActual}">
+                        <div onclick="abrirColorPicker(this)" class="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${bgClass} ring-2 ring-transparent hover:ring-white/50 relative group/color">
+                            <i class="fas fa-palette absolute inset-0 m-auto text-[10px] text-white/70 opacity-0 group-hover/color:opacity-100 transition-opacity flex justify-center items-center"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="w-10 flex justify-center">
+                        ${canDelete ? 
+                            `<button onclick="this.closest('.fase-row').remove()" class="text-slate-500 hover:text-red-500 transition-colors" title="Eliminar"><i class="fas fa-trash-alt"></i></button>` : 
+                            `<button class="text-slate-700 cursor-not-allowed" title="${isSistema ? 'Fase protegida' : 'No se puede eliminar porque contiene prospectos'}"><i class="fas fa-lock"></i></button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        let colorTargetCircle = null;
+        const PALETA_COLORES = [
+            'border-slate-500', 'border-gray-500', 'border-red-500', 
+            'border-orange-500', 'border-amber-500', 'border-yellow-500', 
+            'border-lime-500', 'border-green-500', 'border-emerald-500', 
+            'border-teal-500', 'border-cyan-500', 'border-sky-500', 
+            'border-blue-500', 'border-indigo-500', 'border-violet-500', 
+            'border-purple-500', 'border-fuchsia-500', 'border-pink-500', 
+            'border-rose-500', 'border-slate-800'
+        ];
+
+        function inicializarPaleta() {
+            const grid = document.getElementById('colorPaletteGrid');
+            if(grid.children.length > 0) return; // ya inicializado
+            
+            grid.innerHTML = PALETA_COLORES.map(colorClass => {
+                const bg = colorClass.replace('border-', 'bg-');
+                return `<div onclick="aplicarColor('${colorClass}')" class="w-8 h-8 rounded-full cursor-pointer hover:scale-110 hover:ring-2 hover:ring-white/80 transition-all ${bg}"></div>`;
+            }).join('');
+        }
+
+        function abrirColorPicker(el) {
+            colorTargetCircle = el;
+            inicializarPaleta();
+            
+            modalStack.push('modalColorPicker');
+            const modal = document.getElementById('modalColorPicker');
+            const content = document.getElementById('modalColorContent');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function cerrarColorPicker() {
+            modalStack = modalStack.filter(id => id !== 'modalColorPicker');
+            const modal = document.getElementById('modalColorPicker');
+            const content = document.getElementById('modalColorContent');
+            
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function aplicarColor(colorClass) {
+            if(!colorTargetCircle) return;
+            
+            // Actualizar input oculto
+            const row = colorTargetCircle.closest('.fase-row');
+            row.querySelector('.fase-color').value = colorClass;
+            
+            // Actualizar color del circulo visible
+            // Remover todos los bg-
+            const classes = Array.from(colorTargetCircle.classList);
+            classes.forEach(cls => {
+                if(cls.startsWith('bg-')) colorTargetCircle.classList.remove(cls);
+            });
+            // Añadir nuevo
+            const newBg = colorClass.replace('border-', 'bg-');
+            colorTargetCircle.classList.add(newBg);
+            
+            cerrarColorPicker();
+        }
+
+        function agregarFaseFila() {
+            const container = document.getElementById('fasesList');
+            const newFase = { id: '', nombre: '', color_hexa: 'border-slate-500', es_sistema: false };
+            container.insertAdjacentHTML('beforeend', generarFilaFaseHtml(newFase));
+        }
+
+        async function guardarConfiguracionFases() {
+            const btn = document.getElementById('btnGuardarFases');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            btn.disabled = true;
+            
+            try {
+                const { data: perfiles } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id');
+                const eId = perfiles[0].empresa_id;
+                
+                const rows = document.querySelectorAll('.fase-row');
+                let newOrder = 0;
+                let activeIds = [];
+                let upserts = [];
+                
+                for (let row of rows) {
+                    const id = row.getAttribute('data-id');
+                    const nombre = row.querySelector('.fase-nombre').value.trim();
+                    const color = row.querySelector('.fase-color').value;
+                    
+                    if (!nombre) throw new Error("Todas las fases deben tener un nombre.");
+                    
+                    const payload = {
+                        empresa_id: eId,
+                        nombre: nombre,
+                        color_hexa: color,
+                        orden: newOrder++
+                    };
+                    
+                    if (id && id !== 'new') {
+                        payload.id = id;
+                        activeIds.push(id);
+                    }
+                    upserts.push(payload);
+                }
+                
+                // Identify deletions
+                const toDelete = globalFases.filter(f => !activeIds.includes(f.id));
+                for(let f of toDelete) {
+                    if(f.es_sistema) throw new Error(`No puedes eliminar la fase protegida: ${f.nombre}`);
+                    const hasLeads = globalLeads.some(l => l.fase_id === f.id);
+                    if(hasLeads) throw new Error(`No puedes eliminar "${f.nombre}" porque contiene prospectos.`);
+                }
+                
+                // Delete removed phases
+                if (toDelete.length > 0) {
+                    const delIds = toDelete.map(f => f.id);
+                    const { error: errDel } = await window.supabaseClient.from('crm_fases').delete().in('id', delIds);
+                    if (errDel) throw errDel;
+                }
+                
+                // Upsert remaining/new phases
+                const { error: errUpsert } = await window.supabaseClient.from('crm_fases').upsert(upserts);
+                if (errUpsert) throw errUpsert;
+                
+                cerrarModalConfigFases();
+                await cargarDatosKanban();
+                Swal.fire({
+                    title: 'Guardado', 
+                    text: 'La configuración de fases ha sido actualizada.', 
+                    icon: 'success',
+                    background: '#0f172a',
+                    color: '#fff',
+                    confirmButtonColor: '#10b981'
+                });
+                
+            } catch (error) {
+                console.error(error);
+                Swal.fire({
+                    title: 'Error', 
+                    text: error.message, 
+                    icon: 'error',
+                    background: '#0f172a',
+                    color: '#fff',
+                    confirmButtonColor: '#ef4444'
+                });
+            } finally {
+                btn.innerHTML = 'Guardar Cambios';
+                btn.disabled = false;
+            }
+        }
+    </script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

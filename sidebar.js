@@ -122,6 +122,7 @@
                 {
                     subtitle: 'Gestión',
                     items: [
+                        { label: 'CRM', url: 'crm.html' },
                         { label: 'Clientes', url: 'clientes.html' }
                     ]
                 }
@@ -191,7 +192,7 @@
                 {
                     subtitle: 'Análisis Gerencial',
                     items: [
-                        { label: 'Estado de Resultados', url: 'estado_resultados.html' },
+                        { label: 'Estado de Resultados', url: 'javascript:void(0);' },
                         { label: 'Margen de Contribución', url: 'margen_contribucion.html' }
                     ]
                 }
