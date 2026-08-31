@@ -13,10 +13,26 @@
     <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
 
     <link rel="stylesheet" href="styles.css">
 
     <style>
+        @media print {
+            body.imprimiendo-pizarra * { visibility: hidden; }
+            body.imprimiendo-pizarra #sandbox-pizarra, 
+            body.imprimiendo-pizarra #sandbox-pizarra * { visibility: visible; }
+            body.imprimiendo-pizarra #sandbox-pizarra {
+                position: absolute; left: 0; top: 0; width: 100%; height: 100vh;
+                background-color: white !important; align-items: stretch; z-index: 9999;
+            }
+            body.imprimiendo-pizarra #sandboxControls,
+            body.imprimiendo-pizarra #btnImprimirPizarra,
+            body.imprimiendo-pizarra button[onclick="cerrarModoZen()"] { display: none !important; }
+        }
         body { background-color: #020617; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
         .submodule-header { background: rgba(15, 23, 42, 0.7); border-bottom: 1px solid #1e293b; backdrop-filter: blur(12px); }
         .ambient-blob { position: fixed; border-radius: 50%; filter: blur(120px); z-index: -1; pointer-events: none; }
@@ -214,7 +230,12 @@
                 <i class="fas fa-times text-3xl"></i>
             </button>
             <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-6xl h-[80vh] overflow-hidden flex flex-col p-6 animate-zoom-in relative" onclick="event.stopPropagation()">
-                <h3 id="modal-titulo-grafico" class="font-bold text-xl text-white mb-4 text-center">Evolución Detallada</h3>
+                <div class="flex justify-between items-center mb-4 relative z-30">
+                    <h3 id="modal-titulo-grafico" class="font-bold text-xl text-white text-center flex-1">Evolución Detallada</h3>
+                    <button onclick="abrirModoZen()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20 absolute right-12 top-0" title="Activar Analítica Avanzada">
+                        <i class="fas fa-magic"></i> Analítica Avanzada
+                    </button>
+                </div>
                 <div class="flex-1 w-full h-full flex items-center justify-center relative">
                     <canvas id="margenChartModal"></canvas>
                 </div>
@@ -258,6 +279,49 @@
                             <!-- Inyectado JS -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modo Zen / Sandbox Pizarra -->
+        <div id="sandbox-pizarra" class="fixed inset-0 bg-slate-950 z-[999] hidden flex flex-col w-full h-full opacity-0 transition-opacity duration-300">
+            <!-- Header Sandbox -->
+            <div class="flex justify-between items-center p-4 bg-slate-900 border-b border-slate-800 shrink-0 shadow-lg">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-white font-bold text-lg flex items-center"><i class="fas fa-chart-line text-indigo-400 mr-2"></i> Analítica Avanzada</h2>
+                    <div class="h-6 w-px bg-slate-700 mx-2"></div>
+                    <!-- Controles Analíticos -->
+                    <div class="flex gap-2 flex-wrap" id="sandboxControls">
+                        <button onclick="toggleSandboxIndicator('sma')" id="btnSma" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-wave-square"></i> Media Móvil</button>
+                        <button onclick="toggleSandboxIndicator('bollinger')" id="btnBollinger" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-water"></i> Bandas Bollinger</button>
+                        <button onclick="toggleSandboxIndicator('tendencia')" id="btnTendencia" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-project-diagram"></i> Proyección</button>
+                        <button onclick="toggleSandboxIndicator('fibonacci')" id="btnFibonacci" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-layer-group"></i> Fibonacci</button>
+                        <button onclick="toggleSandboxIndicator('rsi15')" id="btnRsi15" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-chart-line"></i> RSI (15)</button>
+                        <button onclick="toggleSandboxIndicator('rsi7')" id="btnRsi7" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-chart-line"></i> RSI (7)</button>
+                        <button onclick="toggleSandboxIndicator('macd')" id="btnMacd" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-signal"></i> MACD</button>
+                        <button onclick="toggleSandboxIndicator('forecast')" id="btnForecast" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-robot"></i> Holt-Winters</button>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-[10px] uppercase font-bold tracking-widest text-emerald-500/80 border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 rounded hidden" id="alertaMuestra">Muestra Suficiente</span>
+                    <button id="btnImprimirPizarra" onclick="imprimirPizarra()" class="bg-indigo-900/40 hover:bg-indigo-900/80 text-indigo-400 border border-indigo-800/50 px-4 py-1.5 rounded-lg text-sm font-bold transition-colors">
+                        <i class="fas fa-print mr-1"></i> Imprimir
+                    </button>
+                    <button onclick="cerrarModoZen()" class="bg-rose-900/40 hover:bg-rose-900/80 text-rose-400 border border-rose-800/50 px-4 py-1.5 rounded-lg text-sm font-bold transition-colors">
+                        Cerrar Analítica
+                    </button>
+                </div>
+            </div>
+            <!-- Canvas Container -->
+            <div class="flex-1 w-full relative p-4 bg-slate-950 flex flex-col gap-4 overflow-hidden h-full">
+                <div class="flex-1 w-full relative min-h-[250px]">
+                    <canvas id="sandboxChart"></canvas>
+                </div>
+                <div id="sandboxRsiContainer" class="w-full relative h-48 hidden border-t border-slate-800 pt-2 shrink-0">
+                    <canvas id="sandboxRsiChart"></canvas>
+                </div>
+                <div id="sandboxMacdContainer" class="w-full relative h-48 hidden border-t border-slate-800 pt-2 shrink-0">
+                    <canvas id="sandboxMacdChart"></canvas>
                 </div>
             </div>
         </div>
@@ -627,6 +691,7 @@
         function abrirGraficoExpandido(tipo) {
             if (tipo) chartActualExpandido = tipo;
             else tipo = chartActualExpandido;
+            window.modoPizarraActivo = tipo;
 
             document.getElementById('modal-grafico-expandido').classList.remove('hidden');
             
@@ -854,9 +919,662 @@
                 if (!document.getElementById('modal-ranking-completo').classList.contains('hidden')) {
                     cerrarModalRanking();
                 }
+                if (!document.getElementById('sandbox-pizarra').classList.contains('hidden')) {
+                    cerrarModoZen();
+                }
             }
         });
 
+        // ----------------------------------------------------
+        // PIZARRA INTERACTIVA (MODO ZEN) - TRADINGVIEW CLONE
+        // ----------------------------------------------------
+        let sandboxChartInstance = null;
+        let sandboxRsiChartInstance = null;
+        let sandboxMacdChartInstance = null;
+        let originalDataRef = { labels: [], ventas: [], costos: [], margen: [] };
+        let sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false };
+
+        function abrirModoZen() {
+            // Cerramos modal expandido si está abierto para liberar DOM
+            document.getElementById('modal-grafico-expandido').classList.add('hidden');
+            
+            // Extraemos datos actuales del gráfico principal
+            if (!mainChart || !mainChart.data.datasets.length) {
+                Swal.fire('Atención', 'No hay datos en el gráfico principal para analizar.', 'info');
+                return;
+            }
+            
+            const mainVentas = mainChart.data.datasets[0].data;
+            const mainCostos = mainChart.data.datasets[1].data;
+            
+            // Usamos las fechas originales guardadas globalmente para construir Time-Series real
+            if (!window.margenFechasFull || window.margenFechasFull.length === 0) {
+                Swal.fire('Atención', 'Datos insuficientes para el Modo Zen.', 'warning');
+                return;
+            }
+
+            originalDataRef.labels = [...window.margenFechasFull];
+            originalDataRef.ventas = [...mainVentas];
+            originalDataRef.costos = [...mainCostos];
+            originalDataRef.margen = [];
+            
+            for(let i=0; i<mainVentas.length; i++){
+                originalDataRef.margen.push(mainVentas[i] - mainCostos[i]);
+            }
+
+            // Ocultar scroll de body
+            document.body.style.overflow = 'hidden';
+
+            // Reset UI botones a estado inactivo por defecto
+            sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false };
+            ['sma', 'bollinger', 'tendencia', 'fibonacci', 'rsi15', 'rsi7', 'macd', 'forecast'].forEach(tipo => {
+                const btn = document.getElementById('btn' + tipo.charAt(0).toUpperCase() + tipo.slice(1));
+                if(btn) {
+                    btn.classList.replace('bg-indigo-600', 'bg-slate-800');
+                    btn.classList.replace('text-white', 'text-slate-400');
+                    btn.classList.replace('border-indigo-500', 'border-slate-700');
+                }
+            });
+            document.getElementById('sandboxRsiContainer').classList.add('hidden');
+            document.getElementById('sandboxMacdContainer').classList.add('hidden');
+            
+            // Mostrar Sandbox
+            const sbox = document.getElementById('sandbox-pizarra');
+            sbox.classList.remove('hidden');
+            setTimeout(() => { sbox.classList.remove('opacity-0'); sbox.classList.add('opacity-100'); }, 10);
+            
+            renderizarSandbox();
+        }
+
+        function imprimirPizarra() {
+            document.body.classList.add('imprimiendo-pizarra');
+            const colorOscuro = '#94a3b8';
+            const colorClaro = '#1e293b';
+            const grillaOscura = 'rgba(255,255,255,0.05)';
+            const grillaClara = 'rgba(0,0,0,0.1)';
+
+            const setModoImpresion = (chart, isPrint) => {
+                if(!chart) return;
+                const c = isPrint ? colorClaro : colorOscuro;
+                const g = isPrint ? grillaClara : grillaOscura;
+                if(chart.options.scales.x) { chart.options.scales.x.ticks.color = c; if(chart.options.scales.x.grid) chart.options.scales.x.grid.color = g; }
+                if(chart.options.scales.y) { chart.options.scales.y.ticks.color = c; if(chart.options.scales.y.grid) chart.options.scales.y.grid.color = g; }
+                if(chart.options.plugins.legend && chart.options.plugins.legend.labels) chart.options.plugins.legend.labels.color = c;
+                chart.update('none');
+            };
+
+            setModoImpresion(sandboxChartInstance, true);
+            setModoImpresion(sandboxRsiChartInstance, true);
+            setModoImpresion(sandboxMacdChartInstance, true);
+
+            setTimeout(() => {
+                window.print();
+                document.body.classList.remove('imprimiendo-pizarra');
+                setModoImpresion(sandboxChartInstance, false);
+                setModoImpresion(sandboxRsiChartInstance, false);
+                setModoImpresion(sandboxMacdChartInstance, false);
+            }, 500);
+        }
+
+        function cerrarModoZen() {
+            const sbox = document.getElementById('sandbox-pizarra');
+            sbox.classList.remove('opacity-100');
+            sbox.classList.add('opacity-0');
+            setTimeout(() => { 
+                sbox.classList.add('hidden');
+                document.body.style.overflow = '';
+                if(sandboxChartInstance) sandboxChartInstance.destroy();
+                if(sandboxRsiChartInstance) sandboxRsiChartInstance.destroy();
+                if(sandboxMacdChartInstance) sandboxMacdChartInstance.destroy();
+            }, 300);
+        }
+
+        function toggleSandboxIndicator(tipo) {
+            sandboxConfig[tipo] = !sandboxConfig[tipo];
+            const btn = document.getElementById('btn' + tipo.charAt(0).toUpperCase() + tipo.slice(1));
+            
+            if (sandboxConfig[tipo]) {
+                btn.classList.replace('bg-slate-800', 'bg-indigo-600');
+                btn.classList.replace('text-slate-400', 'text-white');
+                btn.classList.replace('border-slate-700', 'border-indigo-500');
+            } else {
+                btn.classList.replace('bg-indigo-600', 'bg-slate-800');
+                btn.classList.replace('text-white', 'text-slate-400');
+                btn.classList.replace('border-indigo-500', 'border-slate-700');
+            }
+            
+            renderizarSandbox();
+        }
+
+        // ALGORITMOS MATEMÁTICOS
+        function calcularSMA(data, periodos) {
+            let sma = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < periodos - 1) {
+                    sma.push(null);
+                } else {
+                    let sum = 0;
+                    for (let j = 0; j < periodos; j++) { sum += data[i - j]; }
+                    sma.push(sum / periodos);
+                }
+            }
+            return sma;
+        }
+
+        function calcularBollinger(data, sma, periodos, multiplier) {
+            let upper = [], lower = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < periodos - 1 || sma[i] === null) {
+                    upper.push(null); lower.push(null);
+                } else {
+                    let sumSq = 0;
+                    for (let j = 0; j < periodos; j++) {
+                        sumSq += Math.pow(data[i - j] - sma[i], 2);
+                    }
+                    let devStd = Math.sqrt(sumSq / periodos);
+                    upper.push(sma[i] + (devStd * multiplier));
+                    lower.push(sma[i] - (devStd * multiplier));
+                }
+            }
+            return { upper, lower };
+        }
+
+        function calcularTendenciaMinimosCuadrados(dataOriginal) {
+            let data = dataOriginal.filter(d => d !== null);
+            let n = data.length;
+            if(n < 2) return null;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            for(let i=0; i<n; i++){
+                sumX += i;
+                sumY += data[i];
+                sumXY += i * data[i];
+                sumX2 += i * i;
+            }
+            let pendiente = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            let intercepto = (sumY - pendiente * sumX) / n;
+            return { m: pendiente, b: intercepto, len: n };
+        }
+
+        function calcularRSI(data, periodos) {
+            let rsi = [];
+            let gains = [], losses = [];
+            for(let i=0; i<data.length; i++) {
+                if(i===0 || data[i]===null || data[i-1]===null) {
+                    rsi.push(null);
+                    continue;
+                }
+                let diff = data[i] - data[i-1];
+                gains.push(diff > 0 ? diff : 0);
+                losses.push(diff < 0 ? Math.abs(diff) : 0);
+
+                if (gains.length < periodos) {
+                    rsi.push(null);
+                } else {
+                    let recentGains = gains.slice(-periodos);
+                    let recentLosses = losses.slice(-periodos);
+                    let avgGain = recentGains.reduce((a,b)=>a+b,0) / periodos;
+                    let avgLoss = recentLosses.reduce((a,b)=>a+b,0) / periodos;
+                    let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                    rsi.push(avgLoss === 0 ? 100 : 100 - (100 / (1 + rs)));
+                }
+            }
+            return rsi;
+        }
+
+        function calcularEMA(data, periodos) {
+            let ema = [];
+            let k = 2 / (periodos + 1);
+            let prevEma = null;
+            let sum = 0;
+            let count = 0;
+            for(let i=0; i<data.length; i++){
+                if(data[i] === null) {
+                    ema.push(null);
+                    continue;
+                }
+                if (count < periodos) {
+                    sum += data[i];
+                    count++;
+                    if (count === periodos) {
+                        prevEma = sum / periodos;
+                        ema.push(prevEma);
+                    } else {
+                        ema.push(null);
+                    }
+                } else {
+                    prevEma = (data[i] - prevEma) * k + prevEma;
+                    ema.push(prevEma);
+                }
+            }
+            return ema;
+        }
+
+        function calcularMACD(data) {
+            let ema12 = calcularEMA(data, 12);
+            let ema26 = calcularEMA(data, 26);
+            let macd = [];
+            for(let i=0; i<data.length; i++){
+                if(ema12[i] !== null && ema26[i] !== null){
+                    macd.push(ema12[i] - ema26[i]);
+                } else {
+                    macd.push(null);
+                }
+            }
+            let signal = calcularEMA(macd, 9);
+            let histograma = [];
+            for(let i=0; i<macd.length; i++){
+                if(macd[i] !== null && signal[i] !== null){
+                    histograma.push(macd[i] - signal[i]);
+                } else {
+                    histograma.push(null);
+                }
+            }
+            return { macd, signal, histograma };
+        }
+
+        function calcularHoltWinters(data, futureSteps) {
+            let validData = data.filter(d => d !== null);
+            let n = validData.length;
+            let s = 7; // Estacionalidad de 7 días
+            
+            // Si no hay datos suficientes para Holt-Winters, regresamos a Holt Simple Lineal
+            if (n < s * 2) {
+                if (n < 3) return null;
+                let alpha = 0.5, beta = 0.3;
+                let l = [validData[0]], b = [validData[1] - validData[0]];
+                for(let i = 1; i < n; i++) {
+                    let currentL = alpha * validData[i] + (1 - alpha) * (l[i-1] + b[i-1]);
+                    let currentB = beta * (currentL - l[i-1]) + (1 - beta) * b[i-1];
+                    l.push(currentL); b.push(currentB);
+                }
+                let forecast = [];
+                for(let i=0; i<data.length; i++) forecast.push(null);
+                for(let i=1; i<=futureSteps; i++) forecast.push(l[n-1] + i * b[n-1]);
+                return forecast;
+            }
+            
+            // Parámetros Holt-Winters (Aditivo)
+            let alpha = 0.4, beta = 0.2, gamma = 0.4;
+            
+            let initialLevel = 0;
+            for(let i=0; i<s; i++) initialLevel += validData[i];
+            initialLevel /= s;
+            
+            let initialTrend = 0;
+            for(let i=0; i<s; i++) initialTrend += (validData[i+s] - validData[i]) / s;
+            initialTrend /= s;
+            
+            let seasonal = [];
+            for(let i=0; i<s; i++) seasonal.push(validData[i] - initialLevel);
+            
+            let l = initialLevel;
+            let b = initialTrend;
+            
+            for(let i = 0; i < n; i++) {
+                let currentVal = validData[i];
+                let prevL = l;
+                let s_prev = seasonal[i]; 
+                
+                l = alpha * (currentVal - s_prev) + (1 - alpha) * (prevL + b);
+                b = beta * (l - prevL) + (1 - beta) * b;
+                let s_curr = gamma * (currentVal - l) + (1 - gamma) * s_prev;
+                
+                seasonal.push(s_curr);
+            }
+            
+            let forecast = [];
+            for(let i=0; i<data.length; i++) forecast.push(null);
+            
+            for(let m=1; m<=futureSteps; m++) {
+                let seasonIdx = n + ((m - 1) % s);
+                let f = l + (m * b) + seasonal[seasonIdx];
+                forecast.push(f);
+            }
+            return forecast;
+        }
+
+        function sincronizarSubGraficos(mainChart) {
+            let minX = mainChart.scales.x.min;
+            let maxX = mainChart.scales.x.max;
+            if(sandboxRsiChartInstance) {
+                sandboxRsiChartInstance.options.scales.x.min = minX;
+                sandboxRsiChartInstance.options.scales.x.max = maxX;
+                sandboxRsiChartInstance.update('none');
+            }
+            if(sandboxMacdChartInstance) {
+                sandboxMacdChartInstance.options.scales.x.min = minX;
+                sandboxMacdChartInstance.options.scales.x.max = maxX;
+                sandboxMacdChartInstance.update('none');
+            }
+        }
+
+        function renderizarSandbox() {
+            const ctx = document.getElementById('sandboxChart').getContext('2d');
+            if(sandboxChartInstance) sandboxChartInstance.destroy();
+
+            let targetMetric = window.modoPizarraActivo === 'conjunta' ? 'ventas' : 'margen';
+            let activeDataArray = originalDataRef[targetMetric];
+            let activeLabelName = targetMetric === 'ventas' ? 'Ventas Netas Históricas' : 'Margen Histórico';
+            let activeColor = targetMetric === 'ventas' ? '#3b82f6' : '#10b981';
+            let activeBgColor = targetMetric === 'ventas' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+            let activeNegativeColor = targetMetric === 'ventas' ? '#3b82f6' : '#f43f5e';
+            let activeNegativeBgColor = targetMetric === 'ventas' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(244, 63, 94, 0.2)';
+
+            // Preparar Eje X (Time-Series) + Padding (30 días futuro)
+            let rawFechas = [...originalDataRef.labels];
+            let extendedFechas = [...rawFechas];
+            let extendedData = [...activeDataArray];
+
+            // Padding Futuro
+            if (rawFechas.length > 0) {
+                let lastDate = new Date(rawFechas[rawFechas.length - 1] + "T12:00:00");
+                for (let i = 1; i <= 7; i++) {
+                    let nextD = new Date(lastDate);
+                    nextD.setDate(lastDate.getDate() + i);
+                    extendedFechas.push(nextD.toISOString().split('T')[0]);
+                    extendedData.push(null);
+                }
+            }
+
+            // Datos Base 
+            let datasetPrincipal = extendedFechas.map((fecha, idx) => {
+                return { x: new Date(fecha + "T12:00:00"), y: extendedData[idx] };
+            });
+
+            let datasets = [
+                {
+                    label: activeLabelName,
+                    data: datasetPrincipal,
+                    borderColor: activeColor,
+                    backgroundColor: activeBgColor,
+                    borderWidth: 2,
+                    fill: { target: 'origin', below: activeNegativeBgColor, above: activeBgColor },
+                    segment: {
+                        borderColor: ctx => ctx.p0.parsed.y < 0 ? activeNegativeColor : activeColor,
+                    },
+                    tension: 0.1,
+                    pointRadius: 2,
+                    spanGaps: false
+                }
+            ];
+
+            // ALERTA DE MUESTRA
+            const nData = activeDataArray.length;
+            const alerta = document.getElementById('alertaMuestra');
+            if (nData < 7 && (sandboxConfig.sma || sandboxConfig.bollinger || sandboxConfig.tendencia)) {
+                alerta.classList.remove('hidden');
+                alerta.textContent = 'MUESTRA BAJA (<7): ESTADÍSTICA POCO FIABLE';
+                alerta.classList.replace('text-emerald-500/80', 'text-amber-500/80');
+                alerta.classList.replace('border-emerald-500/20', 'border-amber-500/20');
+                alerta.classList.replace('bg-emerald-500/10', 'bg-amber-500/10');
+            } else {
+                alerta.classList.add('hidden');
+            }
+
+            // APLICAR INDICADORES
+            let periodosSMA = 7;
+            if(nData < 7) periodosSMA = nData > 2 ? nData : 0;
+
+            let currentSma = [];
+            let upperBands = [], lowerBands = [];
+
+            if (periodosSMA > 0) {
+                currentSma = calcularSMA(activeDataArray, periodosSMA);
+                let bbands = calcularBollinger(activeDataArray, currentSma, periodosSMA, 2);
+                upperBands = bbands.upper;
+                lowerBands = bbands.lower;
+            }
+
+            if (sandboxConfig.bollinger && periodosSMA > 0) {
+                let datasetUp = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < upperBands.length ? upperBands[i] : null }));
+                let datasetDown = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < lowerBands.length ? lowerBands[i] : null }));
+
+                datasets.push({
+                    label: 'BB Upper', data: datasetUp,
+                    borderColor: 'rgba(56, 189, 248, 0.5)', borderWidth: 1, borderDash: [2, 2], pointRadius: 0,
+                    fill: false, tension: 0.2
+                });
+                datasets.push({
+                    label: 'BB Lower', data: datasetDown,
+                    borderColor: 'rgba(56, 189, 248, 0.5)', borderWidth: 1, borderDash: [2, 2], pointRadius: 0,
+                    fill: '-1', backgroundColor: 'rgba(56, 189, 248, 0.1)', tension: 0.2
+                });
+            }
+
+            if (sandboxConfig.sma && periodosSMA > 0) {
+                let datasetSmaObj = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < currentSma.length ? currentSma[i] : null }));
+                datasets.push({
+                    label: `SMA (${periodosSMA})`, data: datasetSmaObj,
+                    borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0,
+                    fill: false, tension: 0.3
+                });
+            }
+
+            if (sandboxConfig.tendencia) {
+                let eq = calcularTendenciaMinimosCuadrados(activeDataArray);
+                if (eq) {
+                    let tendenciaPuntos = extendedFechas.map((f, i) => {
+                        return { x: new Date(f + "T12:00:00"), y: eq.m * i + eq.b };
+                    });
+                    datasets.push({
+                        label: 'Línea de Tendencia (Regresión)', data: tendenciaPuntos,
+                        borderColor: '#a855f7', borderWidth: 2, borderDash: [5, 5], pointRadius: 0,
+                        fill: false
+                    });
+                }
+            }
+
+            sandboxChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, 
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1' }, position: 'bottom' },
+                        zoom: {
+                            pan: { enabled: true, mode: 'x', modifierKey: null, onPan: function({chart}){ sincronizarSubGraficos(chart); } },
+                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x', onZoom: function({chart}){ sincronizarSubGraficos(chart); } }
+                        },
+                        tooltip: { 
+                            backgroundColor: 'rgba(15,23,42,0.9)', titleColor: '#fff', bodyColor: '#cbd5e1',
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    if (tooltipItems.length > 0) {
+                                        const d = new Date(tooltipItems[0].parsed.x);
+                                        if (!isNaN(d.getTime())) {
+                                            const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                                            const y = d.getFullYear();
+                                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                                            const day = String(d.getDate()).padStart(2, '0');
+                                            return `${y}-${m}-${day} , ${dias[d.getDay()]}`;
+                                        }
+                                    }
+                                    return tooltipItems[0].label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'day', tooltipFormat: 'PP' },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { 
+                                color: '#94a3b8',
+                                font: { size: 14, weight: 'bold' },
+                                callback: function(value) {
+                                    const d = new Date(value);
+                                    if (!isNaN(d.getTime())) {
+                                        const diasCortos = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                                        const dayStr = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+                                        return [dayStr, diasCortos[d.getDay()]];
+                                    }
+                                    return value;
+                                }
+                            }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 14, weight: 'bold' }, callback: (val) => 'S/ ' + val }
+                        }
+                    }
+                }
+            });
+
+            // Fibonacci
+            if (sandboxConfig.fibonacci && activeDataArray.length > 0) {
+                let validData = activeDataArray.filter(d => d !== null);
+                if(validData.length > 0) {
+                    let minVal = Math.min(...validData);
+                    let maxVal = Math.max(...validData);
+                    let diff = maxVal - minVal;
+                    let fiboLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618];
+                    let colors = ['#cbd5e1', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#cbd5e1', '#64748b'];
+                    let annotations = {};
+                    fiboLevels.forEach((level, idx) => {
+                        let yVal = maxVal - (diff * level);
+                        annotations['fibo' + idx] = {
+                            type: 'line', yMin: yVal, yMax: yVal, borderColor: colors[idx], borderWidth: 1, borderDash: [5, 5],
+                            label: { display: true, content: `Fibo ${(level*100).toFixed(1)}%`, position: 'end', backgroundColor: 'rgba(15,23,42,0.7)', color: colors[idx], font: { size: 14, weight: 'bold' } }
+                        };
+                    });
+                    sandboxChartInstance.options.plugins.annotation = { annotations: annotations };
+                    sandboxChartInstance.update('none');
+                }
+            }
+
+            // Forecast Holt-Winters
+            if (sandboxConfig.forecast) {
+                let futureForecasts = calcularHoltWinters(activeDataArray, 7);
+                if (futureForecasts) {
+                    let forecastPuntos = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < futureForecasts.length ? futureForecasts[i] : null }));
+                    sandboxChartInstance.data.datasets.push({
+                        label: 'Holt-Winters Estacional (7 días)', data: forecastPuntos,
+                        borderColor: '#fbbf24', borderWidth: 2, borderDash: [2, 2], pointRadius: 3, pointBackgroundColor: '#fbbf24', fill: false
+                    });
+                    sandboxChartInstance.update('none');
+                }
+            }
+
+            // RSI Sub-Canvas
+            const rsiContainer = document.getElementById('sandboxRsiContainer');
+            if ((sandboxConfig.rsi15 || sandboxConfig.rsi7) && nData >= 7) {
+                rsiContainer.classList.remove('hidden');
+                
+                let datasetsRsi = [];
+                if (sandboxConfig.rsi15 && nData >= 15) {
+                    let rsiData15 = calcularRSI(activeDataArray, 15);
+                    let rsiPuntos15 = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < rsiData15.length ? rsiData15[i] : null }));
+                    datasetsRsi.push({ label: 'RSI (15)', data: rsiPuntos15, borderColor: '#a855f7', borderWidth: 2, tension: 0.1, pointRadius: 0 });
+                }
+                if (sandboxConfig.rsi7) {
+                    let rsiData7 = calcularRSI(activeDataArray, 7);
+                    let rsiPuntos7 = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < rsiData7.length ? rsiData7[i] : null }));
+                    datasetsRsi.push({ label: 'RSI (7)', data: rsiPuntos7, borderColor: '#fbbf24', borderWidth: 1.5, tension: 0.1, pointRadius: 0, borderDash: [3, 3] });
+                }
+                
+                const ctxRsi = document.getElementById('sandboxRsiChart').getContext('2d');
+                if(sandboxRsiChartInstance) sandboxRsiChartInstance.destroy();
+                sandboxRsiChartInstance = new Chart(ctxRsi, {
+                    type: 'line',
+                    data: { datasets: datasetsRsi },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+                        plugins: { 
+                            legend: { display: true, labels: { color: '#cbd5e1', boxWidth: 12 }, position: 'top' },
+                            tooltip: { 
+                                backgroundColor: 'rgba(15,23,42,0.9)', titleColor: '#fff', bodyColor: '#cbd5e1',
+                                callbacks: {
+                                    title: function(tooltipItems) {
+                                        if (tooltipItems.length > 0) {
+                                            const d = new Date(tooltipItems[0].parsed.x);
+                                            if (!isNaN(d.getTime())) {
+                                                const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                                                const y = d.getFullYear();
+                                                const m = String(d.getMonth() + 1).padStart(2, '0');
+                                                const day = String(d.getDate()).padStart(2, '0');
+                                                return `${y}-${m}-${day} , ${dias[d.getDay()]}`;
+                                            }
+                                        }
+                                        return tooltipItems[0].label;
+                                    }
+                                }
+                            },
+                            annotation: {
+                                annotations: {
+                                    overbought: { type: 'line', yMin: 70, yMax: 70, borderColor: 'rgba(244, 63, 94, 0.5)', borderWidth: 1, borderDash: [5,5] },
+                                    oversold: { type: 'line', yMin: 30, yMax: 30, borderColor: 'rgba(16, 185, 129, 0.5)', borderWidth: 1, borderDash: [5,5] }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { type: 'time', time: { unit: 'day' }, grid: { display: false }, ticks: { display: false } },
+                            y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 14, weight: 'bold' }, stepSize: 30 } }
+                        }
+                    }
+                });
+            } else {
+                rsiContainer.classList.add('hidden');
+                if(sandboxRsiChartInstance) sandboxRsiChartInstance.destroy();
+            }
+
+            // MACD Sub-Canvas
+            const macdContainer = document.getElementById('sandboxMacdContainer');
+            if (sandboxConfig.macd && nData >= 26) {
+                macdContainer.classList.remove('hidden');
+                let macdObj = calcularMACD(activeDataArray);
+                let macdLine = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < macdObj.macd.length ? macdObj.macd[i] : null }));
+                let sigLine = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < macdObj.signal.length ? macdObj.signal[i] : null }));
+                let histBar = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < macdObj.histograma.length ? macdObj.histograma[i] : null }));
+                
+                const ctxMacd = document.getElementById('sandboxMacdChart').getContext('2d');
+                if(sandboxMacdChartInstance) sandboxMacdChartInstance.destroy();
+                sandboxMacdChartInstance = new Chart(ctxMacd, {
+                    type: 'line',
+                    data: { 
+                        datasets: [
+                            { label: 'Histograma', data: histBar, type: 'bar', backgroundColor: ctx => ctx.raw && ctx.raw.y >= 0 ? 'rgba(16,185,129,0.5)' : 'rgba(244,63,94,0.5)' },
+                            { label: 'MACD (12,26)', data: macdLine, borderColor: '#3b82f6', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+                            { label: 'Señal (9)', data: sigLine, borderColor: '#f59e0b', borderWidth: 1.5, pointRadius: 0, tension: 0.1 }
+                        ] 
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: { 
+                                backgroundColor: 'rgba(15,23,42,0.9)', titleColor: '#fff', bodyColor: '#cbd5e1',
+                                callbacks: {
+                                    title: function(tooltipItems) {
+                                        if (tooltipItems.length > 0) {
+                                            const d = new Date(tooltipItems[0].parsed.x);
+                                            if (!isNaN(d.getTime())) {
+                                                const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                                                const y = d.getFullYear();
+                                                const m = String(d.getMonth() + 1).padStart(2, '0');
+                                                const day = String(d.getDate()).padStart(2, '0');
+                                                return `${y}-${m}-${day} , ${dias[d.getDay()]}`;
+                                            }
+                                        }
+                                        return tooltipItems[0].label;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { type: 'time', time: { unit: 'day' }, grid: { display: false }, ticks: { display: false } },
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 14, weight: 'bold' } } }
+                        }
+                    }
+                });
+            } else {
+                macdContainer.classList.add('hidden');
+                if(sandboxMacdChartInstance) sandboxMacdChartInstance.destroy();
+            }
+        }
     </script>
 </body>
 </html>
