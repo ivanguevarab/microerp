@@ -719,11 +719,18 @@
             const contenedorHasta = document.getElementById('contenedorHasta');
             const hasta = document.getElementById('filtroHasta');
             const desde = document.getElementById('filtroDesde');
+            
+            // Seleccionar botones de Añadir Variante
+            const btnIngreso = document.querySelector('.btn-ingreso');
+            const btnEgreso = document.querySelector('.btn-egreso');
 
             if (isRange) {
                 lblDesde.textContent = "Desde";
                 contenedorHasta.classList.remove('hidden');
                 contenedorHasta.classList.add('flex');
+                
+                if (btnIngreso) btnIngreso.classList.add('hidden');
+                if (btnEgreso) btnEgreso.classList.add('hidden');
                 
                 // Automáticamente establecer "Desde" al primer día del mes de la fecha actual
                 if (hasta.value) {
@@ -736,6 +743,10 @@
                 lblDesde.textContent = "Día en revisión";
                 contenedorHasta.classList.remove('flex');
                 contenedorHasta.classList.add('hidden');
+                
+                if (btnIngreso) btnIngreso.classList.remove('hidden');
+                if (btnEgreso) btnEgreso.classList.remove('hidden');
+                
                 // Al volver a modo "Un solo día", tomamos el día que estaba seleccionado en "Hasta"
                 desde.value = hasta.value;
             }
@@ -1805,7 +1816,7 @@
                         cat: c, monto: m, ref: recRef,
                         isCredit: isCredit, clienteId: isCredit ? cliField.value : null,
                         ordenId: (isOrden && ordField.value) ? ordField.value : null,
-                        trabNombre: (isTrabTodos && trabTodosField) ? trabTodosField.value : null
+                        trabNombre: (isTrabTodos && trabTodosField && trabTodosField.value) ? trabTodosField.value : ((isTrabAlmuerzo && trabAlmuerzoField && trabAlmuerzoField.value) ? trabAlmuerzoField.value : null)
                     }
                 }
             });
@@ -1814,9 +1825,10 @@
                 const catObj = catDisponibles.find(x => x.id === formValues.cat);
                 const cName = catObj ? catObj.nombre : '';
                 const catPlanillaNombres = ['Pago Remuneraciones y Beneficios', 'Pago de Remuneraciones', 'Pago Remuneraciones'];
+                const categoriasTope = [...catPlanillaNombres, 'Beneficio a los Trabajadores'];
                 let isExcepcionTope = false;
 
-                if (catPlanillaNombres.includes(cName) && formValues.trabNombre) {
+                if (categoriasTope.includes(cName) && formValues.trabNombre) {
                     Swal.fire({ title: 'Validando Tope Presupuestal...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
                     
                     const trab = listaPersonalTodos.find(t => `${t.nombres} ${t.apellidos}` === formValues.trabNombre);
@@ -1843,7 +1855,7 @@
                         const nextMesActual = `${nextYyyy}-${String(nextMm).padStart(2, '0')}`;
 
                         const { data: pagosFC } = await window.supabaseClient.from('fc_movimientos')
-                            .select('monto')
+                            .select('monto, fc_fuentes_categorias!inner(nombre)')
                             .eq('empresa_id', currentEmpresaId)
                             .eq('estado', 'APROBADO')
                             .gte('fecha_movimiento', `${mesActual}-01`)
@@ -1852,7 +1864,9 @@
                         
                         let sumaAnterior = 0;
                         (pagosFC || []).forEach(p => {
-                            sumaAnterior += parseFloat(p.monto || 0);
+                            if (p.fc_fuentes_categorias && categoriasTope.includes(p.fc_fuentes_categorias.nombre)) {
+                                sumaAnterior += parseFloat(p.monto || 0);
+                            }
                         });
 
                         const totalProyectado = sumaAnterior + formValues.monto;
