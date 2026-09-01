@@ -178,11 +178,12 @@
                         <thead>
                             <tr>
                                 <th width="15%">Fecha de Pago</th>
-                                <th width="25%">Proveedor</th>
+                                <th width="20%">Proveedor</th>
                                 <th width="20%">Compra / Doc.</th>
                                 <th width="15%" class="text-right">Monto Amortizado</th>
                                 <th width="15%">Método de Pago</th>
                                 <th width="10%">Referencia</th>
+                                <th width="5%" class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="tablaHistorialBody">
@@ -445,6 +446,11 @@
                         <div class="text-[10px] text-gray-500 dark:text-slate-400 font-semibold">${h.metodo_pago ? h.metodo_pago.replace('_', ' ') : '-'}</div>
                     </td>
                     <td class="px-4 py-4 text-xs font-mono text-gray-500 dark:text-slate-400">${ref}</td>
+                    <td class="px-4 py-4 text-center">
+                        <button onclick="eliminarPagoProveedor('${h.id}', true)" class="text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 transition-colors" title="Revertir y Eliminar">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -482,7 +488,12 @@
                         pagosRow += `
                             <div class="flex justify-between items-center border-b border-gray-100 dark:border-slate-700/50 py-1.5 px-3 bg-gray-50 dark:bg-slate-800/50 text-[11px] hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
                                 <div class="text-slate-600 dark:text-slate-400"><i class="fas fa-caret-right text-emerald-500 mr-1"></i> ${new Date(p.fecha_pago).toLocaleDateString('es-PE', {timeZone: 'UTC'})} - ${p.tipo_pago} <span class="bg-white dark:bg-slate-900 border dark:border-slate-700 px-1 rounded ml-1 font-mono text-[9px]">${p.metodo_pago}</span></div>
-                                <div class="font-bold text-emerald-600 dark:text-emerald-400">S/ ${formatMoney(p.monto)}</div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-bold text-emerald-600 dark:text-emerald-400">S/ ${formatMoney(p.monto)}</span>
+                                    <button onclick="eliminarPagoProveedor('${p.id}', false, '${proveedor.proveedor_id}')" class="text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 transition-colors" title="Revertir Pago">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         `;
                     });
@@ -805,6 +816,61 @@
                     title: 'Error de Procesamiento',
                     text: 'Hubo un error al registrar la amortización: ' + err.message,
                     confirmButtonColor: '#ef4444'
+                });
+            }
+        }
+
+        // ==========================================
+        //  ELIMINAR PAGO FÍSICAMENTE (REVERSIÓN)
+        // ==========================================
+        async function eliminarPagoProveedor(pagoId, isFromHistorial, proveedorId = null) {
+            Swal.close();
+            const result = await Swal.fire({
+                title: '¿Revertir Pago a Proveedor?',
+                html: "Esta acción eliminará físicamente el pago y restituirá la deuda en la compra original. No dejará rastro.<br><br>Para continuar, escribe <b>REVERTIR</b>:",
+                icon: 'warning',
+                input: 'text',
+                inputPlaceholder: 'REVERTIR',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, revertir pago',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'swal-wide-dark-compatible' },
+                preConfirm: (inputValue) => {
+                    if (inputValue !== 'REVERTIR') {
+                        Swal.showValidationMessage('Debes escribir la palabra REVERTIR en mayúsculas.');
+                        return false;
+                    }
+                    return true;
+                }
+            });
+
+            if (!result.isConfirmed) {
+                if (!isFromHistorial && proveedorId) verDetalleProveedor(proveedorId);
+                return;
+            }
+
+            Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            try {
+                const { error } = await window.supabaseClient.rpc('rpc_eliminar_pago_proveedor_fisica', { p_pago_id: pagoId });
+                if (error) throw error;
+
+                await Swal.fire({ icon: 'success', title: 'Eliminado', text: 'El pago ha sido revertido correctamente.', confirmButtonColor: '#10b981', customClass: { popup: 'swal-wide-dark-compatible' } });
+
+                if (isFromHistorial) {
+                    await cargarHistorialAmortizaciones();
+                    await cargarCarteraDeudores(); // En background para la otra pestaña
+                } else {
+                    await cargarCarteraDeudores();
+                    verDetalleProveedor(proveedorId);
+                    await cargarHistorialAmortizaciones(); // Actualizamos global en background
+                }
+            } catch (e) {
+                console.error("Error al revertir:", e);
+                Swal.fire('Error', 'No se pudo revertir el pago. Revisa consola.', 'error').then(() => {
+                    if (!isFromHistorial && proveedorId) verDetalleProveedor(proveedorId);
                 });
             }
         }

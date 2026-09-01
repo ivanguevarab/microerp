@@ -98,6 +98,18 @@
             </div>
         </div>
 
+        <!-- Tabs de Navegación -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button onclick="switchTab('vigentes')" id="tab-vigentes" class="py-3 px-6 text-sm font-bold border-b-2 border-blue-600 text-blue-600 focus:outline-none transition-colors">
+                <i class="fas fa-file-invoice-dollar mr-2"></i>Cuentas por Cobrar Vigentes
+            </button>
+            <button onclick="switchTab('historial')" id="tab-historial" class="py-3 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors">
+                <i class="fas fa-history mr-2"></i>Historial de Cobranzas
+            </button>
+        </div>
+
+        <!-- VISTA 1: DEUDAS VIGENTES -->
+        <div id="view-vigentes">
         <!-- KPIs Dashboard -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="card-stat border-l-4 border-rose-500 relative overflow-hidden">
@@ -142,6 +154,46 @@
                 <p class="text-sm text-gray-500 italic"><i class="fas fa-info-circle mr-1"></i> Este módulo es de uso informativo. Para registrar pagos, utilice la opción Trazabilidad -> Ingresar Pago.</p>
             </div>
         </div>
+        </div> <!-- End view-vigentes -->
+
+        <!-- VISTA 2: HISTORIAL DE COBRANZAS -->
+        <div id="view-historial" class="hidden">
+            <!-- KPIs Historial -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="card-stat border-l-4 border-emerald-500 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 text-emerald-500 text-6xl -mr-4 -mt-4"><i class="fas fa-check-circle"></i></div>
+                    <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Total Histórico Amortizado</div>
+                    <div class="text-3xl font-bold text-emerald-600 z-10" id="kpi-total-pagado">S/ 0.00</div>
+                </div>
+                <div class="card-stat border-l-4 border-indigo-500 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 text-indigo-500 text-6xl -mr-4 -mt-4"><i class="fas fa-handshake"></i></div>
+                    <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 z-10">Cobranzas Realizadas</div>
+                    <div class="text-3xl font-bold text-slate-800 z-10" id="kpi-total-amortizaciones">0</div>
+                </div>
+            </div>
+
+            <!-- Tabla Historial -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="15%">Fecha de Pago</th>
+                                <th width="20%">Cliente</th>
+                                <th width="20%">Venta / Doc.</th>
+                                <th width="15%" class="text-right">Monto Cobrado</th>
+                                <th width="15%">Método de Pago</th>
+                                <th width="10%">Referencia</th>
+                                <th width="5%" class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaHistorialBody">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </main>
 
     <script src="sidebar.js"></script>
@@ -149,6 +201,9 @@
         let currentEmpresaId = null;
         let dataGlobalCartera = []; // Almacena array agrupado
         let dataGlobalTickets = []; // Almacena raw db (todos los tickets morosos)
+        
+        let activeTab = 'vigentes';
+        let dataGlobalHistorial = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
@@ -274,13 +329,131 @@
 
         function filtrarTabla() {
             const term = document.getElementById('buscadorGlobal').value.toLowerCase();
-            if(!term) { renderTabla(dataGlobalCartera); return; }
+            
+            if (activeTab === 'vigentes') {
+                if(!term) { renderTabla(dataGlobalCartera); return; }
+                const filtrados = dataGlobalCartera.filter(c => 
+                    c.razon_social.toLowerCase().includes(term) || 
+                    c.numero_documento.toLowerCase().includes(term)
+                );
+                renderTabla(filtrados);
+            } else {
+                if(!term) { renderTablaHistorial(dataGlobalHistorial); return; }
+                const filtrados = dataGlobalHistorial.filter(h => {
+                    const cli = h.ventas?.clientes?.razon_social?.toLowerCase() || '';
+                    const ruc = h.ventas?.clientes?.numero_documento?.toLowerCase() || '';
+                    const doc = h.ventas?.numero_ticket?.toLowerCase() || '';
+                    const ref = h.referencia_pago?.toLowerCase() || '';
+                    return cli.includes(term) || ruc.includes(term) || doc.includes(term) || ref.includes(term);
+                });
+                renderTablaHistorial(filtrados);
+            }
+        }
 
-            const filtrados = dataGlobalCartera.filter(c => 
-                c.razon_social.toLowerCase().includes(term) || 
-                c.numero_documento.toLowerCase().includes(term)
-            );
-            renderTabla(filtrados);
+        // ==========================================
+        //  LÓGICA DE TABS Y HISTORIAL
+        // ==========================================
+        function switchTab(tabId) {
+            activeTab = tabId;
+            
+            // Update Tab UI
+            document.getElementById('tab-vigentes').className = tabId === 'vigentes' 
+                ? 'py-3 px-6 text-sm font-bold border-b-2 border-blue-600 text-blue-600 focus:outline-none transition-colors' 
+                : 'py-3 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors';
+                
+            document.getElementById('tab-historial').className = tabId === 'historial' 
+                ? 'py-3 px-6 text-sm font-bold border-b-2 border-blue-600 text-blue-600 focus:outline-none transition-colors' 
+                : 'py-3 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors';
+
+            // Update Views
+            if (tabId === 'vigentes') {
+                document.getElementById('view-vigentes').classList.remove('hidden');
+                document.getElementById('view-historial').classList.add('hidden');
+                renderTabla(dataGlobalCartera);
+            } else {
+                document.getElementById('view-vigentes').classList.add('hidden');
+                document.getElementById('view-historial').classList.remove('hidden');
+                if (dataGlobalHistorial.length === 0) {
+                    cargarHistorialAmortizaciones();
+                } else {
+                    renderTablaHistorial(dataGlobalHistorial);
+                }
+            }
+            
+            // Reset Search
+            document.getElementById('buscadorGlobal').value = '';
+            filtrarTabla();
+        }
+
+        async function cargarHistorialAmortizaciones() {
+            const tbody = document.getElementById('tablaHistorialBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-gray-500"><i class="fas fa-circle-notch fa-spin text-3xl mb-3 text-blue-500"></i><br>Cargando historial de cobranzas...</td></tr>';
+
+            try {
+                const { data: historial, error } = await window.supabaseClient.from('ventas_credito_pagos')
+                    .select('id, monto, fecha_pago, tipo_pago, metodo_pago, referencia_pago, ventas(numero_ticket, clientes(id, razon_social, numero_documento))')
+                    .eq('empresa_id', currentEmpresaId)
+                    .order('fecha_pago', { ascending: false });
+
+                if(error) throw error;
+
+                dataGlobalHistorial = historial || [];
+                
+                // Actualizar KPIs Historial
+                let totalAmortizado = 0;
+                dataGlobalHistorial.forEach(h => totalAmortizado += Number(h.monto));
+                
+                document.getElementById('kpi-total-pagado').textContent = `S/ ${formatMoney(totalAmortizado)}`;
+                document.getElementById('kpi-total-amortizaciones').textContent = dataGlobalHistorial.length;
+                
+                renderTablaHistorial(dataGlobalHistorial);
+
+            } catch (e) {
+                console.error("Error al cargar historial:", e);
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-red-500">Error de conexión al cargar el historial.</td></tr>';
+            }
+        }
+
+        function renderTablaHistorial(datosAMostrar) {
+            const tbody = document.getElementById('tablaHistorialBody');
+            tbody.innerHTML = '';
+
+            if (datosAMostrar.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">No se encontraron cobranzas registradas en el historial.</td></tr>';
+                return;
+            }
+
+            datosAMostrar.forEach(h => {
+                const tr = document.createElement('tr');
+                
+                const cliNombre = h.ventas?.clientes?.razon_social || 'Desconocido';
+                const numDoc = h.ventas?.numero_ticket || 'S/D';
+                const fecha = h.fecha_pago ? new Date(h.fecha_pago).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '-';
+                const ref = h.referencia_pago && h.referencia_pago !== '-' ? h.referencia_pago : '-';
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-4 text-xs font-mono text-gray-500 dark:text-slate-400">${fecha}</td>
+                    <td class="px-4 py-4">
+                        <div class="font-bold text-gray-800 dark:text-slate-200 text-sm">${cliNombre}</div>
+                        <div class="text-xs text-gray-400 dark:text-slate-500 font-mono">DNI/RUC: ${h.ventas?.clientes?.numero_documento || 'S/D'}</div>
+                    </td>
+                    <td class="px-4 py-4 text-xs font-mono text-gray-600 dark:text-slate-300">${numDoc}</td>
+                    <td class="px-4 py-4 text-right">
+                        <span class="font-bold text-emerald-600 dark:text-emerald-400 text-sm">S/ ${formatMoney(h.monto)}</span>
+                    </td>
+                    <td class="px-4 py-4">
+                        <div class="text-[11px] uppercase tracking-wider text-gray-700 dark:text-slate-300 font-bold">${h.tipo_pago || 'AMORTIZACIÓN'}</div>
+                        <div class="text-[10px] text-gray-500 dark:text-slate-400 font-semibold">${h.metodo_pago ? h.metodo_pago.replace('_', ' ') : '-'}</div>
+                    </td>
+                    <td class="px-4 py-4 text-xs font-mono text-gray-500 dark:text-slate-400">${ref}</td>
+                    <td class="px-4 py-4 text-center">
+                        <button onclick="eliminarPagoDesdeHistorial('${h.id}')" class="text-rose-400 hover:text-rose-600 transition-colors" title="Revertir y eliminar pago">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
         // ==========================================
@@ -305,7 +478,12 @@
                         pagosRow += `
                             <div class="flex justify-between items-center border-b border-gray-100 dark:border-slate-700/50 py-1.5 px-3 bg-gray-50 dark:bg-slate-800/50 text-[11px] hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
                                 <div class="text-slate-600 dark:text-slate-400"><i class="fas fa-caret-right text-emerald-500 mr-1"></i> ${new Date(p.fecha_pago).toLocaleDateString('es-PE')} - ${p.tipo_pago} <span class="bg-white dark:bg-slate-900 border dark:border-slate-700 px-1 rounded ml-1 font-mono text-[9px]">${p.metodo_pago}</span></div>
-                                <div class="font-bold text-emerald-600 dark:text-emerald-400">S/ ${formatMoney(p.monto)}</div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-bold text-emerald-600 dark:text-emerald-400">S/ ${formatMoney(p.monto)}</span>
+                                    <button onclick="eliminarPago('${p.id}', '${clienteId}')" class="text-rose-400 hover:text-rose-600 transition-colors" title="Revertir y eliminar pago">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
                             </div>
                         `;
                     });
@@ -385,6 +563,107 @@
             Swal.close();
             // Viajamos a históricos pasando el query para que se auto-filtre
             window.location.href = `registros_historicos_ventas.html?search=${encodeURIComponent(numeroTicket)}&autoopen=true`;
+        }
+
+        // ==========================================
+        //  ELIMINAR PAGO FÍSICAMENTE (DESDE TRAZABILIDAD)
+        // ==========================================
+        async function eliminarPago(pagoId, clienteId) {
+            Swal.close();
+            const result = await Swal.fire({
+                title: '¿Revertir Cobranza?',
+                html: "Esta acción eliminará físicamente el pago y restituirá la deuda al cliente. No dejará rastro.<br><br>Para continuar, escribe <b>REVERTIR</b>:",
+                icon: 'warning',
+                input: 'text',
+                inputPlaceholder: 'REVERTIR',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar pago',
+                cancelButtonText: 'Cancelar',
+                preConfirm: (inputValue) => {
+                    if (inputValue !== 'REVERTIR') {
+                        Swal.showValidationMessage('Debes escribir la palabra REVERTIR en mayúsculas.');
+                        return false;
+                    }
+                    return true;
+                }
+            });
+
+            if (!result.isConfirmed) {
+                verDetalleCliente(clienteId);
+                return;
+            }
+
+            Swal.fire({ title: 'Revirtiendo...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+
+            try {
+                const { error } = await window.supabaseClient.rpc('rpc_eliminar_cobranza_fisica', {
+                    p_empresa_id: currentEmpresaId,
+                    p_pago_id: pagoId
+                });
+
+                if (error) throw error;
+
+                Swal.fire('Eliminado', 'La cobranza ha sido revertida correctamente.', 'success').then(async () => {
+                    await cargarCarteraDeudores(); // Recargar datos principales para recalcular totales
+                    verDetalleCliente(clienteId); // Reabrir el modal con los datos actualizados
+                });
+
+            } catch (error) {
+                console.error("Error al revertir pago:", error);
+                Swal.fire('Error', 'No se pudo revertir el pago. Consulta la consola.', 'error').then(() => {
+                    verDetalleCliente(clienteId);
+                });
+            }
+        }
+
+        // ==========================================
+        //  ELIMINAR PAGO FÍSICAMENTE (DESDE HISTORIAL)
+        // ==========================================
+        async function eliminarPagoDesdeHistorial(pagoId) {
+            Swal.close();
+            const result = await Swal.fire({
+                title: '¿Revertir Cobranza?',
+                html: "Esta acción eliminará físicamente el pago y restituirá la deuda al cliente. No dejará rastro.<br><br>Para continuar, escribe <b>REVERTIR</b>:",
+                icon: 'warning',
+                input: 'text',
+                inputPlaceholder: 'REVERTIR',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar pago',
+                cancelButtonText: 'Cancelar',
+                preConfirm: (inputValue) => {
+                    if (inputValue !== 'REVERTIR') {
+                        Swal.showValidationMessage('Debes escribir la palabra REVERTIR en mayúsculas.');
+                        return false;
+                    }
+                    return true;
+                }
+            });
+
+            if (!result.isConfirmed) return;
+
+            Swal.fire({ title: 'Revirtiendo...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+
+            try {
+                const { error } = await window.supabaseClient.rpc('rpc_eliminar_cobranza_fisica', {
+                    p_empresa_id: currentEmpresaId,
+                    p_pago_id: pagoId
+                });
+
+                if (error) throw error;
+
+                Swal.fire('Eliminado', 'La cobranza ha sido revertida correctamente.', 'success').then(async () => {
+                    await cargarCarteraDeudores(); // Recargar datos principales en bg
+                    await cargarHistorialAmortizaciones(); // Recargar vista actual
+                });
+
+            } catch (error) {
+                console.error("Error al revertir pago desde historial:", error);
+                Swal.fire('Error', 'No se pudo revertir el pago. Consulta la consola.', 'error');
+            }
         }
 
     </script>
