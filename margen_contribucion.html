@@ -22,16 +22,55 @@
 
     <style>
         @media print {
-            body.imprimiendo-pizarra * { visibility: hidden; }
-            body.imprimiendo-pizarra #sandbox-pizarra, 
-            body.imprimiendo-pizarra #sandbox-pizarra * { visibility: visible; }
-            body.imprimiendo-pizarra #sandbox-pizarra {
-                position: absolute; left: 0; top: 0; width: 100%; height: 100vh;
-                background-color: white !important; align-items: stretch; z-index: 9999;
+            @page { size: A4 landscape; margin: 0; }
+            
+            /* Cortar el documento a exactamente 1 ventana (1 página) */
+            html, body.imprimiendo-pizarra {
+                width: 100vw !important;
+                height: 100vh !important;
+                overflow: hidden !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background-color: white !important;
             }
+            
+            /* Ocultar visualmente todo para que no se imprima (preserva el layout de ChartJS) */
+            body.imprimiendo-pizarra * { visibility: hidden !important; }
+            
+            /* Volver a hacer visible SOLAMENTE la pizarra y sus hijos */
+            body.imprimiendo-pizarra #sandbox-pizarra, 
+            body.imprimiendo-pizarra #sandbox-pizarra * { visibility: visible !important; }
+            
+            /* Forzar a la pizarra a ocupar exactamente la hoja entera de forma absoluta */
+            body.imprimiendo-pizarra #sandbox-pizarra {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background-color: white !important;
+                z-index: 9999;
+                display: flex !important;
+                padding: 1cm !important;
+                box-sizing: border-box !important;
+            }
+            
+            /* Forzar contención estricta del flexbox para evitar desbordamiento inferior (guillotina) */
+            body.imprimiendo-pizarra #sandbox-pizarra > .flex-1,
+            body.imprimiendo-pizarra #sandbox-pizarra > .flex-1 > div {
+                flex: 1 1 0% !important;
+                height: 0 !important; 
+                min-height: 0 !important;
+                max-height: 100% !important;
+            }
+            
+            body.imprimiendo-pizarra h2, 
+            body.imprimiendo-pizarra h2 i { color: black !important; }
+            
             body.imprimiendo-pizarra #sandboxControls,
             body.imprimiendo-pizarra #btnImprimirPizarra,
-            body.imprimiendo-pizarra button[onclick="cerrarModoZen()"] { display: none !important; }
+            body.imprimiendo-pizarra button[onclick="cerrarModoZen()"],
+            body.imprimiendo-pizarra #alertaMuestra { display: none !important; }
         }
         body { background-color: #020617; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
         .submodule-header { background: rgba(15, 23, 42, 0.7); border-bottom: 1px solid #1e293b; backdrop-filter: blur(12px); }
@@ -300,6 +339,7 @@
                         <button onclick="toggleSandboxIndicator('rsi7')" id="btnRsi7" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-chart-line"></i> RSI (7)</button>
                         <button onclick="toggleSandboxIndicator('macd')" id="btnMacd" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-signal"></i> MACD</button>
                         <button onclick="toggleSandboxIndicator('forecast')" id="btnForecast" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-robot"></i> Holt-Winters</button>
+                        <button onclick="toggleSandboxIndicator('sarima')" id="btnSarima" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-project-diagram"></i> SARIMA</button>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
@@ -932,7 +972,7 @@
         let sandboxRsiChartInstance = null;
         let sandboxMacdChartInstance = null;
         let originalDataRef = { labels: [], ventas: [], costos: [], margen: [] };
-        let sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false };
+        let sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false, sarima: false };
 
         function abrirModoZen() {
             // Cerramos modal expandido si está abierto para liberar DOM
@@ -966,8 +1006,8 @@
             document.body.style.overflow = 'hidden';
 
             // Reset UI botones a estado inactivo por defecto
-            sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false };
-            ['sma', 'bollinger', 'tendencia', 'fibonacci', 'rsi15', 'rsi7', 'macd', 'forecast'].forEach(tipo => {
+            sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false, sarima: false };
+            ['sma', 'bollinger', 'tendencia', 'fibonacci', 'rsi15', 'rsi7', 'macd', 'forecast', 'sarima'].forEach(tipo => {
                 const btn = document.getElementById('btn' + tipo.charAt(0).toUpperCase() + tipo.slice(1));
                 if(btn) {
                     btn.classList.replace('bg-indigo-600', 'bg-slate-800');
@@ -988,6 +1028,15 @@
 
         function imprimirPizarra() {
             document.body.classList.add('imprimiendo-pizarra');
+            
+            // Bypass para sincronía ChartJS: Forzar tamaño de papel A4 en pantalla temporalmente
+            const sbox = document.getElementById('sandbox-pizarra');
+            const originalWidth = sbox.style.width;
+            const originalHeight = sbox.style.height;
+            // Ajustado a 277mm x 190mm para encajar exactamente en el área de impresión A4 con márgenes predeterminados
+            sbox.style.width = '277mm';
+            sbox.style.height = '190mm';
+            
             const colorOscuro = '#94a3b8';
             const colorClaro = '#1e293b';
             const grillaOscura = 'rgba(255,255,255,0.05)';
@@ -1007,12 +1056,27 @@
             setModoImpresion(sandboxRsiChartInstance, true);
             setModoImpresion(sandboxMacdChartInstance, true);
 
+            // Forzar resize físico al contenedor
+            if(sandboxChartInstance) sandboxChartInstance.resize();
+            if(sandboxRsiChartInstance) sandboxRsiChartInstance.resize();
+            if(sandboxMacdChartInstance) sandboxMacdChartInstance.resize();
+
             setTimeout(() => {
                 window.print();
+                
+                // Restauración post-impresión inmediata
+                sbox.style.width = originalWidth;
+                sbox.style.height = originalHeight;
                 document.body.classList.remove('imprimiendo-pizarra');
+                
                 setModoImpresion(sandboxChartInstance, false);
                 setModoImpresion(sandboxRsiChartInstance, false);
                 setModoImpresion(sandboxMacdChartInstance, false);
+                
+                // Forzar resize físico de vuelta a las dimensiones del monitor
+                if(sandboxChartInstance) sandboxChartInstance.resize();
+                if(sandboxRsiChartInstance) sandboxRsiChartInstance.resize();
+                if(sandboxMacdChartInstance) sandboxMacdChartInstance.resize();
             }, 500);
         }
 
@@ -1030,6 +1094,29 @@
         }
 
         function toggleSandboxIndicator(tipo) {
+            let targetMetric = window.modoPizarraActivo === 'conjunta' ? 'ventas' : 'margen';
+            let activeDataArray = originalDataRef[targetMetric] || [];
+            let nData = activeDataArray.filter(d => d !== null).length;
+            
+            let minimos = {
+                'macd': 36,
+                'forecast': 15,
+                'sarima': 14,
+                'rsi15': 15,
+                'rsi7': 7
+            };
+
+            if (minimos[tipo] && nData < minimos[tipo] && !sandboxConfig[tipo]) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Muestra Insuficiente',
+                    text: `Para activar este análisis necesitamos al menos ${minimos[tipo]} días de historial. Hay ${nData}.`,
+                    toast: true, position: 'top-end', showConfirmButton: false, timer: 4000,
+                    background: '#1e293b', color: '#f8fafc', iconColor: '#38bdf8'
+                });
+                return;
+            }
+
             sandboxConfig[tipo] = !sandboxConfig[tipo];
             const btn = document.getElementById('btn' + tipo.charAt(0).toUpperCase() + tipo.slice(1));
             
@@ -1172,26 +1259,70 @@
             return { macd, signal, histograma };
         }
 
+        function calcularSARIMA(data, futureSteps) {
+            let validData = data.filter(d => d !== null);
+            let n = validData.length;
+            if (n < 14) return null;
+
+            // 1. Diferenciación Estacional (s=7)
+            let diffEstacional = [];
+            for (let i = 7; i < n; i++) {
+                diffEstacional.push(validData[i] - validData[i-7]);
+            }
+            
+            // 2. Diferenciación Simple (d=1) para asegurar estacionariedad
+            let diffDoble = [];
+            for (let i = 1; i < diffEstacional.length; i++) {
+                diffDoble.push(diffEstacional[i] - diffEstacional[i-1]);
+            }
+
+            // 3. Estimación AR(1) por OLS
+            let sumXY = 0, sumXX = 0;
+            for (let i = 1; i < diffDoble.length; i++) {
+                sumXY += diffDoble[i] * diffDoble[i-1];
+                sumXX += Math.pow(diffDoble[i-1], 2);
+            }
+            let phi1 = sumXX === 0 ? 0 : sumXY / sumXX;
+            // Clampear phi1 para evitar divergencia extrema explosiva
+            phi1 = Math.max(-0.95, Math.min(0.95, phi1));
+
+            // 4. Proyección de iteraciones
+            let projDiffDoble = [...diffDoble];
+            for (let i = 0; i < futureSteps; i++) {
+                let lastVal = projDiffDoble[projDiffDoble.length - 1];
+                projDiffDoble.push(phi1 * lastVal);
+            }
+
+            // 5. Integración inversa
+            // Integrar diferencial simple
+            let projDiffEstacional = [...diffEstacional];
+            for (let i = 0; i < futureSteps; i++) {
+                let dDoble = projDiffDoble[diffDoble.length + i];
+                let prevDEst = projDiffEstacional[projDiffEstacional.length - 1];
+                projDiffEstacional.push(prevDEst + dDoble);
+            }
+
+            // Integrar estacionalidad
+            let projFinal = [...validData];
+            for (let i = 0; i < futureSteps; i++) {
+                let dEst = projDiffEstacional[diffEstacional.length + i];
+                let prevSeason = projFinal[projFinal.length - 7];
+                projFinal.push(prevSeason + dEst);
+            }
+
+            let forecast = [];
+            for (let i = 0; i < data.length; i++) forecast.push(null);
+            for (let i = 0; i < futureSteps; i++) forecast.push(projFinal[n + i]);
+            
+            return forecast;
+        }
+
         function calcularHoltWinters(data, futureSteps) {
             let validData = data.filter(d => d !== null);
             let n = validData.length;
             let s = 7; // Estacionalidad de 7 días
             
-            // Si no hay datos suficientes para Holt-Winters, regresamos a Holt Simple Lineal
-            if (n < s * 2) {
-                if (n < 3) return null;
-                let alpha = 0.5, beta = 0.3;
-                let l = [validData[0]], b = [validData[1] - validData[0]];
-                for(let i = 1; i < n; i++) {
-                    let currentL = alpha * validData[i] + (1 - alpha) * (l[i-1] + b[i-1]);
-                    let currentB = beta * (currentL - l[i-1]) + (1 - beta) * b[i-1];
-                    l.push(currentL); b.push(currentB);
-                }
-                let forecast = [];
-                for(let i=0; i<data.length; i++) forecast.push(null);
-                for(let i=1; i<=futureSteps; i++) forecast.push(l[n-1] + i * b[n-1]);
-                return forecast;
-            }
+            if (n < 15) return null;
             
             // Parámetros Holt-Winters (Aditivo)
             let alpha = 0.4, beta = 0.2, gamma = 0.4;
@@ -1405,6 +1536,9 @@
                             ticks: { 
                                 color: '#94a3b8',
                                 font: { size: 14, weight: 'bold' },
+                                maxRotation: 0,
+                                minRotation: 0,
+                                autoSkip: true,
                                 callback: function(value) {
                                     const d = new Date(value);
                                     if (!isNaN(d.getTime())) {
@@ -1454,6 +1588,19 @@
                     sandboxChartInstance.data.datasets.push({
                         label: 'Holt-Winters Estacional (7 días)', data: forecastPuntos,
                         borderColor: '#fbbf24', borderWidth: 2, borderDash: [2, 2], pointRadius: 3, pointBackgroundColor: '#fbbf24', fill: false
+                    });
+                    sandboxChartInstance.update('none');
+                }
+            }
+
+            // Forecast SARIMA
+            if (sandboxConfig.sarima && activeDataArray.length >= 14) {
+                let sarimaForecasts = calcularSARIMA(activeDataArray, 7);
+                if (sarimaForecasts) {
+                    let sarimaPuntos = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < sarimaForecasts.length ? sarimaForecasts[i] : null }));
+                    sandboxChartInstance.data.datasets.push({
+                        label: 'SARIMA (7 días)', data: sarimaPuntos,
+                        borderColor: '#06b6d4', borderWidth: 2, borderDash: [3, 3], pointRadius: 3, pointBackgroundColor: '#06b6d4', fill: false
                     });
                     sandboxChartInstance.update('none');
                 }
