@@ -22,7 +22,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 
     <!-- Supabase & Auth -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -601,6 +601,9 @@
         let todosLosClientes = [];
         let indiceAutocomplete = -1; // Navegación por teclado
         let ordenInvertido = false; // Estado para la visualización del carrito
+        let isEditMode = false;
+        let currentEditVentaId = null;
+        let originalEditDate = null;
 
         // Helper para ignorar tildes
         function removeAccents(str) {
@@ -623,10 +626,119 @@
             document.getElementById('fechaEmision').value = isoLocal;
 
             await cargarContextoInicial();
-            await generarNuevoTicket();
+            
+            // Lógica de Edición Magistral
+            const urlParams = new URLSearchParams(window.location.search);
+            const modoEdicion = urlParams.get('modo') === 'edicion';
+            const ventaEditId = urlParams.get('ventaId');
+
+            if (modoEdicion && ventaEditId) {
+                await inicializarModoEdicion(ventaEditId);
+            } else {
+                await generarNuevoTicket();
+            }
             
             configurarEventos();
         });
+
+        async function inicializarModoEdicion(ventaId) {
+            isEditMode = true;
+            currentEditVentaId = ventaId;
+            try {
+                // 1. Obtener Cabecera
+                const { data: ventaDB, error: errV } = await window.supabaseClient.from('ventas')
+                    .select('*')
+                    .eq('id', ventaId)
+                    .single();
+                if(errV) throw errV;
+                
+                document.getElementById('ticketNumber').textContent = ventaDB.numero_ticket + " (EDICIÓN)";
+                document.getElementById('fechaEmision').value = ventaDB.fecha_venta.substring(0, 10);
+                document.getElementById('fechaEmision').disabled = true; // Mantener cronología PEPS
+                document.getElementById('fechaRecepcionPago').value = ventaDB.fecha_venta.substring(0, 10);
+                document.getElementById('fechaRecepcionPago').disabled = true; // Mantener flujo de caja anclado a emisión original
+                
+                originalEditDate = ventaDB.fecha_venta;
+                
+                // 2. Setear Cliente
+                if(ventaDB.cliente_id) {
+                    const c = todosLosClientes.find(x => x.id === ventaDB.cliente_id);
+                    if(c) seleccionarClienteAuto(c.id, c.razon_social);
+                }
+                
+                // 3. Setear Comprobante y Condiciones (Bloqueados)
+                document.getElementById('tipoComprobante').value = ventaDB.tipo_comprobante;
+                document.getElementById('tipoComprobante').disabled = true;
+                
+                document.getElementById('condicionPago').value = ventaDB.condicion_pago;
+                document.getElementById('condicionPago').disabled = true;
+                
+                // Recuperar Almacén Origen Histórico
+                const { data: egr } = await window.supabaseClient.from('egresos')
+                    .select('almacen_origen_id')
+                    .eq('referencia_asociada', ventaDB.numero_ticket)
+                    .maybeSingle();
+                
+                if (egr && egr.almacen_origen_id) {
+                    document.getElementById('almacenOrigen').value = egr.almacen_origen_id;
+                }
+                document.getElementById('almacenOrigen').disabled = true;
+                
+                // 4. Cambiar UI de botones
+                const btnPagar = document.getElementById('btnPagar');
+                if (btnPagar) {
+                    btnPagar.innerHTML = '<i class="fas fa-save text-xl"></i> GUARDAR EDICIÓN';
+                }
+                
+                // 5. Cargar Detalles y reconstruir Carrito
+                const { data: detalles, error: errD } = await window.supabaseClient.from('ventas_detalle')
+                    .select('*')
+                    .eq('venta_id', ventaId);
+                
+                if(errD) throw errD;
+                
+                window.stockRescatadoVirtual = {}; // Inicializar memoria virtual limpia
+                
+                carrito = [];
+                for(let d of detalles) {
+                    if (d.tipo_item_vendido !== 'ITEMS') continue; // Solo soportamos items en esta fase
+                    
+                    window.stockRescatadoVirtual[d.referencia_id] = (window.stockRescatadoVirtual[d.referencia_id] || 0) + Number(d.cantidad); // Almacenar rescate virtual
+
+                    const { data: itemData } = await window.supabaseClient.from('items')
+                        .select('descripcion')
+                        .eq('id', d.referencia_id)
+                        .maybeSingle();
+
+                    carrito.push({
+                        idFront: window.crypto.randomUUID(),
+                        tipo: 'ITEMS',
+                        dbId: d.referencia_id,
+                        descripcion: itemData?.descripcion || 'Ítem Histórico',
+                        cantidad: Number(d.cantidad),
+                        precioFinalIngresado: Number(d.precio_unitario),
+                        lotesAsignados: [], // Importante: vacío para que backend haga FIFO retroactivo
+                        afectoIgvVenta: true
+                    });
+                }
+                renderizarCarrito();
+                recalcularTotales(); // Fuerza actualización visual del bloque azul de caja
+                
+                Swal.fire({
+                    title: 'Modo Edición Activado',
+                    text: 'Estás modificando el ticket ' + ventaDB.numero_ticket + '. El Kárdex reescribirá la logística retroactivamente usando PEPS.',
+                    icon: 'info',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 5000
+                });
+                
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', 'No se pudo cargar la venta para edición.', 'error');
+            }
+        }
 
         async function generarNuevoTicket() {
             const year = new Date().getFullYear();
@@ -978,7 +1090,10 @@
                                 .eq('ingresos.almacen_destino_id', almacenId)
                                 .gt('cantidad_disponible', 0);
                             
-                            const stockActual = lotes ? lotes.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
+                            let stockActual = lotes ? lotes.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
+                            if (isEditMode && window.stockRescatadoVirtual && window.stockRescatadoVirtual[prod.id]) {
+                                stockActual += window.stockRescatadoVirtual[prod.id];
+                            }
                             
                             // Solo muestra si tiene stock
                             if(stockActual > 0) {
@@ -991,7 +1106,10 @@
                                 .eq('item_id', prod.id)
                                 .gt('cantidad_disponible', 0);
                             
-                            const stockGlobal = lotesGlobales ? lotesGlobales.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
+                            let stockGlobal = lotesGlobales ? lotesGlobales.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
+                            if (isEditMode && window.stockRescatadoVirtual && window.stockRescatadoVirtual[prod.id]) {
+                                stockGlobal += window.stockRescatadoVirtual[prod.id];
+                            }
                             
                             // EXCLUSIVAMENTE muestra si el stock total de la empresa es 0
                             if(stockGlobal === 0) {
@@ -1088,28 +1206,30 @@
                     }
                 }
                 const almacenId = document.getElementById('almacenOrigen').value;
-                try {
-                    // LÓGICA FIFO CLONADA: Consultar lotes
-                    const { data: lotesBD } = await window.supabaseClient.from('ingresos_detalle')
-                        .select('id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
-                        .eq('item_id', obj.id)
-                        .eq('ingresos.almacen_destino_id', almacenId)
-                        .gt('cantidad_disponible', 0)
-                        .order('ingresos(fecha_ingreso)', { ascending: true }); // FIFO
-                    
-                    let pendiente = cantidadReq;
-                    for(let l of (lotesBD||[])) {
-                        if(pendiente <= 0) break;
-                        const disp = Number(l.cantidad_disponible);
-                        const aTomar = Math.min(pendiente, disp);
-                        lotesSeleccionados.push({ lotId: l.id, qty: aTomar, costo_unit_usado: l.costo_adquisicion_unitario });
-                        pendiente -= aTomar;
+                if (!isEditMode) {
+                    try {
+                        // LÓGICA FIFO CLONADA: Consultar lotes
+                        const { data: lotesBD } = await window.supabaseClient.from('ingresos_detalle')
+                            .select('id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
+                            .eq('item_id', obj.id)
+                            .eq('ingresos.almacen_destino_id', almacenId)
+                            .gt('cantidad_disponible', 0)
+                            .order('ingresos(fecha_ingreso)', { ascending: true }); // FIFO
+                        
+                        let pendiente = cantidadReq;
+                        for(let l of (lotesBD||[])) {
+                            if(pendiente <= 0) break;
+                            const disp = Number(l.cantidad_disponible);
+                            const aTomar = Math.min(pendiente, disp);
+                            lotesSeleccionados.push({ lotId: l.id, qty: aTomar, costo_unit_usado: l.costo_adquisicion_unitario });
+                            pendiente -= aTomar;
+                        }
+                        if(pendiente > 0 && !modoVerdeActivo) throw new Error("Descuadre transaccional FIFO durante la selección.");
+                    } catch(e) {
+                        console.error("Error resolviendo lotes:", e);
+                        Swal.fire('Error Interno', 'No se pudo resolver el FIFO.', 'error');
+                        return;
                     }
-                    if(pendiente > 0 && !modoVerdeActivo) throw new Error("Descuadre transaccional FIFO durante la selección.");
-                } catch(e) {
-                    console.error("Error resolviendo lotes:", e);
-                    Swal.fire('Error Interno', 'No se pudo resolver el FIFO.', 'error');
-                    return;
                 }
             }
 
@@ -1218,6 +1338,12 @@
             if(carrito.length === 0) return;
             
             const totalBrutoDigitado = carrito.reduce((s,c) => s + (c.cantidad * c.precioFinalIngresado), 0);
+            
+            if (isEditMode) {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-save text-xl"></i> GUARDAR EDICIÓN (S/ ${formatMoney(totalBrutoDigitado)})`;
+                return;
+            }
             
             if (esCredito) {
                 // Lógica de Venta al Crédito
@@ -1338,9 +1464,14 @@
                         }
                     }
                 }
-                btn.disabled = false;
-                btn.innerHTML = `<i class="fas fa-${esCredito ? 'handshake' : 'cash-register'} text-xl"></i> REGISTRAR ${esCredito ? 'CRÉDITO' : 'VENTA'} (S/ ${formatMoney(total)})`;
-                validarVueltoInteractivo();
+                if (isEditMode) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fas fa-save text-xl"></i> GUARDAR EDICIÓN (S/ ${formatMoney(total)})`;
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fas fa-${esCredito ? 'handshake' : 'cash-register'} text-xl"></i> REGISTRAR ${esCredito ? 'CRÉDITO' : 'VENTA'} (S/ ${formatMoney(total)})`;
+                    validarVueltoInteractivo();
+                }
             }
         }
 
@@ -1376,6 +1507,73 @@
                     total += precioLineaTotal;
                 }
             });
+
+            if (isEditMode) {
+                let detallesRpc = [];
+                carrito.forEach(c => {
+                    const precioLineaTotal = c.cantidad * c.precioFinalIngresado;
+                    let vu = c.precioFinalIngresado;
+                    let igv_uni = 0;
+                    if (generaIgv && c.afectoIgvVenta) {
+                        vu = c.precioFinalIngresado / (1 + IGV_TASA);
+                        igv_uni = c.precioFinalIngresado - vu;
+                    }
+                    detallesRpc.push({
+                        item_id: c.dbId,
+                        cantidad: c.cantidad,
+                        valor_unitario: vu.toFixed(4),
+                        igv_unitario: igv_uni.toFixed(4),
+                        precio_unitario: c.precioFinalIngresado.toFixed(4),
+                        precio_total: precioLineaTotal.toFixed(4)
+                    });
+                });
+                
+                try {
+                    Swal.fire({ title: 'Reescribiendo PEPS y Finanzas...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    const { error: errRpc } = await window.supabaseClient.rpc('rpc_editar_venta_magistral', {
+                        p_empresa_id: currentEmpresaId,
+                        p_venta_id: currentEditVentaId,
+                        p_almacen_id: document.getElementById('almacenOrigen').value,
+                        p_nuevo_total: total.toFixed(2),
+                        p_nuevo_igv_total: igv.toFixed(2),
+                        p_nueva_venta_neta: subtotal.toFixed(2),
+                        p_detalles: detallesRpc
+                    });
+                    if (errRpc) throw errRpc;
+                    
+                    Swal.fire('Edición Magistral Exitosa', 'El ticket y la cadena PEPS han sido reescritos correctamente.', 'success').then(() => {
+                        window.location.href = 'registros_historicos_ventas.html';
+                    });
+                } catch(e) {
+                    const msg = e.message || '';
+                    if (msg.includes('por debajo de los pagos recibidos')) {
+                        const cleanMsg = msg.replace(/\.0000\)/g, '.00)');
+                        Swal.fire({
+                            title: '🛡️ Bloqueo Financiero',
+                            html: `
+                                <div class="text-left text-sm text-gray-700">
+                                    <p class="mb-3 font-semibold text-red-600">${cleanMsg}</p>
+                                    <p class="mb-3">Para proteger la integridad de tu <b>Flujo de Caja</b> y evitar saldos negativos o descuadres contables, esta operación ha sido abortada de forma segura.</p>
+                                    <div class="bg-gray-100 p-3 rounded border border-gray-200">
+                                        <p class="font-bold text-gray-800 mb-1">🛠️ ¿Cómo solucionarlo?</p>
+                                        <ol class="list-decimal pl-4 space-y-1">
+                                            <li>Ve al módulo <b>Hub Financiero &gt; Cuentas por Cobrar</b>.</li>
+                                            <li>Busca al cliente y <b>revierte (anula)</b> los pagos vinculados a este ticket.</li>
+                                            <li>Regresa al Terminal POS e intenta editar la venta de nuevo.</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            `,
+                            icon: 'warning',
+                            confirmButtonText: 'Entendido',
+                            confirmButtonColor: '#3085d6'
+                        });
+                    } else {
+                        Swal.fire('Error en Edición', msg || 'Error desconocido.', 'error');
+                    }
+                }
+                return; // Cortar flujo normal
+            }
 
             let pagoInicial_input = 0;
             let saldoPendiente = 0;

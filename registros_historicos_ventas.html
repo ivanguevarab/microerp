@@ -24,7 +24,7 @@
         }
     </script>
     <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
@@ -571,6 +571,48 @@
                     `;
                 }
 
+                let isAllItems = det.every(d => d.tipo_item_vendido === 'ITEMS');
+                let isOficial = (v.tipo_comprobante === 'FACTURA' || v.tipo_comprobante === 'BOLETA');
+                let scopeLocked = !isAllItems || isOficial;
+
+                if (v.estado !== 'ANULADO') {
+                    let btnEliminarFisico = '';
+                    let btnEditarVenta = '';
+                    if (scopeLocked) {
+                        btnEliminarFisico = `
+                            <button class="bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed text-xs flex items-center shadow-sm" title="Bloqueado: Comprobante oficial o contiene ítems no físicos.">
+                                <i class="fas fa-trash-alt mr-2"></i> Eliminar Físicamente
+                            </button>
+                        `;
+                        btnEditarVenta = `
+                            <button class="bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed text-xs flex items-center shadow-sm" title="Bloqueado: Comprobante oficial o contiene ítems no físicos.">
+                                <i class="fas fa-edit mr-2"></i> Editar Venta
+                            </button>
+                        `;
+                    } else {
+                        btnEliminarFisico = `
+                            <button onclick="eliminarVentaFisicamente('${v.id}')" class="bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold py-2 px-4 rounded-lg transition-colors text-xs flex items-center shadow-sm" title="Eliminar definitivamente (Hard Delete)">
+                                <i class="fas fa-trash-alt mr-2"></i> Eliminar Físicamente
+                            </button>
+                        `;
+                        btnEditarVenta = `
+                            <button onclick="window.location.href='emitir_ticket.html?modo=edicion&ventaId=${v.id}'" class="bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-bold py-2 px-4 rounded-lg transition-colors text-xs flex items-center shadow-sm" title="Editar Magistralmente (Hard Edit)">
+                                <i class="fas fa-edit mr-2"></i> Editar Venta
+                            </button>
+                        `;
+                    }
+
+                    theHtml += `
+                        <div class="mt-4 pt-3 border-t border-gray-200 dark:border-slate-700 flex justify-between items-center p-3 rounded-xl shadow-inner bg-white dark:bg-slate-800">
+                            <span class="text-[10px] text-gray-500 dark:text-slate-400 font-bold uppercase"><i class="fas fa-shield-alt text-gray-400 dark:text-slate-500 mr-1"></i> Controles Avanzados</span>
+                            <div class="flex gap-2">
+                                ${btnEditarVenta}
+                                ${btnEliminarFisico}
+                            </div>
+                        </div>
+                    `;
+                }
+
                 Swal.fire({
                     title: '<span class="text-xl">Detalle de Transacción</span>',
                     html: theHtml,
@@ -766,12 +808,61 @@
         }
 
         // ==========================================
-        //  SAFE APPEND PRO & ANULACIÓN
+        //  SAFE APPEND PRO, ELIMINACIÓN Y ANULACIÓN
         // ==========================================
         const getLimaDate = () => {
             const now = new Date(); const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
             return new Date(utc - 5 * 3600000).toISOString().split('T')[0];
         };
+
+        async function eliminarVentaFisicamente(ventaId) {
+            Swal.close();
+            const result = await Swal.fire({
+                title: '¿Eliminar Venta Físicamente?',
+                html: "Esta acción destruirá todos los registros comerciales, purgará el flujo de caja, revertirá el inventario logístico y <b>eliminará el ticket de la base de datos</b>.<br><br>Escribe <b>ELIMINAR</b> para confirmar:",
+                icon: 'warning',
+                input: 'text',
+                inputPlaceholder: 'ELIMINAR',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, destruir',
+                cancelButtonText: 'Cancelar',
+                preConfirm: (inputValue) => {
+                    if (inputValue !== 'ELIMINAR') {
+                        Swal.showValidationMessage('Debes escribir la palabra ELIMINAR en mayúsculas.');
+                        return false;
+                    }
+                    return true;
+                }
+            });
+
+            if (!result.isConfirmed) {
+                verDetalle(ventaId);
+                return;
+            }
+
+            Swal.fire({ title: 'Destruyendo Venta...', html: 'Purgando inventario y flujo de caja...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+
+            try {
+                const { error } = await window.supabaseClient.rpc('rpc_eliminar_venta_fisica_seguro', {
+                    p_empresa_id: currentEmpresaId,
+                    p_venta_id: ventaId
+                });
+
+                if (error) throw error;
+
+                Swal.fire('Eliminado', 'La venta ha sido purgada físicamente de la base de datos.', 'success').then(() => {
+                    cargarVentashistoricas(); 
+                });
+
+            } catch (error) {
+                console.error("Error al eliminar venta físicamente:", error);
+                Swal.fire('Error Crítico', 'No se pudo eliminar la venta (Probablemente el ticket está bloqueado o hubo un error de base de datos). Consulta la consola.', 'error').then(() => {
+                    verDetalle(ventaId);
+                });
+            }
+        }
 
         async function anularVenta(ventaId) {
             // Fetch venta details needed for Safe Append PRO
