@@ -3257,6 +3257,7 @@
                                         ${alerta.fecha ? `<div class="mb-1"><span class="font-bold text-slate-500">Fecha(s):</span> ${alerta.fecha}</div>` : ''}
                                         ${alerta.origenes ? `<div class="mb-1"><span class="font-bold text-slate-500">Módulos:</span> ${alerta.origenes.join(', ')}</div>` : ''}
                                         ${alerta.categorias ? `<div class="mb-1"><span class="font-bold text-slate-500">Categorías:</span> ${alerta.categorias.join(', ')}</div>` : ''}
+                                        ${alerta.referencias ? `<div class="mb-1"><span class="font-bold text-slate-500">Documentos:</span> ${alerta.referencias}</div>` : ''}
                                     </div>
                                     <div class="mt-3 flex justify-end">
                                         <a href="flujo_de_caja.html?fecha=${alerta.fecha}&buscar=${encodeURIComponent('=' + alerta.monto_sospechoso)}" target="_blank" class="text-xs font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-2 rounded-lg border border-indigo-200 transition flex items-center gap-2 shadow-sm">

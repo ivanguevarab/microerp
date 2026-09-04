@@ -26,6 +26,7 @@
     <!-- Supabase & Auth -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="auth-guard.js"></script> <!-- Auth Guard -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="styles.css">
     <script src="sidebar.js"></script>
 
@@ -398,11 +399,17 @@
 
         <!-- 2. Buscador Inteligente (Google Style) -->
         <div class="mb-8 relative z-30">
-            <div class="search-container">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="buscadorProducto" class="search-input"
-                    placeholder="Buscar producto para agregar (Escriba nombre o código)..." autocomplete="off" disabled>
-                <!-- Disabled hasta seleccionar almacén -->
+            <div class="search-container flex gap-2">
+                <div class="relative flex-1">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="buscadorProducto" class="search-input"
+                        placeholder="Buscar producto para agregar (Escriba nombre o código)..." autocomplete="off" disabled>
+                </div>
+                <button type="button" id="btnImportarExcel" onclick="abrirModalImportacionEgreso()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-700/50 px-5 rounded-[24px] font-bold flex items-center justify-center transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" title="Importar desde Excel (.xlsx) - Requiere completar Datos Generales" disabled>
+                    <i class="fas fa-file-excel text-2xl lg:mr-2"></i> <span class="hidden lg:inline">Importar</span>
+                </button>
+            </div>
+            <!-- Disabled hasta seleccionar almacén -->
 
                 <!-- Resultados Predictivos -->
                 <div id="resultadosBusqueda" class="search-results">
@@ -476,6 +483,63 @@
                 </table>
             </div>
         </div>
+
+        <!-- MODAL 1: IMPORTAR EXCEL -->
+        <dialog id="modalImportExcelPaso1" class="backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm p-0 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden m-auto hidden items-center justify-center z-50">
+            <div class="w-full">
+                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i class="fas fa-file-excel text-emerald-600"></i> Importar Mermas / Egresos</h3>
+                    <button type="button" onclick="cerrarModalImportacionEgreso()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="p-6 text-center">
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">Sube un archivo <b>.xlsx</b> con 2 columnas (Descripción, Cantidad). Máximo 500 filas sugerido.</p>
+                    <div id="dropZoneEgreso" class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-10 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition flex flex-col items-center justify-center gap-3">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-slate-400"></i>
+                        <span id="dropZoneTextEgreso" class="text-slate-600 dark:text-slate-300 font-semibold">Arrastra tu archivo aquí o haz clic para explorar</span>
+                        <input type="file" id="fileInputExcelEgreso" accept=".xlsx" class="hidden" onchange="handleFileSelectEgreso(event)">
+                    </div>
+                </div>
+            </div>
+        </dialog>
+
+        <!-- MODAL 2: VALIDACIÓN EXCEL -->
+        <dialog id="modalImportExcelPaso2" class="backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm p-0 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 w-full max-w-2xl overflow-hidden m-auto hidden items-center justify-center z-50">
+            <div class="w-full flex flex-col max-h-[85vh]">
+                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 flex-shrink-0">
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i class="fas fa-clipboard-check text-blue-600"></i> Resumen de Análisis</h3>
+                    <button type="button" onclick="cerrarModalValidacionEgreso()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                
+                <div class="p-6 overflow-y-auto flex-1">
+                    <div class="flex gap-4 mb-4">
+                        <div class="flex-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-blue-700 dark:text-blue-400" id="valTotalEgreso">0</div>
+                            <div class="text-xs text-blue-600 dark:text-blue-500 font-semibold uppercase">Total Filas</div>
+                        </div>
+                        <div class="flex-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-emerald-700 dark:text-emerald-400" id="valSuccessEgreso">0</div>
+                            <div class="text-xs text-emerald-600 dark:text-emerald-500 font-semibold uppercase">Listos</div>
+                        </div>
+                        <div class="flex-1 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-red-700 dark:text-red-400" id="valErrorEgreso">0</div>
+                            <div class="text-xs text-red-600 dark:text-red-500 font-semibold uppercase">Con Error</div>
+                        </div>
+                    </div>
+                    
+                    <h4 class="font-bold text-slate-700 dark:text-slate-300 mb-2">Detalle de Análisis:</h4>
+                    <ul id="validacionListaEgreso" class="space-y-2 text-sm max-h-[300px] overflow-y-auto pr-2 mb-4">
+                        <!-- Errores -->
+                    </ul>
+                </div>
+
+                <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 flex-shrink-0">
+                    <button type="button" onclick="cerrarModalValidacionEgreso()" class="px-5 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition">Cancelar</button>
+                    <button type="button" id="btnProcesarImportacion" onclick="procesarImportacionSeleccionados()" class="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-check"></i> Importar Seleccionados
+                    </button>
+                </div>
+            </div>
+        </dialog>
 
         <!-- 4. Footer de Acciones -->
         <div class="flex justify-end gap-4 mt-8">
@@ -655,11 +719,34 @@
             const buscador = document.getElementById('buscadorProducto');
             const almacenSelect = document.getElementById('almacenOrigen');
             const tipoEgresoSelect = document.getElementById('tipoEgreso');
-            const cupContainer = document.getElementById('cupContainer');
             const cupSelect = document.getElementById('cupId');
+
+            // Validación Dinámica de Importación Excel
+            const validarBotonImportar = () => {
+                const btn = document.getElementById('btnImportarExcel');
+                const tEgreso = tipoEgresoSelect.options[tipoEgresoSelect.selectedIndex];
+                const nombreTipo = tEgreso ? (tEgreso.getAttribute('data-nombre') || '') : '';
+                const isCupVisible = nombreTipo.includes('PRODUCCI') || nombreTipo.includes('PRODUCTION') || nombreTipo.includes('SERVICIO');
+                
+                const okAlmacen = almacenSelect.value.trim() !== '';
+                const okTipo = tipoEgresoSelect.value.trim() !== '';
+                const okFecha = document.getElementById('fechaEgreso').value.trim() !== '';
+                const okCup = !isCupVisible || cupSelect.value.trim() !== '';
+
+                if (btn) {
+                    btn.disabled = !(okAlmacen && okTipo && okFecha && okCup);
+                    btn.title = btn.disabled ? 'Importar desde Excel (.xlsx) - Requiere completar Datos Generales' : 'Importar desde Excel (.xlsx)';
+                }
+            };
+
+            cupSelect.addEventListener('change', validarBotonImportar);
+            document.getElementById('fechaEgreso').addEventListener('change', validarBotonImportar);
+            // Ejecutar al inicio por si hay preselección
+            validarBotonImportar();
 
             // 1. Selector de Almacén
             almacenSelect.addEventListener('change', () => {
+                validarBotonImportar();
                 if (almacenSelect.value) {
                     buscador.disabled = false;
                     document.getElementById('mensajeBloqueo').classList.add('hidden');
@@ -694,6 +781,7 @@
                     cupSelect.required = false;
                     cupSelect.value = '';
                 }
+                validarBotonImportar();
             });
 
             // 3. Buscador
@@ -1260,6 +1348,261 @@
                     btn.querySelector('.fa-moon').classList.add('hidden');
                 }
             }
+        }
+
+        // --- IMPORTACIÓN EXCEL MERMAS ---
+        let itemsExitososImportados = [];
+
+        function abrirModalImportacionEgreso() {
+            const modal = document.getElementById('modalImportExcelPaso1');
+            document.getElementById('fileInputExcelEgreso').value = '';
+            document.getElementById('dropZoneTextEgreso').innerText = 'Arrastra tu archivo aquí o haz clic para explorar';
+            modal.showModal();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function cerrarModalImportacionEgreso() {
+            const modal = document.getElementById('modalImportExcelPaso1');
+            modal.close();
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function cerrarModalValidacionEgreso() {
+            const modal = document.getElementById('modalImportExcelPaso2');
+            modal.close();
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Drag & Drop
+        const dropZoneEgreso = document.getElementById('dropZoneEgreso');
+        if (dropZoneEgreso) {
+            dropZoneEgreso.addEventListener('click', () => document.getElementById('fileInputExcelEgreso').click());
+            dropZoneEgreso.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZoneEgreso.classList.add('bg-slate-100', 'dark:bg-slate-800');
+            });
+            dropZoneEgreso.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZoneEgreso.classList.remove('bg-slate-100', 'dark:bg-slate-800');
+            });
+            dropZoneEgreso.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZoneEgreso.classList.remove('bg-slate-100', 'dark:bg-slate-800');
+                if (e.dataTransfer.files.length) {
+                    document.getElementById('fileInputExcelEgreso').files = e.dataTransfer.files;
+                    handleFileSelectEgreso({ target: { files: e.dataTransfer.files } });
+                }
+            });
+        }
+
+        async function handleFileSelectEgreso(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('dropZoneTextEgreso').innerHTML = `<i class="fas fa-spinner fa-spin text-blue-500"></i> Procesando ${file.name}...`;
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const excelRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    cerrarModalImportacionEgreso();
+                    await procesarExcelEgreso(excelRows);
+                    
+                } catch (error) {
+                    console.error("Error leyendo Excel:", error);
+                    alert("El archivo no tiene un formato válido o está corrupto.");
+                    cerrarModalImportacionEgreso();
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function normalizarParaComparacion(str) {
+            if (!str) return '';
+            return str.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        }
+
+        async function procesarExcelEgreso(rows) {
+            const almacenId = document.getElementById('almacenOrigen').value;
+            if (!almacenId) return;
+
+            // Mostrar modal paso 2 cargando
+            const modalPaso2 = document.getElementById('modalImportExcelPaso2');
+            modalPaso2.showModal();
+            modalPaso2.classList.remove('hidden');
+            modalPaso2.classList.add('flex');
+            
+            document.getElementById('valTotalEgreso').innerText = '...';
+            document.getElementById('valSuccessEgreso').innerText = '...';
+            document.getElementById('valErrorEgreso').innerText = '...';
+            document.getElementById('btnProcesarImportacion').disabled = true;
+            const listaVal = document.getElementById('validacionListaEgreso');
+            listaVal.innerHTML = '<li class="text-center text-slate-500 py-4"><i class="fas fa-spinner fa-spin text-2xl"></i><br>Analizando stock en Base de Datos (Bulk Query)...</li>';
+
+            itemsExitososImportados = [];
+            let exitosos = 0;
+            let conError = 0;
+            let listaErroresHTML = '';
+
+            // Ignorar fila 1 (cabeceras)
+            const dataRows = rows.slice(1).filter(r => r && r.length >= 2 && r[0] && r[1]);
+            
+            if (dataRows.length > 500) {
+                listaVal.innerHTML = '<li class="text-red-500 p-2"><i class="fas fa-exclamation-triangle"></i> El archivo excede el límite de 500 filas procesables.</li>';
+                return;
+            }
+
+            try {
+                // BULK QUERY: Traer todos los items activos
+                const { data: catItems, error: errItems } = await supabaseClient
+                    .from('items')
+                    .select('id, codigo, descripcion, unidad_medida')
+                    .eq('empresa_id', window.currentEmpresaId)
+                    .eq('activo', true);
+
+                if (errItems) throw errItems;
+
+                // BULK QUERY: Traer todos los lotes disponibles de ese almacén
+                const { data: catLotes, error: errLotes } = await supabaseClient
+                    .from('ingresos_detalle')
+                    .select(`
+                        id,
+                        item_id,
+                        cantidad_disponible,
+                        costo_adquisicion_unitario,
+                        ingresos!inner (
+                            id,
+                            fecha_ingreso,
+                            numero_ingreso,
+                            almacen_destino_id
+                        )
+                    `)
+                    .eq('ingresos.almacen_destino_id', almacenId)
+                    .gt('cantidad_disponible', 0)
+                    .order('ingresos(fecha_ingreso)', { ascending: true }); // FIFO
+                    
+                if (errLotes) throw errLotes;
+
+                // RAM VIRTUAL STOCK
+                // 1. Inicializar stock virtual con BD
+                let virtualLots = JSON.parse(JSON.stringify(catLotes)); 
+
+                // 2. Descontar lo que YA ESTÁ en la tabla visual itemsEgreso para no robar stock ya apartado
+                itemsEgreso.forEach(itemUI => {
+                    const l = virtualLots.find(vl => vl.id === itemUI.loteId);
+                    if (l) l.cantidad_disponible -= itemUI.cantidad;
+                });
+
+                // 3. Procesar fila por fila
+                for (let i = 0; i < dataRows.length; i++) {
+                    const descFila = normalizarParaComparacion(dataRows[i][0]);
+                    const cantFila = parseFloat(dataRows[i][1]);
+
+                    if (isNaN(cantFila) || cantFila <= 0) {
+                        conError++;
+                        listaErroresHTML += `<li class="p-3 bg-red-50 dark:bg-red-900/10 border-l-4 border-red-500 rounded text-red-700 dark:text-red-400 mb-2">
+                            <b>Fila ${i+2}:</b> Cantidad inválida (${dataRows[i][1]}).
+                        </li>`;
+                        continue;
+                    }
+
+                    // Match exacto (Descripción o Código)
+                    const matchItem = catItems.find(it => 
+                        normalizarParaComparacion(it.descripcion) === descFila || 
+                        normalizarParaComparacion(it.codigo) === descFila
+                    );
+
+                    if (!matchItem) {
+                        conError++;
+                        listaErroresHTML += `<li class="p-3 bg-red-50 dark:bg-red-900/10 border-l-4 border-red-500 rounded text-red-700 dark:text-red-400 mb-2">
+                            <b>Fila ${i+2}:</b> Producto no encontrado ("${dataRows[i][0]}"). Verifique exactitud del nombre.
+                        </li>`;
+                        continue;
+                    }
+
+                    // Simular FIFO con Virtual Lots
+                    const misLotes = virtualLots.filter(vl => vl.item_id === matchItem.id && vl.cantidad_disponible > 0);
+                    const stockTotalVirtual = misLotes.reduce((sum, l) => sum + Number(l.cantidad_disponible), 0);
+
+                    if (cantFila > stockTotalVirtual) {
+                        conError++;
+                        listaErroresHTML += `<li class="p-3 bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-500 rounded text-amber-700 dark:text-amber-400 mb-2">
+                            <b>Fila ${i+2} (${matchItem.descripcion}):</b> Stock FIFO insuficiente. Solicitado: <b>${cantFila}</b>, Disponible Virtual: <b>${stockTotalVirtual}</b>.
+                        </li>`;
+                        continue;
+                    }
+
+                    // Asignación FIFO Virtual
+                    let pendiente = cantFila;
+                    const fragmentosFila = [];
+
+                    for (const lote of misLotes) {
+                        if (pendiente <= 0) break;
+                        
+                        const disp = Number(lote.cantidad_disponible);
+                        const tomar = Math.min(pendiente, disp);
+                        const costoU = Number(lote.costo_adquisicion_unitario);
+                        
+                        fragmentosFila.push({
+                            producto: matchItem,
+                            loteId: lote.id,
+                            numeroIngreso: lote.ingresos.numero_ingreso,
+                            fechaIngreso: lote.ingresos.fecha_ingreso,
+                            cantidad: tomar,
+                            costoUnitario: costoU,
+                            costoTotal: tomar * costoU
+                        });
+
+                        lote.cantidad_disponible -= tomar; // Descontar virtualmente para la sgte fila
+                        pendiente -= tomar;
+                    }
+
+                    itemsExitososImportados.push(...fragmentosFila);
+                    exitosos++;
+                }
+
+                // Renderizar Modal
+                document.getElementById('valTotalEgreso').innerText = dataRows.length;
+                document.getElementById('valSuccessEgreso').innerText = exitosos;
+                document.getElementById('valErrorEgreso').innerText = conError;
+
+                if (conError > 0) {
+                    listaVal.innerHTML = listaErroresHTML;
+                } else {
+                    listaVal.innerHTML = `<li class="p-4 text-center text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                        <i class="fas fa-check-circle text-2xl mb-2"></i><br>Todo el archivo pasó la validación. Stock FIFO confirmado.
+                    </li>`;
+                }
+
+                if (exitosos > 0) {
+                    document.getElementById('btnProcesarImportacion').disabled = false;
+                } else {
+                    document.getElementById('btnProcesarImportacion').disabled = true;
+                }
+
+            } catch (err) {
+                console.error("Bulk Query Error:", err);
+                listaVal.innerHTML = '<li class="text-red-500 p-4">Error conectando con la BD para validar lotes. Intente nuevamente.</li>';
+            }
+        }
+
+        function procesarImportacionSeleccionados() {
+            if (itemsExitososImportados.length === 0) return;
+            
+            // Añadir al UI de forma atómica
+            itemsEgreso.push(...itemsExitososImportados);
+            agregarItemsATabla(itemsExitososImportados);
+            actualizarTotales();
+            
+            cerrarModalValidacionEgreso();
         }
 
         (function() {

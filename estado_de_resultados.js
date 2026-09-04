@@ -142,6 +142,33 @@ function construirEstadoInicial() {
     if(dataOraculo.rentabilidad) {
         variablesState.push({origen: 'SISTEMA', id: 'VENTAS_NETAS', nombre: 'Ventas Netas Totales', monto: parseFloat(dataOraculo.rentabilidad.ventas_netas), tipo: 'INGRESO', etiqueta: 'Devengado', container: null});
         variablesState.push({origen: 'SISTEMA', id: 'COGS', nombre: 'Costo de Ventas (COGS)', monto: parseFloat(dataOraculo.rentabilidad.costo_ventas), tipo: 'EGRESO', etiqueta: 'Devengado', container: null});
+        if(dataOraculo.rentabilidad.mermas_desmedros) {
+            variablesState.push({origen: 'SISTEMA', id: 'MERMAS', nombre: 'Mermas', monto: parseFloat(dataOraculo.rentabilidad.mermas_desmedros), tipo: 'EGRESO', etiqueta: 'Kardex', container: null});
+        }
+        
+        // Renderizado del Estado de Inventarios (Tercera Sección)
+        if(dataOraculo.rentabilidad.inventario_inicial !== undefined && dataOraculo.rentabilidad.inventario_final !== undefined) {
+            const invInicial = parseFloat(dataOraculo.rentabilidad.inventario_inicial || 0);
+            const invFinal = parseFloat(dataOraculo.rentabilidad.inventario_final || 0);
+            const variacion = invFinal - invInicial;
+            
+            const formatMoney = (num) => 'S/ ' + Math.abs(num).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+            
+            document.getElementById('ui-inv-inicial').textContent = formatMoney(invInicial);
+            document.getElementById('ui-inv-final').textContent = formatMoney(invFinal);
+            
+            const varEl = document.getElementById('ui-inv-variacion');
+            if(variacion > 0) {
+                varEl.className = 'font-black text-lg text-emerald-400';
+                varEl.textContent = '+ ' + formatMoney(variacion);
+            } else if (variacion < 0) {
+                varEl.className = 'font-black text-lg text-white';
+                varEl.textContent = '- ' + formatMoney(variacion);
+            } else {
+                varEl.className = 'font-black text-lg text-white';
+                varEl.textContent = formatMoney(variacion);
+            }
+        }
     }
     if(dataOraculo.flujo_caja && dataOraculo.flujo_caja.length > 0) {
         dataOraculo.flujo_caja.forEach(c => {
@@ -157,6 +184,7 @@ function construirEstadoInicial() {
     
     setContainer('Ventas Netas Totales', 'INGRESOS_OPERATIVOS');
     setContainer('Costo de Ventas (COGS)', 'COSTOS_DIRECTOS');
+    setContainer('Mermas', 'MERMAS_DESMEDROS');
     
     // Mapeo correcto de las categorías actuales de la BD
     setContainer('Pago Remuneraciones', 'GASTOS_OPERATIVOS');
@@ -170,6 +198,7 @@ function construirEstadoInicial() {
     setContainer('Pago Impuestos', 'IMPUESTOS');
     setContainer('Otros Ingresos', 'OTROS_INGRESOS_EGRESOS');
     setContainer('Otros Egresos', 'OTROS_INGRESOS_EGRESOS');
+    setContainer('Gasto Financiero', 'OTROS_INGRESOS_EGRESOS');
 }
 
 // ============================================================================
@@ -180,6 +209,7 @@ function renderizarDashboardPrincipal() {
     const contenedoresMap = {
         'INGRESOS_OPERATIVOS': { titulo: '(+) Ingresos Operativos', items: [], signo: '+', collapse: false },
         'COSTOS_DIRECTOS': { titulo: '(-) Costos Directos / COGS', items: [], signo: '-', collapse: false },
+        'MERMAS_DESMEDROS': { titulo: '(-) Mermas', items: [], signo: '-', collapse: false },
         'GASTOS_OPERATIVOS': { titulo: '(-) Gastos Operativos Totales', items: [], signo: '-', collapse: true },
         'OTROS_INGRESOS_EGRESOS': { titulo: 'Otros Ingresos / Egresos', items: [], signo: 'auto', collapse: false },
         'IMPUESTOS': { titulo: '(-) Impuestos (IGV, Renta)', items: [], signo: '-', collapse: false }
@@ -231,7 +261,20 @@ function renderizarDashboardPrincipal() {
     uBruta -= totalCostos;
 
     // SUBTOTAL BRUTA
-    html += renderFila('(=) Utilidad Bruta', uBruta, false, false, true);
+    html += renderFila('(=) Margen de Contribución', uBruta, false, false, true);
+
+    // 2.5 MERMAS Y DESMEDROS
+    let totalMermas = 0;
+    contenedoresMap['MERMAS_DESMEDROS'].items.forEach(item => {
+        totalMermas += item.monto;
+        html += renderFila(`(-) ${item.nombre}`, -item.monto);
+    });
+    const uBrutaAjustada = uBruta - totalMermas;
+
+    // SUBTOTAL BRUTA AJUSTADA
+    if (contenedoresMap['MERMAS_DESMEDROS'].items.length > 0) {
+        html += renderFila('(=) Utilidad Bruta', uBrutaAjustada, false, false, true);
+    }
 
     // 3. GASTOS OPERATIVOS (Agrupados)
     let totalGastos = 0;
@@ -243,7 +286,7 @@ function renderizarDashboardPrincipal() {
             html += renderFila(item.nombre, -item.monto, false, true);
         });
     }
-    uOperativa = uBruta - totalGastos;
+    uOperativa = uBrutaAjustada - totalGastos;
 
     // SUBTOTAL OPERATIVA
     html += `<div class="mt-4"></div>`; // spacer
@@ -269,7 +312,7 @@ function renderizarDashboardPrincipal() {
     // SUBTOTAL NETA
     html += `<div class="mt-6"></div>`; // spacer
     const colorNeta = uNeta >= 0 ? 'text-emerald-400 border-emerald-500/30' : 'text-rose-400 border-rose-500/30';
-    html += renderFila('(=) Utilidad Neta Generada', uNeta, false, false, true, colorNeta + ' text-lg bg-slate-900/50 shadow-inner');
+    html += renderFila('(=) Utilidad Neta', uNeta, false, false, true, colorNeta + ' text-lg bg-slate-900/50 shadow-inner');
 
     html += `</div>`;
     domEl.innerHTML = html;
@@ -367,7 +410,7 @@ function evaluarRedundanciasModal() {
     
     if (enUso.includes('VENTAS_NETAS')) {
         EXCLUSIONES['VENTAS_NETAS'].forEach(nombreExcluir => {
-            const el = Array.from(disponibles).find(b => b.dataset.nombre === nombreExcluir);
+            const el = Array.from(disponibles).find(b => b.dataset.nombre.includes(nombreExcluir));
             if (el) el.classList.add('disabled-item');
         });
     }
@@ -399,14 +442,20 @@ function calcularPnlModal() {
     const costos = sumarContenedor('c-costos', '-');
     const uBruta = ingresos - costos;
 
+    const mermas = sumarContenedor('c-mermas', '-');
+    const uBrutaAjustada = uBruta - mermas;
+
     const gastos = sumarContenedor('c-gastos', '-');
-    const uOperativa = uBruta - gastos;
+    const uOperativa = uBrutaAjustada - gastos;
 
     const otros = sumarContenedor('c-otros', 'auto');
     const impuestos = sumarContenedor('c-impuestos', '-');
     const uNeta = uOperativa + otros - impuestos;
 
     document.getElementById('sub-bruta').textContent = `S/ ${uBruta.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+    if (document.getElementById('sub-bruta-ajustada')) {
+        document.getElementById('sub-bruta-ajustada').textContent = `S/ ${uBrutaAjustada.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+    }
     document.getElementById('sub-operativa').textContent = `S/ ${uOperativa.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
     document.getElementById('sub-neta').textContent = `S/ ${uNeta.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
 
@@ -442,7 +491,7 @@ function ejecutarConciliacionGlobal(utilidadNeta, target) {
             origen: v.origen,
             tipo: v.tipo,
             // Simulamos redundancia en RAM
-            disabled: (enUsoIds.includes('VENTAS_NETAS') && EXCLUSIONES['VENTAS_NETAS'].includes(v.nombre)) ||
+            disabled: (enUsoIds.includes('VENTAS_NETAS') && EXCLUSIONES['VENTAS_NETAS'].some(ex => v.nombre.includes(ex))) ||
                       (enUsoIds.includes('COGS') && EXCLUSIONES['COGS'].some(ex => v.nombre.includes(ex)))
         }));
     }
@@ -465,12 +514,19 @@ function ejecutarConciliacionGlobal(utilidadNeta, target) {
         dineroEnLaCalle = cobros - vnetas;
     }
 
-    // 2. Inversión Almacén (Puente COGS)
+    // 2. Inversión Almacén (Puente COGS y Mermas)
     let desgloseAlmacen = [];
     if (enUsoIds.includes('COGS')) {
         const cogs = (target==='modal') 
             ? parseFloat(document.querySelector('.pnl-container .drag-item[data-id="COGS"]').dataset.monto) 
             : variablesState.find(v => v.id === 'COGS').monto;
+        
+        let mermas = 0;
+        if (enUsoIds.includes('MERMAS')) {
+            mermas = (target==='modal') 
+                ? parseFloat(document.querySelector('.pnl-container .drag-item[data-id="MERMAS"]').dataset.monto) 
+                : variablesState.find(v => v.id === 'MERMAS').monto;
+        }
         
         let pagos = 0;
         EXCLUSIONES['COGS'].forEach(nom => {
@@ -484,9 +540,12 @@ function ejecutarConciliacionGlobal(utilidadNeta, target) {
                 desgloseAlmacen.push({ nombre: displayName, monto: el.monto, tipo: 'EGRESO' });
             }
         });
-        inversionAlmacen = cogs - pagos;
+        inversionAlmacen = (cogs + mermas) - pagos;
         if(cogs !== 0) {
             desgloseAlmacen.push({ nombre: 'Costo de Ventas (COGS) [Devengado]', monto: cogs, tipo: 'INGRESO' });
+        }
+        if(mermas !== 0) {
+            desgloseAlmacen.push({ nombre: 'Mermas [Devengado]', monto: mermas, tipo: 'INGRESO' });
         }
     }
 
