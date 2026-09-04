@@ -23,6 +23,8 @@
     </script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- Supabase & Auth -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="auth-guard.js"></script> <!-- Auth Guard -->
@@ -309,6 +311,25 @@
 
         /* MODO CLARO ESTRICTO */
         html:not(.dark) body { background-color: #f5f6fa !important; color: #334155 !important; font-family: 'Plus Jakarta Sans', sans-serif !important;}
+        /* SweetAlert2 Premium Dark Mode */
+        html.dark .swal2-popup {
+            background-color: rgba(15, 23, 42, 0.95) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+        }
+        html.dark .swal2-title, html.dark .swal2-html-container { color: #e2e8f0 !important; }
+        html.dark .swal2-input, html.dark .swal2-select, html.dark .swal2-textarea {
+            background-color: rgba(30, 41, 59, 0.8) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+        }
+        html.dark .swal2-input:focus, html.dark .swal2-select:focus {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) !important;
+        }
     </style>
 </head>
 
@@ -542,15 +563,26 @@
         </dialog>
 
         <!-- 4. Footer de Acciones -->
-        <div class="flex justify-end gap-4 mt-8">
-            <button onclick="window.location.href='gestion_inventarios.html'"
-                class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
-                Cancelar
-            </button>
-            <button id="btnGuardar"
-                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fas fa-save"></i> Guardar Egreso
-            </button>
+        <div class="flex justify-between items-center mt-8 pb-12">
+            <!-- Izquierda: Eliminar Egreso (Sólo Edición) -->
+            <div id="contenedorBtnEliminar" class="hidden">
+                <button type="button" onclick="eliminarEgresoFisicamente()"
+                    class="px-6 py-2 bg-red-600/10 border border-red-500/20 text-red-500 rounded-lg hover:bg-red-600 hover:text-white font-medium shadow-sm transition-all flex items-center gap-2">
+                    <i class="fas fa-trash-alt"></i> Eliminar Egreso
+                </button>
+            </div>
+            
+            <!-- Derecha: Cancelar / Guardar -->
+            <div class="flex gap-4">
+                <button onclick="window.location.href='gestion_inventarios.html'"
+                    class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">
+                    Cancelar
+                </button>
+                <button id="btnGuardar"
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-save"></i> Guardar Egreso
+                </button>
+            </div>
         </div>
 
     </div>
@@ -585,7 +617,138 @@
             const month = String(today.getMonth() + 1).padStart(2, '0');
             const day = String(today.getDate()).padStart(2, '0');
             document.getElementById('fechaEgreso').value = `${year}-${month}-${day}`;
+
+            // MODO EDICIÓN MAGISTRAL
+            const urlParams = new URLSearchParams(window.location.search);
+            const modo = urlParams.get('modo');
+            const egresoId = urlParams.get('egresoId');
+            if (modo === 'edicion' && egresoId) {
+                await cargarEgresoMagistral(egresoId);
+            }
         });
+
+        // Global variables for edit mode
+        window.esModoEdicion = false;
+        window.idEgresoEdicion = null;
+        window.itemsOriginalesEgreso = [];
+
+        async function cargarEgresoMagistral(egresoId) {
+            window.esModoEdicion = true;
+            window.idEgresoEdicion = egresoId;
+            
+            // Cambiar UI a modo edición
+            document.querySelector('h1').innerHTML = '<i class="fas fa-edit text-amber-500"></i> Editando Egreso';
+            document.querySelector('.btn-back-std').onclick = () => window.location.href = 'kardex.html';
+            document.querySelector('.btn-back-std').innerHTML = '← Volver al Kardex';
+
+            // 1. Cargar Cabecera
+            const { data: egreso, error: errEgreso } = await supabaseClient
+                .from('egresos')
+                .select('*')
+                .eq('id', egresoId)
+                .single();
+                
+            if (errEgreso || !egreso) {
+                alert('No se pudo cargar el egreso.');
+                return;
+            }
+            
+            if (egreso.observaciones && egreso.observaciones.includes('VENTA_REF:')) {
+                alert('BLOQUEO TRIBUTARIO: No se puede editar un egreso generado por una venta desde aquí. Vaya a Ventas Históricas.');
+                window.location.href = 'kardex.html';
+                return;
+            }
+
+            // 2. Poblar Formulario
+            document.getElementById('almacenOrigen').value = egreso.almacen_origen_id;
+            // Deshabilitar cambio de almacén en edición
+            document.getElementById('almacenOrigen').disabled = true; 
+            
+            document.getElementById('tipoEgreso').value = egreso.tipo_egreso_id;
+            document.getElementById('fechaEgreso').value = egreso.fecha_egreso;
+            
+            // Mostrar botón eliminar
+            const contenedorBtnEliminar = document.getElementById('contenedorBtnEliminar');
+            if (contenedorBtnEliminar) {
+                contenedorBtnEliminar.classList.remove('hidden');
+            }
+
+            if(document.getElementById('observacionesRef')) {
+                document.getElementById('observacionesRef').value = egreso.observaciones || '';
+            }
+
+            // Forzar disparo de evento change de tipoEgreso para mostrar CUP/CUS
+            const eventTipo = new Event('change');
+            document.getElementById('tipoEgreso').dispatchEvent(eventTipo);
+            
+            // Esperar un poco a que carguen los CUP/CUS dinámicamente si aplica
+            setTimeout(() => {
+                if(egreso.cup_id) document.getElementById('cupId').value = egreso.cup_id;
+                if(egreso.cus_id) document.getElementById('cupId').value = egreso.cus_id;
+            }, 1000);
+
+            // 3. Cargar Detalles
+            const { data: detalles, error: errDetalles } = await supabaseClient
+                .from('egresos_detalle')
+                .select(`
+                    id,
+                    cantidad,
+                    costo_unitario,
+                    costo_total,
+                    items ( id, codigo, descripcion, unidad_medida )
+                `)
+                .eq('egreso_id', egresoId);
+                
+            if (errDetalles) {
+                alert('No se pudieron cargar los detalles.');
+                return;
+            }
+
+            // Agrupar detalles por item_id (Consolidar lotes FIFO en una sola línea)
+            const detallesAgrupados = {};
+            detalles.forEach(d => {
+                const id = d.items.id;
+                if (!detallesAgrupados[id]) {
+                    detallesAgrupados[id] = {
+                        producto: {
+                            id: d.items.id,
+                            codigo: d.items.codigo,
+                            descripcion: d.items.descripcion,
+                            unidad_medida: d.items.unidad_medida
+                        },
+                        cantidad: 0,
+                        costoTotal: 0
+                    };
+                }
+                detallesAgrupados[id].cantidad += parseFloat(d.cantidad);
+                detallesAgrupados[id].costoTotal += parseFloat(d.costo_total);
+            });
+
+            // Mapear a itemsOriginalesEgreso (Para inflado de stock)
+            window.itemsOriginalesEgreso = Object.values(detallesAgrupados).map(g => ({
+                item_id: g.producto.id,
+                cantidad_original: g.cantidad
+            }));
+
+            const itemsParseados = Object.values(detallesAgrupados).map(g => ({
+                producto: g.producto,
+                cantidad: g.cantidad,
+                costoUnitario: g.cantidad > 0 ? (g.costoTotal / g.cantidad) : 0,
+                costoTotal: g.costoTotal,
+                loteId: null,
+                numeroIngreso: 'EDICIÓN MAGISTRAL',
+                fechaIngreso: new Date().toISOString()
+            }));
+
+            itemsEgreso = itemsParseados;
+            document.getElementById('tablaItems').innerHTML = '';
+            agregarItemsATabla(itemsEgreso);
+            actualizarTotales();
+            
+            // Habilitar buscador (almacen ya está set)
+            document.getElementById('buscadorProducto').disabled = false;
+            document.getElementById('mensajeBloqueo').classList.add('hidden');
+        }
 
         // --- Lógica de Sesión (Reutilizada) ---
         async function verificarSesion() {
@@ -756,7 +919,8 @@
                     // Limpiar items si se cambia almacén
                     if (itemsEgreso.length > 0 && confirm('¿Limpiar items al cambiar almacen?')) {
                         itemsEgreso = [];
-                        renderTabla();
+                        document.getElementById('tablaItems').innerHTML = '';
+            agregarItemsATabla(itemsEgreso);
                     }
                 }
             });
@@ -867,7 +1031,13 @@
                     }
 
                     // Calcular stock total disponible
-                    const stockTotal = lotes.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0);
+                    let stockTotal = lotes.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0);
+                    
+                    // INFLADO DE STOCK (Edición Magistral)
+                    if (window.esModoEdicion) {
+                        const cantOriginal = window.itemsOriginalesEgreso.find(i => i.item_id === prod.id)?.cantidad_original || 0;
+                        stockTotal += Number(cantOriginal);
+                    }
 
                     if (stockTotal > 0) {
                         resultadosConStock.push({
@@ -922,15 +1092,29 @@
             document.getElementById('resultadosBusqueda').style.display = 'none';
             document.getElementById('buscadorProducto').value = '';
 
-            // Pedir cantidad (Simple prompt por ahora, luego modal mejorado)
-            const cantidadStr = prompt(`Ingrese cantidad a retirar de: ${producto.descripcion}\n(Unidad: ${producto.unidad_medida})`);
-            if (!cantidadStr) return;
+            // Pedir cantidad (Modal SweetAlert2)
+            const { value: cantidadStr } = await Swal.fire({
+                title: 'Cantidad a Retirar',
+                html: `Ingrese cantidad a retirar de: <b>${producto.descripcion}</b> <br><span class="text-xs text-gray-500">(Unidad: ${producto.unidad_medida})</span>`,
+                input: 'number',
+                inputAttributes: {
+                    min: 0.01,
+                    step: 'any'
+                },
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Aceptar',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (value) => {
+                    if (!value || parseFloat(value) <= 0) {
+                        return 'Por favor ingrese una cantidad válida mayor a 0';
+                    }
+                }
+            });
 
+            if (!cantidadStr) return;
             const cantidad = parseFloat(cantidadStr);
-            if (isNaN(cantidad) || cantidad <= 0) {
-                alert('Cantidad inválida');
-                return;
-            }
 
             await procesarEgresoFIFO(producto, cantidad);
         }
@@ -962,13 +1146,81 @@
                 if (error) throw error;
 
                 // Validar stock total
-                const stockTotal = lotes.reduce((sum, l) => sum + Number(l.cantidad_disponible), 0);
+                let stockTotal = lotes.reduce((sum, l) => sum + Number(l.cantidad_disponible), 0);
+                
+                // INFLADO DE STOCK (Edición Magistral)
+                if (window.esModoEdicion) {
+                    const cantOriginal = window.itemsOriginalesEgreso.find(i => i.item_id === producto.id)?.cantidad_original || 0;
+                    stockTotal += Number(cantOriginal);
+                }
+
                 if (cantidadSolicitada > stockTotal) {
                     alert(`Stock insuficiente. Solo hay ${stockTotal} ${producto.unidad_medida} disponibles.`);
                     return;
                 }
 
-                // Algoritmo de Distribución FIFO
+                // En modo edición Magistral delegamos el FIFO y costos exactos al backend.
+                // En el UI simplemente agregamos el item sin importar de qué lote viene,
+                // pero calculamos un costo promedio referencial para la tabla visual.
+                if (window.esModoEdicion) {
+                    let costoReferencial = 0;
+                    if (lotes && lotes.length > 0) {
+                        const sumCosto = lotes.reduce((acc, l) => acc + (Number(l.cantidad_disponible) * Number(l.costo_adquisicion_unitario)), 0);
+                        const sumCant = lotes.reduce((acc, l) => acc + Number(l.cantidad_disponible), 0);
+                        costoReferencial = sumCant > 0 ? (sumCosto / sumCant) : Number(lotes[0].costo_adquisicion_unitario);
+                    } else if (window.itemsOriginalesEgreso) {
+                        // Si no hay lotes disponibles porque todo el stock está en el egreso original, usamos su costo
+                        const ori = window.itemsOriginalesEgreso.find(i => i.item_id === producto.id);
+                        if (ori) costoReferencial = Number(ori.costo_adquisicion_unitario);
+                    }
+
+                    // Validar si el item ya existe en itemsEgreso y resolver colisión de cantidad
+                    const itemExistente = itemsEgreso.find(i => i.producto.id === producto.id);
+                    if (itemExistente) {
+                        const confirmacion = await Swal.fire({
+                            title: 'Cantidad Existente',
+                            html: `El producto <b>${producto.descripcion}</b> ya está en la lista con <b>${itemExistente.cantidad} ${producto.unidad_medida}</b>.<br><br>¿Desea reemplazar la cantidad total por <b>${cantidadSolicitada}</b> o sumarla?`,
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonColor: '#3085d6',
+                            cancelButtonColor: '#10b981', // Verde para sumar
+                            confirmButtonText: '<i class="fas fa-sync-alt mr-2"></i>Reemplazar por ' + cantidadSolicitada,
+                            cancelButtonText: '<i class="fas fa-plus mr-2"></i>Sumar (' + (itemExistente.cantidad + cantidadSolicitada) + ')',
+                            showCloseButton: true
+                        });
+                        
+                        // Si el usuario cierra el modal con la "X" o hace clic afuera, no hacemos nada
+                        if (confirmacion.dismiss === Swal.DismissReason.backdrop || confirmacion.dismiss === Swal.DismissReason.close || confirmacion.dismiss === Swal.DismissReason.esc) {
+                            return;
+                        }
+
+                        if (confirmacion.isConfirmed) {
+                            itemExistente.cantidad = cantidadSolicitada;
+                        } else {
+                            itemExistente.cantidad += cantidadSolicitada;
+                        }
+                        
+                        itemExistente.costoUnitario = costoReferencial;
+                        // El backend recalcula costos reales, el UI es referencial
+                        itemExistente.costoTotal = itemExistente.cantidad * itemExistente.costoUnitario;
+                    } else {
+                        itemsEgreso.push({
+                            producto: producto,
+                            loteId: null,
+                            numeroIngreso: 'EDICIÓN MAGISTRAL',
+                            fechaIngreso: new Date().toISOString(),
+                            cantidad: cantidadSolicitada,
+                            costoUnitario: costoReferencial,
+                            costoTotal: cantidadSolicitada * costoReferencial
+                        });
+                    }
+                    document.getElementById('tablaItems').innerHTML = '';
+                    agregarItemsATabla(itemsEgreso);
+                    actualizarTotales();
+                    return;
+                }
+
+                // Algoritmo de Distribución FIFO (Creación Normal)
                 let pendiente = cantidadSolicitada;
                 const itemsParaTabla = [];
                 let costoTotalAcumulado = 0;
@@ -1139,9 +1391,19 @@
 
             // 3. Validar Pasado (PRO: Safe Append por Item)
             try {
-                // a. Recolectar IDs de items en el carrito
-                // FIX: El ID del producto está dentro del objeto 'producto'
-                const itemIds = itemsEgreso.map(i => i.producto.id);
+                // a. Recolectar IDs de items en el carrito (Delta para Safe Append)
+                let itemIdsAValidar = [];
+                
+                if (window.esModoEdicion) {
+                    itemsEgreso.forEach(i => {
+                        const cantOriginal = window.itemsOriginalesEgreso.find(orig => orig.item_id === i.producto.id)?.cantidad_original || 0;
+                        if (i.cantidad > cantOriginal) {
+                            itemIdsAValidar.push(i.producto.id);
+                        }
+                    });
+                } else {
+                    itemIdsAValidar = itemsEgreso.map(i => i.producto.id);
+                }
 
                 // b. Calcular "Día Siguiente" a la fecha seleccionada (Límite 05:00 UTC = 00:00 Perú)
                 const fechaBase = new Date(fechaEgreso + 'T00:00:00'); // Fecha seleccionada (Local)
@@ -1156,21 +1418,22 @@
                 const nextDay = `${yyyy}-${mm}-${dd}T05:00:00Z`;
 
                 // c. Consultar Kardex: ¿Hay movimientos de ESTOS items en ESTE almacén a partir de MAÑANA?
-                const { data: conflictos, error: errorConflictos } = await supabaseClient
-                    .from('kardex')
-                    .select(`
-                        item_id, 
-                        fecha_movimiento,
-                        items ( codigo, descripcion )
-                    `)
-                    .eq('almacen_id', almacenOrigenId)
-                    .in('item_id', itemIds)
-                    .gte('fecha_movimiento', nextDay);
+                if (itemIdsAValidar.length > 0) {
+                    const { data: conflictos, error: errorConflictos } = await supabaseClient
+                        .from('kardex')
+                        .select(`
+                            item_id, 
+                            fecha_movimiento,
+                            items ( codigo, descripcion )
+                        `)
+                        .eq('almacen_id', almacenOrigenId)
+                        .in('item_id', itemIdsAValidar)
+                        .gte('fecha_movimiento', nextDay);
 
-                if (errorConflictos) throw errorConflictos;
+                    if (errorConflictos) throw errorConflictos;
 
-                // d. Analizar Conflictos
-                if (conflictos && conflictos.length > 0) {
+                    // d. Analizar Conflictos
+                    if (conflictos && conflictos.length > 0) {
                     // Agrupar por item para mostrar el conflicto más reciente de cada uno
                     const conflictosMap = {};
                     conflictos.forEach(c => {
@@ -1182,7 +1445,7 @@
 
                     // Construir Mensaje de Error
                     let mensajeError = `❌ BLOQUEO DE SEGURIDAD (SAFE APPEND PRO)\n\n`;
-                    mensajeError += `No se puede registrar con fecha ${fechaEgreso} porque los siguientes items tienen movimientos posteriores:\n\n`;
+                    mensajeError += `No se puede registrar con fecha ${fechaEgreso} porque los siguientes items tienen movimientos posteriores que podrían quebrar el inventario:\n\n`;
 
                     Object.values(conflictosMap).forEach(c => {
                         // FIX VISUAL: Mostrar hora Perú (UTC-5) restando 5 horas al UTC
@@ -1200,11 +1463,12 @@
 
                     mensajeError += `\n✅ Soluciones:\n`;
                     mensajeError += `1. Cambie la fecha a una posterior.\n`;
-                    mensajeError += `2. O retire estos items y regístrelos en otro documento.`;
+                    mensajeError += `2. O retire / reduzca estos items y regístrelos en otro documento.`;
 
                     alert(mensajeError);
                     return;
                 }
+                } // End if itemIdsAValidar.length > 0
 
                 // Si no hay conflictos, PASE USTED (Aunque el almacén tenga otros movimientos de otros items)
 
@@ -1214,7 +1478,18 @@
                 return;
             }
 
-            if (!confirm('¿Está seguro de registrar este egreso? Esta acción descontará stock.')) {
+            const confirmacionGuardar = await Swal.fire({
+                title: window.esModoEdicion ? '¿Guardar Cambios?' : '¿Registrar Egreso?',
+                text: window.esModoEdicion ? 'Esta acción modificará el egreso existente y recalculará el Kardex automáticamente.' : 'Esta acción descontará stock definitivamente del inventario.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, guardar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (!confirmacionGuardar.isConfirmed) {
                 return;
             }
 
@@ -1252,62 +1527,109 @@
                 if (isProduccion) payloadEgreso.cup_id = cupIdVal;
                 if (isServicio) payloadEgreso.cus_id = cupIdVal;
 
-                const { data: egreso, error: errorEgreso } = await supabaseClient
-                    .from('egresos')
-                    .insert([payloadEgreso])
-                    .select()
-                    .single();
+                if (window.esModoEdicion) {
+                    // ==========================================
+                    // 2. MODO EDICIÓN MAGISTRAL (RPC)
+                    // ==========================================
+                    // Consolidar items duplicados (por si el usuario agregó el mismo varias veces)
+                    const itemsConsolidados = {};
+                    itemsEgreso.forEach(i => {
+                        if (itemsConsolidados[i.producto.id]) {
+                            itemsConsolidados[i.producto.id] += i.cantidad;
+                        } else {
+                            itemsConsolidados[i.producto.id] = i.cantidad;
+                        }
+                    });
 
-                if (errorEgreso) throw errorEgreso;
+                    const payloadDetalles = Object.keys(itemsConsolidados).map(id => ({
+                        item_id: id,
+                        cantidad: itemsConsolidados[id]
+                    }));
 
-                // 2. Procesar Detalles (Secuencial para evitar race conditions en updates)
-                for (const item of itemsEgreso) {
-                    // a. Insertar detalle de egreso
-                    const { error: errorDetalle } = await supabaseClient
-                        .from('egresos_detalle')
-                        .insert({
-                            egreso_id: egreso.id,
-                            item_id: item.producto.id,
-                            cantidad: item.cantidad,
-                            costo_unitario: item.costoUnitario,
-                            costo_total: item.costoTotal,
-                            ingreso_detalle_id: item.loteId
-                        });
+                    const { error: errRpc } = await supabaseClient.rpc('rpc_editar_egreso_magistral', {
+                        p_empresa_id: window.currentEmpresaId || window.usuarioActual.empresa_id || '00000000-0000-0000-0000-000000000000',
+                        p_egreso_id: window.idEgresoEdicion,
+                        p_almacen_origen_id: almacenOrigenId,
+                        p_tipo_egreso_id: tipoEgresoId,
+                        p_fecha_egreso: fechaEgreso,
+                        p_observaciones: payloadEgreso.observaciones,
+                        p_cup_id: payloadEgreso.cup_id || null,
+                        p_cus_id: payloadEgreso.cus_id || null,
+                        p_detalles: payloadDetalles
+                    });
 
-                    if (errorDetalle) throw errorDetalle;
-
-                    // b. Actualizar Stock del Lote (ingresos_detalle)
-                    // Necesitamos leer el valor actual para restar (o usar rpc si existiera)
-                    // Aquí confiamos en que nadie más modificó el lote en estos milisegundos (Optimistic Lock simple)
-
-                    // Primero obtenemos el lote actual para asegurar consistencia
-                    const { data: loteActual, error: errorLote } = await supabaseClient
-                        .from('ingresos_detalle')
-                        .select('cantidad_disponible')
-                        .eq('id', item.loteId)
+                    if (errRpc) throw errRpc;
+                } else {
+                    // ==========================================
+                    // 2. MODO CREACIÓN NORMAL
+                    // ==========================================
+                    const { data: egreso, error: errorEgreso } = await supabaseClient
+                        .from('egresos')
+                        .insert([payloadEgreso])
+                        .select()
                         .single();
 
-                    if (errorLote) throw errorLote;
+                    if (errorEgreso) throw errorEgreso;
 
-                    const nuevoSaldo = Number(loteActual.cantidad_disponible) - Number(item.cantidad);
+                    // Procesar Detalles (Secuencial para evitar race conditions en updates)
+                    for (const item of itemsEgreso) {
+                        // a. Insertar detalle de egreso
+                        const { error: errorDetalle } = await supabaseClient
+                            .from('egresos_detalle')
+                            .insert({
+                                egreso_id: egreso.id,
+                                item_id: item.producto.id,
+                                cantidad: item.cantidad,
+                                costo_unitario: item.costoUnitario,
+                                costo_total: item.costoTotal,
+                                ingreso_detalle_id: item.loteId
+                            });
 
-                    const { error: errorUpdate } = await supabaseClient
-                        .from('ingresos_detalle')
-                        .update({ cantidad_disponible: nuevoSaldo })
-                        .eq('id', item.loteId);
+                        if (errorDetalle) throw errorDetalle;
 
-                    if (errorUpdate) throw errorUpdate;
+                        // b. Actualizar Stock del Lote (ingresos_detalle)
+                        // Necesitamos leer el valor actual para restar (o usar rpc si existiera)
+                        // Aquí confiamos en que nadie más modificó el lote en estos milisegundos (Optimistic Lock simple)
 
-                    // c. Actualizar Stock Global y Kardex
-                    // SE ELIMINÓ LA LÓGICA MANUAL DE FRONTEND.
-                    // El trigger 'tr_egreso_kardex' en la base de datos se encarga de:
-                    // 1. Crear el registro en Kardex
-                    // 2. Descontar el stock en la tabla 'items'
-                    // Esto evita la duplicidad de movimientos.
+                        // Primero obtenemos el lote actual para asegurar consistencia
+                        const { data: loteActual, error: errorLote } = await supabaseClient
+                            .from('ingresos_detalle')
+                            .select('cantidad_disponible')
+                            .eq('id', item.loteId)
+                            .single();
+
+                        if (errorLote) throw errorLote;
+
+                        const nuevoSaldo = Number(loteActual.cantidad_disponible) - Number(item.cantidad);
+
+                        const { error: errorUpdate } = await supabaseClient
+                            .from('ingresos_detalle')
+                            .update({ cantidad_disponible: nuevoSaldo })
+                            .eq('id', item.loteId);
+
+                        if (errorUpdate) throw errorUpdate;
+
+                        // c. Actualizar Stock Global y Kardex
+                        // SE ELIMINÓ LA LÓGICA MANUAL DE FRONTEND.
+                        // El trigger 'tr_egreso_kardex' en la base de datos se encarga de:
+                        // 1. Crear el registro en Kardex
+                        // 2. Descontar el stock en la tabla 'items'
+                        // Esto evita la duplicidad de movimientos.
+                    }
                 }
 
-                alert('✅ Egreso registrado correctamente.');
-                window.location.reload();
+                await Swal.fire({
+                    title: '¡Éxito!',
+                    text: 'Egreso registrado correctamente.',
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar'
+                });
+                
+                if (window.esModoEdicion) {
+                    window.location.href = 'kardex.html';
+                } else {
+                    window.location.reload();
+                }
 
             } catch (err) {
                 console.error('Error al guardar:', err);
@@ -1340,12 +1662,86 @@
         function updateThemeIcon(isDark) {
             const btn = document.getElementById('themeToggleBtn');
             if(btn) {
-                if(isDark) {
+                if (isDark) {
                     btn.querySelector('.fa-sun').classList.add('hidden');
                     btn.querySelector('.fa-moon').classList.remove('hidden');
                 } else {
                     btn.querySelector('.fa-sun').classList.remove('hidden');
                     btn.querySelector('.fa-moon').classList.add('hidden');
+                }
+            }
+        }
+
+        // 11. ELIMINACIÓN FÍSICA (Hard Delete)
+        async function eliminarEgresoFisicamente() {
+            if (!window.esModoEdicion || !window.idEgresoEdicion) return;
+
+            const { value: confirmacionEliminar } = await Swal.fire({
+                title: '¿Eliminar Egreso Físicamente?',
+                html: `Esta acción es <b>irreversible</b>.<br><br>
+                       El documento será borrado por completo del sistema y el Kardex restituirá el stock de los ítems automáticamente.<br><br>
+                       Para confirmar, escriba la palabra <b>ELIMINAR</b> en mayúsculas:`,
+                icon: 'error',
+                input: 'text',
+                inputPlaceholder: 'ELIMINAR',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#475569',
+                confirmButtonText: '<i class="fas fa-trash-alt mr-2"></i>Sí, Eliminar',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (value) => {
+                    if (value !== 'ELIMINAR') {
+                        return 'Debe escribir exactamente ELIMINAR para proceder.';
+                    }
+                }
+            });
+
+            if (confirmacionEliminar === 'ELIMINAR') {
+                try {
+                    // Mostrar estado de carga
+                    Swal.fire({
+                        title: 'Eliminando...',
+                        text: 'Restituyendo el Kardex FIFO. Por favor espere.',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Ejecutar RPC
+                    const { error } = await supabaseClient.rpc('rpc_eliminar_egreso_fisica', {
+                        p_empresa_id: window.currentEmpresaId,
+                        p_egreso_id: window.idEgresoEdicion
+                    });
+
+                    if (error) {
+                        console.error('Error desde Supabase al eliminar egreso:', error);
+                        // Capturar mensaje de Bloqueo Anti-Ventas
+                        if (error.message && error.message.includes('BLOQUEO')) {
+                            throw new Error(error.message);
+                        }
+                        throw error;
+                    }
+
+                    // Éxito
+                    await Swal.fire({
+                        title: '¡Eliminado!',
+                        text: 'El egreso ha sido eliminado físicamente y el stock restituido.',
+                        icon: 'success',
+                        confirmButtonColor: '#3085d6'
+                    });
+
+                    // Redirigir al Hub
+                    window.location.href = 'kardex.html';
+
+                } catch (err) {
+                    console.error('Error interno al eliminar egreso:', err);
+                    Swal.fire({
+                        title: 'Acción Denegada',
+                        text: err.message || 'Ocurrió un error crítico al intentar eliminar el documento. Contacte a soporte.',
+                        icon: 'error',
+                        confirmButtonColor: '#3085d6'
+                    });
                 }
             }
         }

@@ -2155,7 +2155,7 @@
                 // ACTIVAR BOTÓN EDICIÓN PARA EGRESO
                 const btnEditar = document.getElementById('btnEditarIngresoModal');
                 if (btnEditar) {
-                    btnEditar.onclick = () => window.location.href = `corregir_egresos_inventarios.html?id=${egreso.id}`;
+                    btnEditar.onclick = () => window.location.href = `egresos.html?modo=edicion&egresoId=${egreso.id}`;
                     btnEditar.style.display = 'flex'; // Mostrar botón
                 }
 
