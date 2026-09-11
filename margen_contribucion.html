@@ -42,6 +42,7 @@
             body.imprimiendo-pizarra #sandbox-pizarra * { visibility: visible !important; }
             
             /* Forzar a la pizarra a ocupar exactamente la hoja entera de forma absoluta */
+            /* Forzar a la pizarra a ocupar exactamente la hoja entera de forma absoluta */
             body.imprimiendo-pizarra #sandbox-pizarra {
                 position: absolute !important;
                 left: 0 !important;
@@ -51,12 +52,29 @@
                 background-color: white !important;
                 z-index: 9999;
                 display: flex !important;
-                padding: 1cm !important;
+                flex-direction: column !important;
+                padding-top: 2.2cm !important;
+                padding-left: 1cm !important;
+                padding-right: 1cm !important;
+                padding-bottom: 0.8cm !important;
                 box-sizing: border-box !important;
             }
             
-            /* Forzar contención estricta del flexbox para evitar desbordamiento inferior (guillotina) */
-            body.imprimiendo-pizarra #sandbox-pizarra > .flex-1,
+            /* Compactar la cabecera en impresión para cederle todo el alto al gráfico */
+            body.imprimiendo-pizarra #sandbox-pizarra > div:first-child {
+                padding: 6px 14px !important;
+                margin-bottom: 4px !important;
+            }
+
+            /* Forzar contención estricta del flexbox y eliminar paddings sobrantes para maximizar el gráfico */
+            body.imprimiendo-pizarra #sandbox-pizarra > .flex-1 {
+                flex: 1 1 0% !important;
+                height: 0 !important; 
+                min-height: 0 !important;
+                max-height: 100% !important;
+                padding: 0 !important;
+                gap: 0 !important;
+            }
             body.imprimiendo-pizarra #sandbox-pizarra > .flex-1 > div {
                 flex: 1 1 0% !important;
                 height: 0 !important; 
@@ -64,13 +82,27 @@
                 max-height: 100% !important;
             }
             
+            /* Forzar fondo blanco puro y bordes limpios en la pizarra impresa */
+            body.imprimiendo-pizarra #sandbox-pizarra,
+            body.imprimiendo-pizarra #sandbox-pizarra > div,
+            body.imprimiendo-pizarra #sandbox-pizarra .bg-slate-950,
+            body.imprimiendo-pizarra #sandbox-pizarra .bg-slate-900 {
+                background-color: white !important;
+                background: white !important;
+                border-color: #cbd5e1 !important;
+            }
+            
             body.imprimiendo-pizarra h2, 
-            body.imprimiendo-pizarra h2 i { color: black !important; }
+            body.imprimiendo-pizarra h2 i { color: #0f172a !important; }
             
             body.imprimiendo-pizarra #sandboxControls,
             body.imprimiendo-pizarra #btnImprimirPizarra,
             body.imprimiendo-pizarra button[onclick="cerrarModoZen()"],
             body.imprimiendo-pizarra #alertaMuestra { display: none !important; }
+
+            body.imprimiendo-pizarra #fichaEjecutivaCabeceraPrint {
+                display: flex !important;
+            }
         }
         body { background-color: #020617; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
         .submodule-header { background: rgba(15, 23, 42, 0.7); border-bottom: 1px solid #1e293b; backdrop-filter: blur(12px); }
@@ -340,7 +372,9 @@
                         <button onclick="toggleSandboxIndicator('macd')" id="btnMacd" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-signal"></i> MACD</button>
                         <button onclick="toggleSandboxIndicator('forecast')" id="btnForecast" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-robot"></i> Holt-Winters</button>
                         <button onclick="toggleSandboxIndicator('sarima')" id="btnSarima" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-project-diagram"></i> SARIMA</button>
+                        <button onclick="abrirModalPuntoAvance()" id="btnPuntoAvance" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2" title="Pintar o modificar punto de avance"><i class="fas fa-crosshairs"></i> <span id="lblBtnPuntoAvance">Añadir Punto</span></button>
                     </div>
+                    <div id="fichaEjecutivaCabeceraPrint" class="hidden"></div>
                 </div>
                 <div class="flex items-center gap-4">
                     <span class="text-[10px] uppercase font-bold tracking-widest text-emerald-500/80 border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 rounded hidden" id="alertaMuestra">Muestra Suficiente</span>
@@ -973,6 +1007,7 @@
         let sandboxMacdChartInstance = null;
         let originalDataRef = { labels: [], ventas: [], costos: [], margen: [] };
         let sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false, sarima: false };
+        let puntoAvanceConfig = { activo: false, fecha: null, soles: null, etiqueta: 'Punto de Avance' };
 
         function abrirModoZen() {
             // Cerramos modal expandido si está abierto para liberar DOM
@@ -1018,6 +1053,9 @@
             document.getElementById('sandboxRsiContainer').classList.add('hidden');
             document.getElementById('sandboxMacdContainer').classList.add('hidden');
             
+            // Sincronizar estado del punto de avance (Fecha y Soles) persistido
+            cargarPuntoAvancePersistido();
+
             // Mostrar Sandbox
             const sbox = document.getElementById('sandbox-pizarra');
             sbox.classList.remove('hidden');
@@ -1026,16 +1064,210 @@
             renderizarSandbox();
         }
 
+        // ---- UTILIDADES Y FLUJO DE IMPRESIÓN AVANZADA CON FICHAS ----
+        function obtenerResumenFecha(fechaBuscada) {
+            if (!sandboxChartInstance || !sandboxChartInstance.data || !sandboxChartInstance.data.datasets) return null;
+            
+            const targetDate = new Date(fechaBuscada + "T12:00:00");
+            if (isNaN(targetDate.getTime())) return null;
+
+            const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const diaSemana = dias[targetDate.getDay()] || '';
+
+            let items = [];
+
+            sandboxChartInstance.data.datasets.forEach(ds => {
+                if (ds.data && Array.isArray(ds.data)) {
+                    const pt = ds.data.find(d => {
+                        if (!d || !d.x) return false;
+                        const dTime = (d.x instanceof Date) ? d.x.getTime() : new Date(d.x).getTime();
+                        const dObj = new Date(dTime);
+                        const dStr = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
+                        return dStr === fechaBuscada;
+                    });
+
+                    if (pt && pt.y !== null && pt.y !== undefined && !isNaN(pt.y)) {
+                        let color = ds.borderColor;
+                        if (Array.isArray(color)) color = color[0];
+                        if (!color || typeof color === 'function') color = ds.pointBackgroundColor || ds.backgroundColor || '#64748b';
+
+                        items.push({
+                            label: ds.label || 'Serie',
+                            color: color,
+                            valor: pt.y
+                        });
+                    }
+                }
+            });
+
+            return {
+                fecha: fechaBuscada,
+                diaSemana: diaSemana,
+                items: items
+            };
+        }
+
+        function armarHtmlFichaCabecera(resumen, nombrePunto) {
+            if (!resumen || !resumen.items || resumen.items.length === 0) return '';
+            
+            const itemsHtml = resumen.items.map(it => `
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-[11px] font-bold text-slate-800 shadow-2xs">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${it.color};"></span>
+                    <span class="text-slate-600 font-semibold">${it.label}:</span>
+                    <span class="text-slate-950 font-black">S/ ${Number(it.valor).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </span>
+            `).join('');
+
+            return `
+                <div class="border-2 border-slate-300 bg-slate-100/95 rounded-xl px-3.5 py-1.5 flex items-center gap-3.5 text-xs text-slate-800 shadow-sm ml-auto">
+                    <div class="border-r border-slate-300 pr-3 shrink-0 text-left">
+                        <span class="block font-black text-[10px] uppercase tracking-wider text-rose-700">📍 ${nombrePunto || 'Punto de Control'}</span>
+                        <span class="font-extrabold text-slate-900 text-xs">📅 ${resumen.fecha} (${resumen.diaSemana})</span>
+                    </div>
+                    <div class="flex gap-2 flex-wrap items-center">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
         function imprimirPizarra() {
+            if (!sandboxChartInstance) {
+                Swal.fire('Atención', 'No hay gráfico activo para imprimir.', 'info');
+                return;
+            }
+
+            const minFecha = originalDataRef.labels[0] || '';
+            const lastDate = new Date(originalDataRef.labels[originalDataRef.labels.length - 1] + "T12:00:00");
+            const maxFuture = new Date(lastDate);
+            maxFuture.setDate(lastDate.getDate() + 7);
+            const maxFecha = maxFuture.toISOString().split('T')[0];
+
+            const tienePunto = puntoAvanceConfig.activo && puntoAvanceConfig.fecha && puntoAvanceConfig.soles !== null;
+            const fechaPunto = tienePunto ? puntoAvanceConfig.fecha : '';
+            const etiquetaPunto = tienePunto ? (puntoAvanceConfig.etiqueta || 'Punto de Control') : '';
+
+            // Sugerencia de fecha alternativa: sugerir la última fecha proyectada o del reporte distinta a la del punto
+            let fechaSugeridaCallout = (originalDataRef.labels[originalDataRef.labels.length - 1] !== fechaPunto)
+                ? originalDataRef.labels[originalDataRef.labels.length - 1]
+                : maxFecha;
+
+            const htmlContent = `
+                <div class="text-left space-y-4 pt-2">
+                    ${tienePunto ? `
+                    <div class="p-3 rounded-xl border border-rose-500/30 bg-rose-950/20 text-xs">
+                        <div class="flex items-center gap-2 font-bold text-rose-300 mb-1">
+                            <i class="fas fa-check-circle text-rose-400"></i> Ficha Ejecutiva en Cabecera A4 Activa
+                        </div>
+                        <p class="text-slate-300 text-[11px] leading-relaxed">
+                            Se incluirá automáticamente el resumen del punto <strong>${etiquetaPunto}</strong> (📅 ${fechaPunto} - S/ ${Number(puntoAvanceConfig.soles).toFixed(2)}) en la cabecera superior de la hoja impresa.
+                        </p>
+                    </div>
+                    ` : `
+                    <div class="p-3 rounded-xl border border-slate-700 bg-slate-900 text-xs text-slate-400">
+                        <i class="fas fa-info-circle text-indigo-400 mr-1"></i> No hay Punto de Control activo. El gráfico se imprimirá con su cabecera estándar.
+                    </div>
+                    `}
+
+                    <div class="pt-2 border-t border-slate-800">
+                        <div class="flex items-center justify-between mb-2">
+                            <label for="chkIncluirCallout" class="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="chkIncluirCallout" class="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-950 border-slate-700 cursor-pointer" />
+                                <span>Imprimir Tooltip Flotante en el Gráfico</span>
+                            </label>
+                            <span class="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider bg-indigo-950/50 border border-indigo-500/20 px-1.5 py-0.5 rounded">Ficha Callout</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-2.5">
+                            Estampa en el gráfico un recuadro fijo con el desglose numérico de una fecha de interés adicional.
+                        </p>
+                        <div id="contenedorFechaCallout" class="hidden pl-6">
+                            <label class="block text-[11px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Fecha del Tooltip</label>
+                            <input id="swalFechaCallout" type="date" min="${minFecha}" max="${maxFecha}" value="${fechaSugeridaCallout}" 
+                                class="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-white text-sm outline-none transition-colors" />
+                            <p class="text-[10px] text-slate-500 mt-1">Rango disponible: ${minFecha} al ${maxFecha}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            Swal.fire({
+                title: 'Preparar Impresión A4',
+                html: htmlContent,
+                background: '#0f172a',
+                color: '#f8fafc',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-print mr-1.5"></i> Proceder con la Impresión',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#4f46e5',
+                cancelButtonColor: '#334155',
+                customClass: {
+                    popup: 'border border-slate-800 shadow-2xl rounded-2xl'
+                },
+                didOpen: () => {
+                    const chk = document.getElementById('chkIncluirCallout');
+                    const cont = document.getElementById('contenedorFechaCallout');
+                    if (chk && cont) {
+                        chk.addEventListener('change', (e) => {
+                            if (e.target.checked) cont.classList.remove('hidden');
+                            else cont.classList.add('hidden');
+                        });
+                    }
+                },
+                preConfirm: () => {
+                    const chk = document.getElementById('chkIncluirCallout');
+                    let fechaCallout = null;
+                    if (chk && chk.checked) {
+                        const fechaInput = document.getElementById('swalFechaCallout');
+                        if (!fechaInput || !fechaInput.value) {
+                            Swal.showValidationMessage('Por favor selecciona una fecha válida para el Tooltip flotante.');
+                            return false;
+                        }
+                        if (fechaInput.value < minFecha || fechaInput.value > maxFecha) {
+                            Swal.showValidationMessage(`La fecha del Tooltip debe estar entre ${minFecha} y ${maxFecha}.`);
+                            return false;
+                        }
+                        fechaCallout = fechaInput.value;
+                    }
+                    return { fechaCallout };
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    ejecutarImpresionPizarra(result.value.fechaCallout);
+                }
+            });
+        }
+
+        function ejecutarImpresionPizarra(fechaCalloutAdicional) {
             document.body.classList.add('imprimiendo-pizarra');
             
-            // Bypass para sincronía ChartJS: Forzar tamaño de papel A4 en pantalla temporalmente
             const sbox = document.getElementById('sandbox-pizarra');
             const originalWidth = sbox.style.width;
             const originalHeight = sbox.style.height;
-            // Ajustado a 277mm x 190mm para encajar exactamente en el área de impresión A4 con márgenes predeterminados
+            const originalPadding = sbox.style.padding;
+            
+            const chartCanvas = document.getElementById('sandboxChart');
+            const chartContainer = chartCanvas ? chartCanvas.parentElement : null;
+            const originalChartContainerHeight = chartContainer ? chartContainer.style.height : '';
+
+            // Medidas A4 de alta precisión: fijar 145mm de altura para el gráfico garantizando presencia ejecutiva
             sbox.style.width = '277mm';
             sbox.style.height = '190mm';
+            if (chartContainer) {
+                chartContainer.style.height = '145mm';
+            }
+
+            // 1. Inyectar Ficha Ejecutiva en Cabecera si hay punto de control
+            const fichaCabeceraEl = document.getElementById('fichaEjecutivaCabeceraPrint');
+            if (fichaCabeceraEl) {
+                if (puntoAvanceConfig.activo && puntoAvanceConfig.fecha && puntoAvanceConfig.soles !== null) {
+                    const resumenPunto = obtenerResumenFecha(puntoAvanceConfig.fecha);
+                    fichaCabeceraEl.innerHTML = armarHtmlFichaCabecera(resumenPunto, puntoAvanceConfig.etiqueta);
+                    fichaCabeceraEl.classList.remove('hidden');
+                } else {
+                    fichaCabeceraEl.innerHTML = '';
+                    fichaCabeceraEl.classList.add('hidden');
+                }
+            }
             
             const colorOscuro = '#94a3b8';
             const colorClaro = '#1e293b';
@@ -1056,19 +1288,89 @@
             setModoImpresion(sandboxRsiChartInstance, true);
             setModoImpresion(sandboxMacdChartInstance, true);
 
-            // Forzar resize físico al contenedor
-            if(sandboxChartInstance) sandboxChartInstance.resize();
-            if(sandboxRsiChartInstance) sandboxRsiChartInstance.resize();
-            if(sandboxMacdChartInstance) sandboxMacdChartInstance.resize();
+            // Forzar resize físico al contenedor en dimensiones de papel A4 y actualizar posiciones
+            if(sandboxChartInstance) {
+                sandboxChartInstance.resize();
+                sandboxChartInstance.update('none');
+            }
+            if(sandboxRsiChartInstance) {
+                sandboxRsiChartInstance.resize();
+                sandboxRsiChartInstance.update('none');
+            }
+            if(sandboxMacdChartInstance) {
+                sandboxMacdChartInstance.resize();
+                sandboxMacdChartInstance.update('none');
+            }
+
+            // 2. Activar Tooltip Nativo de Chart.js fijado en el Canvas sobre la curva de esa fecha
+            if (fechaCalloutAdicional && sandboxChartInstance && sandboxChartInstance.data.datasets.length > 0) {
+                let idxFecha = -1;
+                const ds0 = sandboxChartInstance.data.datasets[0];
+                if (ds0 && ds0.data) {
+                    idxFecha = ds0.data.findIndex(pt => {
+                        if (!pt || !pt.x) return false;
+                        const d = (pt.x instanceof Date) ? pt.x : new Date(pt.x);
+                        const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                        return dStr === fechaCalloutAdicional;
+                    });
+                }
+
+                if (idxFecha !== -1) {
+                    const activeElements = [];
+                    sandboxChartInstance.data.datasets.forEach((ds, dsIdx) => {
+                        const meta = sandboxChartInstance.getDatasetMeta(dsIdx);
+                        if (meta && meta.data && meta.data[idxFecha] && !meta.hidden) {
+                            if (ds.data[idxFecha] && ds.data[idxFecha].y !== null && ds.data[idxFecha].y !== undefined) {
+                                activeElements.push({
+                                    datasetIndex: dsIdx,
+                                    index: idxFecha
+                                });
+                            }
+                        }
+                    });
+
+                    if (activeElements.length > 0) {
+                        sandboxChartInstance.setActiveElements(activeElements);
+                        const primaryMeta = sandboxChartInstance.getDatasetMeta(activeElements[0].datasetIndex);
+                        const primaryElem = primaryMeta.data[idxFecha];
+                        const pos = (primaryElem && typeof primaryElem.tooltipPosition === 'function')
+                            ? primaryElem.tooltipPosition()
+                            : { x: primaryElem.x, y: primaryElem.y };
+                        
+                        if (sandboxChartInstance.tooltip) {
+                            sandboxChartInstance.tooltip.setActiveElements(activeElements, pos);
+                        }
+                        sandboxChartInstance.update('none');
+                    }
+                }
+            }
 
             setTimeout(() => {
                 window.print();
                 
                 // Restauración post-impresión inmediata
+                if (chartContainer) {
+                    chartContainer.style.height = originalChartContainerHeight;
+                }
                 sbox.style.width = originalWidth;
                 sbox.style.height = originalHeight;
+                sbox.style.padding = originalPadding;
                 document.body.classList.remove('imprimiendo-pizarra');
                 
+                // Limpiar ficha ejecutiva de cabecera
+                if (fichaCabeceraEl) {
+                    fichaCabeceraEl.innerHTML = '';
+                    fichaCabeceraEl.classList.add('hidden');
+                }
+
+                // Restaurar y limpiar tooltip nativo
+                if (sandboxChartInstance) {
+                    sandboxChartInstance.setActiveElements([]);
+                    if (sandboxChartInstance.tooltip) {
+                        sandboxChartInstance.tooltip.setActiveElements([], { x: 0, y: 0 });
+                    }
+                }
+
                 setModoImpresion(sandboxChartInstance, false);
                 setModoImpresion(sandboxRsiChartInstance, false);
                 setModoImpresion(sandboxMacdChartInstance, false);
@@ -1091,6 +1393,205 @@
                 if(sandboxRsiChartInstance) sandboxRsiChartInstance.destroy();
                 if(sandboxMacdChartInstance) sandboxMacdChartInstance.destroy();
             }, 300);
+        }
+
+        // ---- GESTIÓN DEL PUNTO DE AVANCE (FECHA Y SOLES) ----
+        function getPuntoAvanceStorageKey() {
+            return `microerp_zen_punto_${currentEmpresaId || 'default'}`;
+        }
+
+        function cargarPuntoAvancePersistido() {
+            try {
+                const raw = localStorage.getItem(getPuntoAvanceStorageKey());
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && parsed.fecha && parsed.soles !== undefined && !isNaN(parsed.soles)) {
+                        puntoAvanceConfig = { 
+                            activo: true, 
+                            fecha: parsed.fecha, 
+                            soles: parseFloat(parsed.soles),
+                            etiqueta: parsed.etiqueta || 'Punto de Avance'
+                        };
+                        actualizarBotonPuntoAvanceUI();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn("Error cargando punto de avance persistido:", e);
+            }
+            puntoAvanceConfig = { activo: false, fecha: null, soles: null, etiqueta: 'Punto de Avance' };
+            actualizarBotonPuntoAvanceUI();
+        }
+
+        function guardarPuntoAvance(fecha, soles, etiqueta) {
+            puntoAvanceConfig = { 
+                activo: true, 
+                fecha: fecha, 
+                soles: parseFloat(soles),
+                etiqueta: etiqueta && etiqueta.trim() ? etiqueta.trim() : 'Punto de Avance'
+            };
+            try {
+                localStorage.setItem(getPuntoAvanceStorageKey(), JSON.stringify(puntoAvanceConfig));
+            } catch (e) {
+                console.warn("Error guardando punto de avance:", e);
+            }
+            actualizarBotonPuntoAvanceUI();
+            renderizarSandbox();
+        }
+
+        function eliminarPuntoAvance() {
+            puntoAvanceConfig = { activo: false, fecha: null, soles: null, etiqueta: 'Punto de Avance' };
+            try {
+                localStorage.removeItem(getPuntoAvanceStorageKey());
+            } catch (e) {
+                console.warn("Error eliminando punto de avance:", e);
+            }
+            actualizarBotonPuntoAvanceUI();
+            renderizarSandbox();
+        }
+
+        function actualizarBotonPuntoAvanceUI() {
+            const btn = document.getElementById('btnPuntoAvance');
+            const lbl = document.getElementById('lblBtnPuntoAvance');
+            if (!btn || !lbl) return;
+
+            if (puntoAvanceConfig.activo && puntoAvanceConfig.fecha && puntoAvanceConfig.soles !== null) {
+                btn.className = "bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-500/70 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2 shadow-md shadow-rose-950/30";
+                let nombreBtn = puntoAvanceConfig.etiqueta || 'Punto';
+                if (nombreBtn.length > 14) {
+                    nombreBtn = nombreBtn.substring(0, 12) + '...';
+                }
+                lbl.textContent = `${nombreBtn}: S/ ${Number(puntoAvanceConfig.soles).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                btn.title = `${puntoAvanceConfig.etiqueta || 'Punto'} fijado en ${puntoAvanceConfig.fecha}: S/ ${Number(puntoAvanceConfig.soles).toFixed(2)} (Clic para modificar o quitar)`;
+            } else {
+                btn.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2";
+                lbl.textContent = "Añadir Punto";
+                btn.title = "Pintar punto de avance (Fecha y Soles)";
+            }
+        }
+
+        function abrirModalPuntoAvance() {
+            if (!originalDataRef.labels || originalDataRef.labels.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sin datos disponibles',
+                    text: 'No hay datos cargados en la Pizarra Analítica para fijar un punto.',
+                    background: '#0f172a',
+                    color: '#f8fafc'
+                });
+                return;
+            }
+
+            const minFecha = originalDataRef.labels[0];
+            const lastDate = new Date(originalDataRef.labels[originalDataRef.labels.length - 1] + "T12:00:00");
+            const maxFuture = new Date(lastDate);
+            maxFuture.setDate(lastDate.getDate() + 7);
+            const maxFecha = maxFuture.toISOString().split('T')[0];
+
+            const hoyLocal = new Date();
+            const hoyStr = `${hoyLocal.getFullYear()}-${String(hoyLocal.getMonth() + 1).padStart(2, '0')}-${String(hoyLocal.getDate()).padStart(2, '0')}`;
+
+            let defaultFecha = puntoAvanceConfig.activo && puntoAvanceConfig.fecha 
+                ? puntoAvanceConfig.fecha 
+                : (hoyStr >= minFecha && hoyStr <= maxFecha ? hoyStr : originalDataRef.labels[originalDataRef.labels.length - 1]);
+            let defaultSoles = puntoAvanceConfig.activo && puntoAvanceConfig.soles !== null ? puntoAvanceConfig.soles : '';
+            let defaultEtiqueta = puntoAvanceConfig.activo && puntoAvanceConfig.etiqueta ? puntoAvanceConfig.etiqueta : 'Punto de Avance';
+
+            const htmlContent = `
+                <div class="text-left space-y-4 pt-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Etiqueta / Descripción</label>
+                        <input id="swalPuntoEtiqueta" type="text" maxlength="30" placeholder="Ej. Meta del Día, Avance Turno..." value="${defaultEtiqueta}" 
+                            class="w-full bg-slate-950 border border-slate-700 focus:border-rose-500 rounded-lg px-3 py-2 text-white text-sm outline-none transition-colors" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Fecha del Punto</label>
+                        <input id="swalPuntoFecha" type="date" min="${minFecha}" max="${maxFecha}" value="${defaultFecha}" 
+                            class="w-full bg-slate-950 border border-slate-700 focus:border-rose-500 rounded-lg px-3 py-2 text-white text-sm outline-none transition-colors" />
+                        <p class="text-[11px] text-slate-500 mt-1">Rango disponible: ${minFecha} al ${maxFecha}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Monto en Soles (S/)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-slate-400 text-sm font-bold">S/</span>
+                            <input id="swalPuntoSoles" type="number" step="0.01" placeholder="0.00" value="${defaultSoles}" 
+                                class="w-full bg-slate-950 border border-slate-700 focus:border-rose-500 rounded-lg pl-9 pr-3 py-2 text-white text-sm font-bold outline-none transition-colors" />
+                        </div>
+                    </div>
+                    ${puntoAvanceConfig.activo ? `
+                    <div class="pt-3 border-t border-slate-800 flex justify-between items-center">
+                        <span class="text-xs text-rose-400/90 font-medium"><i class="fas fa-map-pin mr-1"></i> Punto activo en gráfico</span>
+                        <button type="button" id="btnSwalQuitarPunto" class="text-xs text-rose-400 hover:text-rose-300 font-bold hover:underline flex items-center gap-1 cursor-pointer">
+                            <i class="fas fa-trash-alt"></i> Quitar Punto
+                        </button>
+                    </div>` : ''}
+                </div>
+            `;
+
+            Swal.fire({
+                title: puntoAvanceConfig.activo ? 'Modificar Punto de Control' : 'Añadir Punto de Control',
+                html: htmlContent,
+                background: '#0f172a',
+                color: '#f8fafc',
+                showCancelButton: true,
+                confirmButtonText: puntoAvanceConfig.activo ? '<i class="fas fa-check mr-1"></i> Actualizar Punto' : '<i class="fas fa-paint-brush mr-1"></i> Pintar Punto',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#f43f5e',
+                cancelButtonColor: '#334155',
+                customClass: {
+                    popup: 'border border-slate-800 shadow-2xl rounded-2xl'
+                },
+                didOpen: () => {
+                    const btnQuitar = document.getElementById('btnSwalQuitarPunto');
+                    if (btnQuitar) {
+                        btnQuitar.addEventListener('click', () => {
+                            eliminarPuntoAvance();
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Punto removido',
+                                toast: true, position: 'top-end', showConfirmButton: false, timer: 2000,
+                                background: '#1e293b', color: '#f8fafc', iconColor: '#f43f5e'
+                            });
+                        });
+                    }
+                    const inputEtiqueta = document.getElementById('swalPuntoEtiqueta');
+                    if (inputEtiqueta) {
+                        inputEtiqueta.focus();
+                        inputEtiqueta.select();
+                    }
+                },
+                preConfirm: () => {
+                    const etiquetaVal = document.getElementById('swalPuntoEtiqueta').value.trim() || 'Punto de Avance';
+                    const fechaVal = document.getElementById('swalPuntoFecha').value;
+                    const solesVal = document.getElementById('swalPuntoSoles').value;
+
+                    if (!fechaVal) {
+                        Swal.showValidationMessage('Por favor selecciona una fecha válida.');
+                        return false;
+                    }
+                    if (fechaVal < minFecha || fechaVal > maxFecha) {
+                        Swal.showValidationMessage(`La fecha debe estar dentro del rango (${minFecha} al ${maxFecha}).`);
+                        return false;
+                    }
+                    const parsedSoles = parseFloat(solesVal);
+                    if (solesVal === '' || isNaN(parsedSoles)) {
+                        Swal.showValidationMessage('Por favor ingresa un monto numérico válido en soles.');
+                        return false;
+                    }
+                    return { fecha: fechaVal, soles: parsedSoles, etiqueta: etiquetaVal };
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    guardarPuntoAvance(result.value.fecha, result.value.soles, result.value.etiqueta);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Punto pintado en la Pizarra',
+                        toast: true, position: 'top-end', showConfirmButton: false, timer: 2500,
+                        background: '#1e293b', color: '#f8fafc', iconColor: '#f43f5e'
+                    });
+                }
+            });
         }
 
         function toggleSandboxIndicator(tipo) {
@@ -1495,6 +1996,32 @@
                 }
             }
 
+            // Punto de Avance / Control (Fecha y Soles)
+            if (puntoAvanceConfig.activo && puntoAvanceConfig.fecha && puntoAvanceConfig.soles !== null) {
+                let puntoData = extendedFechas.map(f => ({
+                    x: new Date(f + "T12:00:00"),
+                    y: (f === puntoAvanceConfig.fecha) ? puntoAvanceConfig.soles : null
+                }));
+
+                datasets.push({
+                    label: puntoAvanceConfig.etiqueta || 'Punto de Avance',
+                    data: puntoData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: '#f43f5e',
+                    pointBackgroundColor: '#f43f5e',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2.5,
+                    pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null ? 8 : 0),
+                    pointHoverRadius: 11,
+                    pointHoverBackgroundColor: '#fb7185',
+                    pointHoverBorderColor: '#ffffff',
+                    pointHoverBorderWidth: 3,
+                    showLine: false,
+                    fill: false,
+                    order: 0
+                });
+            }
+
             sandboxChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: { datasets: datasets },
@@ -1524,6 +2051,13 @@
                                         }
                                     }
                                     return tooltipItems[0].label;
+                                },
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (context.parsed.y !== null) {
+                                        return `${label}: S/ ${Number(context.parsed.y).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                                    }
+                                    return label;
                                 }
                             }
                         }
