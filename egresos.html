@@ -1620,7 +1620,7 @@
 
                 await Swal.fire({
                     title: '¡Éxito!',
-                    text: 'Egreso registrado correctamente.',
+                    text: window.esModoEdicion ? 'Egreso modificado correctamente.' : 'Egreso registrado correctamente.',
                     icon: 'success',
                     confirmButtonText: 'Aceptar'
                 });
@@ -1633,7 +1633,13 @@
 
             } catch (err) {
                 console.error('Error al guardar:', err);
-                alert('Error crítico al guardar. Revise la consola.');
+                const mensajeError = err.message || (typeof err === 'string' ? err : 'Error crítico al guardar. Revise la consola.');
+                await Swal.fire({
+                    title: 'Error al Guardar',
+                    text: mensajeError,
+                    icon: 'error',
+                    confirmButtonText: 'Entendido'
+                });
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-save"></i> Guardar Egreso';
             }
