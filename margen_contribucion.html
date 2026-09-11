@@ -1107,28 +1107,52 @@
             };
         }
 
-        function armarHtmlFichaCabecera(resumen, nombrePunto) {
-            if (!resumen || !resumen.items || resumen.items.length === 0) return '';
-            
-            const itemsHtml = resumen.items.map(it => `
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-[11px] font-bold text-slate-800 shadow-2xs">
-                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${it.color};"></span>
-                    <span class="text-slate-600 font-semibold">${it.label}:</span>
-                    <span class="text-slate-950 font-black">S/ ${Number(it.valor).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </span>
-            `).join('');
+        function armarHtmlFichaCabecera(resumen, nombrePunto, fibo100Valor = null) {
+            let itemsHtml = '';
+            if (resumen && resumen.items && resumen.items.length > 0) {
+                itemsHtml = resumen.items.map(it => `
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-[11px] font-bold text-slate-800 shadow-2xs">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${it.color};"></span>
+                        <span class="text-slate-600 font-semibold">${it.label}:</span>
+                        <span class="text-slate-950 font-black">S/ ${Number(it.valor).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </span>
+                `).join('');
+            }
 
-            return `
-                <div class="border-2 border-slate-300 bg-slate-100/95 rounded-xl px-3.5 py-1.5 flex items-center gap-3.5 text-xs text-slate-800 shadow-sm ml-auto">
-                    <div class="border-r border-slate-300 pr-3 shrink-0 text-left">
-                        <span class="block font-black text-[10px] uppercase tracking-wider text-rose-700">📍 ${nombrePunto || 'Punto de Control'}</span>
-                        <span class="font-extrabold text-slate-900 text-xs">📅 ${resumen.fecha} (${resumen.diaSemana})</span>
+            // Recuadro exclusivo para Fibo 100.0% con indicador circular carbón/pizarra
+            if (fibo100Valor !== null && fibo100Valor !== undefined && !isNaN(fibo100Valor)) {
+                itemsHtml += `
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-[11px] font-bold text-slate-800 shadow-2xs">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: #0f172a;"></span>
+                        <span class="text-slate-600 font-semibold">Fibo 100.0%:</span>
+                        <span class="text-slate-950 font-black">S/ ${Number(fibo100Valor).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </span>
+                `;
+            }
+
+            if (!itemsHtml) return '';
+
+            if (resumen && resumen.fecha) {
+                return `
+                    <div class="border-2 border-slate-300 bg-slate-100/95 rounded-xl px-3.5 py-1.5 flex items-center gap-3.5 text-xs text-slate-800 shadow-sm ml-auto">
+                        <div class="border-r border-slate-300 pr-3 shrink-0 text-left">
+                            <span class="block font-black text-[10px] uppercase tracking-wider text-rose-700">📍 ${nombrePunto || 'Punto de Control'}</span>
+                            <span class="font-extrabold text-slate-900 text-xs">📅 ${resumen.fecha} (${resumen.diaSemana})</span>
+                        </div>
+                        <div class="flex gap-2 flex-wrap items-center">
+                            ${itemsHtml}
+                        </div>
                     </div>
-                    <div class="flex gap-2 flex-wrap items-center">
-                        ${itemsHtml}
+                `;
+            } else {
+                return `
+                    <div class="border-2 border-slate-300 bg-slate-100/95 rounded-xl px-3.5 py-1.5 flex items-center gap-3.5 text-xs text-slate-800 shadow-sm ml-auto">
+                        <div class="flex gap-2 flex-wrap items-center">
+                            ${itemsHtml}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
 
         function imprimirPizarra() {
@@ -1160,12 +1184,12 @@
                             <i class="fas fa-check-circle text-rose-400"></i> Ficha Ejecutiva en Cabecera A4 Activa
                         </div>
                         <p class="text-slate-300 text-[11px] leading-relaxed">
-                            Se incluirá automáticamente el resumen del punto <strong>${etiquetaPunto}</strong> (📅 ${fechaPunto} - S/ ${Number(puntoAvanceConfig.soles).toFixed(2)}) en la cabecera superior de la hoja impresa.
+                            Se incluirá automáticamente el resumen del punto <strong>${etiquetaPunto}</strong> (📅 ${fechaPunto} - S/ ${Number(puntoAvanceConfig.soles).toFixed(2)})${sandboxConfig.fibonacci ? ' y el recuadro de Fibo 100.0%' : ''} en la cabecera superior de la hoja impresa.
                         </p>
                     </div>
                     ` : `
                     <div class="p-3 rounded-xl border border-slate-700 bg-slate-900 text-xs text-slate-400">
-                        <i class="fas fa-info-circle text-indigo-400 mr-1"></i> No hay Punto de Control activo. El gráfico se imprimirá con su cabecera estándar.
+                        <i class="fas fa-info-circle text-indigo-400 mr-1"></i> No hay Punto de Control activo. ${sandboxConfig.fibonacci ? 'Se incluirá en la cabecera el recuadro de Fibo 100.0%.' : 'El gráfico se imprimirá con su cabecera estándar.'}
                     </div>
                     `}
 
@@ -1256,12 +1280,28 @@
                 chartContainer.style.height = '145mm';
             }
 
-            // 1. Inyectar Ficha Ejecutiva en Cabecera si hay punto de control
+            // 1. Inyectar Ficha Ejecutiva en Cabecera si hay punto de control o si Fibonacci está activo
             const fichaCabeceraEl = document.getElementById('fichaEjecutivaCabeceraPrint');
             if (fichaCabeceraEl) {
-                if (puntoAvanceConfig.activo && puntoAvanceConfig.fecha && puntoAvanceConfig.soles !== null) {
-                    const resumenPunto = obtenerResumenFecha(puntoAvanceConfig.fecha);
-                    fichaCabeceraEl.innerHTML = armarHtmlFichaCabecera(resumenPunto, puntoAvanceConfig.etiqueta);
+                const tienePunto = puntoAvanceConfig.activo && puntoAvanceConfig.fecha && puntoAvanceConfig.soles !== null;
+                
+                let fibo100Val = null;
+                if (sandboxConfig.fibonacci) {
+                    if (sandboxChartInstance && sandboxChartInstance.options.plugins && sandboxChartInstance.options.plugins.annotation && sandboxChartInstance.options.plugins.annotation.annotations) {
+                        const ann = sandboxChartInstance.options.plugins.annotation.annotations;
+                        if (ann['fibo6'] && ann['fibo6'].yMin !== undefined) {
+                            fibo100Val = ann['fibo6'].yMin;
+                        }
+                    }
+                    if (fibo100Val === null && originalDataRef && originalDataRef.valores) {
+                        const valid = originalDataRef.valores.filter(d => d !== null && !isNaN(d));
+                        if (valid.length > 0) fibo100Val = Math.min(...valid);
+                    }
+                }
+
+                if (tienePunto || fibo100Val !== null) {
+                    const resumenPunto = tienePunto ? obtenerResumenFecha(puntoAvanceConfig.fecha) : null;
+                    fichaCabeceraEl.innerHTML = armarHtmlFichaCabecera(resumenPunto, puntoAvanceConfig.etiqueta, fibo100Val);
                     fichaCabeceraEl.classList.remove('hidden');
                 } else {
                     fichaCabeceraEl.innerHTML = '';
@@ -1309,6 +1349,49 @@
                         if (chart._originalAnnotations) {
                             chart.options.plugins.annotation.annotations = JSON.parse(JSON.stringify(chart._originalAnnotations));
                             delete chart._originalAnnotations;
+                        }
+                    }
+                }
+
+                // Adaptación dinámica del Tooltip para impresión sobre papel blanco (fondo semitransparente al 50% y letras blancas nítidas)
+                if (chart.options.plugins && chart.options.plugins.tooltip) {
+                    if (isPrint) {
+                        if (!chart._originalTooltip) {
+                            chart._originalTooltip = {
+                                backgroundColor: chart.options.plugins.tooltip.backgroundColor,
+                                titleColor: chart.options.plugins.tooltip.titleColor,
+                                bodyColor: chart.options.plugins.tooltip.bodyColor,
+                                borderColor: chart.options.plugins.tooltip.borderColor,
+                                borderWidth: chart.options.plugins.tooltip.borderWidth
+                            };
+                        }
+                        chart.options.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.50)';
+                        chart.options.plugins.tooltip.titleColor = '#ffffff';
+                        chart.options.plugins.tooltip.bodyColor = '#ffffff';
+                        chart.options.plugins.tooltip.borderColor = 'rgba(15, 23, 42, 0.70)';
+                        chart.options.plugins.tooltip.borderWidth = 1;
+                        if (chart.tooltip && chart.tooltip.options) {
+                            chart.tooltip.options.backgroundColor = 'rgba(15, 23, 42, 0.50)';
+                            chart.tooltip.options.titleColor = '#ffffff';
+                            chart.tooltip.options.bodyColor = '#ffffff';
+                            chart.tooltip.options.borderColor = 'rgba(15, 23, 42, 0.70)';
+                            chart.tooltip.options.borderWidth = 1;
+                        }
+                    } else {
+                        if (chart._originalTooltip) {
+                            chart.options.plugins.tooltip.backgroundColor = chart._originalTooltip.backgroundColor;
+                            chart.options.plugins.tooltip.titleColor = chart._originalTooltip.titleColor;
+                            chart.options.plugins.tooltip.bodyColor = chart._originalTooltip.bodyColor;
+                            chart.options.plugins.tooltip.borderColor = chart._originalTooltip.borderColor;
+                            chart.options.plugins.tooltip.borderWidth = chart._originalTooltip.borderWidth;
+                            if (chart.tooltip && chart.tooltip.options) {
+                                chart.tooltip.options.backgroundColor = chart._originalTooltip.backgroundColor;
+                                chart.tooltip.options.titleColor = chart._originalTooltip.titleColor;
+                                chart.tooltip.options.bodyColor = chart._originalTooltip.bodyColor;
+                                chart.tooltip.options.borderColor = chart._originalTooltip.borderColor;
+                                chart.tooltip.options.borderWidth = chart._originalTooltip.borderWidth;
+                            }
+                            delete chart._originalTooltip;
                         }
                     }
                 }
