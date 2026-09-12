@@ -1142,8 +1142,17 @@
             } catch(e) { console.error('Error busqueda:', e); resDiv.innerHTML = '<div class="p-4 text-red-500">Error en búsqueda.</div>'; }
         }
 
+        function formatearPrecioVentaVisual(val) {
+            const num = parseFloat(val || 0);
+            if (isNaN(num) || num < 0) return "0.00";
+            const str = num.toFixed(6);
+            const partes = str.split('.');
+            const dec = partes[1].replace(/0+$/, '');
+            return dec.length <= 2 ? num.toFixed(2) : `${partes[0]}.${dec}`;
+        }
+
         function renderizarFilaBusqueda(obj, tipo, stock) {
-            const precioRef = parseFloat(obj.precio_venta||0).toFixed(2);
+            const precioRef = formatearPrecioVentaVisual(obj.precio_venta);
             // Empaquetar datos para la función onclick
             const dataStr = encodeURIComponent(JSON.stringify({...obj, paramTipo: tipo, paramStock: stock, paramClienteId: obj.cliente_id}));
             
@@ -1520,11 +1529,11 @@
                     }
                     detallesRpc.push({
                         item_id: c.dbId,
-                        cantidad: c.cantidad,
-                        valor_unitario: vu.toFixed(4),
-                        igv_unitario: igv_uni.toFixed(4),
-                        precio_unitario: c.precioFinalIngresado.toFixed(4),
-                        precio_total: precioLineaTotal.toFixed(4)
+                        cantidad: Number(Number(c.cantidad).toFixed(3)),
+                        valor_unitario: Number(vu.toFixed(6)),
+                        igv_unitario: Number(igv_uni.toFixed(6)),
+                        precio_unitario: Number(c.precioFinalIngresado.toFixed(6)),
+                        precio_total: Number(precioLineaTotal.toFixed(2))
                     });
                 });
                 
@@ -1684,13 +1693,13 @@
                         venta_id: ventaDB.id,
                         tipo_item_vendido: item.tipo,
                         referencia_id: item.dbId,
-                        cantidad: item.cantidad,
-                        valor_unitario: vu.toFixed(4),
-                        igv_unitario: igv_uni.toFixed(4),
-                        precio_unitario: pu,
-                        precio_total: precioLinTotal,
-                        costo_unitario: costo_uni.toFixed(4),
-                        costo_total: (costo_uni * item.cantidad).toFixed(4)
+                        cantidad: Number(Number(item.cantidad).toFixed(3)),
+                        valor_unitario: Number(vu.toFixed(6)),
+                        igv_unitario: Number(igv_uni.toFixed(6)),
+                        precio_unitario: Number(Number(pu).toFixed(6)),
+                        precio_total: Number(precioLinTotal.toFixed(2)),
+                        costo_unitario: Number(Number(costo_uni).toFixed(6)),
+                        costo_total: Number((costo_uni * item.cantidad).toFixed(2))
                     });
 
                     // RUTINA FÍSICA: Si es item físico, impactar inventario (Triggers harán el resto en la BD)
@@ -1701,9 +1710,9 @@
                             const { error: errEgDet } = await window.supabaseClient.from('egresos_detalle').insert({
                                 egreso_id: egresoBD_id,
                                 item_id: item.dbId,
-                                cantidad: porcion.qty,
-                                costo_unitario: porcion.costo_unit_usado,
-                                costo_total: (porcion.qty * porcion.costo_unit_usado),
+                                cantidad: Number(Number(porcion.qty).toFixed(3)),
+                                costo_unitario: Number(Number(porcion.costo_unit_usado).toFixed(6)),
+                                costo_total: Number((porcion.qty * porcion.costo_unit_usado).toFixed(2)),
                                 ingreso_detalle_id: porcion.lotId
                             });
                             if(errEgDet) throw errEgDet;

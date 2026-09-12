@@ -845,7 +845,8 @@
                         <!-- Stock Mínimo -->
                         <div class="form-group">
                             <label for="stockMinimo">Stock Mínimo</label>
-                            <input type="number" id="stockMinimo" step="0.01" min="0" value="0" placeholder="0.00">
+                            <input type="text" inputmode="decimal" id="stockMinimo" value="0" placeholder="0.000"
+                                oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');">
                         </div>
 
                         <!-- Descripción (Detalles) -->
@@ -1368,7 +1369,7 @@
             const categoriaId = document.getElementById('categoriaId').value;
             const unidadMedidaId = document.getElementById('unidadMedidaId').value;
             const proveedorId = document.getElementById('proveedorId').value || null;
-            const stockMinimo = document.getElementById('stockMinimo').value || 0;
+            const stockMinimo = Number(parseFloat(document.getElementById('stockMinimo').value || 0).toFixed(3));
             const afectoIgvCompra = document.getElementById('afectoIgvCompra').value === 'true';
             const afectoIgvVenta = document.getElementById('afectoIgvVenta').value === 'true';
 
@@ -1462,7 +1463,7 @@
                 document.getElementById('categoriaId').value = data.categoria_id;
                 document.getElementById('unidadMedidaId').value = data.unidad_medida_id;
                 document.getElementById('proveedorId').value = data.proveedor_id || '';
-                document.getElementById('stockMinimo').value = data.stock_minimo;
+                document.getElementById('stockMinimo').value = data.stock_minimo !== null && data.stock_minimo !== undefined ? data.stock_minimo : 0;
 
                 // Si la BD retorna nulo (en históricos), asumimos true por compatibilidad
                 document.getElementById('afectoIgvCompra').value = data.afecto_igv_compra !== false ? 'true' : 'false';

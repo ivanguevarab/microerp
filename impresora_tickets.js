@@ -60,8 +60,8 @@
     }
 })();
 
-function formatMoney(amount) {
-    return Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatMoney(amount, maxDigits = 2) {
+    return Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: maxDigits });
 }
 
 async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
@@ -163,7 +163,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
                 <tr class="item-row">
                     <td style="text-align: left;"></td>
                     <td style="text-align: center;">${d.cantidad} x</td>
-                    <td style="text-align: right;">${formatMoney(d.precio_unitario)}</td>
+                    <td style="text-align: right;">${formatMoney(d.precio_unitario, 6)}</td>
                     <td style="text-align: right; font-weight: bold;">${formatMoney(d.precio_total)}</td>
                 </tr>
                 ${index < det.length - 1 ? `<tr><td colspan="4" style="padding: 0;"><div style="border-bottom: 1px dashed #000; margin: 4px 0;"></div></td></tr>` : ''}

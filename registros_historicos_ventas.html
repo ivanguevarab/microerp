@@ -547,9 +547,9 @@
                             </td>
                             <td class="text-center font-bold text-gray-700 p-3">${d.cantidad}</td>
                             <td class="text-right p-3">
-                                <p class="text-gray-500 text-[11px] shadow-sm bg-gray-50 rounded px-2 py-1 inline-block border border-gray-100">S/ ${Number(d.valor_unitario).toFixed(2)} <span class="text-gray-400 font-light">+ Igv(S/ ${Number(d.igv_unitario).toFixed(2)})</span></p>
+                                <p class="text-gray-500 text-[11px] shadow-sm bg-gray-50 rounded px-2 py-1 inline-block border border-gray-100">S/ ${formatMoney(d.valor_unitario, 6)} <span class="text-gray-400 font-light">+ Igv(S/ ${formatMoney(d.igv_unitario, 6)})</span></p>
                             </td>
-                            <td class="text-right font-medium text-gray-700 p-3 border-l border-gray-100">S/ ${formatMoney(d.precio_unitario)}</td>
+                            <td class="text-right font-medium text-gray-700 p-3 border-l border-gray-100">S/ ${formatMoney(d.precio_unitario, 6)}</td>
                             <td class="text-right font-black text-blue-600 p-3 bg-blue-50/30">S/ ${formatMoney(d.precio_total)}</td>
                         </tr>
                     `;

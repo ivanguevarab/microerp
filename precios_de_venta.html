@@ -632,7 +632,7 @@
                         <th width="15%">Código</th>
                         <th width="50%">Descripción</th>
                         <th width="15%" id="thMedida">Unidad</th>
-                        <th width="20%" class="text-right">Precio de Venta ($)</th>
+                        <th width="20%" class="text-right">Precio de Venta Unitario (S/)</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
@@ -985,13 +985,26 @@
             }
         }
 
+        function formatearPrecioVentaVisual(val) {
+            const num = parseFloat(val || 0);
+            if (isNaN(num) || num < 0) return "0.00";
+            const str = num.toFixed(6);
+            const partes = str.split('.');
+            const enteros = partes[0];
+            const decimales = partes[1].replace(/0+$/, '');
+            if (decimales.length <= 2) {
+                return num.toFixed(2);
+            }
+            return `${enteros}.${decimales}`;
+        }
+
         function renderTable() {
             const tbody = document.getElementById('tableBody');
-            const term = document.getElementById('searchInput').value.toLowerCase().trim();
-            const normalizedTerm = removeAccents(term);
-            
             tbody.innerHTML = '';
-            
+
+            const term = document.getElementById('searchInput').value.trim();
+            const normalizedTerm = removeAccents(term.toLowerCase());
+
             let filtered = currentData;
             if(term) {
                 filtered = currentData.filter(x => 
@@ -1021,7 +1034,7 @@
                     <td class="text-right">
                         S/ <input type="text" inputmode="decimal" class="input-precio ${isChanged ? 'changed' : ''}" 
                                data-id="${row.id}" 
-                               value="${parseFloat(currentVal).toFixed(2)}"
+                               value="${formatearPrecioVentaVisual(currentVal)}"
                                onchange="marcarModificacion('${row.id}', this)"
                                oninput="limpiarErrores(this)">
                     </td>
@@ -1036,14 +1049,15 @@
                 val = 0;
                 inputObj.value = "0.00";
             } else {
-                inputObj.value = val.toFixed(2);
+                val = Number(val.toFixed(6));
+                inputObj.value = formatearPrecioVentaVisual(val);
             }
 
-            // Buscar valor original
+            // Buscar valor original con precisión de 6 decimales
             const originalRow = currentData.find(x => x.id === id);
-            const originalVal = parseFloat(originalRow.precio_venta || 0).toFixed(2);
+            const originalVal = Number(parseFloat(originalRow.precio_venta || 0).toFixed(6));
             
-            if(val.toFixed(2) === originalVal) {
+            if(val === originalVal) {
                 // Volvio a su estado original, borrar de modificados
                 delete modifiedRecords[id];
             } else {
@@ -1248,10 +1262,12 @@
                             // MATCH INTELIGENTE
                             const match = currentData.find(x => x.descripcion === excelDesc);
                             if(match) {
-                                if (parseFloat(match.precio_venta) !== excelPrecio) {
+                                const roundedExcel = Number(excelPrecio.toFixed(6));
+                                const currentP = Number(parseFloat(match.precio_venta || 0).toFixed(6));
+                                if (currentP !== roundedExcel) {
                                     excelPayload.push({
                                         id: match.id,
-                                        nuevo_precio: excelPrecio
+                                        nuevo_precio: roundedExcel
                                     });
                                 } else {
                                     errorMsg = "UNCHANGED";
@@ -1277,7 +1293,7 @@
                                     <span class="font-semibold text-slate-600 dark:text-slate-400"><i class="fas fa-minus mr-1"></i> ${excelDesc}</span>
                                     <div class="flex items-center gap-3">
                                         <span class="text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded">SIN CAMBIO</span>
-                                        <span class="text-sm font-bold text-slate-600 dark:text-slate-400">S/ ${excelPrecio.toFixed(2)}</span>
+                                        <span class="text-sm font-bold text-slate-600 dark:text-slate-400">S/ ${formatearPrecioVentaVisual(excelPrecio)}</span>
                                     </div>
                                 </div>
                             `;
@@ -1295,7 +1311,7 @@
                             htmlLi += `bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800">
                                 <div class="flex justify-between items-center">
                                     <span class="font-semibold text-emerald-700 dark:text-emerald-400"><i class="fas fa-check-circle mr-1"></i> ${excelDesc}</span>
-                                    <span class="text-sm font-bold text-emerald-700 dark:text-emerald-400">S/ ${excelPrecio.toFixed(2)}</span>
+                                    <span class="text-sm font-bold text-emerald-700 dark:text-emerald-400">S/ ${formatearPrecioVentaVisual(excelPrecio)}</span>
                                 </div>
                             `;
                         }
@@ -1421,7 +1437,7 @@
                     const row = currentData.find(x => x.id === cb.value);
                     if(row) {
                         const currentPrice = modifiedRecords[row.id] !== undefined ? modifiedRecords[row.id] : (row.precio_venta || 0);
-                        spanPrice.innerText = `S/ ${parseFloat(currentPrice).toFixed(2)}`;
+                        spanPrice.innerText = `S/ ${formatearPrecioVentaVisual(currentPrice)}`;
                     }
                 });
                 return; 
@@ -1436,7 +1452,7 @@
                     <input type="checkbox" value="${row.id}" class="manual-print-cb w-4 h-4 text-indigo-600 rounded border-slate-300">
                     <div class="flex flex-col w-[calc(100%-1.5rem)]">
                         <span class="font-semibold text-slate-700 dark:text-slate-300 truncate w-full block" title="${row.descripcion}">${row.descripcion}</span>
-                        <span class="text-xs text-slate-500 price-span">S/ ${parseFloat(currentPrice).toFixed(2)}</span>
+                        <span class="text-xs text-slate-500 price-span">S/ ${formatearPrecioVentaVisual(currentPrice)}</span>
                     </div>
                 `;
                 listContainer.appendChild(label);
@@ -1490,7 +1506,7 @@
                     <div class="print-tag-name" style="font-size: ${fontDescPt}pt;">${item.descripcion}</div>
                     <div class="print-tag-price-wrapper">
                         <span class="print-tag-currency" style="font-size: ${fontUnitPt}pt;">S/</span>
-                        <span class="print-tag-price" style="font-size: ${fontPricePt}pt;">${parseFloat(currentPrice).toFixed(2)}</span>
+                        <span class="print-tag-price" style="font-size: ${fontPricePt}pt;">${formatearPrecioVentaVisual(currentPrice)}</span>
                         <span class="print-tag-unit" style="font-size: ${fontUnitPt}pt;">${unidad}</span>
                     </div>
                 `;
@@ -1619,7 +1635,7 @@
                 div.innerHTML = `
                     <div class="flex flex-col">
                         <span class="font-semibold text-slate-700 dark:text-slate-200 item-name transition-all">${entry.item.descripcion}</span>
-                        <span class="text-xs text-slate-500 font-bold transition-all">S/ ${parseFloat(currentPrice).toFixed(2)}</span>
+                        <span class="text-xs text-slate-500 font-bold transition-all">S/ ${formatearPrecioVentaVisual(currentPrice)}</span>
                     </div>
                     <div class="qty-pill-container transition-all">
                         ${qtyHtml}

@@ -144,7 +144,7 @@
                     <div class="w-40">
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">Cantidad a Extraer</label>
                         <div class="relative">
-                            <input type="number" id="cantidadOrigen" min="0.01" step="0.01" class="form-input pr-10 text-right font-bold text-lg text-orange-600 dark:text-orange-400 bg-white dark:bg-slate-900" placeholder="0.00">
+                            <input type="text" inputmode="decimal" id="cantidadOrigen" class="form-input pr-10 text-right font-bold text-lg text-orange-600 dark:text-orange-400 bg-white dark:bg-slate-900" placeholder="0.000" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); validarBalance();">
                             <span class="absolute right-3 top-2.5 text-sm font-medium text-slate-400 lblOrigenUom">-</span>
                         </div>
                     </div>
@@ -207,11 +207,11 @@
                 <div class="flex gap-8">
                     <div>
                         <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total a Extraer (Origen)</p>
-                        <p class="text-xl font-bold text-orange-600 dark:text-orange-400" id="lblTotalOrigenPanel">0.00</p>
+                        <p class="text-xl font-bold text-orange-600 dark:text-orange-400" id="lblTotalOrigenPanel">0.000</p>
                     </div>
                     <div>
                         <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Suma Destinos</p>
-                        <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400" id="lblTotalDestinoPanel">0.00</p>
+                        <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400" id="lblTotalDestinoPanel">0.000</p>
                     </div>
                 </div>
                 
@@ -246,8 +246,16 @@
         let itemsDestino = [];
         let origenSeleccionado = null;
         
-        // Formato utilitario
-        const formatNum = (num) => parseFloat(num || 0).toFixed(2);
+        // Formatos utilitarios de alta precisión
+        const formatQty = (num) => {
+            const val = parseFloat(num || 0);
+            return val.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+        };
+        const formatUnitCost = (num) => {
+            const val = parseFloat(num || 0);
+            return val.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+        };
+        const formatNum = formatQty;
 
         document.addEventListener('DOMContentLoaded', async () => {
             const fechaOptions = { timeZone: 'America/Lima' };
@@ -292,7 +300,8 @@
             document.getElementById('buscadorOrigen').addEventListener('input', debounce(buscarOrigen, 300));
             
             // 3. Cantidad Origen Change
-            document.getElementById('cantidadOrigen').addEventListener('input', () => {
+            document.getElementById('cantidadOrigen').addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
                 validarBalance();
             });
 
@@ -388,7 +397,7 @@
                             <div class="text-xs text-slate-500">${item.producto.codigo}</div>
                         </div>
                         <div class="text-right">
-                            <span class="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-1 rounded">Stock: ${item.stock} ${item.producto.unidad_medida}</span>
+                            <span class="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-1 rounded">Stock: ${formatQty(item.stock)} ${item.producto.unidad_medida}</span>
                         </div>
                     `;
                     div.onclick = () => seleccionarOrigen(item);
@@ -408,7 +417,7 @@
             
             document.getElementById('lblOrigenNombre').textContent = itemInfo.producto.descripcion;
             document.getElementById('lblOrigenCodigo').textContent = itemInfo.producto.codigo;
-            document.getElementById('lblOrigenStock').textContent = itemInfo.stock;
+            document.getElementById('lblOrigenStock').textContent = formatQty(itemInfo.stock);
             
             document.querySelectorAll('.lblOrigenUom').forEach(el => el.textContent = itemInfo.producto.unidad_medida);
             
@@ -534,9 +543,10 @@
                     </td>
                     <td class="p-3 text-right">
                         <div class="flex items-center justify-end gap-2">
-                            <input type="number" min="0.01" step="0.01" value="${item.cantidad || ''}" 
+                            <input type="text" inputmode="decimal" value="${item.cantidad || ''}" 
                                 class="form-input text-right w-32 font-bold text-emerald-600 dark:text-emerald-400"
-                                oninput="actualizarCantDestino(${index}, this.value)" placeholder="0.00">
+                                placeholder="0.000"
+                                oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); actualizarCantDestino(${index}, this.value)">
                             <span class="text-xs text-slate-400 w-8 text-left">${item.producto.unidad_medida}</span>
                         </div>
                     </td>
@@ -566,17 +576,13 @@
         // --- LÓGICA DE BALANCE Y VALIDACIÓN ---
         function validarBalance() {
             const qtyOrigen = parseFloat(document.getElementById('cantidadOrigen').value) || 0;
-            const sumDestinos = itemsDestino.reduce((sum, item) => sum + item.cantidad, 0);
+            const sumDestinos = itemsDestino.reduce((sum, item) => sum + (parseFloat(item.cantidad) || 0), 0);
             
-            document.getElementById('lblTotalOrigenPanel').textContent = formatNum(qtyOrigen);
-            document.getElementById('lblTotalDestinoPanel').textContent = formatNum(sumDestinos);
+            document.getElementById('lblTotalOrigenPanel').textContent = formatQty(qtyOrigen);
+            document.getElementById('lblTotalDestinoPanel').textContent = formatQty(sumDestinos);
             
             const badge = document.getElementById('badgeBalance');
             const btnTransformar = document.getElementById('btnTransformar');
-            
-            // Tolerancia de 0.001 para errores de flotante
-            const diff = Math.abs(qtyOrigen - sumDestinos);
-            const isValid = qtyOrigen > 0 && itemsDestino.length > 0 && diff < 0.001;
             
             if (!origenSeleccionado) {
                 badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center gap-2';
@@ -584,21 +590,29 @@
                 btnTransformar.disabled = true;
                 return;
             }
+
+            const mgOrigen = Math.round(qtyOrigen * 1000);
+            const mgDestinos = Math.round(sumDestinos * 1000);
+            const mgStock = Math.round(Number(origenSeleccionado.stock || 0) * 1000);
             
-            if (qtyOrigen > origenSeleccionado.stock) {
+            if (mgOrigen > mgStock) {
                 badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-red-100 text-red-600 dark:bg-red-900/30 flex items-center gap-2 border border-red-200 dark:border-red-800';
                 badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Excede Stock Disponible';
                 btnTransformar.disabled = true;
                 return;
             }
 
-            if (isValid) {
+            const isBalanced = mgOrigen > 0 && itemsDestino.length > 0 && (mgOrigen === mgDestinos);
+
+            if (isBalanced) {
                 badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-green-100 text-green-700 dark:bg-green-900/40 flex items-center gap-2 border border-green-200 dark:border-green-800 shadow-sm';
                 badge.innerHTML = '<i class="fas fa-check-circle"></i> Balance Perfecto';
                 btnTransformar.disabled = false;
             } else if (qtyOrigen > 0) {
+                const diff = (sumDestinos - qtyOrigen);
+                const diffStr = (diff > 0 ? `+${formatQty(diff)}` : formatQty(diff));
                 badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 flex items-center gap-2 border border-amber-200 dark:border-amber-800';
-                badge.innerHTML = '<i class="fas fa-exclamation-circle"></i> Desbalance de Masas';
+                badge.innerHTML = `<i class="fas fa-exclamation-circle"></i> Desbalance (${diffStr})`;
                 btnTransformar.disabled = true;
             } else {
                 badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center gap-2';
@@ -632,11 +646,11 @@
                     observaciones: obs,
                     item_origen: {
                         item_id: origenSeleccionado.producto.id,
-                        cantidad: qtyOrigen
+                        cantidad: Number(Number(qtyOrigen).toFixed(3))
                     },
                     items_destino: itemsDestino.map(d => ({
                         item_id: d.producto.id,
-                        cantidad: d.cantidad
+                        cantidad: Number(Number(d.cantidad).toFixed(3))
                     }))
                 };
 
@@ -654,7 +668,7 @@
                     await supabaseClient.rpc('fn_recalcular_kardex_fifo_item', { p_item_id: itemId });
                 }
 
-                alert(`✅ TRANSFORMACIÓN EXITOSA!\n\nSe procesó correctamente el despiece y se reestructuró el historial FIFO.\nCosto Unitario Transferido: S/ ${formatNum(data.costo_unitario_aplicado)}`);
+                alert(`✅ TRANSFORMACIÓN EXITOSA!\n\nSe procesó correctamente el despiece y se reestructuró el historial FIFO.\nCosto Unitario Transferido: S/ ${formatUnitCost(data.costo_unitario_aplicado)}`);
                 window.location.reload();
 
             } catch (err) {

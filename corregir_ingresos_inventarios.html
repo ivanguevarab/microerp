@@ -848,8 +848,8 @@
                 <div class="form-group cantidad-group">
                     <label for="cantidadInput">Cantidad <span id="unidadMedidaDisplay"
                             style="font-weight: normal; color: var(--secondary-color); font-size: 0.9em;"></span></label>
-                    <input type="text" inputmode="decimal" id="cantidadInput" placeholder="0.00" value="1"
-                        oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1'); recalcularPrecioUnitarioVisual()">
+                    <input type="text" inputmode="decimal" id="cantidadInput" placeholder="0.00" value="1" min="0.001" step="any"
+                        oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); recalcularPrecioUnitarioVisual()">
                 </div>
 
                 <!-- 3. Modo de Ingreso (Span 1) - Row 2 -->
@@ -1725,25 +1725,31 @@
             });
         };
 
-        const formatMoney4 = (amount) => {
-            return parseFloat(amount || 0).toLocaleString('en-US', {
-                minimumFractionDigits: 4,
-                maximumFractionDigits: 4
+        const formatPrecioUnitario = (amount) => {
+            const num = parseFloat(amount || 0);
+            return num.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 6
             });
         };
+        const formatMoney4 = formatPrecioUnitario;
 
         function renderizarTabla() {
             const tbody = document.querySelector('#tablaDetalle tbody');
             tbody.innerHTML = '';
 
             detalleIngreso.forEach((item, index) => {
+                const cantVisual = Number(item.cantidad).toLocaleString('es-PE', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 3
+                });
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${item.codigo}</td>
                     <td>${item.descripcion}</td>
                     <td>${item.unidad}</td>
-                    <td class="col-number">${item.cantidad.toFixed(2)}</td>
-                    <td class="col-number">${formatMoney4(item.precioUnitario)}</td>
+                    <td class="col-number">${cantVisual}</td>
+                    <td class="col-number">${formatPrecioUnitario(item.precioUnitario)}</td>
                     <td class="col-number">${formatMoney(item.subtotal)}</td>
                     <td class="col-number">${formatMoney(item.igvTotal)}</td>
                     <td class="col-number">${formatMoney(item.total)}</td>
@@ -2247,7 +2253,7 @@
             }
 
             // 2. Actualizar Input Oculto (El que usa el sistema)
-            document.getElementById('precioInput').value = precioUnitarioFinal.toFixed(4);
+            document.getElementById('precioInput').value = precioUnitarioFinal.toFixed(6);
 
             // 3. Feedback visual en consola (opcional)
             // console.log(`Modo: ${modo}, Monto: ${monto}, Cant: ${cantidad} => PU: ${precioUnitarioFinal}`);
@@ -2587,13 +2593,13 @@
                 // ----------------------------------------
                 detalles: detalleIngreso.map(i => ({
                     item_id: i.productoId,
-                    cantidad: i.cantidad,
-                    precio_unitario: i.precioUnitario,
-                    costo_unitario: i.costoAdquisicionUnitario,
+                    cantidad: Number(i.cantidad),
+                    precio_unitario: Number(Number(i.precioUnitario).toFixed(6)),
+                    costo_unitario: Number(Number(i.costoAdquisicionUnitario).toFixed(6)),
                     fecha_vencimiento: i.fechaVencimiento || null, // 🔥 FIX: Enviar fecha vencimiento del ITEM
-                    igv_credito_fiscal_unitario: parseFloat(i.igvUnitario || 0).toFixed(2),
+                    igv_credito_fiscal_unitario: Number(parseFloat(i.igvUnitario || 0).toFixed(6)),
                     igv_credito_fiscal_producto: parseFloat(i.igvTotal || 0).toFixed(2),
-                    valor_compra_unitario: parseFloat(i.valorUnitario || 0).toFixed(2),
+                    valor_compra_unitario: Number(parseFloat(i.valorUnitario || 0).toFixed(6)),
                     valor_compra_total: parseFloat(i.valorTotal || 0).toFixed(2)
                 }))
             };

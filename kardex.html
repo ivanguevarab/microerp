@@ -1704,7 +1704,7 @@
                                 <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
                                     <i class="fas fa-copy text-gray-400 hover:text-gray-600"></i>
                                 </span>
-                                <span>${signo}${parseFloat(mov.cantidad).toFixed(2)}</span>
+                                <span>${signo}${Number(mov.cantidad).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</span>
                             </div>
                         </td>
                         `}
@@ -1745,7 +1745,7 @@
                                 <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
                                     <i class="fas fa-copy text-gray-400 hover:text-gray-600"></i>
                                 </span>
-                                <span>${signo}${parseFloat(mov.cantidad).toFixed(2)} ${mov.items?.unidad_medida || ''}</span>
+                                <span>${signo}${Number(mov.cantidad).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} ${mov.items?.unidad_medida || ''}</span>
                             </div>
                         </td>
                         <td class="p-4 text-right tabular-nums text-gray-600">
@@ -1769,7 +1769,7 @@
                                 <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
                                     <i class="fas fa-copy text-gray-400 hover:text-blue-500"></i>
                                 </span>
-                                <span>${parseFloat(saldoVisual || 0).toFixed(2)}</span>
+                                <span>${Number(saldoVisual || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</span>
                             </div>
                         </td>
                         <td class="p-4 text-right">
@@ -2657,7 +2657,7 @@
                                     doc.documento_referencia || '',
                                     resumen,
                                     doc.tipo_movimiento,
-                                    Number(doc.cantidad.toFixed(2)),
+                                    Number(Number(doc.cantidad).toFixed(3)),
                                     Number(Math.abs(doc.costo_total).toFixed(2))
                                 ]);
                             }
@@ -2728,10 +2728,10 @@
                                 else if (col.key === 'tipo') rowData.push(r.tipo_movimiento || '');
                                 else if (col.key === 'motivo') rowData.push(r.motivo || '');
                                 else if (col.key === 'referencia') rowData.push(ref);
-                                else if (col.key === 'cantidad') rowData.push(Number(cant.toFixed(2)));
-                                else if (col.key === 'costo_unitario') rowData.push(Number(costoUnit.toFixed(2)));
-                                else if (col.key === 'costo_total') rowData.push(Number(costoTot.toFixed(2)));
-                                else if (col.key === 'saldo') rowData.push(Number(saldo.toFixed(2)));
+                                else if (col.key === 'cantidad') rowData.push(Number(Number(cant).toFixed(3)));
+                                else if (col.key === 'costo_unitario') rowData.push(Number(Number(costoUnit).toFixed(6)));
+                                else if (col.key === 'costo_total') rowData.push(Number(Number(costoTot).toFixed(2)));
+                                else if (col.key === 'saldo') rowData.push(Number(Number(saldo).toFixed(3)));
                                 else if (col.key === 'tercero') rowData.push(meta.tercero || '');
                                 else if (col.key === 'condicion') rowData.push(meta.condicion || '');
                                 else if (col.key === 'ticket') rowData.push(meta.ticket || '');
@@ -2745,8 +2745,8 @@
                         const footerRow = [];
                         activeCols.forEach((col, idx) => {
                             if (idx === 0) footerRow.push("TOTALES");
-                            else if (col.key === 'cantidad') footerRow.push(Number(sumCantidad.toFixed(2)));
-                            else if (col.key === 'costo_total') footerRow.push(Number(sumTotalVal.toFixed(2)));
+                            else if (col.key === 'cantidad') footerRow.push(Number(Number(sumCantidad).toFixed(3)));
+                            else if (col.key === 'costo_total') footerRow.push(Number(Number(sumTotalVal).toFixed(2)));
                             else footerRow.push("");
                         });
                         wsData.push(footerRow);
@@ -2861,8 +2861,8 @@
                                 const ref = meta.ticket || v.codigo_venta || v.documento_referencia || "VENTA";
                                 wsData.push([
                                     desc,
-                                    Number(cant.toFixed(2)),
-                                    Number(Number(precioUnit).toFixed(2)),
+                                    Number(Number(cant).toFixed(3)),
+                                    Number(Number(precioUnit).toFixed(6)),
                                     condicion,
                                     ref
                                 ]);
@@ -2886,7 +2886,7 @@
                                 const desc = e.items?.descripcion || "";
                                 const cant = Math.abs(Number(e.cantidad || 0));
                                 const costoTot = Math.abs(Number(e.costo_total || 0));
-                                wsData.push([prov, desc, Number(cant.toFixed(2)), Number(costoTot.toFixed(2)), cond, venc]);
+                                wsData.push([prov, desc, Number(Number(cant).toFixed(3)), Number(Number(costoTot).toFixed(2)), cond, venc]);
                             });
                             const ws = XLSX.utils.aoa_to_sheet(wsData);
                             XLSX.utils.book_append_sheet(wb, ws, "Entradas");
@@ -2898,7 +2898,7 @@
                             filasFecha.forEach(o => {
                                 const desc = o.items?.descripcion || "";
                                 const cant = Math.abs(Number(o.cantidad || 0));
-                                wsData.push([desc, Number(cant.toFixed(2))]);
+                                wsData.push([desc, Number(Number(cant).toFixed(3))]);
                             });
                             const ws = XLSX.utils.aoa_to_sheet(wsData);
                             XLSX.utils.book_append_sheet(wb, ws, "Mermas_Egresos");
@@ -3285,7 +3285,7 @@
                                         <td class="px-4 py-3 tabular-nums text-gray-500">${item.items?.codigo || '-'}</td>
                                         <td class="px-4 py-3 font-medium text-gray-900">${item.items?.descripcion || '-'}</td>
                                         <td class="px-4 py-3 text-gray-500">${item.items?.unidad_medida || '-'}</td>
-                                        <td class="px-4 py-3 text-right font-bold">${parseFloat(item.cantidad).toFixed(2)}</td>
+                                        <td class="px-4 py-3 text-right font-bold">${Number(item.cantidad).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
                                         <td class="px-4 py-3 text-right">S/ ${formatMoney(precioUnit)}</td>
                                         <td class="px-4 py-3 text-right">S/ ${formatMoney(valorUnit)}</td>
                                         <td class="px-4 py-3 text-right">S/ ${formatMoney(igvUnit)}</td>
@@ -3489,7 +3489,7 @@
                                         <td class="px-4 py-3 tabular-nums text-gray-500">${item.items?.codigo || '-'}</td>
                                         <td class="px-4 py-3 font-medium text-gray-900">${item.items?.descripcion || '-'}</td>
                                         <td class="px-4 py-3 text-gray-500">${item.items?.unidad_medida || '-'}</td>
-                                        <td class="px-4 py-3 text-right font-bold text-red-600">-${parseFloat(item.cantidad).toFixed(2)}</td>
+                                        <td class="px-4 py-3 text-right font-bold text-red-600">-${Number(item.cantidad).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
                                     </tr>
                                     `).join('')}
                                 </tbody>
