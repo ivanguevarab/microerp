@@ -271,9 +271,16 @@
         });
 
         let currentEmpresaId = null;
+        // Session Map Cache Volátil (En memoria RAM del navegador) con Aislamiento Multi-Tenant
+        const cacheProductosCatalogo = new Map();     // key: `${currentEmpresaId}_${id}` -> { id, descripcion, codigo }
+        const cacheCodigosUnicosCatalogo = new Map(); // key: `${currentEmpresaId}_${id}` -> { id, descripcion, codigo }
 
         async function cargarContextoInicial() {
             const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', window.currentUser.id).single();
+            if (currentEmpresaId && currentEmpresaId !== perfil.empresa_id) {
+                cacheProductosCatalogo.clear();
+                cacheCodigosUnicosCatalogo.clear();
+            }
             currentEmpresaId = perfil.empresa_id;
         }
 
@@ -297,11 +304,18 @@
                 if (fecInc) query = query.gte('fecha_venta', fecInc);
                 if (fecFin) query = query.lte('fecha_venta', fecFin);
 
+                // Límite protector para consultas masivas generales sin filtro de búsqueda específico
+                const limiteMaximo = 500;
+                if (!term) {
+                    query = query.limit(limiteMaximo);
+                }
+
                 const { data: ventas, error } = await query;
                 if(error) throw error;
 
                 // Filtrar localmente si hay término
                 let filtrados = ventas || [];
+                let alcanzadoTope = false;
                 if(term) {
                     const t = term.toLowerCase();
                     filtrados = filtrados.filter(v => {
@@ -310,9 +324,11 @@
                         (v.clientes?.numero_documento||'').includes(t);
                         return c1;
                     });
+                } else if ((ventas || []).length >= limiteMaximo) {
+                    alcanzadoTope = true;
                 }
 
-                renderTabla(filtrados);
+                renderTabla(filtrados, alcanzadoTope);
 
                 // Auto-apertura si viene en URL y encontró 1 solo resultado exacto
                 const urlParams = new URLSearchParams(window.location.search);
@@ -328,19 +344,21 @@
             }
         }
 
-        function renderTabla(ventas) {
+        function renderTabla(ventas, alcanzadoTope = false) {
             const tbody = document.getElementById('tablaVentas');
             const tfoot = document.getElementById('tablaVentasFooter');
+            const pagInfo = document.getElementById('paginacionInfo');
             tbody.innerHTML = '';
             
             if(ventas.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-500"><i class="fas fa-receipt text-4xl mb-3 text-gray-300"></i><p>No se encontraron ventas con estos filtros.</p></td></tr>`;
-                document.getElementById('paginacionInfo').textContent = 'Mostrando 0 resultados';
+                pagInfo.textContent = 'Mostrando 0 resultados';
                 if(tfoot) tfoot.classList.add('hidden');
                 return;
             }
 
-            document.getElementById('paginacionInfo').textContent = `Mostrando ${ventas.length} resultados`;
+            pagInfo.innerHTML = `Mostrando <b>${ventas.length}</b> resultados` + 
+                (alcanzadoTope ? ` <span class="ml-2 text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded font-semibold border border-amber-300 dark:border-amber-700/50"><i class="fas fa-info-circle mr-1"></i>Tope de 500 ventas alcanzado. Acota el rango de fechas para ver el consolidado total.</span>` : '');
 
             ventas.forEach(v => {
                 const isAnulado = v.estado === 'ANULADO';
@@ -394,7 +412,9 @@
                 tfoot.classList.remove('hidden');
                 tfoot.innerHTML = `
                     <tr>
-                        <td colspan="4" class="text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider pr-4">Total Ventas:</td>
+                        <td colspan="4" class="text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider pr-4">
+                            ${alcanzadoTope ? '<span class="text-amber-600 dark:text-amber-400 font-bold mr-2"><i class="fas fa-exclamation-triangle mr-1"></i>Total Parcial (500 ventas):</span>' : 'Total Ventas:'}
+                        </td>
                         <td class="text-right font-bold text-green-600 dark:text-green-400 text-[15px]">S/ ${formatMoney(sumaTotal)}</td>
                         <td colspan="2"></td>
                     </tr>
@@ -409,38 +429,107 @@
             Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
             
             try {
-                // 1. Obtener cabecera
-                const { data: v, error: ev } = await window.supabaseClient.from('ventas')
-                    .select('*, clientes(razon_social, numero_documento)').eq('id', ventaId).single();
+                // Fase 1: Obtener cabecera y detalles en paralelo (1 solo viaje de red)
+                const [{ data: v, error: ev }, { data: det, error: ed }] = await Promise.all([
+                    window.supabaseClient.from('ventas')
+                        .select('*, clientes(razon_social, numero_documento)')
+                        .eq('id', ventaId)
+                        .eq('empresa_id', currentEmpresaId)
+                        .single(),
+                    window.supabaseClient.from('ventas_detalle')
+                        .select('*')
+                        .eq('venta_id', ventaId)
+                ]);
                 if(ev) throw ev;
-                // Detalles
-                const { data: det } = await window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
+                if(ed) throw ed;
 
-                // Pagos de Crédito (Si Aplica)
-                let pagosCredito = [];
-                if(v.condicion_pago === 'CREDITO') {
-                     const {data: pc} = await window.supabaseClient.from('ventas_credito_pagos').select('*').eq('venta_id', ventaId).order('fecha_pago', {ascending: true});
-                     pagosCredito = pc || [];
+                const detallesLista = det || [];
+
+                // Separar los IDs requeridos
+                const itemsIds = detallesLista.filter(d => d.tipo_item_vendido === 'ITEMS' && d.referencia_id).map(d => d.referencia_id);
+                const otrosIds = detallesLista.filter(d => d.tipo_item_vendido !== 'ITEMS' && d.referencia_id).map(d => d.referencia_id);
+
+                // Filtrar solo los IDs que NO están en la memoria caché multi-tenant
+                const faltantesItemsIds = [...new Set(itemsIds)].filter(id => !cacheProductosCatalogo.has(`${currentEmpresaId}_${id}`));
+                const faltantesOtrosIds = [...new Set(otrosIds)].filter(id => !cacheCodigosUnicosCatalogo.has(`${currentEmpresaId}_${id}`));
+
+                // Fase 2: Consultar solo faltantes y pagos de crédito si aplica (en paralelo)
+                const promisesFase2 = [];
+
+                // 1. Faltantes de items
+                if (faltantesItemsIds.length > 0) {
+                    promisesFase2.push(
+                        window.supabaseClient.from('items')
+                            .select('id, descripcion, codigo')
+                            .in('id', faltantesItemsIds)
+                            .then(res => ({ tipo: 'items', data: res.data || [], idsConsultados: faltantesItemsIds }))
+                    );
+                } else {
+                    promisesFase2.push(Promise.resolve({ tipo: 'items', data: [], idsConsultados: [] }));
                 }
 
-                // Resolver Nombres (Items vs CUS vs CUP)
-                let detallesEnriquecidos = [];
-                for(let d of det) {
+                // 2. Faltantes de codigos_unicos
+                if (faltantesOtrosIds.length > 0) {
+                    promisesFase2.push(
+                        window.supabaseClient.from('codigos_unicos')
+                            .select('id, descripcion, codigo')
+                            .in('id', faltantesOtrosIds)
+                            .then(res => ({ tipo: 'otros', data: res.data || [], idsConsultados: faltantesOtrosIds }))
+                    );
+                } else {
+                    promisesFase2.push(Promise.resolve({ tipo: 'otros', data: [], idsConsultados: [] }));
+                }
+
+                // 3. Pagos de Crédito únicamente si la venta es a crédito
+                if (v.condicion_pago === 'CREDITO') {
+                    promisesFase2.push(
+                        window.supabaseClient.from('ventas_credito_pagos')
+                            .select('*')
+                            .eq('venta_id', ventaId)
+                            .order('fecha_pago', { ascending: true })
+                            .then(res => ({ tipo: 'pagos', data: res.data || [] }))
+                    );
+                } else {
+                    promisesFase2.push(Promise.resolve({ tipo: 'pagos', data: [] }));
+                }
+
+                const resultadosFase2 = await Promise.all(promisesFase2);
+                const resItems = resultadosFase2.find(r => r.tipo === 'items');
+                const resOtros = resultadosFase2.find(r => r.tipo === 'otros');
+                const resPagos = resultadosFase2.find(r => r.tipo === 'pagos');
+
+                // Guardar en Session Map Cache con Sentinel Pattern para ítems eliminados/huérfanos
+                if (resItems && resItems.idsConsultados && resItems.idsConsultados.length > 0) {
+                    const encontradosMap = new Map((resItems.data || []).map(i => [i.id, i]));
+                    resItems.idsConsultados.forEach(id => {
+                        const itemData = encontradosMap.get(id) || { id, descripcion: 'Desconocido (Elemento Eliminado)', codigo: '---' };
+                        cacheProductosCatalogo.set(`${currentEmpresaId}_${id}`, itemData);
+                    });
+                }
+
+                if (resOtros && resOtros.idsConsultados && resOtros.idsConsultados.length > 0) {
+                    const encontradosOtrosMap = new Map((resOtros.data || []).map(o => [o.id, o]));
+                    resOtros.idsConsultados.forEach(id => {
+                        const otroData = encontradosOtrosMap.get(id) || { id, descripcion: 'Desconocido (Elemento Eliminado)', codigo: '---' };
+                        cacheCodigosUnicosCatalogo.set(`${currentEmpresaId}_${id}`, otroData);
+                    });
+                }
+
+                const pagosCredito = resPagos ? resPagos.data : [];
+
+                // Enriquecer detalles desde el Session Map Cache (O(1) instantáneo)
+                const detallesEnriquecidos = detallesLista.map(d => {
                     let desc = 'Desconocido (Elemento Eliminado)';
                     let cod = '---';
-                    if(d.tipo_item_vendido === 'ITEMS') {
-                        if (d.referencia_id) {
-                            const {data: item} = await window.supabaseClient.from('items').select('descripcion, codigo').eq('id', d.referencia_id).maybeSingle();
-                            if(item) { desc = item.descripcion; cod = item.codigo; }
-                        }
+                    if (d.tipo_item_vendido === 'ITEMS') {
+                        const item = cacheProductosCatalogo.get(`${currentEmpresaId}_${d.referencia_id}`);
+                        if (item) { desc = item.descripcion; cod = item.codigo; }
                     } else {
-                        if (d.referencia_id) {
-                            const {data: cus} = await window.supabaseClient.from('codigos_unicos').select('descripcion, codigo').eq('id', d.referencia_id).maybeSingle();
-                            if(cus) { desc = cus.descripcion; cod = cus.codigo; }
-                        }
+                        const cus = cacheCodigosUnicosCatalogo.get(`${currentEmpresaId}_${d.referencia_id}`);
+                        if (cus) { desc = cus.descripcion; cod = cus.codigo; }
                     }
-                    detallesEnriquecidos.push({ ...d, descripcion: desc, codigo: cod });
-                }
+                    return { ...d, descripcion: desc, codigo: cod };
+                });
 
                 // Armar HTML
                 let rows = '';
@@ -842,33 +931,157 @@
                 return;
             }
 
-            Swal.fire({ title: 'Destruyendo Venta...', html: 'Purgando inventario y flujo de caja...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
+            // Escudo de Navegación contra recarga o cierre accidental
+            const preventUnload = (e) => {
+                e.preventDefault();
+                e.returnValue = '';
+            };
+
+            Swal.fire({ 
+                title: 'Destruyendo Venta...', 
+                html: '<div class="text-sm text-gray-300">Purgando registros comerciales, egresos y flujo de caja...</div>', 
+                allowOutsideClick: false, 
+                didOpen: () => { Swal.showLoading(); } 
+            });
 
             try {
-                const { error } = await window.supabaseClient.rpc('rpc_eliminar_venta_fisica_seguro', {
+                // 1. Purga atómica rápida en base de datos (< 50 ms)
+                const { data, error } = await window.supabaseClient.rpc('rpc_eliminar_venta_fisica_seguro', {
                     p_empresa_id: currentEmpresaId,
                     p_venta_id: ventaId
                 });
 
                 if (error) throw error;
 
-                Swal.fire('Eliminado', 'La venta ha sido purgada físicamente de la base de datos.', 'success').then(() => {
-                    cargarVentashistoricas(); 
+                const itemsAfectados = (data && data.items_afectados) ? data.items_afectados : [];
+                const totalItems = itemsAfectados.length;
+                const ticketNum = (data && data.numero_ticket) ? data.numero_ticket : 'Ticket';
+
+                // Si no hay ítems de almacén que recalcular (ej. venta sin stock), finalizar de inmediato
+                if (totalItems === 0) {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: '¡Venta Eliminada!',
+                        html: `La venta <b>${ticketNum}</b> ha sido purgada físicamente de la base de datos.`,
+                        confirmButtonColor: '#3085d6'
+                    });
+                    cargarVentashistoricas();
+                    return;
+                }
+
+                // 2. Activar Escudo de Navegación durante el saneamiento FIFO
+                window.addEventListener('beforeunload', preventUnload);
+
+                // Modal de Progreso con diseño Dark SaaS
+                Swal.fire({
+                    title: 'Saneando Inventario FIFO',
+                    html: `
+                        <div class="text-sm text-gray-300 mb-3">
+                            Venta <b>${ticketNum}</b> purgada. Recalibrando el motor PEPS por micro-lotes...
+                        </div>
+                        <div class="w-full bg-gray-800 rounded-full h-3.5 p-0.5 overflow-hidden border border-gray-700 shadow-inner">
+                            <div id="swal-batch-bar" class="bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 h-2.5 rounded-full transition-all duration-300 shadow" style="width: 0%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-400 mt-2 font-mono">
+                            <span id="swal-batch-status">Iniciando micro-lotes...</span>
+                            <span id="swal-batch-pct" class="font-bold text-blue-400">0%</span>
+                        </div>
+                        <div class="text-[11px] text-gray-500 mt-3 italic text-center">
+                            ⚠️ Por favor no recargues ni cierres el navegador mientras se recalibra el stock.
+                        </div>
+                    `,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    allowEnterKey: false,
+                    showConfirmButton: false
                 });
 
+                // 3. Segmentación en Micro-Lotes (8 ítems por llamada)
+                const chunkSize = 8;
+                const chunks = [];
+                for (let i = 0; i < totalItems; i += chunkSize) {
+                    chunks.push(itemsAfectados.slice(i, i + chunkSize));
+                }
+
+                let procesados = 0;
+                const erroresLote = [];
+
+                for (let i = 0; i < chunks.length; i++) {
+                    const chunk = chunks[i];
+                    try {
+                        // Intento de recálculo por micro-lote en PostgreSQL
+                        const { error: batchErr } = await window.supabaseClient.rpc('rpc_recalcular_kardex_fifo_lote', {
+                            p_item_ids: chunk
+                        });
+                        if (batchErr) throw batchErr;
+                    } catch (errLote) {
+                        console.warn(`Aviso: Error en micro-lote ${i + 1}, ejecutando fallback individual:`, errLote);
+                        // Fallback de resiliencia: si el lote falla, procesar uno a uno
+                        for (const itemId of chunk) {
+                            try {
+                                await window.supabaseClient.rpc('fn_recalcular_kardex_fifo_item', { p_item_id: itemId });
+                            } catch (singleErr) {
+                                console.error(`Error en recálculo individual ${itemId}:`, singleErr);
+                                erroresLote.push({ itemId, error: singleErr.message });
+                            }
+                        }
+                    }
+
+                    procesados += chunk.length;
+                    const pct = Math.min(100, Math.round((procesados / totalItems) * 100));
+
+                    const barEl = document.getElementById('swal-batch-bar');
+                    const pctEl = document.getElementById('swal-batch-pct');
+                    const statusEl = document.getElementById('swal-batch-status');
+
+                    if (barEl) barEl.style.width = `${pct}%`;
+                    if (pctEl) pctEl.innerText = `${pct}%`;
+                    if (statusEl) statusEl.innerText = `Procesando: ${procesados} / ${totalItems} productos`;
+                }
+
+                // Desactivar Escudo de Navegación
+                window.removeEventListener('beforeunload', preventUnload);
+
+                // 4. Informe de Conclusión
+                if (erroresLote.length === 0) {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: '¡Venta Purgada Exitosamente!',
+                        html: `La venta <b>${ticketNum}</b> y sus registros logísticos fueron destruidos.<br>Se recalcularon exitosamente los <b>${totalItems} productos</b> en el Kardex FIFO.`,
+                        confirmButtonColor: '#3085d6'
+                    });
+                } else {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Venta Purgada con Observaciones',
+                        html: `La venta <b>${ticketNum}</b> fue eliminada y se recalcularon ${totalItems - erroresLote.length} de ${totalItems} productos.<br><span class="text-xs text-red-400">Hubo observaciones en ${erroresLote.length} ítems. Revisa la consola para detalles.</span>`,
+                        confirmButtonColor: '#3085d6'
+                    });
+                }
+
+                cargarVentashistoricas();
+
             } catch (error) {
+                window.removeEventListener('beforeunload', preventUnload);
                 console.error("Error al eliminar venta físicamente:", error);
-                Swal.fire('Error Crítico', 'No se pudo eliminar la venta (Probablemente el ticket está bloqueado o hubo un error de base de datos). Consulta la consola.', 'error').then(() => {
+                Swal.fire('Error Crítico', (error.message || 'No se pudo eliminar la venta (Probablemente el ticket está bloqueado o hubo un error de base de datos).') + '<br><span class="text-xs text-gray-400">Consulta la consola para más detalles.</span>', 'error').then(() => {
                     verDetalle(ventaId);
                 });
             }
         }
 
         async function anularVenta(ventaId) {
-            // Fetch venta details needed for Safe Append PRO
+            // Escudo de Navegación contra recarga o cierre accidental
+            const preventUnload = (e) => {
+                e.preventDefault();
+                e.returnValue = '';
+            };
+
+            // Fetch venta details needed for Safe Append PRO con Blindaje Multi-Tenant
             const { data: venta, error: fetchError } = await window.supabaseClient.from('ventas')
                 .select('numero_ticket, fecha_venta')
                 .eq('id', ventaId)
+                .eq('empresa_id', currentEmpresaId)
                 .single();
             if (fetchError) {
                 console.error("Error fetching venta details for anulation:", fetchError);
@@ -894,20 +1107,20 @@
             Swal.fire({ title: 'Analizando Kardex...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
 
             try {
-                // 2. Extraer Items Físicos involucrados en este ticket
+                // 2. Extraer Items Físicos únicos involucrados en este ticket
                 const { data: detallesVenta } = await window.supabaseClient.from('ventas_detalle').select('tipo_item_vendido, referencia_id').eq('venta_id', ventaId);
-                const itemsFisicosIds = detallesVenta.filter(d => d.tipo_item_vendido === 'ITEMS').map(d => d.referencia_id);
+                const itemsFisicosIds = [...new Set((detallesVenta || []).filter(d => d.tipo_item_vendido === 'ITEMS' && d.referencia_id).map(d => d.referencia_id))];
 
                 let egresoBD_id = null;
 
-                // 3. Evaluación de Impacto (Safe Append PRO Evolucionado)
+                // 3. Evaluación de Impacto (Safe Append PRO Evolucionado) con Blindaje Multi-Tenant
                 if(itemsFisicosIds.length > 0) {
-                    // Para buscar el egreso asociado físicamente a esta venta, buscamos en observaciones:
                     const trazabilidad = `VENTA_REF:${numero_ticket}`;
                     const { data: egresoAsociado } = await window.supabaseClient.from('egresos')
                         .select('id, almacen_origen_id')
+                        .eq('empresa_id', currentEmpresaId)
                         .eq('observaciones', trazabilidad)
-                        .single();
+                        .maybeSingle();
 
                     if(egresoAsociado) {
                         egresoBD_id = egresoAsociado.id;
@@ -939,7 +1152,7 @@
                 const { error: err1 } = await window.supabaseClient.from('ventas').update({ 
                     estado: 'ANULADO', 
                     anulado_by: window.currentUser.email 
-                }).eq('id', ventaId);
+                }).eq('id', ventaId).eq('empresa_id', currentEmpresaId);
                 
                 if(err1) throw err1;
 
@@ -950,9 +1163,8 @@
                 
                 if(errCredito) throw errCredito;
 
-                // 5. TRANSACCION DB (B. Revertir Kardex Físico vía RPC existente, sí existe un egreso asociado y es seguro)
+                // 5. TRANSACCION DB (B. Revertir Kardex Físico vía RPC existente, si existe egreso asociado)
                 if(egresoBD_id) {
-                    // El RPC `fn_administrar_correccion_egreso` restaurará las cantidades a los lotes exactos y borrará Kardex/Egresos "silenciosamente" salvaguardando la integridad
                     const { data: rpcData, error: errRpc } = await window.supabaseClient.rpc('fn_administrar_correccion_egreso', {
                         p_egreso_id: egresoBD_id,
                         p_accion: 'ELIMINAR'
@@ -961,9 +1173,87 @@
                     if(errRpc) throw errRpc;
                     if(rpcData && !rpcData.success) throw new Error("Fallo revertiendo Kardex: " + rpcData.message);
 
-                    // 6. NUEVO: Recalcular FIFO para cada ítem afectado para restablecer valores financieros
-                    for(const itemId of itemsFisicosIds) {
-                        await window.supabaseClient.rpc('fn_recalcular_kardex_fifo_item', { p_item_id: itemId });
+                    // 6. Recalcular FIFO por Micro-Lotes (Batching) con Escudo y Barra de Progreso
+                    const totalItems = itemsFisicosIds.length;
+                    if (totalItems > 0) {
+                        // Activar Escudo de Navegación
+                        window.addEventListener('beforeunload', preventUnload);
+
+                        Swal.fire({
+                            title: 'Restaurando Inventario FIFO',
+                            html: `
+                                <div class="text-sm text-gray-300 mb-3">
+                                    Venta <b>${numero_ticket}</b> anulada. Recalibrando el motor PEPS por micro-lotes...
+                                </div>
+                                <div class="w-full bg-gray-800 rounded-full h-3.5 p-0.5 overflow-hidden border border-gray-700 shadow-inner">
+                                    <div id="swal-anular-bar" class="bg-gradient-to-r from-amber-500 via-orange-500 to-emerald-500 h-2.5 rounded-full transition-all duration-300 shadow" style="width: 0%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-400 mt-2 font-mono">
+                                    <span id="swal-anular-status">Iniciando micro-lotes...</span>
+                                    <span id="swal-anular-pct" class="font-bold text-amber-400">0%</span>
+                                </div>
+                                <div class="text-[11px] text-gray-500 mt-3 italic text-center">
+                                    ⚠️ Por favor no recargues ni cierres el navegador mientras se recalibra el stock.
+                                </div>
+                            `,
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            allowEnterKey: false,
+                            showConfirmButton: false
+                        });
+
+                        const chunkSize = 8;
+                        const chunks = [];
+                        for (let i = 0; i < totalItems; i += chunkSize) {
+                            chunks.push(itemsFisicosIds.slice(i, i + chunkSize));
+                        }
+
+                        let procesados = 0;
+                        const erroresLote = [];
+
+                        for (let i = 0; i < chunks.length; i++) {
+                            const chunk = chunks[i];
+                            try {
+                                const { error: batchErr } = await window.supabaseClient.rpc('rpc_recalcular_kardex_fifo_lote', {
+                                    p_item_ids: chunk
+                                });
+                                if (batchErr) throw batchErr;
+                            } catch (errLote) {
+                                console.warn(`Aviso: Error en micro-lote ${i + 1} en anulación, ejecutando fallback individual:`, errLote);
+                                for (const itemId of chunk) {
+                                    try {
+                                        await window.supabaseClient.rpc('fn_recalcular_kardex_fifo_item', { p_item_id: itemId });
+                                    } catch (singleErr) {
+                                        console.error(`Error en recálculo individual ${itemId}:`, singleErr);
+                                        erroresLote.push({ itemId, error: singleErr.message });
+                                    }
+                                }
+                            }
+
+                            procesados += chunk.length;
+                            const pct = Math.min(100, Math.round((procesados / totalItems) * 100));
+
+                            const barEl = document.getElementById('swal-anular-bar');
+                            const pctEl = document.getElementById('swal-anular-pct');
+                            const statusEl = document.getElementById('swal-anular-status');
+
+                            if (barEl) barEl.style.width = `${pct}%`;
+                            if (pctEl) pctEl.innerText = `${pct}%`;
+                            if (statusEl) statusEl.innerText = `Procesando: ${procesados} / ${totalItems} productos`;
+                        }
+
+                        window.removeEventListener('beforeunload', preventUnload);
+
+                        if (erroresLote.length > 0) {
+                            await Swal.fire({
+                                icon: 'warning',
+                                title: 'Ticket Anulado con Observaciones',
+                                html: `El ticket <b>${numero_ticket}</b> fue anulado financieramente, pero hubo observaciones al recalcular ${erroresLote.length} de ${totalItems} productos en el Kardex.`,
+                                confirmButtonColor: '#3085d6'
+                            });
+                            cargarVentashistoricas();
+                            return;
+                        }
                     }
                 }
 
@@ -972,6 +1262,7 @@
                 });
 
             } catch(e) {
+                window.removeEventListener('beforeunload', preventUnload);
                 console.error(e);
                 Swal.fire('No se pudo anular', e.message, 'error');
             }
