@@ -245,7 +245,7 @@
         }
 
         /* Modals Structure */
-        html.dark #modalDetalles > div, html.dark #modalEditar > div, html.dark #modalEliminar > div {
+        html.dark #modalDetalles > div, html.dark #modalEditar > div, html.dark #modalEliminar > div, html.dark #modalExportarKardex > div {
             background-color: #0f172a !important; /* slate-900 */
             border: 1px solid rgba(71,85,105, 0.5) !important;
         }
@@ -478,6 +478,261 @@
                 </div>
             </div>
 
+        </div>
+
+        <!-- Modal Centro de Exportación Kardex -->
+        <div id="modalExportarKardex" onclick="if(event.target === this) cerrarModal('modalExportarKardex')"
+            class="fixed inset-0 bg-gray-900 bg-opacity-60 backdrop-blur-sm hidden overflow-y-auto h-full w-full z-[110] flex items-center justify-center p-4">
+            <div class="relative mx-auto p-0 border w-full max-w-2xl shadow-2xl rounded-2xl bg-white dark:bg-slate-900 max-h-[90vh] flex flex-col overflow-hidden border-slate-200 dark:border-slate-700">
+                <!-- Header -->
+                <div class="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/60">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg">
+                            <i class="fas fa-file-export"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white">Centro de Exportación Kardex</h3>
+                            <p class="text-xs text-gray-500 dark:text-slate-400">Informes de auditoría y plantillas de re-importación</p>
+                        </div>
+                    </div>
+                    <button onclick="cerrarModal('modalExportarKardex')"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 transition-colors p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700">
+                        <i class="fas fa-times text-base"></i>
+                    </button>
+                </div>
+
+                <!-- Tabs Header -->
+                <div class="flex border-b border-gray-200 dark:border-slate-800 bg-gray-100/70 dark:bg-slate-800/40 px-6 pt-2 gap-2">
+                    <button id="tabBtnInforme" onclick="switchExportTab('informe')"
+                        class="px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 transition-colors flex items-center gap-2">
+                        <i class="fas fa-table"></i> Informe y Auditoría
+                    </button>
+                    <button id="tabBtnPlantillas" onclick="switchExportTab('plantillas')"
+                        class="px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors flex items-center gap-2">
+                        <i class="fas fa-sync-alt"></i> Plantillas Re-importación
+                    </button>
+                </div>
+
+                <!-- Content (Scrollable) -->
+                <div class="p-6 overflow-y-auto flex-1 space-y-5 text-slate-800 dark:text-slate-200">
+                    
+                    <!-- TAB 1: INFORME Y AUDITORÍA -->
+                    <div id="tabContentInforme" class="space-y-4">
+                        <!-- Context info enriquecido -->
+                        <div class="flex flex-wrap items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs gap-2">
+                            <span class="text-slate-600 dark:text-slate-300">
+                                <i class="fas fa-eye text-emerald-500 mr-1"></i> Modo: <strong id="lblExportModo" class="text-slate-900 dark:text-white">Detallado</strong>
+                            </span>
+                            <span class="text-slate-600 dark:text-slate-300">
+                                <i class="fas fa-filter text-amber-500 mr-1"></i> Filtro: <strong id="lblExportFiltro" class="text-slate-900 dark:text-white">Todos</strong>
+                            </span>
+                            <span class="text-slate-600 dark:text-slate-300">
+                                <i class="fas fa-database text-blue-500 mr-1"></i> Registros: <strong id="lblExportCount" class="text-slate-900 dark:text-white">0</strong>
+                            </span>
+                        </div>
+
+                        <!-- Banner explicativo exclusivo para Modo Agrupado -->
+                        <div id="bannerModoAgrupadoInfo" class="hidden p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                            <div class="font-bold flex items-center gap-1.5 text-sm">
+                                <i class="fas fa-layer-group text-blue-600 dark:text-blue-400"></i> Exportación en Modo Agrupado
+                            </div>
+                            <p>El archivo Excel se generará consolidando los movimientos por comprobante, reflejando fielmente la estructura en pantalla (con Proveedor, Condición de Pago y Totales en Compras).</p>
+                        </div>
+
+                        <!-- Contenedor de Selección de Columnas (Modo Detallado / Inventario Final) -->
+                        <div id="contenedorColumnasDetalladas" class="space-y-4">
+                            <!-- Presets -->
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                    Presets Rápidos
+                                </label>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" onclick="aplicarPresetExport('todo')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition">
+                                        ✦ Completo (Todo)
+                                    </button>
+                                    <button type="button" onclick="aplicarPresetExport('fisico')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition">
+                                        📦 Solo Físico (Cantidades)
+                                    </button>
+                                    <button type="button" onclick="aplicarPresetExport('valorado')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition">
+                                        💰 Solo Valorado (Costos)
+                                    </button>
+                                    <button type="button" onclick="aplicarPresetExport('limpiar')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition">
+                                        Limpiar Selección
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Column Checkboxes -->
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                    Columnas a Incluir en el Excel
+                                </label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_fecha" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Fecha y Hora</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_codigo" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Código Ítem</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_descripcion" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Descripción</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_unidad" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Unidad Medida</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_tipo" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Tipo Movimiento</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_motivo" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Motivo</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_referencia" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Doc. Referencia</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_cantidad" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Cantidad</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_costo_unitario" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Costo Unitario</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_costo_total" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Costo Total</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_saldo" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Saldo Stock</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_tercero" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Cliente / Proveedor</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_condicion" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Condición (Pago)</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_ticket" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>N° Ticket / Comprobante</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="checkbox" id="col_observacion" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                                        <span>Observación</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: PLANTILLAS RE-IMPORTACIÓN -->
+                    <div id="tabContentPlantillas" class="space-y-5 hidden">
+                        <!-- Aviso Informativo para Inventario Final -->
+                        <div id="alertaNoAplicaPlantillas" class="hidden p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs space-y-2">
+                            <div class="font-bold text-sm flex items-center gap-2">
+                                <i class="fas fa-info-circle text-amber-600 dark:text-amber-400 text-base"></i> Módulo de Saldos Actuales
+                            </div>
+                            <p>El <strong>Inventario Final (Stock Disponible)</strong> representa el saldo físico disponible en tiempo real por lote y no corresponde a un comprobante transaccional para re-importar.</p>
+                            <p class="font-semibold text-amber-900 dark:text-amber-200">👉 Utiliza la pestaña "Informe y Auditoría" para descargar el reporte oficial de existencias valorizadas.</p>
+                        </div>
+
+                        <!-- Contenedor General de Controles de Plantillas -->
+                        <div id="contenedorControlesPlantillas" class="space-y-5">
+                            <!-- Destino -->
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                    1. Módulo Destino de la Plantilla
+                                </label>
+                                <div class="space-y-2">
+                                    <label id="labelDestinoVentas" class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="radio" id="radioDestinoVentas" name="radioDestinoReimport" value="ventas" onchange="cambiarDestinoReimport(this.value)" checked class="mt-1 text-emerald-600 focus:ring-emerald-500">
+                                        <div class="flex-1">
+                                            <div class="text-sm font-semibold text-slate-800 dark:text-white flex items-center justify-between">
+                                                <span class="flex items-center gap-2"><i class="fas fa-cash-register text-emerald-500"></i> Ventas POS (para emitir_ticket.html)</span>
+                                                <span id="badgeDestinoVentas" class="text-[11px] px-2 py-0.5 rounded-full font-bold"></span>
+                                            </div>
+                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">5 columnas estrictas: PRODUCTO, CANTIDAD, PRECIO, CONDICION, REFERENCIA</p>
+                                        </div>
+                                    </label>
+                                    <label id="labelDestinoIngresos" class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="radio" id="radioDestinoIngresos" name="radioDestinoReimport" value="ingresos" onchange="cambiarDestinoReimport(this.value)" class="mt-1 text-emerald-600 focus:ring-emerald-500">
+                                        <div class="flex-1">
+                                            <div class="text-sm font-semibold text-slate-800 dark:text-white flex items-center justify-between">
+                                                <span class="flex items-center gap-2"><i class="fas fa-truck-loading text-blue-500"></i> Compras / Entradas (para ingresos.html)</span>
+                                                <span id="badgeDestinoIngresos" class="text-[11px] px-2 py-0.5 rounded-full font-bold"></span>
+                                            </div>
+                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">6 columnas estrictas: PROVEEDOR, PRODUCTO, CANTIDAD, PRECIO_TOTAL, CONDICIÓN, VENCIMIENTO</p>
+                                        </div>
+                                    </label>
+                                    <label id="labelDestinoEgresos" class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                        <input type="radio" id="radioDestinoEgresos" name="radioDestinoReimport" value="egresos" onchange="cambiarDestinoReimport(this.value)" class="mt-1 text-emerald-600 focus:ring-emerald-500">
+                                        <div class="flex-1">
+                                            <div class="text-sm font-semibold text-slate-800 dark:text-white flex items-center justify-between">
+                                                <span class="flex items-center gap-2"><i class="fas fa-boxes text-amber-500"></i> Mermas / Egresos de Almacén (para egresos.html)</span>
+                                                <span id="badgeDestinoEgresos" class="text-[11px] px-2 py-0.5 rounded-full font-bold"></span>
+                                            </div>
+                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">2 columnas estrictas: PRODUCTO, CANTIDAD</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Gestión de Fechas -->
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                    2. Gestión de Fechas (Requisito de Fecha Única)
+                                </label>
+                                <div class="space-y-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                                    <label class="flex items-center gap-2 cursor-pointer text-sm font-medium">
+                                        <input type="radio" name="radioModoFecha" value="unica" checked onchange="actualizarUiModoFecha()" class="text-emerald-600 focus:ring-emerald-500">
+                                        <span>Exportar una fecha específica:</span>
+                                    </label>
+                                    <div id="containerSelectFecha" class="ml-6">
+                                        <select id="selectFechaReimport" class="w-full text-xs sm:text-sm rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 py-2 px-3 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+                                            <!-- Opciones dinámicas pobladas por JS -->
+                                        </select>
+                                    </div>
+                                    <label class="flex items-center gap-2 cursor-pointer text-sm font-medium pt-2 border-t border-slate-200 dark:border-slate-700">
+                                        <input type="radio" name="radioModoFecha" value="todas" onchange="actualizarUiModoFecha()" class="text-emerald-600 focus:ring-emerald-500">
+                                        <span>Generar un archivo independiente por cada día con movimientos</span>
+                                    </label>
+                                    <div id="alertaMultiplesArchivos" class="ml-6 hidden text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
+                                        <i class="fas fa-info-circle mr-1"></i> Se procesarán las descargas en cola asistida con pausa preventiva (350 ms) para evitar bloqueos del navegador.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/60 flex justify-between items-center">
+                    <button onclick="cerrarModal('modalExportarKardex')"
+                        class="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition shadow-sm">
+                        Cancelar
+                    </button>
+                    <div id="footerBtnInforme">
+                        <button onclick="ejecutarExportacionInforme()"
+                            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2">
+                            <i class="fas fa-download"></i> Descargar Informe Excel
+                        </button>
+                    </div>
+                    <div id="footerBtnPlantillas" class="hidden">
+                        <button onclick="ejecutarExportacionPlantilla()"
+                            class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2">
+                            <i class="fas fa-file-excel"></i> Generar Plantillas (.xlsx)
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Modal Ver Detalles Avanzado -->
@@ -1058,7 +1313,7 @@
                         .from('kardex')
                         .select(`
                         *,
-                        items:item_id!inner (codigo, descripcion, unidad_medida)
+                        items:item_id!inner (codigo, descripcion, unidad_medida, precio_venta)
                     `, { count: 'exact' })
                         .gte('fecha_movimiento', fechaGte)
                         .lte('fecha_movimiento', fechaLte)
@@ -1129,6 +1384,44 @@
                 return { queryBuilder: query };
             }
 
+            // =========================================================================
+            // CARGA DE DATOS POR BLOQUES (Supera el límite estricto de 1,000 de Supabase)
+            // =========================================================================
+            async function obtenerTodosLosRegistrosKardex(maxTotal = 20000, onProgreso = null) {
+                let todos = [];
+                const CHUNK_SIZE = 1000;
+                let offset = 0;
+                let totalCount = null;
+
+                while (offset < maxTotal) {
+                    const { queryBuilder } = await construirQueryBaseKardex();
+                    let query = queryBuilder;
+                    query = query.range(offset, offset + CHUNK_SIZE - 1);
+                    const { data, error, count } = await query;
+                    if (error) throw error;
+
+                    if (totalCount === null && typeof count === 'number') {
+                        totalCount = count;
+                    }
+
+                    if (!data || data.length === 0) break;
+                    todos.push(...data);
+
+                    if (onProgreso && totalCount) {
+                        onProgreso(todos.length, totalCount);
+                    }
+
+                    // Si se recibieron menos registros que el tamaño del bloque o alcanzamos el total, concluimos
+                    if (data.length < CHUNK_SIZE || (totalCount !== null && todos.length >= totalCount)) {
+                        break;
+                    }
+
+                    offset += CHUNK_SIZE;
+                }
+
+                return { data: todos, count: totalCount ?? todos.length };
+            }
+
             async function cargarKardex() {
                 guardarConfiguracionFiltros();
                 const tbody = document.getElementById('tablaKardex');
@@ -1136,25 +1429,27 @@
                 pageSize = parseInt(document.getElementById('registrosPorPagina').value) || 10;
 
                 try {
-                    const { queryBuilder } = await construirQueryBaseKardex();
-                    let query = queryBuilder;
-                    
-                    // Paginación (siempre al final)
-                    query = query.range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
+                    let data = [];
+                    let count = 0;
 
-                    console.log("Ejecutando query Kardex...");
-                    const { data, error, count } = await query;
+                    if (pageSize >= 1000000) {
+                        // Modo "Mostrar: Todos": Carga por lotes para superar la restricción de 1,000 filas de Supabase
+                        const res = await obtenerTodosLosRegistrosKardex(20000);
+                        data = res.data;
+                        count = res.count;
+                    } else {
+                        const { queryBuilder } = await construirQueryBaseKardex();
+                        let query = queryBuilder;
+                        query = query.range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
 
-                    if (error) {
-                        console.error("Error Supabase:", error);
-                        throw error;
+                        const res = await query;
+                        if (res.error) throw res.error;
+                        data = res.data || [];
+                        count = res.count || 0;
                     }
 
-                    console.log("Datos recibidos:", data);
-                    console.log("Total registros:", count);
-
-                    console.log("Datos recibidos:", data);
-                    console.log("Total registros:", count);
+                    console.log("Datos recibidos:", data ? data.length : 0);
+                    console.log("Total registros en BD:", count);
 
                     const modoVistaActual = document.getElementById('modoVista').value;
                     const tipoMovimientoActual = document.getElementById('tipoMovimiento').value;
@@ -1547,62 +1842,707 @@
                 document.getElementById('btnNext').disabled = currentPage >= totalPages;
             }
 
+            // ==========================================
+            // CENTRO DE EXPORTACIÓN KARDEX
+            // ==========================================
+            window.kardexExportCache = [];
+
+            function limpiarCadenaParaArchivo(str) {
+                if (!str) return '';
+                return str
+                    .toString()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "") // remover acentos
+                    .replace(/[:\/\\?*|"<>]/g, '_') // caracteres prohibidos en nombres de archivo
+                    .replace(/\s+/g, '_') // espacios a guiones bajos
+                    .replace(/_+/g, '_') // compactar guiones consecutivos
+                    .replace(/^_|_$/g, '') // eliminar guiones al inicio o final
+                    .trim();
+            }
+
+            function clasificarFilaKardex(r) {
+                if (!r) return 'otros';
+                if (r.tipo_movimiento === 'INGRESO') {
+                    return 'ingresos';
+                }
+                if (r.tipo_movimiento === 'EGRESO') {
+                    const esVenta = Boolean(r.codigo_venta || (r.motivo && r.motivo.toLowerCase().includes('venta')));
+                    return esVenta ? 'ventas' : 'egresos';
+                }
+                return 'otros';
+            }
+
+            function obtenerFechaLocal(isoStr) {
+                if (!isoStr) return '';
+                let s = isoStr;
+                if (!s.includes('Z') && !s.includes('+') && !s.includes('-')) s += 'Z';
+                else if (!s.includes('Z') && !s.includes('+') && s.includes('T')) {
+                    if (s.split('-').length === 3 && !s.slice(10).includes('-')) s += 'Z';
+                }
+                const d = new Date(s);
+                return d.toLocaleDateString('en-CA', { timeZone: 'America/Lima' }); // Formato YYYY-MM-DD
+            }
+
+            function obtenerFechaHoraLocal(isoStr) {
+                if (!isoStr) return '';
+                let s = isoStr;
+                if (!s.includes('Z') && !s.includes('+') && !s.includes('-')) s += 'Z';
+                else if (!s.includes('Z') && !s.includes('+') && s.includes('T')) {
+                    if (s.split('-').length === 3 && !s.slice(10).includes('-')) s += 'Z';
+                }
+                const d = new Date(s);
+                return d.toLocaleString('es-PE', {
+                    timeZone: 'America/Lima',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+            }
+
+            function poblarFechasPorDestino(destino) {
+                const selectFecha = document.getElementById('selectFechaReimport');
+                if (!selectFecha) return;
+                selectFecha.innerHTML = '';
+
+                if (!window.kardexExportCache || window.kardexExportCache.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'Sin movimientos en memoria';
+                    selectFecha.appendChild(opt);
+                    return;
+                }
+
+                const filasFiltradas = window.kardexExportCache.filter(r => clasificarFilaKardex(r) === destino);
+                const dateCounts = {};
+                filasFiltradas.forEach(r => {
+                    const d = obtenerFechaLocal(r.fecha_movimiento);
+                    if (d) dateCounts[d] = (dateCounts[d] || 0) + 1;
+                });
+
+                const uniqueDates = Object.keys(dateCounts).sort().reverse();
+                if (uniqueDates.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'Sin fechas con movimientos para este destino';
+                    selectFecha.appendChild(opt);
+                    return;
+                }
+
+                uniqueDates.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d;
+                    opt.textContent = `${d} (${dateCounts[d]} movimiento${dateCounts[d] > 1 ? 's' : ''})`;
+                    selectFecha.appendChild(opt);
+                });
+            }
+
+            function cambiarDestinoReimport(destino) {
+                poblarFechasPorDestino(destino);
+            }
+
             async function exportarExcel() {
                 Swal.fire({
-                    title: 'Generando Exportación',
-                    text: 'Recopilando datos fidedignos desde la base de datos...',
+                    title: 'Analizando Datos',
+                    text: 'Recopilando registros para el Centro de Exportación...',
                     allowOutsideClick: false,
                     didOpen: () => { Swal.showLoading(); }
                 });
 
                 try {
-                    // 1. Obtener la data filtrada sin límite de paginación (hasta 5000 max)
-                    const { queryBuilder } = await construirQueryBaseKardex();
-                    let query = queryBuilder;
-                    query = query.limit(5000);
-                    let { data: kardexRows, error } = await query;
+                    // 1. Obtener la totalidad de los datos filtrados superando el límite de 1,000 de Supabase
+                    const res = await obtenerTodosLosRegistrosKardex(20000, (cargados, total) => {
+                        Swal.update({
+                            text: `Recopilando registros (${cargados} de ${total})...`
+                        });
+                    });
+                    let kardexRows = res.data;
                     
-                    if (error) throw error;
-                    
-                    // Aplicar filtrado cruzado post-agrupación para el reporte Excel
+                    // Aplicar filtrado cruzado post-agrupación
                     if (kardexRows) {
                         kardexRows = aplicarFiltrosConsolidados(kardexRows);
                     }
 
                     if (!kardexRows || kardexRows.length === 0) {
-                        Swal.fire('Atención', 'No hay registros en esta selección para exportar.', 'warning');
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Atención',
+                            text: 'No hay registros en esta selección para exportar.',
+                            background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                            color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                        });
                         return;
                     }
 
-                    // 2. Segmentar en buckets
-                    const entradas = [];
-                    const ventas = [];
-                    const otrosEgresos = [];
+                    window.kardexExportCache = kardexRows;
 
-                    kardexRows.forEach(row => {
-                        if (row.tipo_movimiento === 'INGRESO') {
-                            entradas.push(row);
-                        } else if (row.tipo_movimiento === 'EGRESO') {
-                            // Lógica de detección de Venta
-                            if (row.codigo_venta || (row.motivo && row.motivo.toLowerCase().includes('venta'))) {
-                                ventas.push(row);
-                            } else {
-                                otrosEgresos.push(row);
-                            }
-                        }
-                    });
+                    // 2. Información contextual del modal
+                    const modoVista = document.getElementById('modoVista').value;
+                    const selectTipoMov = document.getElementById('tipoMovimiento');
+                    const tipoMov = selectTipoMov.value;
+                    const filtroTxt = selectTipoMov.options[selectTipoMov.selectedIndex]?.text || 'Todos';
 
-                    let descargados = 0;
+                    let modoTxt = 'Detallado (Por Item)';
+                    if (tipoMov === 'INVENTARIO_FINAL') modoTxt = 'Inventario Final (Stock Disponible)';
+                    else if (modoVista === 'AGRUPADO') modoTxt = 'Agrupado (Por Documento)';
                     
-                    // Extraer nombre del filtro para el archivo
-                    const selectElem = document.getElementById('tipoMovimiento');
-                    const tipoText = selectElem.options[selectElem.selectedIndex].text;
-                    let filtroName = "";
-                    if (selectElem.value !== "") {
-                        filtroName = "_" + tipoText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').replace(/_$/, '');
+                    document.getElementById('lblExportModo').textContent = modoTxt;
+                    document.getElementById('lblExportFiltro').textContent = filtroTxt;
+                    document.getElementById('lblExportCount').textContent = kardexRows.length;
+
+                    // 3. Reactividad según Modo de Vista (Pestaña 1)
+                    const bannerAgrupado = document.getElementById('bannerModoAgrupadoInfo');
+                    const contenedorCols = document.getElementById('contenedorColumnasDetalladas');
+                    if (modoVista === 'AGRUPADO') {
+                        if (bannerAgrupado) bannerAgrupado.classList.remove('hidden');
+                        if (contenedorCols) contenedorCols.classList.add('hidden');
+                    } else {
+                        if (bannerAgrupado) bannerAgrupado.classList.add('hidden');
+                        if (contenedorCols) contenedorCols.classList.remove('hidden');
                     }
 
-                    // Formatear la fecha actual para el nombre del archivo (YYYYMMDD_HHMM)
+                    // 4. Reactividad según Caso Especial Inventario Final (Pestaña 2)
+                    const alertaNoPlantillas = document.getElementById('alertaNoAplicaPlantillas');
+                    const controlesPlantillas = document.getElementById('contenedorControlesPlantillas');
+
+                    if (tipoMov === 'INVENTARIO_FINAL') {
+                        if (alertaNoPlantillas) alertaNoPlantillas.classList.remove('hidden');
+                        if (controlesPlantillas) controlesPlantillas.classList.add('hidden');
+                    } else {
+                        if (alertaNoPlantillas) alertaNoPlantillas.classList.add('hidden');
+                        if (controlesPlantillas) controlesPlantillas.classList.remove('hidden');
+
+                        // 5. Análisis reactivo de movimientos por destino
+                        const counts = { ventas: 0, ingresos: 0, egresos: 0 };
+                        kardexRows.forEach(r => {
+                            const cat = clasificarFilaKardex(r);
+                            if (counts[cat] !== undefined) counts[cat]++;
+                        });
+
+                        const actualizarOpcionDestino = (count, radioId, badgeId, labelId) => {
+                            const radio = document.getElementById(radioId);
+                            const badge = document.getElementById(badgeId);
+                            const label = document.getElementById(labelId);
+                            if (!radio || !badge || !label) return;
+
+                            if (count > 0) {
+                                radio.disabled = false;
+                                label.classList.remove('opacity-40', 'cursor-not-allowed');
+                                label.classList.add('cursor-pointer');
+                                badge.textContent = `${count} mov.`;
+                                badge.className = "text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300";
+                            } else {
+                                radio.disabled = true;
+                                label.classList.add('opacity-40', 'cursor-not-allowed');
+                                label.classList.remove('cursor-pointer');
+                                badge.textContent = "0 mov.";
+                                badge.className = "text-[11px] px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400";
+                            }
+                        };
+
+                        actualizarOpcionDestino(counts.ventas, 'radioDestinoVentas', 'badgeDestinoVentas', 'labelDestinoVentas');
+                        actualizarOpcionDestino(counts.ingresos, 'radioDestinoIngresos', 'badgeDestinoIngresos', 'labelDestinoIngresos');
+                        actualizarOpcionDestino(counts.egresos, 'radioDestinoEgresos', 'badgeDestinoEgresos', 'labelDestinoEgresos');
+
+                        // Auto-seleccionar según el filtro activo o primera opción disponible
+                        let destinoElegido = 'ventas';
+                        const tipoMovUpper = tipoMov.toUpperCase();
+                        const filtroTxtUpper = filtroTxt.toUpperCase();
+
+                        if ((tipoMovUpper.includes('VENTA') || filtroTxtUpper.includes('VENTA')) && counts.ventas > 0) {
+                            destinoElegido = 'ventas';
+                        } else if ((tipoMovUpper.includes('INGRESO') || filtroTxtUpper.includes('INGRESO') || filtroTxtUpper.includes('COMPRA')) && counts.ingresos > 0) {
+                            destinoElegido = 'ingresos';
+                        } else if ((tipoMovUpper.includes('EGRESO') || tipoMovUpper.includes('MERMA') || filtroTxtUpper.includes('MERMA') || filtroTxtUpper.includes('EGRESO')) && !filtroTxtUpper.includes('VENTA') && counts.egresos > 0) {
+                            destinoElegido = 'egresos';
+                        } else {
+                            if (counts.ventas > 0) destinoElegido = 'ventas';
+                            else if (counts.ingresos > 0) destinoElegido = 'ingresos';
+                            else if (counts.egresos > 0) destinoElegido = 'egresos';
+                        }
+
+                        const radioTarget = document.querySelector(`input[name="radioDestinoReimport"][value="${destinoElegido}"]`);
+                        if (radioTarget && !radioTarget.disabled) {
+                            radioTarget.checked = true;
+                        }
+
+                        poblarFechasPorDestino(destinoElegido);
+                    }
+
+                    // 6. Resetear UI a la primera pestaña
+                    switchExportTab('informe');
+                    actualizarUiModoFecha();
+
+                    Swal.close();
+                    document.getElementById('modalExportarKardex').classList.remove('hidden');
+
+                } catch (err) {
+                    console.error("Error cargando exportación:", err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Hubo un error al preparar la exportación: ' + err.message,
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                        color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                    });
+                }
+            }
+
+            function switchExportTab(tabName) {
+                const btnInf = document.getElementById('tabBtnInforme');
+                const btnPla = document.getElementById('tabBtnPlantillas');
+                const cntInf = document.getElementById('tabContentInforme');
+                const cntPla = document.getElementById('tabContentPlantillas');
+                const ftrInf = document.getElementById('footerBtnInforme');
+                const ftrPla = document.getElementById('footerBtnPlantillas');
+                const tipoMov = document.getElementById('tipoMovimiento').value;
+
+                if (tabName === 'informe') {
+                    btnInf.className = "px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 transition-colors flex items-center gap-2";
+                    btnPla.className = "px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors flex items-center gap-2";
+                    cntInf.classList.remove('hidden');
+                    cntPla.classList.add('hidden');
+                    ftrInf.classList.remove('hidden');
+                    ftrPla.classList.add('hidden');
+                } else {
+                    btnPla.className = "px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 transition-colors flex items-center gap-2";
+                    btnInf.className = "px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors flex items-center gap-2";
+                    cntPla.classList.remove('hidden');
+                    cntInf.classList.add('hidden');
+                    if (tipoMov === 'INVENTARIO_FINAL') {
+                        ftrPla.classList.add('hidden');
+                        ftrInf.classList.add('hidden');
+                    } else {
+                        ftrPla.classList.remove('hidden');
+                        ftrInf.classList.add('hidden');
+                    }
+                }
+            }
+
+            function actualizarUiModoFecha() {
+                const modo = document.querySelector('input[name="radioModoFecha"]:checked')?.value || 'unica';
+                const cont = document.getElementById('containerSelectFecha');
+                const alerta = document.getElementById('alertaMultiplesArchivos');
+                if (modo === 'unica') {
+                    cont.classList.remove('hidden');
+                    alerta.classList.add('hidden');
+                } else {
+                    cont.classList.add('hidden');
+                    alerta.classList.remove('hidden');
+                }
+            }
+
+            function aplicarPresetExport(preset) {
+                const cols = [
+                    'col_fecha', 'col_codigo', 'col_descripcion', 'col_unidad', 'col_tipo',
+                    'col_motivo', 'col_referencia', 'col_cantidad', 'col_costo_unitario',
+                    'col_costo_total', 'col_saldo', 'col_tercero', 'col_condicion',
+                    'col_ticket', 'col_observacion'
+                ];
+                if (preset === 'todo') {
+                    cols.forEach(c => { const el = document.getElementById(c); if(el) el.checked = true; });
+                } else if (preset === 'fisico') {
+                    cols.forEach(c => {
+                        const el = document.getElementById(c);
+                        if(el) {
+                            el.checked = !['col_costo_unitario', 'col_costo_total'].includes(c);
+                        }
+                    });
+                } else if (preset === 'valorado') {
+                    cols.forEach(c => { const el = document.getElementById(c); if(el) el.checked = true; });
+                } else if (preset === 'limpiar') {
+                    cols.forEach(c => { const el = document.getElementById(c); if(el) el.checked = false; });
+                }
+            }
+
+            // =========================================================================
+            // UTILIDADES PARA RESOLUCIÓN ROBUSTA DE TERCEROS Y PRECIOS HISTÓRICOS
+            // =========================================================================
+            function fragmentarArreglo(arr, tamano = 80) {
+                const fragmentos = [];
+                for (let i = 0; i < arr.length; i += tamano) {
+                    fragmentos.push(arr.slice(i, i + tamano));
+                }
+                return fragmentos;
+            }
+
+            // Resolver información fidedigna de Terceros (Proveedores, Clientes, Condiciones, Facturas)
+            async function resolverTercerosKardex(dataRows) {
+                const tercerosMap = {};
+                if (!dataRows || dataRows.length === 0) return tercerosMap;
+
+                // 1. Resolver INGRESOS (Proveedores, Condiciones, Facturas)
+                const refsIngresos = [...new Set(dataRows
+                    .filter(r => r.tipo_movimiento === 'INGRESO' && r.documento_referencia)
+                    .map(r => r.documento_referencia))];
+
+                if (refsIngresos.length > 0) {
+                    const chunksIng = fragmentarArreglo(refsIngresos, 80);
+                    for (const chunk of chunksIng) {
+                        try {
+                            const { data: ings } = await supabaseClient
+                                .from('ingresos')
+                                .select('numero_ingreso, forma_pago, con_factura, serie_factura, numero_factura, proveedores(razon_social)')
+                                .in('numero_ingreso', chunk);
+                            if (ings) {
+                                ings.forEach(i => {
+                                    const prov = i.proveedores?.razon_social || 'Proveedor Varios';
+                                    const cond = i.forma_pago || 'CONTADO';
+                                    const docPartes = [i.serie_factura, i.numero_factura].filter(Boolean);
+                                    const doc = docPartes.length > 0 ? docPartes.join('-') : (i.numero_ingreso || '');
+                                    const obs = i.con_factura ? 'Factura de Compra' : 'Compra';
+                                    tercerosMap[i.numero_ingreso] = {
+                                        tercero: prov,
+                                        condicion: cond,
+                                        ticket: doc,
+                                        observacion: obs
+                                    };
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('Error resolviendo proveedores de ingresos:', e);
+                        }
+                    }
+                }
+
+                // Identificar casos de inventario inicial
+                dataRows.forEach(r => {
+                    if (r.tipo_movimiento === 'INGRESO' && r.motivo && r.motivo.toLowerCase().includes('inventario inicial')) {
+                        const key = r.documento_referencia || 'INVENTARIO_INICIAL';
+                        tercerosMap[key] = {
+                            tercero: 'Saldo Inicial',
+                            condicion: '-',
+                            ticket: r.documento_referencia || 'APERTURA',
+                            observacion: r.motivo || 'Inventario Inicial'
+                        };
+                    }
+                });
+
+                // 2. Resolver EGRESOS (Ventas, Clientes, Mermas, Comprobantes)
+                const refsEgresos = [...new Set(dataRows
+                    .filter(r => r.tipo_movimiento === 'EGRESO' && r.documento_referencia)
+                    .map(r => r.documento_referencia))];
+
+                const egresosMeta = {};
+                const ticketsToFetch = new Set();
+
+                // Recoger tickets directos si existieran en codigo_venta o documento_referencia
+                dataRows.forEach(r => {
+                    if (r.codigo_venta && r.codigo_venta.startsWith('TCK-')) {
+                        ticketsToFetch.add(r.codigo_venta);
+                    }
+                    if (r.documento_referencia && r.documento_referencia.startsWith('TCK-')) {
+                        ticketsToFetch.add(r.documento_referencia);
+                    }
+                });
+
+                if (refsEgresos.length > 0) {
+                    const chunksEgr = fragmentarArreglo(refsEgresos, 80);
+                    for (const chunk of chunksEgr) {
+                        try {
+                            const { data: egrs } = await supabaseClient
+                                .from('egresos')
+                                .select('numero_egreso, codigo_venta, observaciones, tipos_egresos(nombre)')
+                                .in('numero_egreso', chunk);
+                            if (egrs) {
+                                egrs.forEach(e => {
+                                    egresosMeta[e.numero_egreso] = e;
+                                    let ticket = e.codigo_venta;
+                                    if (!ticket && e.observaciones && e.observaciones.includes('VENTA_REF:')) {
+                                        const match = e.observaciones.match(/VENTA_REF:(TCK-\d+-\d+)/);
+                                        if (match) ticket = match[1];
+                                    }
+                                    if (ticket) {
+                                        e._ticket = ticket;
+                                        ticketsToFetch.add(ticket);
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('Error resolviendo datos de egresos:', e);
+                        }
+                    }
+                }
+
+                // Consultar ventas en batch para los tickets detectados
+                const ticketsArr = [...ticketsToFetch];
+                const ventasMap = {};
+                if (ticketsArr.length > 0) {
+                    const chunksTk = fragmentarArreglo(ticketsArr, 80);
+                    for (const chunk of chunksTk) {
+                        try {
+                            const { data: vens } = await supabaseClient
+                                .from('ventas')
+                                .select('numero_ticket, condicion_pago, clientes(razon_social)')
+                                .in('numero_ticket', chunk);
+                            if (vens) {
+                                vens.forEach(v => {
+                                    ventasMap[v.numero_ticket] = {
+                                        cliente: v.clientes?.razon_social || 'Cliente Varios',
+                                        condicion: v.condicion_pago || 'CONTADO'
+                                    };
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('Error resolviendo clientes de ventas:', e);
+                        }
+                    }
+                }
+
+                // Asentar egresos en tercerosMap
+                Object.values(egresosMeta).forEach(e => {
+                    if (e._ticket) {
+                        const vInfo = ventasMap[e._ticket] || { cliente: 'Cliente Varios', condicion: 'CONTADO' };
+                        const cleanObs = (e.observaciones || '').replace(/VENTA_REF:TCK-\d+-\d+\s*\|?\s*/, '').trim();
+                        const obj = {
+                            tercero: vInfo.cliente,
+                            condicion: vInfo.condicion,
+                            ticket: e._ticket,
+                            observacion: cleanObs
+                        };
+                        tercerosMap[e.numero_egreso] = obj;
+                        tercerosMap[e._ticket] = obj;
+                    } else {
+                        const motivoEgr = e.observaciones || e.tipos_egresos?.nombre || 'Salida de Almacén';
+                        const obj = {
+                            tercero: 'Uso Interno / Merma',
+                            condicion: '-',
+                            ticket: e.numero_egreso || '-',
+                            observacion: motivoEgr
+                        };
+                        tercerosMap[e.numero_egreso] = obj;
+                    }
+                });
+
+                // Si hay tickets directos referenciados en dataRows que no pasaron por egresosMeta
+                ticketsArr.forEach(tk => {
+                    if (!tercerosMap[tk] && ventasMap[tk]) {
+                        const vInfo = ventasMap[tk];
+                        tercerosMap[tk] = {
+                            tercero: vInfo.cliente,
+                            condicion: vInfo.condicion,
+                            ticket: tk,
+                            observacion: ''
+                        };
+                    }
+                });
+
+                return tercerosMap;
+            }
+
+            // Resolver Precios de Venta Históricos para la Plantilla de Ventas POS (emitir_ticket.html)
+            async function resolverVentasParaPlantilla(matchingRows) {
+                const resolvedMap = {};
+                if (!matchingRows || matchingRows.length === 0) return resolvedMap;
+
+                // 1. Extraer los números de egreso de las filas a exportar
+                const refsEgresos = [...new Set(matchingRows.map(r => r.documento_referencia).filter(Boolean))];
+                const egresoToTicket = {};
+                const ticketsToFetch = new Set();
+
+                if (refsEgresos.length > 0) {
+                    const chunksEgr = fragmentarArreglo(refsEgresos, 80);
+                    for (const chunk of chunksEgr) {
+                        try {
+                            const { data: egrs } = await supabaseClient
+                                .from('egresos')
+                                .select('numero_egreso, codigo_venta, observaciones')
+                                .in('numero_egreso', chunk);
+                            if (egrs) {
+                                egrs.forEach(e => {
+                                    let ticket = e.codigo_venta;
+                                    if (!ticket && e.observaciones && e.observaciones.includes('VENTA_REF:')) {
+                                        const match = e.observaciones.match(/VENTA_REF:(TCK-\d+-\d+)/);
+                                        if (match) ticket = match[1];
+                                    }
+                                    if (ticket) {
+                                        egresoToTicket[e.numero_egreso] = ticket;
+                                        ticketsToFetch.add(ticket);
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('Error mapeando egresos a tickets para plantilla:', e);
+                        }
+                    }
+                }
+
+                // 2. NIVEL 1: Consultar Ventas y Ventas Detalle para los tickets encontrados
+                const ventasDetalleMap = {}; // key: `${ticket}_${itemId}`
+                const ticketsArr = [...ticketsToFetch];
+
+                if (ticketsArr.length > 0) {
+                    const chunksTk = fragmentarArreglo(ticketsArr, 50);
+                    for (const chunk of chunksTk) {
+                        try {
+                            const { data: vData } = await supabaseClient
+                                .from('ventas')
+                                .select(`
+                                    numero_ticket,
+                                    condicion_pago,
+                                    fecha_venta,
+                                    ventas_detalle (
+                                        referencia_id,
+                                        cantidad,
+                                        precio_unitario,
+                                        precio_total
+                                    )
+                                `)
+                                .in('numero_ticket', chunk);
+
+                            if (vData) {
+                                vData.forEach(vt => {
+                                    const tck = vt.numero_ticket;
+                                    const cond = vt.condicion_pago || 'CONTADO';
+                                    if (vt.ventas_detalle) {
+                                        vt.ventas_detalle.forEach(vd => {
+                                            const key = `${tck}_${vd.referencia_id}`;
+                                            const pu = parseFloat(vd.precio_unitario) || 0;
+                                            ventasDetalleMap[key] = {
+                                                precio_unitario: pu,
+                                                condicion: cond,
+                                                ticket: tck,
+                                                fecha: vt.fecha_venta
+                                            };
+                                        });
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('Error consultando detalles de ventas para tickets:', e);
+                        }
+                    }
+                }
+
+                // 3. Asignar Nivel 1 y detectar filas pendientes para Nivel 2 y 3
+                const pendientesNivel2 = [];
+
+                matchingRows.forEach(row => {
+                    const ticket = egresoToTicket[row.documento_referencia] || row.codigo_venta;
+                    if (ticket && ventasDetalleMap[`${ticket}_${row.item_id}`]) {
+                        resolvedMap[row.id] = { ...ventasDetalleMap[`${ticket}_${row.item_id}`] };
+                    } else {
+                        pendientesNivel2.push({ row, ticket });
+                    }
+                });
+
+                // 4. NIVEL 2 Y 3: Fallback de Precio Histórico por Fecha (para filas sin venta directa)
+                if (pendientesNivel2.length > 0) {
+                    for (const itemPendiente of pendientesNivel2) {
+                        const { row, ticket } = itemPendiente;
+                        const fechaLocal = obtenerFechaLocal(row.fecha_movimiento);
+                        let precioEncontrado = null;
+                        let condicionEncontrada = 'CONTADO';
+
+                        try {
+                            // Nivel 2: Misma fecha
+                            const { data: vDia } = await supabaseClient
+                                .from('ventas_detalle')
+                                .select('precio_unitario, ventas!inner(fecha_venta, condicion_pago, estado)')
+                                .eq('referencia_id', row.item_id)
+                                .eq('ventas.fecha_venta', fechaLocal)
+                                .neq('ventas.estado', 'ANULADO')
+                                .limit(1);
+
+                            if (vDia && vDia.length > 0 && vDia[0].precio_unitario) {
+                                precioEncontrado = parseFloat(vDia[0].precio_unitario);
+                                condicionEncontrada = vDia[0].ventas?.condicion_pago || 'CONTADO';
+                            } else {
+                                // Nivel 3: Última venta anterior a esa fecha (Time-Travel Pricing)
+                                const { data: vPasado } = await supabaseClient
+                                    .from('ventas_detalle')
+                                    .select('precio_unitario, ventas!inner(fecha_venta, condicion_pago, estado)')
+                                    .eq('referencia_id', row.item_id)
+                                    .lte('ventas.fecha_venta', fechaLocal)
+                                    .neq('ventas.estado', 'ANULADO')
+                                    .order('ventas(fecha_venta)', { ascending: false })
+                                    .limit(1);
+
+                                if (vPasado && vPasado.length > 0 && vPasado[0].precio_unitario) {
+                                    precioEncontrado = parseFloat(vPasado[0].precio_unitario);
+                                    condicionEncontrada = vPasado[0].ventas?.condicion_pago || 'CONTADO';
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Error en time-travel pricing para item:', row.item_id, e);
+                        }
+
+                        // Fallback final al catálogo actual si nunca se vendió en el pasado
+                        if (precioEncontrado === null) {
+                            precioEncontrado = parseFloat(row.items?.precio_venta) || 0;
+                        }
+
+                        const refFallback = ticket || row.documento_referencia || 'VENTA';
+                        resolvedMap[row.id] = {
+                            precio_unitario: precioEncontrado,
+                            condicion: condicionEncontrada,
+                            ticket: refFallback
+                        };
+                    }
+                }
+
+                return resolvedMap;
+            }
+
+            async function ejecutarExportacionInforme() {
+                if (!window.kardexExportCache || window.kardexExportCache.length === 0) {
+                    Swal.fire('Atención', 'No hay datos en memoria para exportar.', 'warning');
+                    return;
+                }
+
+                // Validar que al menos una columna esté marcada
+                const colIds = [
+                    { id: 'col_fecha', header: 'FECHA Y HORA', key: 'fecha' },
+                    { id: 'col_codigo', header: 'CÓDIGO', key: 'codigo' },
+                    { id: 'col_descripcion', header: 'PRODUCTO', key: 'descripcion' },
+                    { id: 'col_unidad', header: 'UNIDAD', key: 'unidad' },
+                    { id: 'col_tipo', header: 'TIPO MOVIMIENTO', key: 'tipo' },
+                    { id: 'col_motivo', header: 'MOTIVO', key: 'motivo' },
+                    { id: 'col_referencia', header: 'DOC. REFERENCIA', key: 'referencia' },
+                    { id: 'col_cantidad', header: 'CANTIDAD', key: 'cantidad', isNum: true },
+                    { id: 'col_costo_unitario', header: 'COSTO ADQ. UNIT.', key: 'costo_unitario', isNum: true },
+                    { id: 'col_costo_total', header: 'COSTO TOTAL (S/)', key: 'costo_total', isNum: true },
+                    { id: 'col_saldo', header: 'SALDO RESULTANTE', key: 'saldo', isNum: true },
+                    { id: 'col_tercero', header: 'CLIENTE / PROVEEDOR', key: 'tercero' },
+                    { id: 'col_condicion', header: 'CONDICIÓN', key: 'condicion' },
+                    { id: 'col_ticket', header: 'N° TICKET / COMPROBANTE', key: 'ticket' },
+                    { id: 'col_observacion', header: 'OBSERVACIÓN', key: 'observacion' }
+                ];
+
+                const activeCols = colIds.filter(c => document.getElementById(c.id)?.checked);
+                if (activeCols.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Selecciona Columnas',
+                        text: 'Debes marcar al menos una columna para exportar el informe.',
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                        color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                    });
+                    return;
+                }
+
+                cerrarModal('modalExportarKardex');
+
+                Swal.fire({
+                    title: 'Generando Informe Excel',
+                    text: 'Estructurando libro y cálculos financieros...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const data = window.kardexExportCache;
+                    const modoVista = document.getElementById('modoVista').value;
+                    const selectTipoMov = document.getElementById('tipoMovimiento');
+                    const tipoMov = selectTipoMov.value;
+                    const filtroTxt = selectTipoMov.options[selectTipoMov.selectedIndex]?.text || 'Todos';
+                    const desde = document.getElementById('fechaDesde').value;
+                    const hasta = document.getElementById('fechaHasta').value;
+                    const searchVal = normalizarTexto(document.getElementById('busquedaProducto').value).replace(/[^a-zA-Z0-9]/g, '');
+
                     const now = new Date();
                     const dateStr = now.getFullYear().toString() + 
                                     (now.getMonth() + 1).toString().padStart(2, '0') + 
@@ -1610,138 +2550,453 @@
                                     now.getHours().toString().padStart(2, '0') + 
                                     now.getMinutes().toString().padStart(2, '0');
 
-                    // ==============================
-                    // BUCKET 1: ENTRADAS (Ingresos)
-                    // Formato: Proveedor | Descripción | Cantidad | Precio Total | Condición | Vencimiento
-                    // ==============================
-                    if (entradas.length > 0) {
-                        const refsIngresos = [...new Set(entradas.map(e => e.documento_referencia).filter(Boolean))];
-                        
-                        let ingresosMap = {};
-                        if (refsIngresos.length > 0) {
-                            const { data: ingData, error: ingErr } = await supabaseClient
-                                .from('ingresos')
-                                .select('numero_ingreso, forma_pago, proveedores(razon_social), ingresos_detalle(item_id, fecha_vencimiento)')
-                                .in('numero_ingreso', refsIngresos);
-                                
-                            if (!ingErr && ingData) {
-                                ingData.forEach(ing => {
-                                    ingresosMap[ing.numero_ingreso] = ing;
-                                });
-                            }
-                        }
+                    const wb = XLSX.utils.book_new();
 
-                        const wsDataEntradas = [
-                            ["PROVEEDOR", "PRODUCTO", "CANTIDAD", "PRECIO_TOTAL", "CONDICIÓN", "VENCIMIENTO"]
+                    // ====================================================
+                    // CASO 1: INVENTARIO FINAL (STOCK DISPONIBLE POR LOTE)
+                    // ====================================================
+                    if (tipoMov === 'INVENTARIO_FINAL') {
+                        const wsData = [
+                            ["MICRO ERP - REPORTE DE EXISTENCIAS (INVENTARIO FINAL)"],
+                            ["Fecha de Emisión", new Date().toLocaleString('es-PE')],
+                            ["Total Lotes Disponibles", data.length],
+                            [],
+                            ["FECHA LOTE", "CÓDIGO", "PRODUCTO", "UNIDAD", "DOCUMENTO / LOTE", "CANTIDAD DISPONIBLE", "COSTO UNITARIO (S/)", "TOTAL VALORIZADO (S/)", "SALDO DISPONIBLE"]
                         ];
 
-                        entradas.forEach(e => {
-                            const maestro = ingresosMap[e.documento_referencia] || {};
-                            const proveedor = maestro.proveedores?.razon_social || "PROVEEDOR POR DEFECTO";
-                            const condicion = maestro.forma_pago || "CONTADO";
-                            
-                            // Buscar el vencimiento del lote específico en los detalles del ingreso
-                            let vencimiento = "";
-                            if (maestro.ingresos_detalle) {
-                                const detalle = maestro.ingresos_detalle.find(d => d.item_id === e.item_id);
-                                if (detalle && detalle.fecha_vencimiento) {
-                                    vencimiento = detalle.fecha_vencimiento;
+                        let totCant = 0;
+                        let totMonto = 0;
+
+                        data.forEach(r => {
+                            const cant = Number(r.cantidad || 0);
+                            const unit = Number(r.costo_unitario || 0);
+                            const tot = Number(r.costo_total || 0);
+                            totCant += cant;
+                            totMonto += tot;
+
+                            wsData.push([
+                                obtenerFechaHoraLocal(r.fecha_movimiento),
+                                r.items?.codigo || '',
+                                r.items?.descripcion || '',
+                                r.items?.unidad_medida || '',
+                                r.documento_referencia || '',
+                                Number(cant.toFixed(2)),
+                                Number(unit.toFixed(2)),
+                                Number(tot.toFixed(2)),
+                                Number(Number(r.stock_resultante || 0).toFixed(2))
+                            ]);
+                        });
+
+                        wsData.push([]);
+                        wsData.push(["", "", "", "", "TOTALES", Number(totCant.toFixed(2)), "", Number(totMonto.toFixed(2)), ""]);
+
+                        const ws = XLSX.utils.aoa_to_sheet(wsData);
+                        XLSX.utils.book_append_sheet(wb, ws, "Inventario Final");
+                        XLSX.writeFile(wb, `Kardex_Inventario_Final_Stock_${dateStr}.xlsx`);
+
+                    // ====================================================
+                    // CASO 2: MODO VISTA AGRUPADO (POR DOCUMENTO)
+                    // ====================================================
+                    } else if (modoVista === 'AGRUPADO') {
+                        const esCompras = tipoMov === 'TIPO_INGRESO:Compras';
+                        const wsData = [
+                            ["MICRO ERP - REPORTE DE KARDEX CONSOLIDADO (AGRUPADO)"],
+                            ["Periodo Analizado", `Del ${desde} al ${hasta}`],
+                            ["Criterio", esCompras ? "Ingreso: Compras" : (filtroTxt || "Todos")],
+                            ["Fecha de Emisión", new Date().toLocaleString('es-PE')],
+                            []
+                        ];
+
+                        if (esCompras) {
+                            wsData.push(["FECHA", "DOCUMENTO REFERENCIA", "ITEMS / RESUMEN", "MOVIMIENTO", "PROVEEDOR", "CONDICIÓN", "TOTAL VALORIZADO (S/)"]);
+                        } else {
+                            wsData.push(["FECHA", "DOCUMENTO REFERENCIA", "ITEMS / RESUMEN", "MOVIMIENTO", "CANTIDAD TOTAL", "TOTAL VALORIZADO (S/)"]);
+                        }
+
+                        // Agrupar los datos de la caché
+                        const agrupadosMap = new Map();
+                        data.forEach(mov => {
+                            const ref = mov.documento_referencia || 'SIN_REFERENCIA';
+                            if (!agrupadosMap.has(ref)) {
+                                agrupadosMap.set(ref, {
+                                    ...mov,
+                                    cantidad: parseFloat(mov.cantidad || 0),
+                                    costo_total: parseFloat(mov.costo_total || 0),
+                                    countItems: 1
+                                });
+                            } else {
+                                const docObj = agrupadosMap.get(ref);
+                                docObj.cantidad += parseFloat(mov.cantidad || 0);
+                                docObj.costo_total += parseFloat(mov.costo_total || 0);
+                                docObj.countItems++;
+                            }
+                        });
+
+                        let sumTotales = 0;
+                        agrupadosMap.forEach(doc => {
+                            const isIngreso = doc.tipo_movimiento === 'INGRESO';
+                            const valorRow = parseFloat(doc.costo_total || 0) * (isIngreso ? 1 : -1);
+                            sumTotales += valorRow;
+
+                            const itemDesc = doc.items?.descripcion || '';
+                            const resumen = doc.countItems > 1 ? `${itemDesc} (+ ${doc.countItems - 1} más)` : itemDesc;
+
+                            if (esCompras) {
+                                wsData.push([
+                                    obtenerFechaHoraLocal(doc.fecha_movimiento),
+                                    doc.documento_referencia || '',
+                                    resumen,
+                                    doc.tipo_movimiento,
+                                    doc.proveedor_extra || 'SIN PROVEEDOR',
+                                    doc.forma_pago_extra || 'CONTADO',
+                                    Number(Math.abs(doc.costo_total).toFixed(2))
+                                ]);
+                            } else {
+                                wsData.push([
+                                    obtenerFechaHoraLocal(doc.fecha_movimiento),
+                                    doc.documento_referencia || '',
+                                    resumen,
+                                    doc.tipo_movimiento,
+                                    Number(doc.cantidad.toFixed(2)),
+                                    Number(Math.abs(doc.costo_total).toFixed(2))
+                                ]);
+                            }
+                        });
+
+                        wsData.push([]);
+                        if (esCompras) {
+                            wsData.push(["", "", "", "", "", "FLUJO TOTAL COMPRAS (S/)", Number(sumTotales.toFixed(2))]);
+                        } else {
+                            wsData.push(["", "", "", "", "FLUJO NETO TOTAL (S/)", Number(sumTotales.toFixed(2))]);
+                        }
+
+                        const ws = XLSX.utils.aoa_to_sheet(wsData);
+                        XLSX.utils.book_append_sheet(wb, ws, "Kardex Agrupado");
+                        const filtroDoc = esCompras ? "Compras" : (tipoMov ? limpiarCadenaParaArchivo(filtroTxt) : "Consolidado");
+                        XLSX.writeFile(wb, `Kardex_Agrupado_${filtroDoc}_${desde}_al_${hasta}_${dateStr}.xlsx`);
+
+                    // ====================================================
+                    // CASO 3: MODO VISTA DETALLADO (POR ITEM CON DISCRIMINACIÓN)
+                    // ====================================================
+                    } else {
+                        // Pre-fetch enriquecido de terceros si alguna columna relacionada está activa
+                        const necesitaTerceros = ['col_tercero', 'col_condicion', 'col_ticket', 'col_observacion']
+                            .some(id => document.getElementById(id)?.checked);
+                        let tercerosMap = {};
+                        if (necesitaTerceros) {
+                            tercerosMap = await resolverTercerosKardex(data);
+                        }
+
+                        const wsData = [
+                            ["MICRO ERP - REPORTE DE KARDEX FÍSICO Y VALORADO"],
+                            ["Periodo Analizado", `Del ${desde} al ${hasta}`],
+                            ["Criterio de Búsqueda", searchVal || (filtroTxt || "Todos los movimientos")],
+                            ["Fecha de Emisión", new Date().toLocaleString('es-PE')],
+                            [],
+                            activeCols.map(c => c.header)
+                        ];
+
+                        let sumCantidad = 0;
+                        let sumTotalVal = 0;
+
+                        data.forEach(r => {
+                            const isIngreso = r.tipo_movimiento === 'INGRESO';
+                            const cant = Number(r.cantidad || 0);
+                            const costoUnit = Number(r.costo_unitario || 0);
+                            const costoTot = Number(r.costo_total || 0);
+                            const saldo = Number(r.stock_resultante || 0);
+
+                            sumCantidad += cant;
+                            sumTotalVal += costoTot * (isIngreso ? 1 : -1);
+
+                            const ref = r.codigo_venta || r.documento_referencia || '';
+                            const meta = (r.documento_referencia && tercerosMap[r.documento_referencia]) || 
+                                         (ref && tercerosMap[ref]) || 
+                                         (r.codigo_venta && tercerosMap[r.codigo_venta]) || {
+                                tercero: '',
+                                condicion: '',
+                                ticket: ref,
+                                observacion: r.motivo || ''
+                            };
+
+                            const rowData = [];
+                            activeCols.forEach(col => {
+                                if (col.key === 'fecha') rowData.push(obtenerFechaHoraLocal(r.fecha_movimiento));
+                                else if (col.key === 'codigo') rowData.push(r.items?.codigo || '');
+                                else if (col.key === 'descripcion') rowData.push(r.items?.descripcion || '');
+                                else if (col.key === 'unidad') rowData.push(r.items?.unidad_medida || '');
+                                else if (col.key === 'tipo') rowData.push(r.tipo_movimiento || '');
+                                else if (col.key === 'motivo') rowData.push(r.motivo || '');
+                                else if (col.key === 'referencia') rowData.push(ref);
+                                else if (col.key === 'cantidad') rowData.push(Number(cant.toFixed(2)));
+                                else if (col.key === 'costo_unitario') rowData.push(Number(costoUnit.toFixed(2)));
+                                else if (col.key === 'costo_total') rowData.push(Number(costoTot.toFixed(2)));
+                                else if (col.key === 'saldo') rowData.push(Number(saldo.toFixed(2)));
+                                else if (col.key === 'tercero') rowData.push(meta.tercero || '');
+                                else if (col.key === 'condicion') rowData.push(meta.condicion || '');
+                                else if (col.key === 'ticket') rowData.push(meta.ticket || '');
+                                else if (col.key === 'observacion') rowData.push(meta.observacion || '');
+                            });
+                            wsData.push(rowData);
+                        });
+
+                        // Fila de sumatorias al pie
+                        wsData.push([]);
+                        const footerRow = [];
+                        activeCols.forEach((col, idx) => {
+                            if (idx === 0) footerRow.push("TOTALES");
+                            else if (col.key === 'cantidad') footerRow.push(Number(sumCantidad.toFixed(2)));
+                            else if (col.key === 'costo_total') footerRow.push(Number(sumTotalVal.toFixed(2)));
+                            else footerRow.push("");
+                        });
+                        wsData.push(footerRow);
+
+                        const ws = XLSX.utils.aoa_to_sheet(wsData);
+                        // Ajuste inteligente de anchos de columna
+                        if (wsData.length > 5) {
+                            const colWidths = activeCols.map((col, cIdx) => {
+                                let maxLen = col.header.length;
+                                for (let rIdx = 5; rIdx < wsData.length; rIdx++) {
+                                    const val = wsData[rIdx] && wsData[rIdx][cIdx] != null ? String(wsData[rIdx][cIdx]) : '';
+                                    if (val.length > maxLen) maxLen = Math.min(val.length, 45);
                                 }
-                            }
-                            
-                            const descripcion = e.items?.descripcion || "";
-                            const cantidad = Math.abs(e.cantidad);
-                            const costoTotal = Math.abs(e.costo_total);
-
-                            wsDataEntradas.push([proveedor, descripcion, cantidad, costoTotal, condicion, vencimiento]);
-                        });
-
-                        const wsEntradas = XLSX.utils.aoa_to_sheet(wsDataEntradas);
-                        const wbEntradas = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(wbEntradas, wsEntradas, "Entradas");
-                        XLSX.writeFile(wbEntradas, `Kardex_Entradas${filtroName}_${dateStr}.xlsx`);
-                        descargados++;
-                    }
-
-                    // ==============================
-                    // BUCKET 2: VENTAS
-                    // Formato: Descripción | Cantidad | Precio Final | Condición | Referencia
-                    // ==============================
-                    if (ventas.length > 0) {
-                        const codigosVenta = [...new Set(ventas.map(v => v.codigo_venta || v.documento_referencia).filter(Boolean))];
-                        
-                        let ventasMap = {};
-                        if (codigosVenta.length > 0) {
-                            const { data: vData, error: vErr } = await supabaseClient
-                                .from('ventas')
-                                .select('numero_ticket, condicion_pago, observaciones')
-                                .in('numero_ticket', codigosVenta);
-                                
-                            if (!vErr && vData) {
-                                vData.forEach(v => {
-                                    ventasMap[v.numero_ticket] = v;
-                                });
-                            }
+                                return { wch: Math.max(maxLen + 3, 10) };
+                            });
+                            ws['!cols'] = colWidths;
                         }
-
-                        const wsDataVentas = [
-                            ["PRODUCTO", "CANTIDAD", "PRECIO", "CONDICION", "REFERENCIA"]
-                        ];
-
-                        ventas.forEach(v => {
-                            const codigo = v.codigo_venta || v.documento_referencia;
-                            const maestro = ventasMap[codigo] || {};
-                            const descripcion = v.items?.descripcion || "";
-                            const cantidad = Math.abs(v.cantidad);
-                            const precio = Math.abs(v.costo_total); // Asumimos costo como precio para exportar el registro
-                            const condicion = maestro.condicion_pago || "CONTADO";
-                            const ref = codigo || "";
-
-                            wsDataVentas.push([descripcion, cantidad, precio, condicion, ref]);
-                        });
-
-                        const wsVentas = XLSX.utils.aoa_to_sheet(wsDataVentas);
-                        const wbVentas = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(wbVentas, wsVentas, "Ventas");
-                        XLSX.writeFile(wbVentas, `Kardex_Ventas${filtroName}_${dateStr}.xlsx`);
-                        descargados++;
+                        XLSX.utils.book_append_sheet(wb, ws, "Kardex Detallado");
+                        const searchTag = searchVal ? `_${limpiarCadenaParaArchivo(searchVal)}` : '';
+                        XLSX.writeFile(wb, `Kardex_Detallado${searchTag}_${desde}_al_${hasta}_${dateStr}.xlsx`);
                     }
 
-                    // ==============================
-                    // BUCKET 3: OTROS EGRESOS
-                    // Formato Genérico: Motivo | Producto | Cantidad | Costo Total | Referencia | Fecha
-                    // ==============================
-                    if (otrosEgresos.length > 0) {
-                        const wsDataOtros = [
-                            ["MOTIVO", "PRODUCTO", "CANTIDAD", "COSTO_TOTAL", "REFERENCIA", "FECHA_MOVIMIENTO"]
-                        ];
-
-                        otrosEgresos.forEach(o => {
-                            const motivo = o.motivo || "EGRESO";
-                            const descripcion = o.items?.descripcion || "";
-                            const cantidad = Math.abs(o.cantidad);
-                            const costoTotal = Math.abs(o.costo_total);
-                            const ref = o.codigo_venta || o.documento_referencia || "";
-                            
-                            // Extraer solo la fecha de YYYY-MM-DDTHH:MM:SS
-                            const fechaParts = o.fecha_movimiento ? o.fecha_movimiento.split('T') : [''];
-                            const fecha = fechaParts[0];
-
-                            wsDataOtros.push([motivo, descripcion, cantidad, costoTotal, ref, fecha]);
-                        });
-
-                        const wsOtros = XLSX.utils.aoa_to_sheet(wsDataOtros);
-                        const wbOtros = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(wbOtros, wsOtros, "Otros Egresos");
-                        XLSX.writeFile(wbOtros, `Kardex_Otros_Egresos${filtroName}_${dateStr}.xlsx`);
-                        descargados++;
-                    }
-
-                    Swal.fire('Éxito', `Se generaron y descargaron ${descargados} archivo(s) Excel con fidelidad 100%.`, 'success');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Informe Generado',
+                        text: 'El archivo Excel estructurado se ha descargado exitosamente.',
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                        color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                    });
 
                 } catch (err) {
-                    console.error(err);
-                    Swal.fire('Error', 'Hubo un error al generar la exportación: ' + err.message, 'error');
+                    console.error("Error al generar informe:", err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al Exportar',
+                        text: err.message,
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                        color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                    });
+                }
+            }
+
+            async function ejecutarExportacionPlantilla() {
+                if (!window.kardexExportCache || window.kardexExportCache.length === 0) {
+                    Swal.fire('Atención', 'No hay datos en memoria para generar plantillas.', 'warning');
+                    return;
+                }
+
+                const destino = document.querySelector('input[name="radioDestinoReimport"]:checked')?.value || 'ventas';
+                const modoFecha = document.querySelector('input[name="radioModoFecha"]:checked')?.value || 'unica';
+
+                // Filtrar registros compatibles con el destino utilizando la clasificación unificada
+                const matchingRows = window.kardexExportCache.filter(r => clasificarFilaKardex(r) === destino);
+
+                if (matchingRows.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sin Coincidencias',
+                        text: `No se encontraron movimientos correspondientes al módulo "${destino.toUpperCase()}" en la selección actual.`,
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                        color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                    });
+                    return;
+                }
+
+                cerrarModal('modalExportarKardex');
+
+                Swal.fire({
+                    title: 'Preparando Plantillas',
+                    text: 'Consultando referencias fidedignas...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    // Deep fetching para ingresos y resolución de ventas con precios históricos
+                    let ingresosMap = {};
+                    let resolvedVentas = {};
+
+                    if (destino === 'ventas') {
+                        resolvedVentas = await resolverVentasParaPlantilla(matchingRows);
+                    } else if (destino === 'ingresos') {
+                        const refsIngresos = [...new Set(matchingRows.map(e => e.documento_referencia).filter(Boolean))];
+                        if (refsIngresos.length > 0) {
+                            const chunksIng = fragmentarArreglo(refsIngresos, 80);
+                            for (const chunk of chunksIng) {
+                                const { data: ingData } = await supabaseClient
+                                    .from('ingresos')
+                                    .select('numero_ingreso, forma_pago, proveedores(razon_social), ingresos_detalle(item_id, fecha_vencimiento)')
+                                    .in('numero_ingreso', chunk);
+                                if (ingData) {
+                                    ingData.forEach(ing => { ingresosMap[ing.numero_ingreso] = ing; });
+                                }
+                            }
+                        }
+                    }
+
+                    // Función auxiliar de construcción y descarga por fecha
+                    const generarArchivoFecha = (fechaStr, filasFecha) => {
+                        const wb = XLSX.utils.book_new();
+                        const fechaLimpia = limpiarCadenaParaArchivo(fechaStr);
+
+                        if (destino === 'ventas') {
+                            // 5 columnas exactas para emitir_ticket.html: PRODUCTO, CANTIDAD, PRECIO, CONDICION, REFERENCIA
+                            const wsData = [["PRODUCTO", "CANTIDAD", "PRECIO", "CONDICION", "REFERENCIA"]];
+                            filasFecha.forEach(v => {
+                                const desc = v.items?.descripcion || "";
+                                const cant = Math.abs(Number(v.cantidad || 0));
+                                const meta = resolvedVentas[v.id] || {};
+                                const precioUnit = meta.precio_unitario != null ? Number(meta.precio_unitario) : (Number(v.items?.precio_venta) || 0);
+                                const condicion = meta.condicion || "CONTADO";
+                                const ref = meta.ticket || v.codigo_venta || v.documento_referencia || "VENTA";
+                                wsData.push([
+                                    desc,
+                                    Number(cant.toFixed(2)),
+                                    Number(Number(precioUnit).toFixed(2)),
+                                    condicion,
+                                    ref
+                                ]);
+                            });
+                            const ws = XLSX.utils.aoa_to_sheet(wsData);
+                            XLSX.utils.book_append_sheet(wb, ws, "Ventas");
+                            XLSX.writeFile(wb, `Plantilla_Ventas_POS_${fechaLimpia}.xlsx`);
+
+                        } else if (destino === 'ingresos') {
+                            // 6 columnas exactas para ingresos.html: PROVEEDOR, PRODUCTO, CANTIDAD, PRECIO_TOTAL, CONDICIÓN, VENCIMIENTO
+                            const wsData = [["PROVEEDOR", "PRODUCTO", "CANTIDAD", "PRECIO_TOTAL", "CONDICIÓN", "VENCIMIENTO"]];
+                            filasFecha.forEach(e => {
+                                const maestro = ingresosMap[e.documento_referencia] || {};
+                                const prov = maestro.proveedores?.razon_social || "PROVEEDOR POR DEFECTO";
+                                const cond = maestro.forma_pago || "CONTADO";
+                                let venc = "";
+                                if (maestro.ingresos_detalle) {
+                                    const det = maestro.ingresos_detalle.find(d => d.item_id === e.item_id);
+                                    if (det && det.fecha_vencimiento) venc = det.fecha_vencimiento;
+                                }
+                                const desc = e.items?.descripcion || "";
+                                const cant = Math.abs(Number(e.cantidad || 0));
+                                const costoTot = Math.abs(Number(e.costo_total || 0));
+                                wsData.push([prov, desc, Number(cant.toFixed(2)), Number(costoTot.toFixed(2)), cond, venc]);
+                            });
+                            const ws = XLSX.utils.aoa_to_sheet(wsData);
+                            XLSX.utils.book_append_sheet(wb, ws, "Entradas");
+                            XLSX.writeFile(wb, `Plantilla_Ingresos_Compras_${fechaLimpia}.xlsx`);
+
+                        } else if (destino === 'egresos') {
+                            // 2 columnas exactas para egresos.html (Mermas): PRODUCTO, CANTIDAD
+                            const wsData = [["PRODUCTO", "CANTIDAD"]];
+                            filasFecha.forEach(o => {
+                                const desc = o.items?.descripcion || "";
+                                const cant = Math.abs(Number(o.cantidad || 0));
+                                wsData.push([desc, Number(cant.toFixed(2))]);
+                            });
+                            const ws = XLSX.utils.aoa_to_sheet(wsData);
+                            XLSX.utils.book_append_sheet(wb, ws, "Mermas_Egresos");
+                            XLSX.writeFile(wb, `Plantilla_Egresos_Mermas_${fechaLimpia}.xlsx`);
+                        }
+                    };
+
+                    // ==========================================
+                    // CASO A: FECHA ESPECÍFICA ÚNICA
+                    // ==========================================
+                    if (modoFecha === 'unica') {
+                        const fechaElegida = document.getElementById('selectFechaReimport').value;
+                        if (!fechaElegida) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Sin Fecha Seleccionada',
+                                text: 'Por favor selecciona una fecha válida para generar la plantilla.',
+                                background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                                color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                            });
+                            return;
+                        }
+
+                        const filasDia = matchingRows.filter(r => obtenerFechaLocal(r.fecha_movimiento) === fechaElegida);
+                        
+                        if (filasDia.length === 0) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Sin Movimientos',
+                                text: `No hay registros del tipo seleccionado para la fecha ${fechaElegida}.`,
+                                background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                                color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                            });
+                            return;
+                        }
+
+                        generarArchivoFecha(fechaElegida, filasDia);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Plantilla Generada',
+                            text: `Se descargó exitosamente la plantilla para el día ${fechaElegida}.`,
+                            background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                            color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                        });
+
+                    // ==========================================
+                    // CASO B: ARCHIVOS INDEPENDIENTES POR DÍA
+                    // ==========================================
+                    } else {
+                        // Agrupar filas compatibles por fecha
+                        const gruposPorFecha = new Map();
+                        matchingRows.forEach(r => {
+                            const d = obtenerFechaLocal(r.fecha_movimiento);
+                            if (!gruposPorFecha.has(d)) gruposPorFecha.set(d, []);
+                            gruposPorFecha.get(d).push(r);
+                        });
+
+                        const fechasArray = Array.from(gruposPorFecha.keys()).sort();
+                        if (fechasArray.length === 0) {
+                            Swal.fire('Atención', 'No se encontraron fechas válidas para procesar.', 'warning');
+                            return;
+                        }
+
+                        let descargas = 0;
+                        for (let i = 0; i < fechasArray.length; i++) {
+                            const f = fechasArray[i];
+                            const filas = gruposPorFecha.get(f);
+
+                            Swal.update({
+                                title: 'Descarga Asistida en Curso',
+                                text: `Descargando archivo ${i + 1} de ${fechasArray.length}: ${f} (${filas.length} filas)...`
+                            });
+
+                            generarArchivoFecha(f, filas);
+                            descargas++;
+
+                            // Pausa controlada para no saturar el navegador
+                            await new Promise(resolve => setTimeout(resolve, 350));
+                        }
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Descarga Completada',
+                            text: `Se generaron y descargaron ${descargas} archivo(s) Excel independientes para re-importación.`,
+                            background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                            color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                        });
+                    }
+
+                } catch (err) {
+                    console.error("Error al generar plantillas:", err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: err.message,
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+                        color: document.documentElement.classList.contains('dark') ? '#fff' : '#333'
+                    });
                 }
             }
 
