@@ -1448,11 +1448,35 @@
 
             const setModoImpresion = (chart, isPrint) => {
                 if(!chart) return;
+                window._imprimiendoPizarraZen = isPrint;
                 const c = isPrint ? colorClaro : colorOscuro;
                 const g = isPrint ? grillaClara : grillaOscura;
                 if(chart.options.scales.x) { chart.options.scales.x.ticks.color = c; if(chart.options.scales.x.grid) chart.options.scales.x.grid.color = g; }
                 if(chart.options.scales.y) { chart.options.scales.y.ticks.color = c; if(chart.options.scales.y.grid) chart.options.scales.y.grid.color = g; }
                 if(chart.options.plugins.legend && chart.options.plugins.legend.labels) chart.options.plugins.legend.labels.color = c;
+
+                // Adaptar dataset Koenker para alto contraste sobre papel blanco
+                if (chart.data && chart.data.datasets) {
+                    chart.data.datasets.forEach(ds => {
+                        if (ds.label && ds.label.includes('Koenker')) {
+                            if (isPrint) {
+                                if (!ds._origBorderColor) {
+                                    ds._origBorderColor = ds.borderColor;
+                                    ds._origPointBg = ds.pointBackgroundColor;
+                                }
+                                ds.borderColor = '#000000';
+                                ds.pointBackgroundColor = '#000000';
+                                ds.pointBorderColor = '#000000';
+                            } else if (ds._origBorderColor) {
+                                ds.borderColor = ds._origBorderColor;
+                                ds.pointBackgroundColor = ds._origPointBg;
+                                ds.pointBorderColor = ds._origBorderColor;
+                                delete ds._origBorderColor;
+                                delete ds._origPointBg;
+                            }
+                        }
+                    });
+                }
 
                 // Adaptación dinámica de anotaciones (Fibonacci) para impresión sobre papel blanco
                 if (chart.options.plugins && chart.options.plugins.annotation && chart.options.plugins.annotation.annotations) {
@@ -1628,6 +1652,16 @@
                 if(sandboxMacdChartInstance) sandboxMacdChartInstance.resize();
             }, 500);
         }
+
+        window.addEventListener('beforeprint', () => {
+            window._imprimiendoPizarraZen = true;
+            if (sandboxChartInstance) sandboxChartInstance.update('none');
+        });
+
+        window.addEventListener('afterprint', () => {
+            window._imprimiendoPizarraZen = false;
+            if (sandboxChartInstance) sandboxChartInstance.update('none');
+        });
 
         function cerrarModoZen() {
             cerrarDropdownDiasZen();
@@ -2310,7 +2344,7 @@
                     pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 3.6 : 2),
                     pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 5.5 : 4),
                     pointBackgroundColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#06b6d4' : activeColor),
-                    pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : activeColor),
+                    pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? (window._imprimiendoPizarraZen ? '#000000' : '#ffffff') : activeColor),
                     pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 0),
                     spanGaps: false
                 }
@@ -2485,8 +2519,8 @@
                     let minVal = Math.min(...validData);
                     let maxVal = Math.max(...validData);
                     let diff = maxVal - minVal;
-                    let fiboLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618];
-                    let colors = ['#cbd5e1', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#cbd5e1', '#64748b'];
+                    let fiboLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+                    let colors = ['#cbd5e1', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#cbd5e1'];
                     let annotations = {};
                     fiboLevels.forEach((level, idx) => {
                         let yVal = maxVal - (diff * level);
@@ -2508,10 +2542,10 @@
                     sandboxChartInstance.data.datasets.push({
                         label: 'Holt-Winters Estacional (7 días)', data: forecastPuntos,
                         borderColor: '#fbbf24', borderWidth: 2, borderDash: [2, 2],
-                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 3.6 : 3),
-                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 5.5 : 5),
-                        pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#fbbf24'),
-                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 1),
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        pointBorderColor: '#fbbf24',
+                        pointBorderWidth: 1,
                         pointBackgroundColor: '#fbbf24', fill: false
                     });
                     sandboxChartInstance.update('none');
@@ -2526,10 +2560,10 @@
                     sandboxChartInstance.data.datasets.push({
                         label: 'SARIMA (7 días)', data: sarimaPuntos,
                         borderColor: '#06b6d4', borderWidth: 2, borderDash: [3, 3],
-                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 3.6 : 3),
-                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 5.5 : 5),
-                        pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#06b6d4'),
-                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 1),
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        pointBorderColor: '#06b6d4',
+                        pointBorderWidth: 1,
                         pointBackgroundColor: '#06b6d4', fill: false
                     });
                     sandboxChartInstance.update('none');
@@ -2543,12 +2577,12 @@
                     let koenkerPuntos = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < koenkerForecasts.length ? koenkerForecasts[i] : null }));
                     sandboxChartInstance.data.datasets.push({
                         label: 'Koenker (Piso Cuantílico 7 días)', data: koenkerPuntos,
-                        borderColor: '#fb7185', borderWidth: 2, borderDash: [4, 4],
-                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 3.6 : 3),
-                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 5.5 : 5),
-                        pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#fb7185'),
-                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 1),
-                        pointBackgroundColor: '#fb7185', fill: false
+                        borderColor: '#ffffff', borderWidth: 2, borderDash: [4, 4],
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 1,
+                        pointBackgroundColor: '#ffffff', fill: false
                     });
                     sandboxChartInstance.update('none');
                 }
