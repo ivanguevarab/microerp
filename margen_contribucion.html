@@ -2269,11 +2269,11 @@
                         borderColor: ctx => ctx.p0.parsed.y < 0 ? activeNegativeColor : activeColor,
                     },
                     tension: 0.1,
-                    pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 6 : 2),
-                    pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 8.5 : 4),
+                    pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 3.6 : 2),
+                    pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 5.5 : 4),
                     pointBackgroundColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#06b6d4' : activeColor),
                     pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : activeColor),
-                    pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 2 : 0),
+                    pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 0),
                     spanGaps: false
                 }
             ];
@@ -2370,44 +2370,9 @@
                 });
             }
 
-            const destacarDiasZenPlugin = {
-                id: 'destacarDiasZenPlugin',
-                beforeDatasetsDraw(chart) {
-                    if (diaDestacadoPizarra === null) return;
-                    const { ctx: chartCtx, chartArea, scales } = chart;
-                    if (!chartArea || !scales || !scales.x) return;
-                    const xScale = scales.x;
-
-                    chartCtx.save();
-                    extendedFechas.forEach(f => {
-                        if (esDiaDestacadoZen(f)) {
-                            const xPos = xScale.getPixelForValue(new Date(f + "T12:00:00"));
-                            if (xPos >= chartArea.left - 30 && xPos <= chartArea.right + 30) {
-                                const anchoFranja = Math.max(14, (chartArea.right - chartArea.left) / Math.max(extendedFechas.length, 1) * 0.7);
-
-                                // Franja vertical translúcida
-                                chartCtx.fillStyle = 'rgba(6, 182, 212, 0.08)';
-                                chartCtx.fillRect(xPos - anchoFranja / 2, chartArea.top, anchoFranja, chartArea.bottom - chartArea.top);
-
-                                // Línea vertical punteada central
-                                chartCtx.beginPath();
-                                chartCtx.setLineDash([3, 3]);
-                                chartCtx.strokeStyle = 'rgba(6, 182, 212, 0.35)';
-                                chartCtx.lineWidth = 1;
-                                chartCtx.moveTo(xPos, chartArea.top);
-                                chartCtx.lineTo(xPos, chartArea.bottom);
-                                chartCtx.stroke();
-                            }
-                        }
-                    });
-                    chartCtx.restore();
-                }
-            };
-
             sandboxChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: { datasets: datasets },
-                plugins: [destacarDiasZenPlugin],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -2505,10 +2470,10 @@
                     sandboxChartInstance.data.datasets.push({
                         label: 'Holt-Winters Estacional (7 días)', data: forecastPuntos,
                         borderColor: '#fbbf24', borderWidth: 2, borderDash: [2, 2],
-                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 6 : 3),
-                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 8.5 : 5),
+                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 3.6 : 3),
+                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 5.5 : 5),
                         pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#fbbf24'),
-                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 2 : 1),
+                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 1),
                         pointBackgroundColor: '#fbbf24', fill: false
                     });
                     sandboxChartInstance.update('none');
@@ -2523,10 +2488,10 @@
                     sandboxChartInstance.data.datasets.push({
                         label: 'SARIMA (7 días)', data: sarimaPuntos,
                         borderColor: '#06b6d4', borderWidth: 2, borderDash: [3, 3],
-                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 6 : 3),
-                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 8.5 : 5),
+                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 3.6 : 3),
+                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 5.5 : 5),
                         pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#06b6d4'),
-                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 2 : 1),
+                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 1),
                         pointBackgroundColor: '#06b6d4', fill: false
                     });
                     sandboxChartInstance.update('none');
