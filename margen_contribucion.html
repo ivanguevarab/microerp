@@ -377,6 +377,7 @@
                         <button onclick="toggleSandboxIndicator('macd')" id="btnMacd" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-signal"></i> MACD</button>
                         <button onclick="toggleSandboxIndicator('forecast')" id="btnForecast" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-robot"></i> Holt-Winters</button>
                         <button onclick="toggleSandboxIndicator('sarima')" id="btnSarima" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-project-diagram"></i> SARIMA</button>
+                        <button onclick="toggleSandboxIndicator('koenker')" id="btnKoenker" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2" title="Piso Cuantílico Estacional de Koenker-Bassett"><i class="fas fa-shield-alt"></i> Koenker</button>
                         <button onclick="abrirModalPuntoAvance()" id="btnPuntoAvance" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2" title="Pintar o modificar punto de avance"><i class="fas fa-crosshairs"></i> <span id="lblBtnPuntoAvance">Añadir Punto</span></button>
                         
                         <!-- Destacar Día Zen (Popover Flotante) -->
@@ -1130,7 +1131,7 @@
         let sandboxRsiChartInstance = null;
         let sandboxMacdChartInstance = null;
         let originalDataRef = { labels: [], ventas: [], costos: [], margen: [] };
-        let sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false, sarima: false };
+        let sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false, sarima: false, koenker: false };
         let puntoAvanceConfig = { activo: false, fecha: null, soles: null, etiqueta: 'Punto de Avance' };
         let diaDestacadoPizarra = null;
         const nombresDiasSemanaZen = { 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo' };
@@ -1167,8 +1168,8 @@
             document.body.style.overflow = 'hidden';
 
             // Reset UI botones a estado inactivo por defecto
-            sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false, sarima: false };
-            ['sma', 'bollinger', 'tendencia', 'fibonacci', 'rsi15', 'rsi7', 'macd', 'forecast', 'sarima'].forEach(tipo => {
+            sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false, sarima: false, koenker: false };
+            ['sma', 'bollinger', 'tendencia', 'fibonacci', 'rsi15', 'rsi7', 'macd', 'forecast', 'sarima', 'koenker'].forEach(tipo => {
                 const btn = document.getElementById('btn' + tipo.charAt(0).toUpperCase() + tipo.slice(1));
                 if(btn) {
                     btn.classList.replace('bg-indigo-600', 'bg-slate-800');
@@ -1947,6 +1948,7 @@
                 'macd': 36,
                 'forecast': 15,
                 'sarima': 14,
+                'koenker': 14,
                 'rsi15': 15,
                 'rsi7': 7
             };
@@ -2203,6 +2205,45 @@
                 let f = Math.max(0, l + (trendSum * b) + seasonal[seasonIdx]);
                 forecast.push(f);
             }
+            return forecast;
+        }
+
+        function calcularKoenker(data, futureSteps, tau = 0.20) {
+            let validData = data.filter(d => d !== null);
+            let n = validData.length;
+            let s = 7; // Ciclo estacional semanal (7 días)
+            if (n < 14) return null;
+
+            let projValues = [];
+            for (let m = 0; m < futureSteps; m++) {
+                let dayMod = (n + m) % s;
+                let dayHistory = [];
+                for (let i = dayMod; i < n; i += s) {
+                    dayHistory.push(validData[i]);
+                }
+                
+                let k = dayHistory.length;
+                if (k === 0) {
+                    projValues.push(0);
+                    continue;
+                }
+
+                // Estimador Cuantílico de Koenker-Bassett (Hyndman & Fan Tipo 7)
+                dayHistory.sort((a, b) => a - b);
+                let pos = (k - 1) * tau;
+                let base = Math.floor(pos);
+                let rest = pos - base;
+                
+                let qVal = base + 1 < k 
+                    ? dayHistory[base] + rest * (dayHistory[base + 1] - dayHistory[base]) 
+                    : dayHistory[base];
+
+                projValues.push(Math.max(0, qVal));
+            }
+
+            let forecast = [];
+            for (let i = 0; i < data.length; i++) forecast.push(null);
+            for (let i = 0; i < futureSteps; i++) forecast.push(projValues[i]);
             return forecast;
         }
 
@@ -2490,6 +2531,24 @@
                         pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#06b6d4'),
                         pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 1),
                         pointBackgroundColor: '#06b6d4', fill: false
+                    });
+                    sandboxChartInstance.update('none');
+                }
+            }
+
+            // Forecast Koenker (Piso Cuantílico)
+            if (sandboxConfig.koenker && activeDataArray.length >= 14) {
+                let koenkerForecasts = calcularKoenker(activeDataArray, 7);
+                if (koenkerForecasts) {
+                    let koenkerPuntos = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < koenkerForecasts.length ? koenkerForecasts[i] : null }));
+                    sandboxChartInstance.data.datasets.push({
+                        label: 'Koenker (Piso Cuantílico 7 días)', data: koenkerPuntos,
+                        borderColor: '#fb7185', borderWidth: 2, borderDash: [4, 4],
+                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 3.6 : 3),
+                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 5.5 : 5),
+                        pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#fb7185'),
+                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 1.5 : 1),
+                        pointBackgroundColor: '#fb7185', fill: false
                     });
                     sandboxChartInstance.update('none');
                 }
