@@ -198,6 +198,11 @@
                     <button onclick="cargarDashboard()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold transition shadow-lg shadow-emerald-500/20 flex items-center gap-2">
                         <i class="fas fa-sync-alt"></i> Analizar
                     </button>
+
+                    <!-- Botón Fijar Configuración (Pin) -->
+                    <button onclick="toggleFijarConfig()" id="btnFijarConfig" title="Recordar esta configuración" class="w-9 h-9 flex items-center justify-center rounded-lg text-base bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors shadow-sm cursor-pointer">
+                        <span class="opacity-50 transition-opacity text-sm" id="iconFijarConfig">📌</span>
+                    </button>
                 </div>
 
                 <!-- Días de la Semana -->
@@ -373,6 +378,28 @@
                         <button onclick="toggleSandboxIndicator('forecast')" id="btnForecast" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-robot"></i> Holt-Winters</button>
                         <button onclick="toggleSandboxIndicator('sarima')" id="btnSarima" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"><i class="fas fa-project-diagram"></i> SARIMA</button>
                         <button onclick="abrirModalPuntoAvance()" id="btnPuntoAvance" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2" title="Pintar o modificar punto de avance"><i class="fas fa-crosshairs"></i> <span id="lblBtnPuntoAvance">Añadir Punto</span></button>
+                        
+                        <!-- Destacar Día Zen (Popover Flotante) -->
+                        <div class="relative inline-block" id="containerDestacarDiaZen">
+                            <button type="button" onclick="toggleDropdownDiasZen(event)" id="btnDestacarDiaZen" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2" title="Destacar un día de la semana en la gráfica">
+                                <i class="fas fa-calendar-day"></i> 
+                                <span id="lblDestacarDiaZen">Destacar Día</span>
+                                <i class="fas fa-chevron-down text-[10px] opacity-70 transition-transform duration-200" id="chevronDestacarDiaZen"></i>
+                            </button>
+                            <div id="dropdownDiasZen" class="hidden absolute top-full left-0 mt-2 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-50 flex items-center gap-1 backdrop-blur-md">
+                                <button type="button" onclick="seleccionarDiaDestacado(1)" data-dia="1" class="btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Lunes">L</button>
+                                <button type="button" onclick="seleccionarDiaDestacado(2)" data-dia="2" class="btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Martes">M</button>
+                                <button type="button" onclick="seleccionarDiaDestacado(3)" data-dia="3" class="btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Miércoles">X</button>
+                                <button type="button" onclick="seleccionarDiaDestacado(4)" data-dia="4" class="btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Jueves">J</button>
+                                <button type="button" onclick="seleccionarDiaDestacado(5)" data-dia="5" class="btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Viernes">V</button>
+                                <button type="button" onclick="seleccionarDiaDestacado(6)" data-dia="6" class="btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Sábado">S</button>
+                                <button type="button" onclick="seleccionarDiaDestacado(7)" data-dia="7" class="btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Domingo">D</button>
+                                <div class="w-px h-4 bg-slate-800 mx-0.5"></div>
+                                <button type="button" onclick="seleccionarDiaDestacado(null)" class="w-7 h-7 flex items-center justify-center text-xs text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors" title="Quitar resalto">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div id="fichaEjecutivaCabeceraPrint" class="hidden"></div>
                 </div>
@@ -451,6 +478,102 @@
                     cargarDashboard();
                 });
             });
+
+            // Rehidratación de filtros persistidos (Pin)
+            if (localStorage.getItem('margen_remember') === 'true') {
+                const isRango = localStorage.getItem('margen_isRango') === 'true';
+                document.getElementById('toggleRango').checked = isRango;
+                if (isRango) {
+                    document.getElementById('contenedorMesAnio').classList.add('hidden');
+                    document.getElementById('contenedorFechas').classList.remove('hidden');
+                    document.getElementById('contenedorFechas').classList.add('flex');
+                    if (localStorage.getItem('margen_fechaDesde')) {
+                        document.getElementById('fechaDesde').value = localStorage.getItem('margen_fechaDesde');
+                    }
+                    if (localStorage.getItem('margen_fechaHasta')) {
+                        document.getElementById('fechaHasta').value = localStorage.getItem('margen_fechaHasta');
+                    }
+                } else {
+                    document.getElementById('contenedorFechas').classList.add('hidden');
+                    document.getElementById('contenedorFechas').classList.remove('flex');
+                    document.getElementById('contenedorMesAnio').classList.remove('hidden');
+                    if (localStorage.getItem('margen_mes')) {
+                        document.getElementById('mesSelect').value = localStorage.getItem('margen_mes');
+                    }
+                    if (localStorage.getItem('margen_anio')) {
+                        document.getElementById('anioSelect').value = localStorage.getItem('margen_anio');
+                    }
+                }
+
+                // Restaurar selección de días de la semana
+                const diasGuardadosRaw = localStorage.getItem('margen_dias');
+                if (diasGuardadosRaw) {
+                    try {
+                        const diasArray = JSON.parse(diasGuardadosRaw);
+                        if (Array.isArray(diasArray)) {
+                            document.querySelectorAll('.dia-btn').forEach(btn => {
+                                const diaNum = parseInt(btn.dataset.dia);
+                                if (diasArray.includes(diaNum)) {
+                                    btn.classList.add('btn-dia-activo');
+                                } else {
+                                    btn.classList.remove('btn-dia-activo');
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('Error al restaurar dias de margen:', e);
+                    }
+                }
+
+                actualizarUiBotonFijar(true);
+            } else {
+                actualizarUiBotonFijar(false);
+            }
+        }
+
+        function actualizarUiBotonFijar(activo) {
+            const btn = document.getElementById('btnFijarConfig');
+            const icon = document.getElementById('iconFijarConfig');
+            if (!btn) return;
+            
+            if (activo) {
+                btn.className = 'w-9 h-9 flex items-center justify-center rounded-lg text-base bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-600/60 transition-colors shadow-sm cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+                if (icon) icon.className = 'opacity-100 transition-opacity text-sm';
+            } else {
+                btn.className = 'w-9 h-9 flex items-center justify-center rounded-lg text-base bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors shadow-sm cursor-pointer';
+                if (icon) icon.className = 'opacity-50 transition-opacity text-sm';
+            }
+        }
+
+        function toggleFijarConfig() {
+            const activoActualmente = localStorage.getItem('margen_remember') === 'true';
+            if (activoActualmente) {
+                localStorage.setItem('margen_remember', 'false');
+                localStorage.removeItem('margen_isRango');
+                localStorage.removeItem('margen_mes');
+                localStorage.removeItem('margen_anio');
+                localStorage.removeItem('margen_fechaDesde');
+                localStorage.removeItem('margen_fechaHasta');
+                localStorage.removeItem('margen_dias');
+                actualizarUiBotonFijar(false);
+            } else {
+                localStorage.setItem('margen_remember', 'true');
+                guardarConfiguracionFiltrosMargen();
+                actualizarUiBotonFijar(true);
+            }
+        }
+
+        function guardarConfiguracionFiltrosMargen() {
+            if (localStorage.getItem('margen_remember') !== 'true') return;
+            const isRango = document.getElementById('toggleRango').checked;
+            localStorage.setItem('margen_isRango', isRango ? 'true' : 'false');
+            localStorage.setItem('margen_mes', document.getElementById('mesSelect').value);
+            localStorage.setItem('margen_anio', document.getElementById('anioSelect').value);
+            localStorage.setItem('margen_fechaDesde', document.getElementById('fechaDesde').value);
+            localStorage.setItem('margen_fechaHasta', document.getElementById('fechaHasta').value);
+            
+            const diasActivos = Array.from(document.querySelectorAll('.dia-btn.btn-dia-activo')).map(b => parseInt(b.dataset.dia));
+            localStorage.setItem('margen_dias', JSON.stringify(diasActivos));
         }
 
         function toggleFiltroRango() {
@@ -513,6 +636,7 @@
         }
 
         async function cargarDashboard() {
+            guardarConfiguracionFiltrosMargen();
             const f = getFiltrosActuales();
             if(!f.desde || !f.hasta) return;
             
@@ -1008,6 +1132,8 @@
         let originalDataRef = { labels: [], ventas: [], costos: [], margen: [] };
         let sandboxConfig = { sma: false, bollinger: false, tendencia: false, fibonacci: false, rsi15: false, rsi7: false, macd: false, forecast: false, sarima: false };
         let puntoAvanceConfig = { activo: false, fecha: null, soles: null, etiqueta: 'Punto de Avance' };
+        let diaDestacadoPizarra = null;
+        const nombresDiasSemanaZen = { 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo' };
 
         function abrirModoZen() {
             // Cerramos modal expandido si está abierto para liberar DOM
@@ -1055,6 +1181,11 @@
             
             // Sincronizar estado del punto de avance (Fecha y Soles) persistido
             cargarPuntoAvancePersistido();
+
+            // Resetear día destacado de la pizarra Zen
+            diaDestacadoPizarra = null;
+            actualizarUiBotonDestacarDiaZen();
+            cerrarDropdownDiasZen();
 
             // Mostrar Sandbox
             const sbox = document.getElementById('sandbox-pizarra');
@@ -1498,6 +1629,7 @@
         }
 
         function cerrarModoZen() {
+            cerrarDropdownDiasZen();
             const sbox = document.getElementById('sandbox-pizarra');
             sbox.classList.remove('opacity-100');
             sbox.classList.add('opacity-0');
@@ -1511,13 +1643,26 @@
         }
 
         // ---- GESTIÓN DEL PUNTO DE AVANCE (FECHA Y SOLES) ----
-        function getPuntoAvanceStorageKey() {
-            return `microerp_zen_punto_${currentEmpresaId || 'default'}`;
+        function getPuntoAvanceStorageKey(metricaOverride) {
+            const metrica = metricaOverride || (window.modoPizarraActivo === 'margen' ? 'margen' : 'ventas');
+            return `microerp_zen_punto_${metrica}_${currentEmpresaId || 'default'}`;
         }
 
         function cargarPuntoAvancePersistido() {
             try {
-                const raw = localStorage.getItem(getPuntoAvanceStorageKey());
+                const key = getPuntoAvanceStorageKey();
+                let raw = localStorage.getItem(key);
+
+                // Fallback de retrocompatibilidad: si es modo ventas y aún no existe la clave nueva, leer de la clave previa global
+                const metrica = window.modoPizarraActivo === 'margen' ? 'margen' : 'ventas';
+                if (!raw && metrica === 'ventas') {
+                    const legacyKey = `microerp_zen_punto_${currentEmpresaId || 'default'}`;
+                    raw = localStorage.getItem(legacyKey);
+                    if (raw) {
+                        localStorage.setItem(key, raw);
+                    }
+                }
+
                 if (raw) {
                     const parsed = JSON.parse(raw);
                     if (parsed && parsed.fecha && parsed.soles !== undefined && !isNaN(parsed.soles)) {
@@ -1643,8 +1788,9 @@
                 </div>
             `;
 
+            const nombreGrafico = window.modoPizarraActivo === 'margen' ? 'Margen' : 'Ventas';
             Swal.fire({
-                title: puntoAvanceConfig.activo ? 'Modificar Punto de Control' : 'Añadir Punto de Control',
+                title: puntoAvanceConfig.activo ? `Modificar Punto (${nombreGrafico})` : `Añadir Punto (${nombreGrafico})`,
                 html: htmlContent,
                 background: '#0f172a',
                 color: '#f8fafc',
@@ -1708,6 +1854,89 @@
                 }
             });
         }
+
+        // ---- GESTIÓN DE DESTACAR DÍA (MODO ZEN) ----
+        function toggleDropdownDiasZen(e) {
+            if (e) e.stopPropagation();
+            const dd = document.getElementById('dropdownDiasZen');
+            const chev = document.getElementById('chevronDestacarDiaZen');
+            if (!dd) return;
+            const isHidden = dd.classList.contains('hidden');
+            if (isHidden) {
+                dd.classList.remove('hidden');
+                if (chev) chev.classList.add('rotate-180');
+            } else {
+                cerrarDropdownDiasZen();
+            }
+        }
+
+        function cerrarDropdownDiasZen() {
+            const dd = document.getElementById('dropdownDiasZen');
+            const chev = document.getElementById('chevronDestacarDiaZen');
+            if (dd) dd.classList.add('hidden');
+            if (chev) chev.classList.remove('rotate-180');
+        }
+
+        function seleccionarDiaDestacado(diaNum) {
+            if (diaDestacadoPizarra === diaNum) {
+                diaDestacadoPizarra = null;
+            } else {
+                diaDestacadoPizarra = diaNum;
+            }
+            cerrarDropdownDiasZen();
+            actualizarUiBotonDestacarDiaZen();
+            renderizarSandbox();
+        }
+
+        function actualizarUiBotonDestacarDiaZen() {
+            const btn = document.getElementById('btnDestacarDiaZen');
+            const lbl = document.getElementById('lblDestacarDiaZen');
+            if (!btn || !lbl) return;
+
+            document.querySelectorAll('#dropdownDiasZen .btn-dia-zen').forEach(b => {
+                const d = parseInt(b.dataset.dia);
+                if (diaDestacadoPizarra === d) {
+                    b.className = "btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-black rounded-lg bg-cyan-600 text-white shadow-md shadow-cyan-500/30 border border-cyan-400 transition-all";
+                } else {
+                    b.className = "btn-dia-zen w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors";
+                }
+            });
+
+            if (diaDestacadoPizarra !== null && nombresDiasSemanaZen[diaDestacadoPizarra]) {
+                btn.className = "bg-cyan-950/60 hover:bg-cyan-900/70 text-cyan-300 border border-cyan-500/70 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2 shadow-md shadow-cyan-950/30";
+                lbl.textContent = `Día: ${nombresDiasSemanaZen[diaDestacadoPizarra]}`;
+                btn.title = `Destacando todos los ${nombresDiasSemanaZen[diaDestacadoPizarra]}s (Clic para cambiar o quitar)`;
+            } else {
+                btn.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-3 py-1.5 text-sm font-bold rounded-lg transition-colors flex items-center gap-2";
+                lbl.textContent = "Destacar Día";
+                btn.title = "Destacar un día de la semana en la gráfica";
+            }
+        }
+
+        function esDiaDestacadoZen(valFecha) {
+            if (diaDestacadoPizarra === null) return false;
+            let d;
+            if (valFecha instanceof Date) {
+                d = valFecha;
+            } else if (typeof valFecha === 'string') {
+                d = new Date(valFecha.includes('T') ? valFecha : valFecha + "T12:00:00");
+            } else if (typeof valFecha === 'number') {
+                d = new Date(valFecha);
+            } else {
+                return false;
+            }
+            if (isNaN(d.getTime())) return false;
+            const day = d.getDay(); // 0: Dom, 1: Lun ... 6: Sáb
+            const normalizado = (day === 0) ? 7 : day;
+            return normalizado === diaDestacadoPizarra;
+        }
+
+        document.addEventListener('click', (e) => {
+            const container = document.getElementById('containerDestacarDiaZen');
+            if (container && !container.contains(e.target)) {
+                cerrarDropdownDiasZen();
+            }
+        });
 
         function toggleSandboxIndicator(tipo) {
             let targetMetric = window.modoPizarraActivo === 'conjunta' ? 'ventas' : 'margen';
@@ -2040,7 +2269,11 @@
                         borderColor: ctx => ctx.p0.parsed.y < 0 ? activeNegativeColor : activeColor,
                     },
                     tension: 0.1,
-                    pointRadius: 2,
+                    pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 6 : 2),
+                    pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 8.5 : 4),
+                    pointBackgroundColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#06b6d4' : activeColor),
+                    pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : activeColor),
+                    pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 2 : 0),
                     spanGaps: false
                 }
             ];
@@ -2137,9 +2370,44 @@
                 });
             }
 
+            const destacarDiasZenPlugin = {
+                id: 'destacarDiasZenPlugin',
+                beforeDatasetsDraw(chart) {
+                    if (diaDestacadoPizarra === null) return;
+                    const { ctx: chartCtx, chartArea, scales } = chart;
+                    if (!chartArea || !scales || !scales.x) return;
+                    const xScale = scales.x;
+
+                    chartCtx.save();
+                    extendedFechas.forEach(f => {
+                        if (esDiaDestacadoZen(f)) {
+                            const xPos = xScale.getPixelForValue(new Date(f + "T12:00:00"));
+                            if (xPos >= chartArea.left - 30 && xPos <= chartArea.right + 30) {
+                                const anchoFranja = Math.max(14, (chartArea.right - chartArea.left) / Math.max(extendedFechas.length, 1) * 0.7);
+
+                                // Franja vertical translúcida
+                                chartCtx.fillStyle = 'rgba(6, 182, 212, 0.08)';
+                                chartCtx.fillRect(xPos - anchoFranja / 2, chartArea.top, anchoFranja, chartArea.bottom - chartArea.top);
+
+                                // Línea vertical punteada central
+                                chartCtx.beginPath();
+                                chartCtx.setLineDash([3, 3]);
+                                chartCtx.strokeStyle = 'rgba(6, 182, 212, 0.35)';
+                                chartCtx.lineWidth = 1;
+                                chartCtx.moveTo(xPos, chartArea.top);
+                                chartCtx.lineTo(xPos, chartArea.bottom);
+                                chartCtx.stroke();
+                            }
+                        }
+                    });
+                    chartCtx.restore();
+                }
+            };
+
             sandboxChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: { datasets: datasets },
+                plugins: [destacarDiasZenPlugin],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -2236,7 +2504,12 @@
                     let forecastPuntos = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < futureForecasts.length ? futureForecasts[i] : null }));
                     sandboxChartInstance.data.datasets.push({
                         label: 'Holt-Winters Estacional (7 días)', data: forecastPuntos,
-                        borderColor: '#fbbf24', borderWidth: 2, borderDash: [2, 2], pointRadius: 3, pointBackgroundColor: '#fbbf24', fill: false
+                        borderColor: '#fbbf24', borderWidth: 2, borderDash: [2, 2],
+                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 6 : 3),
+                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 8.5 : 5),
+                        pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#fbbf24'),
+                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 2 : 1),
+                        pointBackgroundColor: '#fbbf24', fill: false
                     });
                     sandboxChartInstance.update('none');
                 }
@@ -2249,7 +2522,12 @@
                     let sarimaPuntos = extendedFechas.map((f, i) => ({ x: new Date(f + "T12:00:00"), y: i < sarimaForecasts.length ? sarimaForecasts[i] : null }));
                     sandboxChartInstance.data.datasets.push({
                         label: 'SARIMA (7 días)', data: sarimaPuntos,
-                        borderColor: '#06b6d4', borderWidth: 2, borderDash: [3, 3], pointRadius: 3, pointBackgroundColor: '#06b6d4', fill: false
+                        borderColor: '#06b6d4', borderWidth: 2, borderDash: [3, 3],
+                        pointRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 6 : 3),
+                        pointHoverRadius: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 8.5 : 5),
+                        pointBorderColor: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? '#ffffff' : '#06b6d4'),
+                        pointBorderWidth: (ctx) => (ctx.raw && ctx.raw.y !== null && esDiaDestacadoZen(ctx.raw.x) ? 2 : 1),
+                        pointBackgroundColor: '#06b6d4', fill: false
                     });
                     sandboxChartInstance.update('none');
                 }
