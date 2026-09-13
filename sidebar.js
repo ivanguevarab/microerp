@@ -192,7 +192,7 @@
                 {
                     subtitle: 'Análisis Gerencial',
                     items: [
-                        { label: 'Estado de Resultados', url: 'javascript:void(0);' },
+                        { label: 'Estado de Resultados', url: 'estado_de_resultados.html' },
                         { label: 'Margen de Contribución', url: 'margen_contribucion.html' }
                     ]
                 }
