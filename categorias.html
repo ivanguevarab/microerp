@@ -243,6 +243,18 @@
       color: #c62828;
     }
 
+    .badge-count {
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 600;
+    }
+
+    .badge-count-zero {
+      background: #f1f5f9;
+      color: #64748b;
+      font-weight: 500;
+    }
+
     .actions {
       display: flex;
       gap: 8px;
@@ -610,6 +622,8 @@
     html.dark .codigo-tag { background: rgba(30, 41, 59, 0.8) !important; color: #94a3b8 !important; border: 1px solid rgba(255,255,255,0.1) !important; }
     html.dark .badge-active { background-color: rgba(16, 185, 129, 0.1) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
     html.dark .badge-inactive { background-color: rgba(225, 29, 72, 0.1) !important; color: #fb7185 !important; border: 1px solid rgba(225, 29, 72, 0.3) !important; }
+    html.dark .badge-count { background-color: rgba(56, 189, 248, 0.12) !important; color: #38bdf8 !important; border: 1px solid rgba(56, 189, 248, 0.25) !important; font-weight: 600 !important; }
+    html.dark .badge-count-zero { background-color: rgba(148, 163, 184, 0.08) !important; color: #94a3b8 !important; border: 1px solid rgba(148, 163, 184, 0.15) !important; font-weight: 500 !important; }
 
     /* Botones de Acción (Iconos) */
     html.dark .btn-edit { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; }
@@ -711,6 +725,8 @@
             <option value="created_at_desc">Más Recientes (Defecto)</option>
             <option value="nombre_asc">Nombre (A - Z)</option>
             <option value="nombre_desc">Nombre (Z - A)</option>
+            <option value="items_desc">Mayor Cant. Items</option>
+            <option value="items_asc">Menor Cant. Items</option>
           </select>
         </div>
       </div>
@@ -780,14 +796,33 @@
     // ============================================
     async function cargarCategorias() {
       try {
-        const { data, error } = await supabaseApp
-          .from('categorias')
-          .select('*')
-          .order('nombre', { ascending: true });
+        const [respCategorias, respItems] = await Promise.all([
+          supabaseApp
+            .from('categorias')
+            .select('*')
+            .order('nombre', { ascending: true }),
+          supabaseApp
+            .from('items')
+            .select('categoria_id')
+        ]);
 
-        if (error) throw error;
+        if (respCategorias.error) throw respCategorias.error;
+        if (respItems.error) throw respItems.error;
 
-        categoriasData = data;
+        // Construir mapa de conteo de items asociados
+        const conteoMap = {};
+        (respItems.data || []).forEach(item => {
+          if (item.categoria_id) {
+            conteoMap[item.categoria_id] = (conteoMap[item.categoria_id] || 0) + 1;
+          }
+        });
+
+        // Enriquecer cada categoría con su total_items asociado
+        categoriasData = (respCategorias.data || []).map(cat => ({
+          ...cat,
+          total_items: conteoMap[cat.id] || 0
+        }));
+
         aplicarFiltrosYOrden();
       } catch (error) {
         console.error('Error al cargar categorías:', error);
@@ -818,6 +853,7 @@
             <tr>
               <th>Nombre</th>
               <th>Fecha de Creación</th>
+              <th>Items Asociados</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
@@ -827,6 +863,11 @@
               <tr>
                 <td><strong>${cat.nombre}</strong></td>
                 <td>${formatearFecha(cat.created_at)}</td>
+                <td>
+                  <span class="badge ${cat.total_items > 0 ? 'badge-count' : 'badge-count-zero'}">
+                    ${cat.total_items || 0}
+                  </span>
+                </td>
                 <td>
                   <span class="badge ${cat.activo ? 'badge-active' : 'badge-inactive'}">
                     ${cat.activo ? 'Activo' : 'Inactivo'}
@@ -869,6 +910,10 @@
           return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
         } else if (sortValue === 'nombre_desc') {
           return b.nombre.localeCompare(a.nombre, 'es', { sensitivity: 'base' });
+        } else if (sortValue === 'items_desc') {
+          return (b.total_items || 0) - (a.total_items || 0);
+        } else if (sortValue === 'items_asc') {
+          return (a.total_items || 0) - (b.total_items || 0);
         } else {
           // created_at_desc
           if (a.created_at && b.created_at) {

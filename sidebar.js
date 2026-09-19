@@ -87,7 +87,7 @@
                     subtitle: 'Consultas',
                     items: [
                         { label: 'Kardex', url: 'kardex.html' },
-                        { label: 'Inteligencia de Negocio', url: 'metricas_gestion_inventarios.html' }
+                        { label: 'Inteligencia y Compras Óptimas', url: 'metricas_gestion_inventarios.html' }
                     ]
                 },
                 {

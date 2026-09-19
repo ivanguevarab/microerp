@@ -429,6 +429,14 @@
             background: #e0e0e0;
         }
 
+        .form-group input.input-locked {
+            background-color: #f1f5f9 !important;
+            color: #64748b !important;
+            border-color: #cbd5e1 !important;
+            cursor: not-allowed !important;
+            user-select: none !important;
+        }
+
         .modal-footer {
             padding: 20px;
             border-top: 1px solid #e0e0e0;
@@ -733,6 +741,13 @@
             color: #f8fafc !important;
         }
         html.dark .form-group input:focus, html.dark .form-group textarea:focus, html.dark .form-group select:focus { border-color: #f59e0b !important; }
+        html.dark .form-group input.input-locked {
+            background-color: rgba(15, 23, 42, 0.6) !important;
+            color: #94a3b8 !important;
+            border-color: rgba(255, 255, 255, 0.08) !important;
+            cursor: not-allowed !important;
+            user-select: none !important;
+        }
         html.dark .form-hint { color: #64748b !important; }
         html.dark .modal-footer { border-top-color: rgba(255,255,255,0.1) !important; }
 
@@ -833,9 +848,12 @@
                     <div class="form-grid">
                         <!-- Código -->
                         <div class="form-group">
-                            <label for="codigo">Código del Item</label>
+                            <label for="codigo" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Código del Item</span>
+                                <span class="form-hint" style="margin: 0; font-size: 11px; font-weight: normal;">🔒 Automático</span>
+                            </label>
                             <div class="input-group">
-                                <input type="text" id="codigo" required placeholder="Ej: ITEM-2026-000001" maxlength="50" readonly>
+                                <input type="text" id="codigo" required placeholder="Generando código..." maxlength="50" readonly tabindex="-1" class="input-locked" onkeydown="return false;">
                                 <button type="button" class="btn-secondary-action" onclick="generarCodigo()" style="display: none;">
                                     Generar
                                 </button>
@@ -844,9 +862,11 @@
 
                         <!-- Stock Mínimo -->
                         <div class="form-group">
-                            <label for="stockMinimo">Stock Mínimo</label>
-                            <input type="text" inputmode="decimal" id="stockMinimo" value="0" placeholder="0.000"
-                                oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');">
+                            <label for="stockMinimo" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Stock Mínimo</span>
+                                <span class="form-hint" style="margin: 0; font-size: 11px; font-weight: normal;">🔒 Gestionado por el sistema</span>
+                            </label>
+                            <input type="text" id="stockMinimo" value="0.000" placeholder="0.000" readonly tabindex="-1" class="input-locked" onkeydown="return false;">
                         </div>
 
                         <!-- Descripción (Detalles) -->
@@ -1123,7 +1143,7 @@
                     // 3. Restaurar datos
                     document.getElementById('codigo').value = estado.codigo || '';
                     document.getElementById('descripcion').value = estado.descripcion || '';
-                    document.getElementById('stockMinimo').value = estado.stockMinimo || '0';
+                    document.getElementById('stockMinimo').value = estado.stockMinimo ? Number(parseFloat(estado.stockMinimo) || 0).toFixed(3) : '0.000';
 
                     // Restaurar selects (excepto el nuevo)
                     if (estado.categoriaId) document.getElementById('categoriaId').value = estado.categoriaId;
@@ -1290,42 +1310,65 @@
         }
 
         // ============================================
-        // GENERAR CÓDIGO
+        // GENERACIÓN Y BLINDAJE DE CÓDIGO Y STOCK
         // ============================================
+        function getAnioPeru() {
+            try {
+                const fechaStr = new Date().toLocaleString("en-US", { timeZone: "America/Lima" });
+                return new Date(fechaStr).getFullYear();
+            } catch (e) {
+                return new Date().getFullYear();
+            }
+        }
+
+        async function obtenerSiguienteCodigoOficial() {
+            const anio = getAnioPeru();
+
+            // Consultar los últimos códigos registrados en el año para obtener el mayor número secuencial
+            const { data, error } = await supabaseApp
+                .from('items')
+                .select('codigo')
+                .ilike('codigo', `ITEM-${anio}-%`)
+                .order('codigo', { ascending: false })
+                .limit(25);
+
+            if (error) {
+                console.error('Error al consultar correlativo oficial en Supabase:', error);
+                throw new Error('No se pudo verificar el correlativo de códigos en la base de datos');
+            }
+
+            let maxSecuencial = 0;
+            if (data && data.length > 0) {
+                data.forEach(row => {
+                    if (row.codigo) {
+                        const partes = row.codigo.split('-');
+                        if (partes.length === 3 && partes[0] === 'ITEM') {
+                            const num = parseInt(partes[2], 10);
+                            if (!isNaN(num) && num > maxSecuencial) {
+                                maxSecuencial = num;
+                            }
+                        }
+                    }
+                });
+            }
+
+            const nuevoSecuencial = maxSecuencial + 1;
+            const secuencialStr = nuevoSecuencial.toString().padStart(6, '0');
+            return `ITEM-${anio}-${secuencialStr}`;
+        }
+
         async function generarCodigo() {
             try {
-                // Si estamos editando y ya tiene código, no generar
+                // Si estamos editando y ya tiene código, no sobreescribir
                 if (itemEditando && document.getElementById('codigo').value) return;
 
-                const anio = new Date().getFullYear();
-
-                // Obtener el último código de la BD para incrementar
-                const { data, error } = await supabaseApp
-                    .from('items')
-                    .select('codigo')
-                    .ilike('codigo', `ITEM-${anio}-%`)
-                    .order('codigo', { ascending: false })
-                    .limit(1);
-
-                let nuevoSecuencial = 1;
-
-                if (data && data.length > 0) {
-                    const ultimoCodigo = data[0].codigo;
-                    const partes = ultimoCodigo.split('-');
-                    if (partes.length === 3) {
-                        nuevoSecuencial = parseInt(partes[2]) + 1;
-                    }
-                }
-
-                const secuencialStr = nuevoSecuencial.toString().padStart(6, '0');
-                const nuevoCodigo = `ITEM-${anio}-${secuencialStr}`;
-
+                document.getElementById('codigo').value = 'Calculando...';
+                const nuevoCodigo = await obtenerSiguienteCodigoOficial();
                 document.getElementById('codigo').value = nuevoCodigo;
 
             } catch (error) {
-                console.error('Error al generar código:', error);
-                // Fallback básico
-                document.getElementById('codigo').value = `ITEM-${new Date().getFullYear()}-XXXXXX`;
+                console.error('Error al generar código preliminar:', error);
+                document.getElementById('codigo').value = 'Automático al guardar';
             }
         }
 
@@ -1337,6 +1380,7 @@
             document.getElementById('modalTitle').textContent = 'Nuevo Item';
             document.getElementById('itemForm').reset();
             document.getElementById('itemId').value = '';
+            document.getElementById('stockMinimo').value = '0.000'; // Forzado a 0.000
             document.getElementById('afectoIgvCompra').value = 'true';
             document.getElementById('afectoIgvVenta').value = 'true';
 
@@ -1358,35 +1402,22 @@
         }
 
         // ============================================
-        // GUARDAR (CREAR Y EDITAR)
+        // GUARDAR (CREAR Y EDITAR) - BLINDAJE DE INTEGRIDAD
         // ============================================
         async function guardarItem(event) {
             event.preventDefault();
 
             const id = document.getElementById('itemId').value;
-            const codigo = document.getElementById('codigo').value.trim();
             const descripcion = document.getElementById('descripcion').value.trim();
             const categoriaId = document.getElementById('categoriaId').value;
             const unidadMedidaId = document.getElementById('unidadMedidaId').value;
             const proveedorId = document.getElementById('proveedorId').value || null;
-            const stockMinimo = Number(parseFloat(document.getElementById('stockMinimo').value || 0).toFixed(3));
             const afectoIgvCompra = document.getElementById('afectoIgvCompra').value === 'true';
             const afectoIgvVenta = document.getElementById('afectoIgvVenta').value === 'true';
 
-            // Validaciones
-            if (!codigo || !descripcion || !categoriaId || !unidadMedidaId) {
+            // Validaciones de campos requeridos
+            if (!descripcion || !categoriaId || !unidadMedidaId) {
                 mostrarToast('Todos los campos marcados con * son obligatorios', 'warning');
-                return;
-            }
-
-            // Validar duplicados de código
-            const duplicado = itemsData.find(p =>
-                p.codigo.toLowerCase() === codigo.toLowerCase() &&
-                p.id !== id
-            );
-
-            if (duplicado) {
-                mostrarToast('⚠️ El código ya existe', 'warning');
                 return;
             }
 
@@ -1399,36 +1430,57 @@
                 ? window.currentUserProfile.nombre_completo 
                 : (window.currentUser ? window.currentUser.email : 'Sistema');
 
-            const payload = {
-                codigo,
-                descripcion,
-                categoria_id: categoriaId,
-                unidad_medida_id: unidadMedidaId,
-                unidad_medida: unidadMedidaLegacy, // Campo legacy requerido por la BD
-                proveedor_id: proveedorId,
-                stock_minimo: stockMinimo,
-                afecto_igv_compra: afectoIgvCompra,
-                afecto_igv_venta: afectoIgvVenta,
-                activo: true
-            };
-
             try {
                 if (id) {
-                    // UPDATE
-                    payload.updated_by = autor;
+                    // ============================================
+                    // MODO EDICIÓN (UPDATE)
+                    // ============================================
+                    // Blindaje contra consola: NO se incluyen ni 'codigo' ni 'stock_minimo'
+                    // en el payload de actualización. Permanecen 100% inmutables en PostgreSQL.
+                    const payloadUpdate = {
+                        descripcion,
+                        categoria_id: categoriaId,
+                        unidad_medida_id: unidadMedidaId,
+                        unidad_medida: unidadMedidaLegacy, // Campo legacy requerido por la BD
+                        proveedor_id: proveedorId,
+                        afecto_igv_compra: afectoIgvCompra,
+                        afecto_igv_venta: afectoIgvVenta,
+                        updated_by: autor
+                    };
+
                     const { error } = await supabaseApp
                         .from('items')
-                        .update(payload)
+                        .update(payloadUpdate)
                         .eq('id', id);
 
                     if (error) throw error;
                     mostrarToast('✅ Item actualizado correctamente', 'success');
                 } else {
-                    // INSERT
-                    payload.created_by = autor;
+                    // ============================================
+                    // MODO CREACIÓN (INSERT)
+                    // ============================================
+                    // Blindaje contra consola:
+                    // 1. stock_minimo se fija estrictamente en 0 en memoria (ignora el DOM)
+                    // 2. codigo se genera fresco y oficial desde la BD (ignora el DOM)
+                    const codigoOficial = await obtenerSiguienteCodigoOficial();
+
+                    const payloadInsert = {
+                        codigo: codigoOficial,
+                        descripcion,
+                        categoria_id: categoriaId,
+                        unidad_medida_id: unidadMedidaId,
+                        unidad_medida: unidadMedidaLegacy, // Campo legacy requerido por la BD
+                        proveedor_id: proveedorId,
+                        stock_minimo: 0, // Inmutable al crear: siempre 0
+                        afecto_igv_compra: afectoIgvCompra,
+                        afecto_igv_venta: afectoIgvVenta,
+                        activo: true,
+                        created_by: autor
+                    };
+
                     const { error } = await supabaseApp
                         .from('items')
-                        .insert([payload]);
+                        .insert([payloadInsert]);
 
                     if (error) throw error;
                     mostrarToast('✅ Item creado correctamente', 'success');
@@ -1458,12 +1510,17 @@
                 itemEditando = data;
                 document.getElementById('modalTitle').textContent = 'Editar Item';
                 document.getElementById('itemId').value = data.id;
-                document.getElementById('codigo').value = data.codigo;
-                document.getElementById('descripcion').value = data.descripcion;
-                document.getElementById('categoriaId').value = data.categoria_id;
-                document.getElementById('unidadMedidaId').value = data.unidad_medida_id;
+                document.getElementById('codigo').value = data.codigo || '';
+                document.getElementById('descripcion').value = data.descripcion || '';
+                document.getElementById('categoriaId').value = data.categoria_id || '';
+                document.getElementById('unidadMedidaId').value = data.unidad_medida_id || '';
                 document.getElementById('proveedorId').value = data.proveedor_id || '';
-                document.getElementById('stockMinimo').value = data.stock_minimo !== null && data.stock_minimo !== undefined ? data.stock_minimo : 0;
+                
+                // Formatear stock_minimo con 3 decimales para visualización consistente
+                const stockMinVal = (data.stock_minimo !== null && data.stock_minimo !== undefined) 
+                    ? Number(data.stock_minimo).toFixed(3) 
+                    : '0.000';
+                document.getElementById('stockMinimo').value = stockMinVal;
 
                 // Si la BD retorna nulo (en históricos), asumimos true por compatibilidad
                 document.getElementById('afectoIgvCompra').value = data.afecto_igv_compra !== false ? 'true' : 'false';
