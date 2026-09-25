@@ -64,52 +64,81 @@ function formatMoney(amount, maxDigits = 2) {
     return Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: maxDigits });
 }
 
-async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
+async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, datosEnMemoria = null) {
     try {
         Swal.fire({ title: 'Preparando Impresión...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
 
-        // 1. Obtener Datos de la Venta (Safe)
-        const { data: v, error: eV } = await window.supabaseClient.from('ventas')
-            .select('*, clientes(*)')
-            .eq('id', ventaId).single();
-        if (eV || !v) throw new Error("No se encontró la cabecera de la venta: " + (eV ? eV.message : ''));
+        let v, det, emp, direccionTicket, dicc = {};
 
-        const { data: det, error: eD } = await window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
-        if (eD) throw new Error("No se encontraron detalles de la venta: " + eD.message);
+        if (datosEnMemoria) {
+            // MODO ULTRARRÁPIDO EN MEMORIA (0 peticiones a la BD)
+            v = datosEnMemoria.venta;
+            det = datosEnMemoria.detalles || [];
+            emp = datosEnMemoria.empresa || {};
+            direccionTicket = datosEnMemoria.almacenNombre || emp?.direccion || 'Sede Principal';
+            dicc = datosEnMemoria.dicc || {};
+            if (datosEnMemoria.cliente) {
+                v.clientes = datosEnMemoria.cliente;
+            }
+        } else {
+            // 1. Obtener Datos de la Venta (Safe Fallback para reimpresión histórica)
+            const { data: vBD, error: eV } = await window.supabaseClient.from('ventas')
+                .select('*, clientes(*)')
+                .eq('id', ventaId).single();
+            if (eV || !vBD) throw new Error("No se encontró la cabecera de la venta: " + (eV ? eV.message : ''));
+            v = vBD;
 
-        // 1.2 Recuperar pago inicial si es crédito y estamos reimprimiendo
-        if (v.condicion_pago === 'CREDITO' && montoRecibido === 0) {
-            const { data: pIni } = await window.supabaseClient.from('ventas_credito_pagos')
-                .select('monto')
-                .eq('venta_id', ventaId)
-                .eq('tipo_pago', 'INICIAL')
-                .maybeSingle();
-            if (pIni) montoRecibido = Number(pIni.monto);
-        }
+            const { data: detBD, error: eD } = await window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
+            if (eD) throw new Error("No se encontraron detalles de la venta: " + eD.message);
+            det = detBD;
 
-        // 1.5 Obtener datos de la empresa por separado para evitar el error de cache de PostgREST
-        const { data: emp } = await window.supabaseClient.from('empresas')
-            .select('*').eq('id', v.empresa_id).single();
+            // 1.2 Recuperar pago inicial si es crédito y estamos reimprimiendo
+            if (v.condicion_pago === 'CREDITO' && montoRecibido === 0) {
+                const { data: pIni } = await window.supabaseClient.from('ventas_credito_pagos')
+                    .select('monto')
+                    .eq('venta_id', ventaId)
+                    .eq('tipo_pago', 'INICIAL')
+                    .maybeSingle();
+                if (pIni) montoRecibido = Number(pIni.monto);
+            }
 
-        // Obtener dirección del almacén a través del egreso (si existe impacto físico)
-        let direccionTicket = emp?.direccion || 'Sede Principal';
-        const { data: egr } = await window.supabaseClient.from('egresos')
-            .select('almacen_origen_id')
-            .eq('observaciones', 'VENTA_REF:' + v.numero_ticket)
-            .limit(1);
+            // 1.5 Obtener datos de la empresa por separado para evitar el error de cache de PostgREST
+            const { data: empBD } = await window.supabaseClient.from('empresas')
+                .select('*').eq('id', v.empresa_id).single();
+            emp = empBD;
 
-        if (egr && egr.length > 0 && egr[0].almacen_origen_id) {
-            const { data: alm } = await window.supabaseClient.from('almacenes')
-                .select('nombre, descripcion')
-                .eq('id', egr[0].almacen_origen_id)
-                .single();
-            if (alm) {
-                direccionTicket = alm.nombre;
-                if (alm.descripcion) direccionTicket += ' - ' + alm.descripcion;
+            // Obtener dirección del almacén a través del egreso (si existe impacto físico)
+            direccionTicket = emp?.direccion || 'Sede Principal';
+            const { data: egr } = await window.supabaseClient.from('egresos')
+                .select('almacen_origen_id')
+                .eq('observaciones', 'VENTA_REF:' + v.numero_ticket)
+                .limit(1);
+
+            if (egr && egr.length > 0 && egr[0].almacen_origen_id) {
+                const { data: alm } = await window.supabaseClient.from('almacenes')
+                    .select('nombre, descripcion')
+                    .eq('id', egr[0].almacen_origen_id)
+                    .single();
+                if (alm) {
+                    direccionTicket = alm.nombre;
+                    if (alm.descripcion) direccionTicket += ' - ' + alm.descripcion;
+                }
+            }
+
+            // Mapeo Diccionario Elementos
+            const tItems = det.filter(d => d.tipo_item_vendido === 'ITEMS').map(d => d.referencia_id);
+            const tCods = det.filter(d => d.tipo_item_vendido === 'CUS' || d.tipo_item_vendido === 'CUP').map(d => d.referencia_id);
+            if(tItems.length > 0) {
+                const { data: iBD } = await window.supabaseClient.from('items').select('id, descripcion').in('id', tItems);
+                (iBD||[]).forEach(x => dicc[x.id] = x.descripcion);
+            }
+            if(tCods.length > 0) {
+                const { data: cBD } = await window.supabaseClient.from('codigos_unicos').select('id, descripcion').in('id', tCods);
+                (cBD||[]).forEach(x => dicc[x.id] = x.descripcion);
             }
         }
 
-        // 2. Construir Datos
+        // 2. Construir Datos de Impresión (Empresa, Cliente y Fechas)
         const empresaNombre = emp?.nombre_comercial || emp?.razon_social || emp?.nombre || 'MI EMPRESA';
         const empresaRuc = emp?.ruc || '00000000000';
         const empresaDir = direccionTicket;
@@ -118,7 +147,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
         const clienteNombre = v.clientes?.razon_social || 'Cliente No Identificado (NN)';
         const clienteDoc = v.clientes?.numero_documento || '---';
 
-        let tc = v.created_at;
+        let tc = v.created_at || new Date().toISOString();
         if (tc && !tc.includes('Z') && !tc.includes('+') && !tc.match(/-\d\d:?\d\d$/)) {
             tc += 'Z'; // Forzar UTC internamente antes de que JS asuma local
         }
@@ -131,19 +160,6 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
         }
         
         const horaStr = dateObj.toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
-
-        // Mapeo Diccionario Elementos
-        const tItems = det.filter(d => d.tipo_item_vendido === 'ITEMS').map(d => d.referencia_id);
-        const tCods = det.filter(d => d.tipo_item_vendido === 'CUS' || d.tipo_item_vendido === 'CUP').map(d => d.referencia_id);
-        let dicc = {};
-        if(tItems.length > 0) {
-            const { data: iBD } = await window.supabaseClient.from('items').select('id, descripcion').in('id', tItems);
-            (iBD||[]).forEach(x => dicc[x.id] = x.descripcion);
-        }
-        if(tCods.length > 0) {
-            const { data: cBD } = await window.supabaseClient.from('codigos_unicos').select('id, descripcion').in('id', tCods);
-            (cBD||[]).forEach(x => dicc[x.id] = x.descripcion);
-        }
 
         let opInafecta = 0;
 
@@ -223,7 +239,6 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0) {
                     <div>S/ ${formatMoney(opInafecta)}</div>
                     ` : ''}
                 ` : ''}
-            </div>
             </div>
             <div class="ticket-totales ticket-gran-total">
                 <div>${v.condicion_pago === 'CREDITO' ? 'IMPORTE TOTAL:' : 'TOTAL A PAGAR:'}</div>

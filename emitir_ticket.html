@@ -330,6 +330,77 @@
             border-color: rgba(59, 130, 246, 0.3) !important;
         }
 
+        /* =========================================================
+           SweetAlert2 Premium Theme Sync (Dark & Light Mode)
+           ========================================================= */
+        html.dark .swal2-popup {
+            background-color: #0f172a !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
+            border-radius: 1rem !important;
+        }
+        html.dark .swal2-title,
+        html.dark .swal2-html-container {
+            color: #f8fafc !important;
+        }
+        html.dark .swal2-input,
+        html.dark .swal2-select,
+        html.dark .swal2-textarea {
+            background-color: rgba(30, 41, 59, 0.85) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            color: #f8fafc !important;
+            border-radius: 0.75rem !important;
+            text-align: center !important;
+            font-size: 1.35rem !important;
+            font-weight: 700 !important;
+        }
+        html.dark .swal2-input:focus,
+        html.dark .swal2-select:focus {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25) !important;
+            outline: none !important;
+        }
+        html.dark .swal2-actions button {
+            border-radius: 0.75rem !important;
+            font-weight: 700 !important;
+            font-size: 0.95rem !important;
+            padding: 10px 24px !important;
+        }
+        html.dark .swal2-confirm {
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+        }
+        html.dark .swal2-cancel {
+            background-color: #475569 !important;
+            color: #f1f5f9 !important;
+        }
+
+        html:not(.dark) .swal2-popup {
+            border-radius: 1rem !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        }
+        html:not(.dark) .swal2-input {
+            border-radius: 0.75rem !important;
+            text-align: center !important;
+            font-size: 1.35rem !important;
+            font-weight: 700 !important;
+            border: 2px solid #cbd5e1 !important;
+        }
+        html:not(.dark) .swal2-input:focus {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
+        }
+        html:not(.dark) .swal2-actions button {
+            border-radius: 0.75rem !important;
+            font-weight: 700 !important;
+            font-size: 0.95rem !important;
+            padding: 10px 24px !important;
+        }
+
         /* MODO CLARO ESTRICTO (Para corregir que styles.css impone #020617 en body) */
         html:not(.dark) body { background-color: #f3f4f6 !important; color: #334155 !important; }
         html:not(.dark) .submodule-header h1 { color: #ffffff !important; }
@@ -604,6 +675,8 @@
         let isEditMode = false;
         let currentEditVentaId = null;
         let originalEditDate = null;
+        window.cacheLotesBusqueda = {}; // Caché de lotes por item_id para agilizar adición al carrito
+        let currentSearchToken = 0; // Token anti-race-condition para tipeo veloz
 
         // Helper para ignorar tildes
         function removeAccents(str) {
@@ -1046,7 +1119,7 @@
             }
         }
 
-        // BÚSQUEDA HÍBRIDA (Items o CUS/CUP)
+        // BÚSQUEDA HÍBRIDA (Items o CUS/CUP) - OPTIMIZADA POR BATCH FETCHING
         async function buscarElemento() {
             indiceAutocomplete = -1; // Reset de posición teclado
             const term = document.getElementById('buscadorGeneral').value.trim();
@@ -1055,6 +1128,8 @@
             if(term.length < 2) { resDiv.style.display = 'none'; return; }
             resDiv.innerHTML = '<div class="p-4 text-center text-gray-500"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>';
             resDiv.style.display = 'block';
+
+            const thisSearchToken = ++currentSearchToken;
 
             try {
                 let resultadosDOM = '';
@@ -1067,56 +1142,83 @@
                         return;
                     }
 
-                    // Blindaje del query contra comas y pipes: reemplazar comillas dobles y envolver en comillas dobles para Supabase
-                    const safeTerm = term.replace(/"/g, ''); // Remover comillas dobles si el usuario tipeó alguna accidentalmente
+                    // Blindaje del query contra comas y pipes: reemplazar comillas dobles y normalizar
+                    const safeTerm = term.replace(/"/g, ''); 
                     const normalizedTerm = removeAccents(safeTerm).toLowerCase();
                     
-                    // Buscar Items y corroborar stock FIFO (Misma lógica probada de egresos.html)
-                    const { data: items } = await window.supabaseClient.from('items')
+                    // 1. Buscar Items coincidentes (máx 10)
+                    const { data: items, error: errItems } = await window.supabaseClient.from('items')
                         .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta')
                         .eq('empresa_id', currentEmpresaId)
                         .eq('activo', true)
                         .ilike('busqueda_vector', `%${normalizedTerm}%`).limit(10);
                     
-                    if(!items || items.length === 0) { resDiv.innerHTML = '<div class="p-4 text-slate-500">No se hallaron registros en el catálogo con ese texto. Revise si hay errores de tipeo.</div>'; return; }
+                    if (thisSearchToken !== currentSearchToken) return; // Descartar si el usuario siguió escribiendo
 
-                    // Por cada item, calcular stock disponible
-                    for(let prod of items) {
-                        if (!modoVerdeActivo) {
-                            // MODO NORMAL: Busca stock en el almacén seleccionado
-                            const { data: lotes } = await window.supabaseClient.from('ingresos_detalle')
-                                .select('cantidad_disponible, ingresos!inner(almacen_destino_id)')
-                                .eq('item_id', prod.id)
-                                .eq('ingresos.almacen_destino_id', almacenId)
-                                .gt('cantidad_disponible', 0);
-                            
-                            let stockActual = lotes ? lotes.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
+                    if(!items || items.length === 0) { 
+                        resDiv.innerHTML = '<div class="p-4 text-slate-500">No se hallaron registros en el catálogo con ese texto. Revise si hay errores de tipeo.</div>'; 
+                        return; 
+                    }
+
+                    const itemIds = items.map(p => p.id);
+                    const lotesPorItem = {};
+
+                    // 2. BATCH FETCH DE LOTES (1 sola consulta en vez de N consultas secuenciales)
+                    if (!modoVerdeActivo) {
+                        const { data: lotes, error: errLotes } = await window.supabaseClient.from('ingresos_detalle')
+                            .select('id, item_id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
+                            .in('item_id', itemIds)
+                            .eq('ingresos.almacen_destino_id', almacenId)
+                            .gt('cantidad_disponible', 0)
+                            .order('ingresos(fecha_ingreso)', { ascending: true });
+
+                        if (thisSearchToken !== currentSearchToken) return;
+
+                        (lotes || []).forEach(l => {
+                            if (!lotesPorItem[l.item_id]) lotesPorItem[l.item_id] = [];
+                            lotesPorItem[l.item_id].push(l);
+                        });
+
+                        // Calcular stock y renderizar
+                        for(let prod of items) {
+                            const misLotes = lotesPorItem[prod.id] || [];
+                            window.cacheLotesBusqueda[prod.id] = misLotes;
+
+                            let stockActual = misLotes.reduce((s, l) => s + Number(l.cantidad_disponible), 0);
                             if (isEditMode && window.stockRescatadoVirtual && window.stockRescatadoVirtual[prod.id]) {
                                 stockActual += window.stockRescatadoVirtual[prod.id];
                             }
-                            
-                            // Solo muestra si tiene stock
                             if(stockActual > 0) {
                                 resultadosDOM += renderizarFilaBusqueda(prod, 'ITEMS', stockActual);
                             }
-                        } else {
-                            // MODO BÚSQUEDA SIN STOCK: Calcula el stock global (todos los almacenes)
-                            const { data: lotesGlobales } = await window.supabaseClient.from('ingresos_detalle')
-                                .select('cantidad_disponible')
-                                .eq('item_id', prod.id)
-                                .gt('cantidad_disponible', 0);
-                            
-                            let stockGlobal = lotesGlobales ? lotesGlobales.reduce((s,l) => s + Number(l.cantidad_disponible), 0) : 0;
+                        }
+                    } else {
+                        // MODO BÚSQUEDA SIN STOCK (Modo Verde): Stock global cero
+                        const { data: lotesGlobales } = await window.supabaseClient.from('ingresos_detalle')
+                            .select('item_id, cantidad_disponible')
+                            .in('item_id', itemIds)
+                            .gt('cantidad_disponible', 0);
+
+                        if (thisSearchToken !== currentSearchToken) return;
+
+                        (lotesGlobales || []).forEach(l => {
+                            if (!lotesPorItem[l.item_id]) lotesPorItem[l.item_id] = [];
+                            lotesPorItem[l.item_id].push(l);
+                        });
+
+                        for(let prod of items) {
+                            const misLotes = lotesPorItem[prod.id] || [];
+                            window.cacheLotesBusqueda[prod.id] = []; // En modo verde no hay lotes físicos
+                            let stockGlobal = misLotes.reduce((s, l) => s + Number(l.cantidad_disponible), 0);
                             if (isEditMode && window.stockRescatadoVirtual && window.stockRescatadoVirtual[prod.id]) {
                                 stockGlobal += window.stockRescatadoVirtual[prod.id];
                             }
-                            
-                            // EXCLUSIVAMENTE muestra si el stock total de la empresa es 0
                             if(stockGlobal === 0) {
                                 resultadosDOM += renderizarFilaBusqueda(prod, 'ITEMS', 0);
                             }
                         }
                     }
+
                     if(!resultadosDOM) {
                         resultadosDOM = modoVerdeActivo 
                             ? '<div class="p-4 text-orange-500">No se hallaron productos con stock global cero.</div>' 
@@ -1130,16 +1232,28 @@
                         .select('id, codigo, descripcion, precio_venta, tipo, cliente_id')
                         .eq('empresa_id', currentEmpresaId)
                         .eq('tipo', filtroActivo)
-                        .neq('estado', 'ANULADO') // Permite facturar o cobrar en cualquier estado excepto anulado
+                        .neq('estado', 'ANULADO')
                         .or(`descripcion.ilike."%${safeTerm}%",codigo.ilike."%${safeTerm}%"`).limit(10);
                     
-                    if(!cods || cods.length === 0) { resDiv.innerHTML = '<div class="p-4 text-slate-500">No se hallaron registros en el catálogo con ese texto. Revise si hay errores de tipeo.</div>'; return; }
+                    if (thisSearchToken !== currentSearchToken) return;
+
+                    if(!cods || cods.length === 0) { 
+                        resDiv.innerHTML = '<div class="p-4 text-slate-500">No se hallaron registros en el catálogo con ese texto. Revise si hay errores de tipeo.</div>'; 
+                        return; 
+                    }
                     cods.forEach(c => resultadosDOM += renderizarFilaBusqueda(c, filtroActivo, null));
                 }
 
-                resDiv.innerHTML = resultadosDOM;
+                if (thisSearchToken === currentSearchToken) {
+                    resDiv.innerHTML = resultadosDOM;
+                }
 
-            } catch(e) { console.error('Error busqueda:', e); resDiv.innerHTML = '<div class="p-4 text-red-500">Error en búsqueda.</div>'; }
+            } catch(e) { 
+                console.error('Error busqueda:', e); 
+                if (thisSearchToken === currentSearchToken) {
+                    resDiv.innerHTML = '<div class="p-4 text-red-500">Error en búsqueda.</div>'; 
+                }
+            }
         }
 
         function formatearPrecioVentaVisual(val) {
@@ -1185,58 +1299,131 @@
             
             const obj = JSON.parse(decodeURIComponent(dataStr));
             const idFront = "CRT_" + Math.random().toString(36).substr(2, 9);
-
-            // Validar si ya está en carrito (En TPV mejor agregar línea nueva para permitir distintos precios/lotes, pero por simplicidad agruparemos si es el mismo precio y tipo)
             
-            // Requerir cantidad
-            const qStr = prompt(`Cantidad requerida de ${obj.descripcion}:`, "1");
-            if(!qStr) return;
+            // Requerir cantidad mediante SweetAlert2 ágil y no bloqueante
+            const { value: qStr, isDismissed } = await Swal.fire({
+                title: `<span class="text-lg font-bold text-slate-800 dark:text-slate-100">Cantidad Requerida</span>`,
+                html: `
+                    <div class="text-base font-bold text-blue-600 dark:text-amber-400 mb-1">${obj.descripcion}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Ingrese la cantidad y presione <span class="font-bold text-slate-700 dark:text-slate-200">Enter</span></div>
+                `,
+                input: 'text',
+                inputValue: '1',
+                inputAttributes: {
+                    inputmode: 'decimal',
+                    autocapitalize: 'off',
+                    autocomplete: 'off'
+                },
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-cart-plus mr-1.5"></i> Añadir al Ticket',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#64748b',
+                didOpen: () => {
+                    const input = Swal.getInput();
+                    if (input) {
+                        input.select();
+                        input.focus();
+                        input.addEventListener('input', () => {
+                            input.value = input.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+                        });
+                    }
+                }
+            });
+
+            if (isDismissed || !qStr) {
+                document.getElementById('buscadorGeneral').focus();
+                return;
+            }
+
             const cantidadReq = parseFloat(qStr);
-            if(isNaN(cantidadReq) || cantidadReq <= 0) return;
+            if(isNaN(cantidadReq) || cantidadReq <= 0) {
+                document.getElementById('buscadorGeneral').focus();
+                return;
+            }
 
             // Validación dura de Stock Logístico para ITEMS
             let lotesSeleccionados = [];
             const modoVerdeActivo = document.getElementById('toggleModoVerde')?.checked;
 
             if(obj.paramTipo === 'ITEMS') {
-                if(cantidadReq > obj.paramStock) {
+                // Salvaguarda: Calcular stock disponible neto descontando lo ya reservado en el carrito
+                let yaEnCarrito = 0;
+                carrito.forEach(c => {
+                    if (c.tipo === 'ITEMS' && c.dbId === obj.id) {
+                        yaEnCarrito += Number(c.cantidad);
+                    }
+                });
+
+                const stockNetoDisponible = Math.max(0, obj.paramStock - yaEnCarrito);
+
+                if(cantidadReq > stockNetoDisponible) {
                     if (!modoVerdeActivo) {
-                        Swal.fire('Stock Insuficiente', `Solo tienes ${obj.paramStock} unidades disponibles. Activa el Modo A Pedido para omitir esta restricción.`, 'error');
+                        Swal.fire({
+                            title: 'Stock Insuficiente',
+                            text: `Solo tienes ${stockNetoDisponible} unidades disponibles en almacén (ya tienes ${yaEnCarrito} en el ticket). Activa "Búsqueda Sin Stock" si deseas vender a pedido.`,
+                            icon: 'error',
+                            confirmButtonColor: '#2563eb'
+                        }).then(() => document.getElementById('buscadorGeneral').focus());
                         return;
                     } else {
                         // Advertencia visual suave pero permitiendo continuar
                         await Swal.fire({
                             title: 'Venta A Pedido',
-                            text: `Faltan ${cantidadReq - obj.paramStock} unidades. La venta se registrará comercialmente pero NO se descontará del Kardex la parte faltante.`,
+                            text: `Faltan ${cantidadReq - stockNetoDisponible} unidades. La venta se registrará comercialmente pero NO se descontará del Kardex la parte faltante.`,
                             icon: 'info',
-                            timer: 5500,
+                            timer: 2500,
                             showConfirmButton: false
                         });
                     }
                 }
+
                 const almacenId = document.getElementById('almacenOrigen').value;
                 if (!isEditMode) {
                     try {
-                        // LÓGICA FIFO CLONADA: Consultar lotes
-                        const { data: lotesBD } = await window.supabaseClient.from('ingresos_detalle')
-                            .select('id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
-                            .eq('item_id', obj.id)
-                            .eq('ingresos.almacen_destino_id', almacenId)
-                            .gt('cantidad_disponible', 0)
-                            .order('ingresos(fecha_ingreso)', { ascending: true }); // FIFO
+                        // LÓGICA FIFO EN MEMORIA: Reutilizar lotes ya traídos en la búsqueda (0ms de red)
+                        let lotesBD = (window.cacheLotesBusqueda && window.cacheLotesBusqueda[obj.id]) ? window.cacheLotesBusqueda[obj.id] : null;
+                        
+                        if (!lotesBD || lotesBD.length === 0) {
+                            // Fallback de respaldo por si no estuviese en caché
+                            const { data: lotesFetch } = await window.supabaseClient.from('ingresos_detalle')
+                                .select('id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
+                                .eq('item_id', obj.id)
+                                .eq('ingresos.almacen_destino_id', almacenId)
+                                .gt('cantidad_disponible', 0)
+                                .order('ingresos(fecha_ingreso)', { ascending: true });
+                            lotesBD = lotesFetch || [];
+                        }
+
+                        // Calcular porción ya consumida por lote en el carrito actual
+                        const consumidoPorLote = {};
+                        carrito.forEach(c => {
+                            if (c.lotesAsignados) {
+                                c.lotesAsignados.forEach(p => {
+                                    consumidoPorLote[p.lotId] = (consumidoPorLote[p.lotId] || 0) + Number(p.qty);
+                                });
+                            }
+                        });
                         
                         let pendiente = cantidadReq;
-                        for(let l of (lotesBD||[])) {
+                        for(let l of lotesBD) {
                             if(pendiente <= 0) break;
-                            const disp = Number(l.cantidad_disponible);
-                            const aTomar = Math.min(pendiente, disp);
-                            lotesSeleccionados.push({ lotId: l.id, qty: aTomar, costo_unit_usado: l.costo_adquisicion_unitario });
+                            const yaUsado = consumidoPorLote[l.id] || 0;
+                            const dispReal = Math.max(0, Number(l.cantidad_disponible) - yaUsado);
+                            if (dispReal <= 0) continue;
+                            const aTomar = Math.min(pendiente, dispReal);
+                            lotesSeleccionados.push({ 
+                                lotId: l.id, 
+                                qty: aTomar, 
+                                costo_unit_usado: Number(l.costo_adquisicion_unitario || 0) 
+                            });
                             pendiente -= aTomar;
                         }
                         if(pendiente > 0 && !modoVerdeActivo) throw new Error("Descuadre transaccional FIFO durante la selección.");
                     } catch(e) {
                         console.error("Error resolviendo lotes:", e);
                         Swal.fire('Error Interno', 'No se pudo resolver el FIFO.', 'error');
+                        document.getElementById('buscadorGeneral').focus();
                         return;
                     }
                 }
@@ -1255,6 +1442,7 @@
             });
 
             renderizarCarrito();
+            document.getElementById('buscadorGeneral').focus();
 
             // Autoseleccionar cliente si es CUS/CUP y tiene cliente asociado
             if((obj.paramTipo === 'CUS' || obj.paramTipo === 'CUP') && obj.paramClienteId) {
@@ -1599,98 +1787,39 @@
             try {
                 Swal.fire({ title: 'Registrando Venta...', html: 'Transaccionando base de datos...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()}});
                 
-                // 1. GENERAR LA VENTA (Dominio Comercial/Financiero)
-                const payloadVenta = {
-                    empresa_id: currentEmpresaId,
-                    numero_ticket: numTk,
-                    fecha_venta: fechaEmisionStr,
-                    cliente_id: clienteId,
-                    tipo_comprobante: tipoComp,
-                    genera_igv: generaIgv,
-                    valor_venta_total: subtotal.toFixed(2),
-                    igv_debito_total: igv.toFixed(2),
-                    precio_venta_total: total.toFixed(2),
-                    condicion_pago: condicionPago,
-                    saldo_pendiente: saldoPendiente.toFixed(2),
-                    fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
-                    estado: 'REGISTRADO',
-                    created_by: window.cajeroName
-                };
-
-                const { data: ventaDB, error: errVenta } = await window.supabaseClient.from('ventas').insert([payloadVenta]).select().single();
-                if(errVenta) throw errVenta;
-
-                // 1.5 SI ES CRÉDITO Y HAY INICIAL, REGISTRAR EN ventas_credito_pagos
-                if (condicionPago === 'CREDITO' && pagoInicial_input > 0) {
-                    const payloadInicial = {
-                        empresa_id: currentEmpresaId,
-                        venta_id: ventaDB.id,
-                        tipo_pago: 'INICIAL',
-                        monto: pagoInicial_input.toFixed(2),
-                        estado: 'PAGADO',
-                        fecha_pago: new Date(fechaRecepcionPagoStr + 'T00:00:00-05:00').toISOString(), // [NUEVO] Inyectado para su detección real en Flujo de Caja
-                        metodo_pago: 'EFECTIVO', // Asumido por defecto en TPV físico
-                        observaciones: 'Cuota inicial registrada directamente en caja terminal.',
-                        created_by: window.cajeroName
-                    };
-                    const { error: errIni } = await window.supabaseClient.from('ventas_credito_pagos').insert([payloadInicial]);
-                    if (errIni) throw errIni;
-                }
-
-                // 2. CREAR DETALLES DE VENTA y SUB-RUTINA DE EGRESO FÍSICO (Para Kardex)
+                // 1. Preparar detalles comerciales y lotes logísticos en memoria
                 let detallesVentaInserts = [];
-                let necesitaEgresoFisico = false;
-                let payloadEgreso = null;
-                let egresoBD_id = null;
+                let lotesADescontar = [];
 
-                // Pre-evaluar si el ticket toca Items fisiscos
-                const itemsFisicosParaKardex = carrito.filter(c => c.tipo === 'ITEMS');
-                
-                if(itemsFisicosParaKardex.length > 0) {
-                    necesitaEgresoFisico = true;
-                    // Buscar en el catálago de tipos el ID de 'Venta' o usar el primero genérico, si no existe.
-                    let tipoEgId = tipoEgresosDisponibles.find(x => x.nombre.toLowerCase().includes('venta'))?.id;
-                    if(!tipoEgId) tipoEgId = tipoEgresosDisponibles[0]?.id; // Fallback
-
-                    payloadEgreso = {
-                        almacen_origen_id: document.getElementById('almacenOrigen').value,
-                        tipo_egreso_id: tipoEgId,
-                        fecha_egreso: fechaEmisionStr,
-                        estado: 'CONFIRMADO',
-                        usuario_id: window.currentUser.id,
-                        observaciones: 'VENTA_REF:' + numTk
-                    };
-                    const { data: egrData, error: errEg } = await window.supabaseClient.from('egresos').insert([payloadEgreso]).select().single();
-                    if(errEg) throw errEg;
-                    egresoBD_id = egrData.id;
-                }
-
-                // Iterador Maestro de Detalles
                 for(let item of carrito) {
-                    // Cálculo Tributario Unitario Proporcional
                     let vu = 0, igv_uni = 0, pu = item.precioFinalIngresado;
                     if(generaIgv && item.afectoIgvVenta) { 
                         vu = pu / (1 + IGV_TASA); 
                         igv_uni = pu - vu; 
                     } else { 
                         vu = pu; 
-                        igv_uni = 0;
+                        igv_uni = 0; 
                     }
 
                     const precioLinTotal = item.cantidad * pu;
 
-                    // NUEVO: Extraer Costo Logístico FIFO para Margen de Contribución
                     let costo_uni = 0;
                     if (item.tipo === 'ITEMS' && item.lotesAsignados && item.lotesAsignados.length > 0) {
                         let costoAcumulado = 0;
                         for (let porcion of item.lotesAsignados) {
                             costoAcumulado += (porcion.qty * porcion.costo_unit_usado);
+                            lotesADescontar.push({
+                                item_id: item.dbId,
+                                ingreso_detalle_id: porcion.lotId,
+                                cantidad: Number(Number(porcion.qty).toFixed(3)),
+                                costo_unitario: Number(Number(porcion.costo_unit_usado).toFixed(6)),
+                                costo_total: Number((porcion.qty * porcion.costo_unit_usado).toFixed(2))
+                            });
                         }
                         costo_uni = item.cantidad > 0 ? costoAcumulado / item.cantidad : 0;
                     }
 
                     detallesVentaInserts.push({
-                        venta_id: ventaDB.id,
                         tipo_item_vendido: item.tipo,
                         referencia_id: item.dbId,
                         cantidad: Number(Number(item.cantidad).toFixed(3)),
@@ -1701,40 +1830,76 @@
                         costo_unitario: Number(Number(costo_uni).toFixed(6)),
                         costo_total: Number((costo_uni * item.cantidad).toFixed(2))
                     });
+                }
 
-                    // RUTINA FÍSICA: Si es item físico, impactar inventario (Triggers harán el resto en la BD)
-                    if(item.tipo === 'ITEMS' && egresoBD_id) {
-                        // El motor FIFO ya entregó las porciones de lotes en `lotesAsignados`
-                        for(let porcion of item.lotesAsignados) {
-                            // a. Insertar el egresos_detalle
-                            const { error: errEgDet } = await window.supabaseClient.from('egresos_detalle').insert({
-                                egreso_id: egresoBD_id,
-                                item_id: item.dbId,
-                                cantidad: Number(Number(porcion.qty).toFixed(3)),
-                                costo_unitario: Number(Number(porcion.costo_unit_usado).toFixed(6)),
-                                costo_total: Number((porcion.qty * porcion.costo_unit_usado).toFixed(2)),
-                                ingreso_detalle_id: porcion.lotId
-                            });
-                            if(errEgDet) throw errEgDet;
+                // 2. INVOCAR RPC ATÓMICO EN SUPABASE (1 solo viaje de red con garantía ACID)
+                const payloadRpc = {
+                    empresa_id: currentEmpresaId,
+                    numero_ticket: numTk,
+                    fecha_venta: fechaEmisionStr,
+                    cliente_id: clienteId,
+                    tipo_comprobante: tipoComp,
+                    genera_igv: generaIgv,
+                    valor_venta_total: Number(subtotal.toFixed(2)),
+                    igv_debito_total: Number(igv.toFixed(2)),
+                    precio_venta_total: Number(total.toFixed(2)),
+                    condicion_pago: condicionPago,
+                    saldo_pendiente: Number(saldoPendiente.toFixed(2)),
+                    fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
+                    created_by: window.cajeroName,
+                    usuario_id: window.currentUser.id,
+                    almacen_origen_id: document.getElementById('almacenOrigen').value,
+                    pago_inicial: Number(pagoInicial_input.toFixed(2)),
+                    detalles_venta: detallesVentaInserts,
+                    lotes_a_descontar: lotesADescontar
+                };
 
-                            // b. Descontar lote en tabla logistica para vaciar existencias físicamente (Optimistic Lock)
-                            const { data: loteBD } = await window.supabaseClient.from('ingresos_detalle').select('cantidad_disponible').eq('id', porcion.lotId).single();
-                            const nd = Number(loteBD.cantidad_disponible) - porcion.qty;
-                            await window.supabaseClient.from('ingresos_detalle').update({ cantidad_disponible: nd }).eq('id', porcion.lotId);
+                const { data: respVenta, error: errRpc } = await window.supabaseClient.rpc('rpc_procesar_venta_pos', { p_payload: payloadRpc });
+                if(errRpc) throw errRpc;
+                if(!respVenta || !respVenta.success) throw new Error(respVenta?.error || "Error al procesar venta atómica.");
 
-                            // c. El Trigger "tr_egreso_kardex" se disparó exitosamente y escribió en Kardex bajo costo logístico!
-                        }
-                    }
-                } // Fin del FOR
+                const ticketFinal = respVenta.numero_ticket || numTk;
+                document.getElementById('ticketNumber').textContent = ticketFinal;
 
-                // Multi-insert a la base de datos financiera
-                const { error: errVD } = await window.supabaseClient.from('ventas_detalle').insert(detallesVentaInserts);
-                if(errVD) throw errVD;
+                // 3. Preparar datos en memoria para impresión instantánea (0 peticiones HTTP)
+                const clienteNombreActual = document.getElementById('clienteSearchInput').value || 'Cliente No Identificado (NN)';
+                const clienteDocActual = (todosLosClientes.find(c => c.id === clienteId)?.numero_documento) || '---';
+                const btnAlmacenActivo = document.querySelector('#almacenesContainer button.bg-blue-600');
+                const almacenNombreActual = btnAlmacenActivo ? btnAlmacenActivo.textContent.trim() : (perfilEmpresa?.direccion || 'Sede Principal');
+                const diccDesc = {};
+                carrito.forEach(c => diccDesc[c.dbId] = c.descripcion);
 
-                // ÉXITO
+                const datosEnMemoria = {
+                    venta: {
+                        id: respVenta.venta_id,
+                        empresa_id: currentEmpresaId,
+                        numero_ticket: ticketFinal,
+                        tipo_comprobante: tipoComp,
+                        fecha_venta: fechaEmisionStr,
+                        fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
+                        created_at: new Date().toISOString(),
+                        created_by: window.cajeroName,
+                        condicion_pago: condicionPago,
+                        genera_igv: generaIgv,
+                        valor_venta_total: subtotal.toFixed(2),
+                        igv_debito_total: igv.toFixed(2),
+                        precio_venta_total: total.toFixed(2),
+                        estado: 'REGISTRADO'
+                    },
+                    cliente: {
+                        razon_social: clienteNombreActual,
+                        numero_documento: clienteDocActual
+                    },
+                    empresa: perfilEmpresa,
+                    almacenNombre: almacenNombreActual,
+                    detalles: detallesVentaInserts,
+                    dicc: diccDesc
+                };
+
+                // 4. ÉXITO Y NOTIFICACIÓN
                 Swal.fire({
                     title: '¡Venta Procesada!',
-                    text: `El ticket ${numTk} ha ingresado en finanzas y sus salidas descontaron el Kardex logístico (si hubo físico) usando la ruta limpia.`,
+                    text: `El ticket ${ticketFinal} ha ingresado en finanzas y sus salidas descontaron el Kardex logístico (si hubo físico) usando la ruta limpia.`,
                     icon: 'success',
                     showDenyButton: true,
                     confirmButtonText: (activeLoteIndex !== null && lotesTickets.length > 1) ? '<i class="fas fa-layer-group"></i> Siguiente Lote' : '<i class="fas fa-plus"></i> Nueva Venta',
@@ -1754,15 +1919,15 @@
                                 return;
                             }
                         }
-                        window.location.reload();
+                        await reiniciarVentaPOS();
                     };
 
                     if (result.isDenied) {
                         const reciInput = condicionPago === 'CREDITO' ? pagoInicial_input : (parseFloat(document.getElementById('inputMontoRecibido').value) || 0);
-                        const vtaTot = parseFloat(ventaDB.precio_venta_total);
+                        const vtaTot = parseFloat(respVenta.precio_venta_total || total);
                         const vueltCalculado = condicionPago === 'CREDITO' ? 0 : Math.max(0, reciInput - vtaTot);
 
-                        imprimirTicketCerrado(ventaDB.id, reciInput, vueltCalculado).then(()=>{
+                        imprimirTicketCerrado(respVenta.venta_id, reciInput, vueltCalculado, datosEnMemoria).then(()=>{
                              accionPostVenta();
                         }).catch(()=>{ accionPostVenta(); });
                     } else {
@@ -1772,8 +1937,45 @@
 
             } catch (fatal) {
                 console.error("Transacción fallida:", fatal);
-                Swal.fire('Error Crítico', 'La transacción fue revertida en frontend ante falla de comunicación. Revisar consola.', 'error');
+                Swal.fire('Error Crítico', 'La transacción falló: ' + (fatal.message || 'Error de comunicación.'), 'error');
             }
+        }
+
+        async function reiniciarVentaPOS() {
+            carrito = [];
+            renderizarCarrito();
+            const inputRec = document.getElementById('inputMontoRecibido');
+            if(inputRec) inputRec.value = '';
+            const inputIni = document.getElementById('inputPagoInicial');
+            if(inputIni) inputIni.value = '';
+            const dispVuelto = document.getElementById('displayVuelto');
+            if(dispVuelto) dispVuelto.textContent = 'S/ 0.00';
+            
+            const btnPagar = document.getElementById('btnPagar');
+            if(btnPagar) {
+                btnPagar.disabled = false;
+                btnPagar.innerHTML = '<span>Pagar</span><i class="fas fa-arrow-right"></i>';
+            }
+
+            document.getElementById('buscadorGeneral').value = '';
+            document.getElementById('resultadosBusqueda').style.display = 'none';
+
+            // Reset cliente a NN
+            seleccionarClienteAuto('NN', '-- Cliente No Identificado (NN) --');
+
+            // Reset fechas a hoy en Lima
+            const cFecha = new Date();
+            const offsetMs = cFecha.getTimezoneOffset() * 60 * 1000;
+            const msLocal = cFecha.getTime() - offsetMs;
+            const isoLocal = new Date(msLocal).toISOString().slice(0, 10);
+            document.getElementById('fechaRecepcionPago').value = isoLocal;
+            document.getElementById('fechaEmision').value = isoLocal;
+
+            // Generar nuevo número correlativo
+            await generarNuevoTicket();
+
+            // Devolver foco inmediato al buscador
+            document.getElementById('buscadorGeneral').focus();
         }
 
         // ==== FUNCIÓN PARA HIDRATACIÓN ====
