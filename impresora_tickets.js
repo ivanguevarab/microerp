@@ -8,24 +8,37 @@
             #microerp-print-container {
                 display: none; /* Oculto en la interfaz normal */
                 width: 100mm;  /* Ancho 100mm = 10cm */
-                font-family: 'Courier New', Courier, monospace;
+                font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+                font-variant-numeric: tabular-nums;
+                font-feature-settings: "tnum";
+                font-weight: 700;
+                letter-spacing: 0.15px;
                 color: #000;
                 background: #fff;
-                padding: 10px 5mm;
+                padding: 5px 3mm;
                 box-sizing: border-box;
                 margin: 0 auto;
+                line-height: 1.15;
             }
-            .ticket-header { font-size: 18px; margin: 5px 0; text-align: center; text-transform: uppercase; font-weight: bold; }
-            .ticket-text { margin: 2px 0; font-size: 12px; text-align: center; }
-            .ticket-divisor { border-top: 1px dashed #000; margin: 10px 0; width: 100%; }
-            .print-ticket-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 5px 0; }
-            .print-ticket-table th { border-bottom: 1px solid #000; padding-bottom: 4px; text-align: right; }
+            #microerp-print-container * {
+                font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+                font-variant-numeric: tabular-nums;
+                font-feature-settings: "tnum";
+                font-weight: 700 !important;
+                color: #000 !important;
+                box-sizing: border-box;
+            }
+            .ticket-header { font-size: 15px; margin: 1px 0; text-align: center; text-transform: uppercase; font-weight: 700; line-height: 1.15; }
+            .ticket-text { margin: 1px 0; font-size: 11.5px; text-align: center; line-height: 1.15; }
+            .ticket-divisor { border-top: 1px dashed #000; margin: 3px 0; width: 100%; }
+            .print-ticket-table { width: 100%; border-collapse: collapse; font-size: 11.5px; margin: 2px 0; }
+            .print-ticket-table th { border-bottom: 1px solid #000; padding-bottom: 2px; text-align: right; }
             .print-ticket-table th:first-child { text-align: left; }
             .print-ticket-table td { padding: 0; }
-            .print-ticket-table tr.item-row td { padding-bottom: 5px; }
-            .ticket-totales { display: grid; grid-template-columns: 1fr 1fr; font-size: 14px; margin-top: 5px; }
+            .print-ticket-table tr.item-row td { padding: 0 0 1px 0; }
+            .ticket-totales { display: grid; grid-template-columns: 1fr 1fr; font-size: 12px; margin-top: 2px; line-height: 1.15; }
             .ticket-totales div:nth-child(even) { text-align: right; }
-            .ticket-gran-total { font-size: 18px; font-weight: bold; margin-top: 10px; border-top: 2px solid #000; padding-top: 5px; }
+            .ticket-gran-total { font-size: 15px; font-weight: 700; margin-top: 3px; border-top: 1.5px solid #000; padding-top: 2px; }
             
             /* REGLAS MÁGICAS DE IMPRESIÓN (Para Ticketeras de 80mm) */
             @media print {
@@ -46,7 +59,7 @@
                     top: 0;
                     width: 76mm; /* Ajuste interno para la bobina de 80mm dejando pequeño margen */
                     margin: 0;
-                    padding: 2mm;
+                    padding: 1.5mm;
                 }
             }
         `;
@@ -172,7 +185,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             const desc = dicc[d.referencia_id] || 'Servicio Varios';
             detallesHTML += `
                 <tr>
-                    <td colspan="4" style="padding-top: 5px; font-weight: bold; font-size: 13px; text-align: left;">
+                    <td colspan="4" style="padding-top: ${index === 0 ? '1px' : '3px'}; font-size: 12px; text-align: left;">
                         ${desc}
                     </td>
                 </tr>
@@ -180,9 +193,8 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                     <td style="text-align: left;"></td>
                     <td style="text-align: center;">${d.cantidad} x</td>
                     <td style="text-align: right;">${formatMoney(d.precio_unitario, 6)}</td>
-                    <td style="text-align: right; font-weight: bold;">${formatMoney(d.precio_total)}</td>
+                    <td style="text-align: right;">${formatMoney(d.precio_total)}</td>
                 </tr>
-                ${index < det.length - 1 ? `<tr><td colspan="4" style="padding: 0;"><div style="border-bottom: 1px dashed #000; margin: 4px 0;"></div></td></tr>` : ''}
             `;
         });
 
@@ -203,8 +215,8 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             
             <div class="ticket-divisor"></div>
             
-            <p style="font-size: 16px; font-weight: bold; margin: 5px 0; text-align: center;">${v.tipo_comprobante} - ${v.numero_ticket}</p>
-            <p style="text-align: left; margin-top: 10px;" class="ticket-text"><b>F. EMISIÓN:</b> ${fechaStr} ${horaStr}</p>
+            <p style="font-size: 15px; font-weight: bold; margin: 3px 0; text-align: center;">${v.tipo_comprobante} - ${v.numero_ticket}</p>
+            <p style="text-align: left; margin-top: 2px;" class="ticket-text"><b>F. EMISIÓN:</b> ${fechaStr} ${horaStr}</p>
             <p style="text-align: left;" class="ticket-text"><b>F. RECEPCIÓN PAGO:</b> ${v.fecha_recepcion_pago ? new Date(v.fecha_recepcion_pago + 'T00:00:00-05:00').toLocaleDateString('es-PE', { timeZone: 'America/Lima' }) : (v.condicion_pago === 'CREDITO' ? 'PENDIENTE' : fechaStr)}</p>
             <p style="text-align: left;" class="ticket-text"><b>CLIENTE:</b> ${clienteNombre}</p>
             <p style="text-align: left;" class="ticket-text"><b>DOC:</b> ${clienteDoc}</p>
@@ -247,16 +259,16 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             
             ${v.condicion_pago === 'CREDITO' ? `
             <div class="ticket-divisor"></div>
-            <p style="text-align:center; font-weight:bold; font-size:14px; margin:5px 0;">*** VENTA AL CRÉDITO ***</p>
-            <div class="ticket-totales" style="margin-top: 5px;">
+            <p style="text-align:center; font-weight:bold; font-size:12px; margin:2px 0;">*** VENTA AL CRÉDITO ***</p>
+            <div class="ticket-totales" style="margin-top: 2px;">
                 <div>PAGO INICIAL:</div>
                 <div>S/ ${formatMoney(montoRecibido)}</div>
-                <div style="font-weight:bold; margin-top:3px;">SALDO FINANCIAR:</div>
-                <div style="font-weight:bold; margin-top:3px;">S/ ${formatMoney(v.precio_venta_total - montoRecibido)}</div>
+                <div style="font-weight:bold; margin-top:2px;">SALDO FINANCIAR:</div>
+                <div style="font-weight:bold; margin-top:2px;">S/ ${formatMoney(v.precio_venta_total - montoRecibido)}</div>
             </div>
             ` : `
             ${montoRecibido > 0 ? `
-            <div class="ticket-totales" style="margin-top: 5px; font-weight: bold;">
+            <div class="ticket-totales" style="margin-top: 2px; font-weight: bold;">
                 <div>EFECTIVO RECIB.:</div>
                 <div>S/ ${formatMoney(montoRecibido)}</div>
                 <div>VUELTO:</div>
@@ -266,9 +278,9 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             `}
 
             <div class="ticket-divisor"></div>
-            <p style="margin-top: 15px;" class="ticket-text">¡Gracias por su compra!</p>
-            <p style="font-size: 10px;" class="ticket-text">Desarrollado con MicroERP</p>
-            <p style="margin-bottom: 30px;" class="ticket-text">-</p>
+            <p style="margin-top: 4px;" class="ticket-text">¡Gracias por su compra!</p>
+            <p style="font-size: 9.5px; margin: 1px 0;" class="ticket-text">Desarrollado con MicroERP</p>
+            <p style="margin-bottom: 6px; font-size: 8px;" class="ticket-text">-</p>
         `;
 
         Swal.close();
