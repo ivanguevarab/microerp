@@ -435,7 +435,7 @@
             <!-- PANEL IZQUIERDO: Búsqueda y Catálogo -->
             <div class="panel" style="min-height: 600px;">
                 <div class="panel-header">
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-4 flex-wrap">
                         <div><i class="fas fa-barcode text-blue-500 mr-2"></i> Búsqueda de Productos u Órdenes</div>
                         <div class="flex items-center gap-2" title="Permite vender productos sin inventario. No se descontará del almacén.">
                             <span class="text-xs font-semibold text-slate-500">Búsqueda Sin Stock:</span>
@@ -443,6 +443,13 @@
                                 <input type="checkbox" id="toggleModoVerde" class="sr-only peer">
                                 <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                             </label>
+                        </div>
+                        <!-- Módulo Opcional de Balanza Electrónica POS -->
+                        <div id="contenedorBalanzaPOS" class="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-3">
+                            <button type="button" id="btnBalanzaPOS" onclick="BalanzaCASManager.toggleConexion()" class="text-xs font-semibold px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 shadow-sm" title="Balanza electrónica opcional. Clic para conectar o configurar.">
+                                <i class="fas fa-balance-scale"></i>
+                                <span id="txtBalanzaEstado">Balanza: Inactiva</span>
+                            </button>
                         </div>
                     </div>
                     <!-- Selector de Almacén (Crucial para Stock FIFO de Items) -->
@@ -684,6 +691,244 @@
             return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         }
 
+        // =========================================================================
+        // MÓDULO OPCIONAL DE BALANZA ELECTRÓNICA (CAS PDN / PROTOCOLO 9600 8-N-1)
+        // =========================================================================
+        function esUnidadDePeso(unidad) {
+            if (!unidad) return false;
+            const u = removeAccents(unidad).trim().toUpperCase();
+            const aliasPeso = [
+                'KG', 'KGM', 'KILO', 'KILOS', 'KILOGRAMO', 'KILOGRAMOS',
+                'GR', 'GRM', 'GRAMO', 'GRAMOS', 'G', 'PESO', 'LBS', 'LIBRA', 'LIBRAS'
+            ];
+            return aliasPeso.includes(u);
+        }
+
+        const BalanzaCASManager = {
+            port: null,
+            reader: null,
+            ultimoPeso: 0,
+            conectado: false,
+            leyendo: false,
+            buffer: '',
+            callbackEnVivo: null,
+
+            async init() {
+                if (!('serial' in navigator)) return;
+
+                navigator.serial.addEventListener('disconnect', (e) => {
+                    if (this.port === e.target) {
+                        this.desconectar(true);
+                    }
+                });
+
+                window.addEventListener('beforeunload', () => {
+                    this.liberarRecursos();
+                });
+
+                if (localStorage.getItem('microerp_balanza_habilitada') === 'true') {
+                    try {
+                        const ports = await navigator.serial.getPorts();
+                        if (ports && ports.length > 0) {
+                            await this.iniciarConPuerto(ports[0]);
+                        } else {
+                            this.actualizarUI(false);
+                        }
+                    } catch (e) {
+                        console.warn('Auto-reconexión silenciosa de balanza:', e);
+                        this.actualizarUI(false);
+                    }
+                }
+            },
+
+            async toggleConexion() {
+                if (!('serial' in navigator)) {
+                    Swal.fire({
+                        title: 'Navegador No Compatible',
+                        text: 'La Web Serial API requiere Google Chrome, Microsoft Edge u Opera en PC de escritorio.',
+                        icon: 'warning'
+                    });
+                    return;
+                }
+
+                if (this.conectado) {
+                    const { isConfirmed } = await Swal.fire({
+                        title: 'Balanza Electrónica Conectada',
+                        html: `
+                            <div class="text-sm text-slate-600 dark:text-slate-300 mb-2">
+                                Estado: <span class="font-bold text-emerald-600">Enlazada a 9600 baudios</span>
+                            </div>
+                            <div class="text-xs text-slate-500">
+                                Lectura actual: <span class="font-mono font-bold text-slate-800 dark:text-slate-100">${this.ultimoPeso.toFixed(3)} kg</span>
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="fas fa-power-off mr-1"></i> Desconectar Balanza',
+                        cancelButtonText: 'Cerrar',
+                        confirmButtonColor: '#ef4444'
+                    });
+
+                    if (isConfirmed) {
+                        localStorage.removeItem('microerp_balanza_habilitada');
+                        await this.desconectar();
+                        Swal.fire({ title: 'Balanza Desconectada', icon: 'info', timer: 1200, showConfirmButton: false });
+                    }
+                } else {
+                    await this.solicitarConexion();
+                }
+            },
+
+            async solicitarConexion() {
+                try {
+                    const port = await navigator.serial.requestPort({
+                        filters: [
+                            { usbVendorId: 0x04D9, usbProductId: 0xB534 },
+                            {}
+                        ]
+                    });
+
+                    await this.iniciarConPuerto(port);
+                    localStorage.setItem('microerp_balanza_habilitada', 'true');
+                    Swal.fire({
+                        title: '¡Balanza Conectada!',
+                        text: 'MicroERP capturará el peso en vivo para todos los productos en kilos/gramos.',
+                        icon: 'success',
+                        timer: 1600,
+                        showConfirmButton: false
+                    });
+                } catch (e) {
+                    if (e.name !== 'NotFoundError') {
+                        console.error('Error al conectar balanza:', e);
+                        Swal.fire({
+                            title: 'Puerto No Disponible',
+                            html: `
+                                <div class="text-sm text-slate-600 dark:text-slate-300">
+                                    No se pudo abrir el puerto serie.<br>
+                                    <span class="text-xs text-rose-500 font-semibold">${e.message}</span>
+                                </div>
+                                <div class="text-xs text-slate-500 mt-2">
+                                    Asegúrese de que el software de terceros no tenga el puerto bloqueado en exclusividad o use el canal del divisor virtual.
+                                </div>
+                            `,
+                            icon: 'error'
+                        });
+                    }
+                    this.actualizarUI(false);
+                }
+            },
+
+            async iniciarConPuerto(port) {
+                this.port = port;
+                await this.port.open({
+                    baudRate: 9600,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: 'none',
+                    flowControl: 'none'
+                });
+
+                this.conectado = true;
+                this.leyendo = true;
+                this.actualizarUI(true);
+                this.iniciarBucleLectura();
+            },
+
+            async iniciarBucleLectura() {
+                const decoder = new TextDecoderStream();
+                const closed = this.port.readable.pipeTo(decoder.writable);
+                const reader = decoder.readable.getReader();
+                this.reader = reader;
+
+                try {
+                    while (this.leyendo) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        if (value) {
+                            this.buffer += value;
+                            let lineEnd;
+                            while ((lineEnd = this.buffer.indexOf('\n')) >= 0 || (lineEnd = this.buffer.indexOf('\r')) >= 0) {
+                                const linea = this.buffer.slice(0, lineEnd).trim();
+                                this.buffer = this.buffer.slice(lineEnd + 1);
+                                if (linea) {
+                                    this.procesarLinea(linea);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Lectura de balanza finalizada o interrumpida:', err);
+                } finally {
+                    try { reader.releaseLock(); } catch (_) {}
+                }
+            },
+
+            procesarLinea(linea) {
+                // Trama CAS PDN: "0.215kg" o "ST,GS,+000.215kg"
+                const match = linea.match(/([+-]?\d+(?:\.\d+)?)/);
+                if (match) {
+                    const pesoVal = parseFloat(match[1]);
+                    if (!isNaN(pesoVal)) {
+                        this.ultimoPeso = pesoVal;
+                        this.actualizarLecturaUI(pesoVal);
+
+                        if (this.callbackEnVivo && typeof this.callbackEnVivo === 'function') {
+                            this.callbackEnVivo(pesoVal);
+                        }
+                    }
+                }
+            },
+
+            actualizarUI(conectado) {
+                const btn = document.getElementById('btnBalanzaPOS');
+                const txt = document.getElementById('txtBalanzaEstado');
+                if (!btn || !txt) return;
+
+                if (conectado) {
+                    btn.className = "text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 transition-all flex items-center gap-1.5 shadow-sm";
+                    btn.title = "Balanza CAS enlazada en vivo a 9600 baudios. Clic para desconectar.";
+                    txt.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span> Balanza: <span id="pesoBalanzaHeader">${this.ultimoPeso > 0 ? this.ultimoPeso.toFixed(3) : '0.000'}</span> kg`;
+                } else {
+                    btn.className = "text-xs font-semibold px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 shadow-sm";
+                    btn.title = "Balanza electrónica opcional. Clic para conectar o configurar.";
+                    txt.textContent = "Balanza: Inactiva";
+                }
+            },
+
+            actualizarLecturaUI(peso) {
+                const spanHeader = document.getElementById('pesoBalanzaHeader');
+                if (spanHeader) {
+                    spanHeader.textContent = peso.toFixed(3);
+                }
+            },
+
+            async desconectar(porErrorFisico = false) {
+                this.leyendo = false;
+                await this.liberarRecursos();
+                this.conectado = false;
+                this.port = null;
+                this.reader = null;
+                this.ultimoPeso = 0;
+                this.actualizarUI(false);
+                if (porErrorFisico) {
+                    mostrarToast('Balanza desconectada físicamente', 'info');
+                }
+            },
+
+            async liberarRecursos() {
+                try {
+                    if (this.reader) {
+                        await this.reader.cancel();
+                        this.reader.releaseLock();
+                    }
+                } catch (_) {}
+                try {
+                    if (this.port) {
+                        await this.port.close();
+                    }
+                } catch (_) {}
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
             
@@ -712,6 +957,8 @@
             }
             
             configurarEventos();
+            // Inicializar Balanza Electrónica Opcional (si fue autorizada previamente)
+            BalanzaCASManager.init();
         });
 
         async function inicializarModoEdicion(ventaId) {
@@ -1300,15 +1547,36 @@
             const obj = JSON.parse(decodeURIComponent(dataStr));
             const idFront = "CRT_" + Math.random().toString(36).substr(2, 9);
             
+            // Detección de balanza electrónica opcional
+            const aplicaBalanza = (obj.paramTipo === 'ITEMS') && esUnidadDePeso(obj.unidad_medida) && BalanzaCASManager.conectado;
+            let valorInicialCantidad = '1';
+            let htmlBalanzaBadge = '';
+
+            if (aplicaBalanza) {
+                const pesoActual = BalanzaCASManager.ultimoPeso;
+                if (pesoActual >= 0.005) {
+                    valorInicialCantidad = pesoActual.toFixed(3);
+                }
+                htmlBalanzaBadge = `
+                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-xs font-bold mb-2 shadow-sm">
+                        <i class="fas fa-balance-scale text-emerald-500"></i>
+                        <span id="lblSwalBalanza">Balanza CAS: ${pesoActual > 0 ? pesoActual.toFixed(3) : '0.000'} ${obj.unidad_medida || 'KG'}</span>
+                    </div>
+                `;
+            }
+
+            let edicionManualCajero = false;
+
             // Requerir cantidad mediante SweetAlert2 ágil y no bloqueante
             const { value: qStr, isDismissed } = await Swal.fire({
                 title: `<span class="text-lg font-bold text-slate-800 dark:text-slate-100">Cantidad Requerida</span>`,
                 html: `
                     <div class="text-base font-bold text-blue-600 dark:text-amber-400 mb-1">${obj.descripcion}</div>
+                    ${htmlBalanzaBadge}
                     <div class="text-xs text-slate-500 dark:text-slate-400">Ingrese la cantidad y presione <span class="font-bold text-slate-700 dark:text-slate-200">Enter</span></div>
                 `,
                 input: 'text',
-                inputValue: '1',
+                inputValue: valorInicialCantidad,
                 inputAttributes: {
                     inputmode: 'decimal',
                     autocapitalize: 'off',
@@ -1324,9 +1592,32 @@
                     if (input) {
                         input.select();
                         input.focus();
+                        input.addEventListener('keydown', () => {
+                            edicionManualCajero = true; // Desactivar auto-refresh si el cajero toca el teclado
+                        });
                         input.addEventListener('input', () => {
+                            edicionManualCajero = true;
                             input.value = input.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
                         });
+                    }
+
+                    // Reactividad en vivo: si la balanza fluctúa y el cajero NO ha digitado a mano
+                    if (aplicaBalanza) {
+                        BalanzaCASManager.callbackEnVivo = (nuevoPeso) => {
+                            if (!edicionManualCajero && input && nuevoPeso >= 0.005) {
+                                input.value = nuevoPeso.toFixed(3);
+                                input.select();
+                            }
+                            const lblBadge = document.getElementById('lblSwalBalanza');
+                            if (lblBadge) {
+                                lblBadge.textContent = `Balanza CAS: ${nuevoPeso.toFixed(3)} ${obj.unidad_medida || 'KG'}`;
+                            }
+                        };
+                    }
+                },
+                willClose: () => {
+                    if (aplicaBalanza) {
+                        BalanzaCASManager.callbackEnVivo = null;
                     }
                 }
             });
