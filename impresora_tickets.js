@@ -31,11 +31,14 @@
             .ticket-header { font-size: 15px; margin: 1px 0; text-align: center; text-transform: uppercase; font-weight: 700; line-height: 1.15; }
             .ticket-text { margin: 1px 0; font-size: 11.5px; text-align: center; line-height: 1.15; }
             .ticket-divisor { border-top: 1px dashed #000; margin: 3px 0; width: 100%; }
-            .print-ticket-table { width: 100%; border-collapse: collapse; font-size: 11.5px; margin: 2px 0; }
-            .print-ticket-table th { border-bottom: 1px solid #000; padding-bottom: 2px; text-align: right; }
-            .print-ticket-table th:first-child { text-align: left; }
+            .print-ticket-table { width: 100%; border-collapse: collapse; font-size: 11.5px; margin: 2px 0; table-layout: fixed; }
+            .print-ticket-table th { border-bottom: 1px solid #000; padding-bottom: 2px; }
             .print-ticket-table td { padding: 0; }
             .print-ticket-table tr.item-row td { padding: 0 0 1px 0; }
+            .print-ticket-table .col-desc { width: 40%; text-align: left; }
+            .print-ticket-table .col-cant { width: 18%; text-align: center; }
+            .print-ticket-table .col-punit { width: 21%; text-align: right; }
+            .print-ticket-table .col-ptot { width: 21%; text-align: right; }
             .ticket-totales { display: grid; grid-template-columns: 1fr 1fr; font-size: 12px; margin-top: 2px; line-height: 1.15; }
             .ticket-totales div:nth-child(even) { text-align: right; }
             .ticket-gran-total { font-size: 15px; font-weight: 700; margin-top: 3px; border-top: 1.5px solid #000; padding-top: 2px; }
@@ -176,6 +179,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
 
         let opInafecta = 0;
 
+        const UMBRAL_CARACTERES_MISMA_LINEA = 13;
         let detallesHTML = '';
         det.forEach((d, index) => {
             if (v.genera_igv && Number(d.igv_unitario) === 0) {
@@ -183,19 +187,34 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             }
 
             const desc = dicc[d.referencia_id] || 'Servicio Varios';
-            detallesHTML += `
-                <tr>
-                    <td colspan="4" style="padding-top: ${index === 0 ? '1px' : '3px'}; font-size: 12px; text-align: left;">
-                        ${desc}
-                    </td>
-                </tr>
-                <tr class="item-row">
-                    <td style="text-align: left;"></td>
-                    <td style="text-align: center;">${d.cantidad} x</td>
-                    <td style="text-align: right;">${formatMoney(d.precio_unitario, 6)}</td>
-                    <td style="text-align: right;">${formatMoney(d.precio_total)}</td>
-                </tr>
-            `;
+            const esCorto = desc.length <= UMBRAL_CARACTERES_MISMA_LINEA;
+
+            if (esCorto) {
+                detallesHTML += `
+                    <tr class="item-row">
+                        <td class="col-desc" style="padding-top: ${index === 0 ? '1px' : '2px'}; font-size: 11.5px; text-align: left; overflow: hidden; white-space: nowrap;">
+                            ${desc}
+                        </td>
+                        <td class="col-cant" style="padding-top: ${index === 0 ? '1px' : '2px'};">${d.cantidad} x</td>
+                        <td class="col-punit" style="padding-top: ${index === 0 ? '1px' : '2px'};">${formatMoney(d.precio_unitario, 6)}</td>
+                        <td class="col-ptot" style="padding-top: ${index === 0 ? '1px' : '2px'};">${formatMoney(d.precio_total)}</td>
+                    </tr>
+                `;
+            } else {
+                detallesHTML += `
+                    <tr>
+                        <td colspan="4" style="padding-top: ${index === 0 ? '1px' : '2px'}; font-size: 12px; text-align: left;">
+                            ${desc}
+                        </td>
+                    </tr>
+                    <tr class="item-row">
+                        <td class="col-desc"></td>
+                        <td class="col-cant">${d.cantidad} x</td>
+                        <td class="col-punit">${formatMoney(d.precio_unitario, 6)}</td>
+                        <td class="col-ptot">${formatMoney(d.precio_total)}</td>
+                    </tr>
+                `;
+            }
         });
 
         const opGravada = Number(v.precio_venta_total) - Number(v.igv_debito_total) - opInafecta;
@@ -227,10 +246,10 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             <table class="print-ticket-table">
                 <thead>
                     <tr>
-                        <th>DESC</th>
-                        <th style="text-align: center;">CANT</th>
-                        <th>P.UNIT</th>
-                        <th>P.TOT</th>
+                        <th class="col-desc">DESC</th>
+                        <th class="col-cant">CANT</th>
+                        <th class="col-punit">P.UNIT</th>
+                        <th class="col-ptot">P.TOT</th>
                     </tr>
                 </thead>
                 <tbody>

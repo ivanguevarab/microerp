@@ -1013,7 +1013,9 @@
                 // Recuperar Almacén Origen Histórico
                 const { data: egr } = await window.supabaseClient.from('egresos')
                     .select('almacen_origen_id')
-                    .eq('referencia_asociada', ventaDB.numero_ticket)
+                    .ilike('observaciones', `VENTA_REF:${ventaDB.numero_ticket}%`)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
                     .maybeSingle();
                 
                 if (egr && egr.almacen_origen_id) {
@@ -1875,6 +1877,13 @@
             if (isEditMode) {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fas fa-save text-xl"></i> GUARDAR EDICIÓN (S/ ${formatMoney(totalBrutoDigitado)})`;
+                if (esCredito) {
+                    const textSaldo = document.getElementById('txtSaldoFinanciar');
+                    if (textSaldo) {
+                        textSaldo.textContent = `S/ ${formatMoney(totalBrutoDigitado)}`;
+                        textSaldo.className = 'font-bold text-2xl text-rose-400';
+                    }
+                }
                 return;
             }
             
@@ -2000,6 +2009,13 @@
                 if (isEditMode) {
                     btn.disabled = false;
                     btn.innerHTML = `<i class="fas fa-save text-xl"></i> GUARDAR EDICIÓN (S/ ${formatMoney(total)})`;
+                    if (esCredito) {
+                        const textSaldo = document.getElementById('txtSaldoFinanciar');
+                        if (textSaldo) {
+                            textSaldo.textContent = `S/ ${formatMoney(total)}`;
+                            textSaldo.className = 'font-bold text-2xl text-rose-400';
+                        }
+                    }
                 } else {
                     btn.disabled = false;
                     btn.innerHTML = `<i class="fas fa-${esCredito ? 'handshake' : 'cash-register'} text-xl"></i> REGISTRAR ${esCredito ? 'CRÉDITO' : 'VENTA'} (S/ ${formatMoney(total)})`;
@@ -2063,7 +2079,7 @@
                 
                 try {
                     Swal.fire({ title: 'Reescribiendo PEPS y Finanzas...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                    const { error: errRpc } = await window.supabaseClient.rpc('rpc_editar_venta_magistral', {
+                    const { data: respRpc, error: errRpc } = await window.supabaseClient.rpc('rpc_editar_venta_magistral', {
                         p_empresa_id: currentEmpresaId,
                         p_venta_id: currentEditVentaId,
                         p_almacen_id: document.getElementById('almacenOrigen').value,
@@ -2074,7 +2090,11 @@
                     });
                     if (errRpc) throw errRpc;
                     
-                    Swal.fire('Edición Magistral Exitosa', 'El ticket y la cadena PEPS han sido reescritos correctamente.', 'success').then(() => {
+                    const msgExito = (respRpc && respRpc.total_recalculados > 0)
+                        ? `El ticket y ${respRpc.total_recalculados} producto(s) en Kárdex PEPS han sido actualizados correctamente.`
+                        : 'El ticket y sus valores comerciales han sido actualizados correctamente (Kárdex preservado intacto).';
+                    
+                    Swal.fire('Edición Magistral Exitosa', msgExito, 'success').then(() => {
                         window.location.href = 'registros_historicos_ventas.html';
                     });
                 } catch(e) {
