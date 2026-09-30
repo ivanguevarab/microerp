@@ -35,8 +35,8 @@
             .print-ticket-table th { border-bottom: 1px solid #000; padding-bottom: 2px; }
             .print-ticket-table td { padding: 0; }
             .print-ticket-table tr.item-row td { padding: 0 0 1px 0; }
-            .print-ticket-table .col-desc { width: 40%; text-align: left; }
-            .print-ticket-table .col-cant { width: 18%; text-align: center; }
+            .print-ticket-table .col-desc { width: 38%; text-align: left; }
+            .print-ticket-table .col-cant { width: 20%; text-align: right; padding-right: 5px; white-space: nowrap; }
             .print-ticket-table .col-punit { width: 21%; text-align: right; }
             .print-ticket-table .col-ptot { width: 21%; text-align: right; }
             .ticket-totales { display: grid; grid-template-columns: 1fr 1fr; font-size: 12px; margin-top: 2px; line-height: 1.15; }
@@ -84,7 +84,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
     try {
         Swal.fire({ title: 'Preparando Impresión...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
 
-        let v, det, emp, direccionTicket, dicc = {};
+        let v, det, emp, direccionTicket, dicc = {}, diccUM = {};
 
         if (datosEnMemoria) {
             // MODO ULTRARRÁPIDO EN MEMORIA (0 peticiones a la BD)
@@ -93,6 +93,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             emp = datosEnMemoria.empresa || {};
             direccionTicket = datosEnMemoria.almacenNombre || emp?.direccion || 'Sede Principal';
             dicc = datosEnMemoria.dicc || {};
+            diccUM = datosEnMemoria.diccUM || {};
             if (datosEnMemoria.cliente) {
                 v.clientes = datosEnMemoria.cliente;
             }
@@ -145,12 +146,21 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             const tItems = det.filter(d => d.tipo_item_vendido === 'ITEMS').map(d => d.referencia_id);
             const tCods = det.filter(d => d.tipo_item_vendido === 'CUS' || d.tipo_item_vendido === 'CUP').map(d => d.referencia_id);
             if(tItems.length > 0) {
-                const { data: iBD } = await window.supabaseClient.from('items').select('id, descripcion').in('id', tItems);
-                (iBD||[]).forEach(x => dicc[x.id] = x.descripcion);
+                const { data: iBD } = await window.supabaseClient.from('items')
+                    .select('id, descripcion, unidad_medida, unidades_medida(codigo)')
+                    .in('id', tItems);
+                (iBD||[]).forEach(x => {
+                    dicc[x.id] = x.descripcion;
+                    const uCod = (Array.isArray(x.unidades_medida) ? x.unidades_medida[0]?.codigo : x.unidades_medida?.codigo) || x.unidad_medida || 'NIU';
+                    diccUM[x.id] = uCod;
+                });
             }
             if(tCods.length > 0) {
                 const { data: cBD } = await window.supabaseClient.from('codigos_unicos').select('id, descripcion').in('id', tCods);
-                (cBD||[]).forEach(x => dicc[x.id] = x.descripcion);
+                (cBD||[]).forEach(x => {
+                    dicc[x.id] = x.descripcion;
+                    diccUM[x.id] = 'NIU';
+                });
             }
         }
 
@@ -187,6 +197,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             }
 
             const desc = dicc[d.referencia_id] || 'Servicio Varios';
+            const um = diccUM[d.referencia_id] || 'NIU';
             const esCorto = desc.length <= UMBRAL_CARACTERES_MISMA_LINEA;
 
             if (esCorto) {
@@ -195,7 +206,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                         <td class="col-desc" style="padding-top: ${index === 0 ? '1px' : '2px'}; font-size: 11.5px; text-align: left; overflow: hidden; white-space: nowrap;">
                             ${desc}
                         </td>
-                        <td class="col-cant" style="padding-top: ${index === 0 ? '1px' : '2px'};">${d.cantidad} x</td>
+                        <td class="col-cant" style="padding-top: ${index === 0 ? '1px' : '2px'};">${d.cantidad} ${um}</td>
                         <td class="col-punit" style="padding-top: ${index === 0 ? '1px' : '2px'};">${formatMoney(d.precio_unitario, 6)}</td>
                         <td class="col-ptot" style="padding-top: ${index === 0 ? '1px' : '2px'};">${formatMoney(d.precio_total)}</td>
                     </tr>
@@ -209,7 +220,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                     </tr>
                     <tr class="item-row">
                         <td class="col-desc"></td>
-                        <td class="col-cant">${d.cantidad} x</td>
+                        <td class="col-cant">${d.cantidad} ${um}</td>
                         <td class="col-punit">${formatMoney(d.precio_unitario, 6)}</td>
                         <td class="col-ptot">${formatMoney(d.precio_total)}</td>
                     </tr>

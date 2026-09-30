@@ -1045,15 +1045,18 @@
                     window.stockRescatadoVirtual[d.referencia_id] = (window.stockRescatadoVirtual[d.referencia_id] || 0) + Number(d.cantidad); // Almacenar rescate virtual
 
                     const { data: itemData } = await window.supabaseClient.from('items')
-                        .select('descripcion')
+                        .select('descripcion, unidad_medida, unidades_medida(codigo)')
                         .eq('id', d.referencia_id)
                         .maybeSingle();
+
+                    const umCodigo = (Array.isArray(itemData?.unidades_medida) ? itemData?.unidades_medida[0]?.codigo : itemData?.unidades_medida?.codigo) || itemData?.unidad_medida || 'NIU';
 
                     carrito.push({
                         idFront: window.crypto.randomUUID(),
                         tipo: 'ITEMS',
                         dbId: d.referencia_id,
                         descripcion: itemData?.descripcion || 'Ítem Histórico',
+                        unidad_medida: umCodigo,
                         cantidad: Number(d.cantidad),
                         precioFinalIngresado: Number(d.precio_unitario),
                         lotesAsignados: [], // Importante: vacío para que backend haga FIFO retroactivo
@@ -1773,6 +1776,7 @@
                 tipo: obj.paramTipo,
                 dbId: obj.id,
                 descripcion: obj.descripcion,
+                unidad_medida: obj.paramTipo === 'ITEMS' ? (obj.unidad_medida || 'NIU') : 'NIU',
                 cantidad: cantidadReq,
                 precioFinalIngresado: parseFloat(obj.precio_venta||0) || 0, // Por defecto el precio listado
                 lotesAsignados: lotesSeleccionados, // Obligatorio para items, array vacio para cus/cup
@@ -2223,7 +2227,11 @@
                 const btnAlmacenActivo = document.querySelector('#almacenesContainer button.bg-blue-600');
                 const almacenNombreActual = btnAlmacenActivo ? btnAlmacenActivo.textContent.trim() : (perfilEmpresa?.direccion || 'Sede Principal');
                 const diccDesc = {};
-                carrito.forEach(c => diccDesc[c.dbId] = c.descripcion);
+                const diccUM = {};
+                carrito.forEach(c => {
+                    diccDesc[c.dbId] = c.descripcion;
+                    diccUM[c.dbId] = c.unidad_medida || 'NIU';
+                });
 
                 const datosEnMemoria = {
                     venta: {
@@ -2249,7 +2257,8 @@
                     empresa: perfilEmpresa,
                     almacenNombre: almacenNombreActual,
                     detalles: detallesVentaInserts,
-                    dicc: diccDesc
+                    dicc: diccDesc,
+                    diccUM: diccUM
                 };
 
                 // 4. ÉXITO Y NOTIFICACIÓN
@@ -2712,6 +2721,7 @@
                                         tipo: matchedTipo,
                                         dbId: matchedProduct.id,
                                         descripcion: matchedProduct.descripcion,
+                                        unidad_medida: matchedTipo === 'ITEMS' ? (matchedProduct.unidad_medida || 'NIU') : 'NIU',
                                         cantidad: excelCantidad,
                                         precioFinalIngresado: excelPrecio,
                                         lotesAsignados: lotesSeleccionados,
@@ -2818,6 +2828,7 @@
                     tipo: item.tipo,
                     dbId: item.dbId,
                     descripcion: item.descripcion,
+                    unidad_medida: item.unidad_medida || 'NIU',
                     cantidad: item.cantidad,
                     precioFinalIngresado: item.precioFinalIngresado,
                     lotesAsignados: item.lotesAsignados,
