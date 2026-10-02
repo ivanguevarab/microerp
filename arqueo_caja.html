@@ -25,7 +25,6 @@
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth-guard.js"></script>
-    <script src="impresora_tickets.js"></script>
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -599,6 +598,7 @@
     <!-- Módulo Core de Lógica JS -->
     <script>
         let currentEmpresaId = null;
+        let currentEmpresaData = null;
         let objAjustesLocales = [];
         let mathSysVentasContado = 0;
         let currentResumenTurno = null;
@@ -622,14 +622,14 @@
             try {
                 const { data: perfil } = await window.supabaseClient
                     .from('perfiles_usuario')
-                    .select('empresa_id, rol, nombre_completo, display_name')
+                    .select('empresa_id, rol, nombre_completo')
                     .eq('id', window.currentUser.id)
                     .single();
 
                 if (perfil) {
                     currentEmpresaId = perfil.empresa_id;
                     windowUserRole = (perfil.rol || 'CAJERO').toUpperCase();
-                    windowCajeroName = perfil.display_name || perfil.nombre_completo || (window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero');
+                    windowCajeroName = perfil.nombre_completo || (window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero');
                 } else {
                     windowCajeroName = window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero';
                 }
@@ -638,22 +638,45 @@
                 windowCajeroName = window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero';
             }
 
+            if (!currentEmpresaId) {
+                currentEmpresaId = localStorage.getItem('empresa_id') || (window.currentUserProfile && window.currentUserProfile.empresas ? window.currentUserProfile.empresas.id : null);
+            }
+
+            if (currentEmpresaId) {
+                try {
+                    const { data: empInfo } = await window.supabaseClient
+                        .from('empresas')
+                        .select('id, nombre, ruc, direccion')
+                        .eq('id', currentEmpresaId)
+                        .single();
+                    if (empInfo) {
+                        currentEmpresaData = empInfo;
+                        const elNom = document.getElementById('print-empresa-nombre');
+                        if (elNom) elNom.textContent = empInfo.nombre;
+                    }
+                } catch (errEmp) {
+                    console.warn("Carga empresa arqueo:", errEmp);
+                }
+            }
+
             // Identificar turno activo si existe
             windowCajaIdentificador = localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
             try {
-                const { data: turnosAbiertos } = await window.supabaseClient
-                    .from('pos_turnos_activos')
-                    .select('*')
-                    .eq('empresa_id', currentEmpresaId)
-                    .eq('usuario_id', window.currentUser.id)
-                    .eq('estado', 'ABIERTO')
-                    .order('hora_apertura', { ascending: false })
-                    .limit(1);
+                if (currentEmpresaId && window.currentUser && window.currentUser.id) {
+                    const { data: turnosAbiertos } = await window.supabaseClient
+                        .from('pos_turnos_activos')
+                        .select('*')
+                        .eq('empresa_id', currentEmpresaId)
+                        .eq('usuario_id', window.currentUser.id)
+                        .eq('estado', 'ABIERTO')
+                        .order('hora_apertura', { ascending: false })
+                        .limit(1);
 
-                if (turnosAbiertos && turnosAbiertos.length > 0) {
-                    currentTurnoActivo = turnosAbiertos[0];
-                    windowCajeroName = currentTurnoActivo.cajero_nombre;
-                    windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                    if (turnosAbiertos && turnosAbiertos.length > 0) {
+                        currentTurnoActivo = turnosAbiertos[0];
+                        windowCajeroName = currentTurnoActivo.cajero_nombre;
+                        windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                    }
                 }
             } catch (errT) {
                 console.warn("Consulta turno activo arqueo:", errT);
@@ -1242,8 +1265,10 @@
 
                 if (resSwal.isConfirmed) {
                     if (typeof window.imprimirTicketCierreCaja === 'function') {
-                        const empNombre = document.getElementById('print-empresa-nombre').textContent || 'MicroERP Cloud';
+                        const empNombre = (currentEmpresaData && currentEmpresaData.nombre) || document.getElementById('print-empresa-nombre')?.textContent || 'MicroERP Cloud';
                         cierreGuardado.empresa_nombre = empNombre;
+                        cierreGuardado.empresa_ruc = currentEmpresaData ? currentEmpresaData.ruc : '';
+                        cierreGuardado.empresa_direccion = currentEmpresaData ? currentEmpresaData.direccion : '';
                         window.imprimirTicketCierreCaja(cierreGuardado);
                     }
                 }
@@ -1296,13 +1321,25 @@
                 estadoCuadre = descuadre < 0 ? 'FALTANTE' : 'SOBRANTE';
             }
 
-            const empNombre = document.getElementById('print-empresa-nombre').textContent || 'MicroERP Cloud';
+            const empNombre = (currentEmpresaData && currentEmpresaData.nombre) || document.getElementById('print-empresa-nombre')?.textContent || 'MicroERP Cloud';
+            const empRuc = currentEmpresaData ? currentEmpresaData.ruc : '';
+            const empDir = currentEmpresaData ? currentEmpresaData.direccion : '';
 
             const payloadCierre = {
                 empresa_nombre: empNombre,
+                empresa_ruc: empRuc,
+                empresa_direccion: empDir,
                 nombre_operador: `${windowCajeroName} - Operador en Turno`,
                 saldo_inicial: fondoInicial,
                 ventas_sistema: ventasSistema,
+                total_ventas_contado: currentResumenTurno ? (currentResumenTurno.total_ventas_contado ?? ventasSistema) : ventasSistema,
+                total_cuotas_credito: currentResumenTurno ? (currentResumenTurno.total_cuotas_credito ?? 0) : 0,
+                total_ventas_credito: currentResumenTurno ? (currentResumenTurno.total_ventas_credito ?? 0) : 0,
+                total_esperado_gaveta: saldoTeorico,
+                total_real_conteo: sumFisico,
+                diferencia: descuadre,
+                otros_movimientos_ingreso: otrosIngresos,
+                otros_movimientos_egreso: otrosEgresos,
                 otros_ingresos: otrosIngresos,
                 otros_egresos: otrosEgresos,
                 saldo_teorico: saldoTeorico,
@@ -1427,8 +1464,9 @@
         }
     </script>
 
-    <!-- Inyectar Sidebar -->
+    <!-- Inyectar Sidebar e Impresora de Tickets -->
     <script src="sidebar.js"></script>
+    <script src="impresora_tickets.js"></script>
 
     <!-- Script de Tema (Dualidad Light/Dark) -->
     <script>

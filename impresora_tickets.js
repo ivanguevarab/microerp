@@ -1,6 +1,6 @@
 // Motor Centralizado de Impresión de Tickets (MicroERP) - Formato CSS @media print estilo CUS
 // =======================================================================================
-(function () {
+function asegurarEstilosImpresion() {
     if (!document.getElementById('microerp-print-css')) {
         const style = document.createElement('style');
         style.id = 'microerp-print-css';
@@ -66,13 +66,33 @@
                 }
             }
         `;
-        document.head.appendChild(style);
+        if (document.head) {
+            document.head.appendChild(style);
+        } else if (document.body) {
+            document.body.appendChild(style);
+        }
     }
+}
 
-    if (!document.getElementById('microerp-print-container')) {
-        const container = document.createElement('div');
+function asegurarContenedorImpresion() {
+    asegurarEstilosImpresion();
+    let container = document.getElementById('microerp-print-container');
+    if (!container) {
+        container = document.createElement('div');
         container.id = 'microerp-print-container';
-        document.body.appendChild(container);
+    }
+    if (document.body && container.parentElement !== document.body) {
+        document.body.appendChild(container); // Garantizar que sea hijo directo de body (Bypassing sidebar.js wrapper)
+    }
+    return container;
+}
+
+(function () {
+    asegurarEstilosImpresion();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', asegurarContenedorImpresion);
+    } else {
+        asegurarContenedorImpresion();
     }
 })();
 
@@ -247,8 +267,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
         }
 
         // Inyectar HTML en el DOM global
-        const container = document.getElementById('microerp-print-container');
-        document.body.appendChild(container); // Garantizar que sea hijo directo de body (Bypassing sidebar.js wrapper)
+        const container = asegurarContenedorImpresion();
         container.innerHTML = `
             ${anuladoWatermark}
             <div class="ticket-header">${empresaNombre}</div>
@@ -355,8 +374,7 @@ async function imprimirTicketCierreCaja(cierre) {
     try {
         Swal.fire({ title: 'Generando Ticket de Cierre...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-        const container = document.getElementById('microerp-print-container');
-        document.body.appendChild(container);
+        const container = asegurarContenedorImpresion();
 
         const empNombre = cierre.empresa_nombre || 'MICRO ERP';
         const empRuc = cierre.empresa_ruc || '';
