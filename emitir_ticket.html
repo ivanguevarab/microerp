@@ -1222,6 +1222,16 @@
             const ventaEditId = urlParams.get('ventaId');
 
             if (modoEdicion && ventaEditId) {
+                if (windowUserRole === 'CAJERO') {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Acceso Restringido',
+                        text: 'El rol Cajero no tiene autorización para modificar comprobantes emitidos.',
+                        confirmButtonColor: '#3085d6'
+                    });
+                    window.location.replace('emitir_ticket.html');
+                    return;
+                }
                 await inicializarModoEdicion(ventaEditId);
             } else {
                 await generarNuevoTicket();

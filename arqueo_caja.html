@@ -43,12 +43,9 @@
         .table-calc input[type="number"]:focus { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2); }
         .table-calc .subtotal { font-weight: bold; text-align: right; color: #334155; }
 
+        /* Estilos de Impresión Exclusivos para Reporte A4 */
         @media print {
-            @page {
-                size: A4 portrait;
-                margin: 15mm;
-            }
-            body { 
+            body.printing-a4 { 
                 background: #fff !important; 
                 color: #1f2937 !important; /* text-gray-800 */
                 font-family: 'Inter', system-ui, 'Helvetica Neue', Arial, sans-serif !important; 
@@ -56,17 +53,23 @@
                 min-height: 0 !important;
                 height: auto !important;
             }
-            .no-print { display: none !important; }
+            body.printing-a4 .no-print { display: none !important; }
             
-            /* Ocultar toda la web en formato print */
-            .page-wrap, header, nav, .sidebar, .submodule-header, #global-spinner { 
+            /* Ocultar toda la web en formato print A4 */
+            body.printing-a4 .page-wrap, 
+            body.printing-a4 header, 
+            body.printing-a4 nav, 
+            body.printing-a4 .sidebar, 
+            body.printing-a4 .submodule-header, 
+            body.printing-a4 #global-spinner,
+            body.printing-a4 #microerp-print-container { 
                 display: none !important; 
                 margin: 0 !important; 
                 padding: 0 !important; 
             }
             
             /* Mostrar el reporte puro con padding fijo para evitar cortes en bordes */
-            #print-report-container { 
+            body.printing-a4 #print-report-container { 
                 display: block !important; 
                 width: 100%; 
                 margin: 0 auto; 
@@ -416,7 +419,7 @@
                 <button onclick="iniciarCierreZDefinitivo()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide" title="Sellar turno inmutablemente en Supabase e imprimir Cierre Z">
                     Cierre Definitivo (Z)
                 </button>
-                <button onclick="generarReporteImpresion(); window.print()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm border border-slate-700 dark:border-slate-600" title="Imprimir reporte en formato A4">
+                <button onclick="imprimirReporteA4()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm border border-slate-700 dark:border-slate-600" title="Imprimir reporte en formato A4">
                     Reporte A4
                 </button>
             </div>
@@ -1461,6 +1464,30 @@
             `;
             
             document.getElementById('print-report-container').innerHTML = html;
+        }
+
+        function imprimirReporteA4() {
+            generarReporteImpresion();
+            
+            let styleA4 = document.getElementById('estilo-print-a4-dinamico');
+            if (!styleA4) {
+                styleA4 = document.createElement('style');
+                styleA4.id = 'estilo-print-a4-dinamico';
+                styleA4.innerHTML = `
+                    @media print {
+                        @page { size: A4 portrait; margin: 15mm; }
+                    }
+                `;
+                document.head.appendChild(styleA4);
+            }
+            
+            document.body.classList.add('printing-a4');
+            window.print();
+            
+            setTimeout(() => {
+                document.body.classList.remove('printing-a4');
+                if (styleA4) styleA4.remove();
+            }, 600);
         }
     </script>
 

@@ -51,6 +51,9 @@ function asegurarEstilosImpresion() {
                 body.printing-ticket > *:not(#microerp-print-container) {
                     display: none !important;
                 }
+                body.printing-ticket #print-report-container {
+                    display: none !important;
+                }
                 body.printing-ticket #microerp-print-container,
                 body.printing-ticket #microerp-print-container * {
                     visibility: visible;
