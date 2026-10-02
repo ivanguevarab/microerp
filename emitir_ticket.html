@@ -405,36 +405,69 @@
         html:not(.dark) body { background-color: #f3f4f6 !important; color: #334155 !important; }
         html:not(.dark) .submodule-header h1 { color: #ffffff !important; }
         html:not(.dark) .submodule-header { border-bottom: 1px solid #1e293b !important; }
+
+        /* RESPONSIVE HEADER ADAPTATIVO (Protección contra solapamientos en pantallas compactas <= 1280px) */
+        @media (max-width: 1280px) {
+            .submodule-header {
+                padding: 0 1rem !important;
+            }
+            .header-pos-title {
+                font-size: 1.15rem !important;
+            }
+        }
+        @media (max-width: 768px) {
+            .submodule-header {
+                height: auto !important;
+                padding: 0.6rem 1rem !important;
+            }
+            .submodule-header-content {
+                flex-wrap: wrap !important;
+                gap: 0.6rem !important;
+            }
+            .header-action-pills {
+                width: 100% !important;
+                justify-content: flex-end !important;
+            }
+        }
     </style>
 </head>
 
 <body>
     <!-- Header Standarizado -->
     <header class="submodule-header">
-        <div class="submodule-header-content">
-            <button class="btn-back-std" onclick="window.location.href='ventas_y_facturacion.html'">
-                ← Volver
-            </button>
-            <h1>Terminal Punto de Venta (POS)</h1>
-            <div id="badgeOperadorTerminal" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600/30 border border-blue-400/40 text-blue-200 text-xs font-bold shadow-sm mt-1.5 z-10 cursor-pointer hover:bg-blue-600/40 transition" onclick="solicitarCambioTurno()" title="Clic para ver estado o solicitar relevo de turno">
-                <span id="txtBadgeOperador">Operador en Turno</span>
+        <div class="submodule-header-content flex items-center justify-between w-full">
+            <!-- Bloque Izquierdo: Volver + Título + Operador + Fecha -->
+            <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <button class="btn-back-std flex-shrink-0" onclick="window.location.href='ventas_y_facturacion.html'">
+                    ← Volver
+                </button>
+                <h1 class="header-pos-title whitespace-nowrap">
+                    <span class="hidden xl:inline">Terminal Punto de Venta (POS)</span>
+                    <span class="xl:hidden">Terminal POS</span>
+                </h1>
+                <div id="badgeOperadorTerminal" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600/30 border border-blue-400/40 text-blue-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-blue-600/40 transition flex-shrink-0" onclick="solicitarCambioTurno()" title="Clic para ver estado o solicitar relevo de turno">
+                    <span id="txtBadgeOperador">Operador en Turno</span>
+                </div>
+                <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 hidden xl:block flex-shrink-0"></div>
             </div>
-            <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 mt-1 z-10 relative"></div>
-            <div class="absolute right-[20px] top-[18px] flex items-center gap-2 z-50">
-                <button id="btnConfigurarPinPOS" onclick="abrirModalConfigurarPinPOS()" class="h-9 px-3.5 rounded-lg bg-slate-700/80 hover:bg-slate-600 text-slate-200 font-bold transition shadow-sm text-xs border border-slate-500/40 flex items-center justify-center hidden" title="Definir o cambiar el PIN de Supervisor para autorización de precios y Cierre Z">
+
+            <!-- Bloque Derecho: Botones de Acción (Sin Absolute) -->
+            <div class="header-action-pills flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                <button id="btnConfigurarPinPOS" onclick="abrirModalConfigurarPinPOS()" class="h-9 px-3 sm:px-3.5 rounded-lg bg-slate-700/80 hover:bg-slate-600 text-slate-200 font-bold transition shadow-sm text-xs border border-slate-500/40 flex items-center justify-center hidden" title="Definir o cambiar el PIN de Supervisor para autorización de precios y Cierre Z">
                     <span>PIN</span>
                 </button>
-                <button id="btnVerCarritosCongelados" onclick="abrirModalCarritosCongelados()" class="h-9 px-3.5 rounded-lg bg-sky-700/70 hover:bg-sky-600 text-white font-bold transition shadow-sm text-xs border border-sky-400/30 flex items-center justify-center gap-1.5" title="Ver pedidos en espera (congelados)">
+                <button id="btnVerCarritosCongelados" onclick="abrirModalCarritosCongelados()" class="h-9 px-3 sm:px-3.5 rounded-lg bg-sky-700/70 hover:bg-sky-600 text-white font-bold transition shadow-sm text-xs border border-sky-400/30 flex items-center justify-center gap-1.5" title="Ver pedidos en espera (congelados)">
                     <span>En Espera</span>
                     <span id="badgeCountCongelados" class="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-400 text-slate-900 font-black hidden">0</span>
                 </button>
-                <button id="btnRelevoCajero" onclick="solicitarCambioTurno()" class="h-9 px-3.5 rounded-lg bg-blue-700/70 hover:bg-blue-600 text-white font-bold transition shadow-sm text-xs border border-blue-400/30 flex items-center justify-center hidden" title="Relevo de Operador de Caja">
+                <button id="btnRelevoCajero" onclick="solicitarCambioTurno()" class="h-9 px-3 sm:px-3.5 rounded-lg bg-blue-700/70 hover:bg-blue-600 text-white font-bold transition shadow-sm text-xs border border-blue-400/30 flex items-center justify-center hidden" title="Relevo de Operador de Caja">
                     <span>Relevo</span>
                 </button>
-                <button id="btnIrArqueoCaja" onclick="window.location.href='arqueo_caja.html'" class="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-sm text-xs border border-emerald-500/40 flex items-center justify-center" title="Ir al Arqueo y Cierre de Turno">
-                    <span>Cierre de Turno</span>
+                <button id="btnIrArqueoCaja" onclick="window.location.href='arqueo_caja.html'" class="h-9 px-3 sm:px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-sm text-xs border border-emerald-500/40 flex items-center justify-center" title="Ir al Arqueo y Cierre de Turno">
+                    <span class="hidden xl:inline">Cierre de Turno</span>
+                    <span class="xl:hidden">Cierre</span>
                 </button>
-                <button id="themeToggleBtn" onclick="toggleTheme()" class="h-9 px-3.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow-sm text-xs font-bold tracking-wide flex items-center justify-center">
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="h-9 px-3 sm:px-3.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow-sm text-xs font-bold tracking-wide flex items-center justify-center">
                     <span>TEMA</span>
                 </button>
             </div>
@@ -632,14 +665,9 @@
         <dialog id="modalAperturaTurno" class="backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm p-0 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden m-auto hidden items-center justify-center">
             <div class="w-full">
                 <div class="p-6 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white text-xl">
-                            <i class="fas fa-cash-register"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold">Apertura de Turno POS</h3>
-                            <p class="text-xs text-blue-100">Identifica al operador y la terminal para iniciar ventas</p>
-                        </div>
+                    <div>
+                        <h3 class="text-lg font-bold">Apertura de Turno POS</h3>
+                        <p class="text-xs text-blue-100">Identifica al operador y la terminal para iniciar ventas</p>
                     </div>
                 </div>
                 
@@ -647,7 +675,7 @@
                     <!-- Selector de Caja Física (Visible solo si limite_cajas > 1) -->
                     <div id="containerSelectorCajaTurno" class="hidden">
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
-                            <i class="fas fa-desktop text-blue-500 mr-1"></i> Terminal / Caja Física
+                            Terminal / Caja Física
                         </label>
                         <div id="gridBotonesCajas" class="grid grid-cols-2 gap-2">
                             <!-- Inyectado dinámicamente según limite_cajas -->
@@ -658,7 +686,7 @@
                     <!-- Nombre del Cajero(a) con Datalist -->
                     <div>
                         <label for="inputNombreCajeroTurno" class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                            <i class="fas fa-user text-blue-500 mr-1"></i> Nombre del Cajero(a) <span class="text-rose-500">*</span>
+                            Nombre del Cajero(a) <span class="text-rose-500">*</span>
                         </label>
                         <input type="text" id="inputNombreCajeroTurno" list="dlCajerosFrecuentes" placeholder="Ej. Andrea Calle" autocomplete="off" required
                             class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm transition">
@@ -669,7 +697,7 @@
                     <!-- Fondo Inicial de Gaveta -->
                     <div>
                         <label for="inputFondoInicialTurno" class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                            <i class="fas fa-coins text-amber-500 mr-1"></i> Fondo Inicial / Sencillo (S/)
+                            Fondo Inicial / Sencillo (S/)
                         </label>
                         <input type="number" step="0.10" min="0" id="inputFondoInicialTurno" value="0.00" placeholder="0.00"
                             class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
@@ -679,7 +707,6 @@
                     <div class="pt-2">
                         <button type="submit" id="btnConfirmarApertura"
                             class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition transform hover:-translate-y-0.5">
-                            <i class="fas fa-sign-in-alt text-lg"></i>
                             <span>Iniciar Turno y Abrir Caja</span>
                         </button>
                     </div>
@@ -692,14 +719,9 @@
             <div class="w-full">
                 <div class="p-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 text-white">
                     <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white text-lg">
-                                <i class="fas fa-snowflake"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-base font-bold">Congelar Pedido en Espera</h3>
-                                <p class="text-xs text-sky-100">Guarda el avance para atender al siguiente cliente</p>
-                            </div>
+                        <div>
+                            <h3 class="text-base font-bold">Congelar Pedido en Espera</h3>
+                            <p class="text-xs text-sky-100">Guarda el avance para atender al siguiente cliente</p>
                         </div>
                         <button type="button" onclick="cerrarModalCongelarCarrito()" class="text-white/80 hover:text-white text-lg">
                             <i class="fas fa-times"></i>
@@ -739,7 +761,7 @@
                             Cancelar
                         </button>
                         <button type="submit" id="btnConfirmarCongelar" class="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-sm shadow-md shadow-sky-500/20 transition flex items-center gap-2">
-                            <i class="fas fa-snowflake"></i> Confirmar y Congelar
+                            <span>Confirmar y Congelar</span>
                         </button>
                     </div>
                 </form>
@@ -751,14 +773,9 @@
             <div class="w-full flex flex-col max-h-[85vh]">
                 <div class="p-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-sky-700 via-blue-700 to-indigo-700 text-white flex-shrink-0">
                     <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white text-lg">
-                                <i class="fas fa-snowflake"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-base font-bold">Pedidos en Espera (Carritos Congelados)</h3>
-                                <p class="text-xs text-sky-100">Selecciona un pedido para retomarlo o descartarlo</p>
-                            </div>
+                        <div>
+                            <h3 class="text-base font-bold">Pedidos en Espera (Carritos Congelados)</h3>
+                            <p class="text-xs text-sky-100">Selecciona un pedido para retomarlo o descartarlo</p>
                         </div>
                         <button type="button" onclick="cerrarModalCarritosCongelados()" class="text-white/80 hover:text-white text-lg">
                             <i class="fas fa-times"></i>
@@ -1455,9 +1472,7 @@
             if (windowUserRole === 'ADMIN') {
                 window.cajeroName = window.currentUserProfile?.nombre_completo || 'Administrador';
                 window.cajaIdentificador = 'Admin';
-                if (badgeTxt) {
-                    badgeTxt.textContent = `${window.cajeroName} - Administrador`;
-                }
+                actualizarBadgeOperadorUI();
                 const btnPin = document.getElementById('btnConfigurarPinPOS');
                 if (btnPin) btnPin.classList.remove('hidden');
                 if (btnRelevo) btnRelevo.classList.add('hidden');
@@ -1543,7 +1558,7 @@
                     btn.type = 'button';
                     const esSeleccionada = (cNom === ultimaCaja) || (i === 1 && !ultimaCaja);
                     btn.className = `py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition ${esSeleccionada ? 'bg-blue-600 text-white border-blue-600 shadow' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200'}`;
-                    btn.innerHTML = `<i class="fas fa-desktop"></i> ${cNom}`;
+                    btn.textContent = cNom;
                     btn.onclick = () => {
                         Array.from(gridCajas.children).forEach(b => {
                             b.className = 'py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200';
@@ -1699,7 +1714,7 @@
                 });
             } finally {
                 btnSubmit.disabled = false;
-                btnSubmit.innerHTML = `<i class="fas fa-sign-in-alt text-lg"></i> <span>Iniciar Turno y Abrir Caja</span>`;
+                btnSubmit.innerHTML = `<span>Iniciar Turno y Abrir Caja</span>`;
             }
         }
 
@@ -1730,7 +1745,7 @@
                 showCancelButton: true,
                 confirmButtonColor: '#10b981',
                 cancelButtonColor: '#64748b',
-                confirmButtonText: '<i class="fas fa-lock mr-1"></i> Ir al Arqueo y Cierre',
+                confirmButtonText: 'Ir al Arqueo y Cierre',
                 cancelButtonText: 'Continuar en este turno'
             });
 
@@ -1743,9 +1758,9 @@
             const badgeTxt = document.getElementById('txtBadgeOperador');
             if (!badgeTxt) return;
             if (windowUserRole === 'ADMIN') {
-                badgeTxt.textContent = `${window.cajeroName} - Administrador`;
+                badgeTxt.innerHTML = `<span>${window.cajeroName}</span><span class="hidden xl:inline"> - Administrador</span><span class="xl:hidden"> (Admin)</span>`;
             } else {
-                badgeTxt.textContent = `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'}) - En Turno`;
+                badgeTxt.innerHTML = `<span>${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})</span><span class="hidden xl:inline"> - En Turno</span>`;
             }
         }
 
@@ -2469,7 +2484,7 @@
             
             if (isEditMode) {
                 btn.disabled = false;
-                btn.innerHTML = `<i class="fas fa-save text-xl"></i> GUARDAR EDICIÓN (S/ ${formatMoney(totalBrutoDigitado)})`;
+                btn.innerHTML = `GUARDAR EDICIÓN (S/ ${formatMoney(totalBrutoDigitado)})`;
                 if (esCredito) {
                     const textSaldo = document.getElementById('txtSaldoFinanciar');
                     if (textSaldo) {
@@ -2493,12 +2508,12 @@
                     textSaldo.textContent = 'Monto Inválido';
                     textSaldo.className = 'font-bold text-xl text-red-500';
                     btn.disabled = true;
-                    btn.innerHTML = `<i class="fas fa-exclamation-triangle text-xl"></i> INICIAL EXCEDE TOTAL`;
+                    btn.innerHTML = `INICIAL EXCEDE TOTAL`;
                 } else {
                     textSaldo.textContent = `S/ ${formatMoney(saldo)}`;
                     textSaldo.className = 'font-bold text-2xl text-rose-400';
                     btn.disabled = false;
-                    btn.innerHTML = `<i class="fas fa-handshake text-xl"></i> REGISTRAR CRÉDITO (S/ ${formatMoney(totalBrutoDigitado)})`;
+                    btn.innerHTML = `REGISTRAR CRÉDITO (S/ ${formatMoney(totalBrutoDigitado)})`;
                 }
             } else {
                 // Lógica Clásica de Contado
@@ -2509,7 +2524,7 @@
                     textVuelto.textContent = 'S/ 0.00';
                     textVuelto.className = 'font-bold text-2xl text-slate-400';
                     btn.disabled = false;
-                    btn.innerHTML = `<i class="fas fa-cash-register text-xl"></i> REGISTRAR VENTA (S/ ${formatMoney(totalBrutoDigitado)})`;
+                    btn.innerHTML = `REGISTRAR VENTA (S/ ${formatMoney(totalBrutoDigitado)})`;
                     return;
                 }
 
@@ -2518,7 +2533,7 @@
                      textVuelto.textContent = 'Monto Inválido';
                      textVuelto.className = 'font-bold text-xl text-red-500';
                      btn.disabled = true;
-                     btn.innerHTML = `<i class="fas fa-exclamation-triangle text-xl"></i> SALDO INVÁLIDO`;
+                     btn.innerHTML = `SALDO INVÁLIDO`;
                      return;
                 }
 
@@ -2528,12 +2543,12 @@
                     textVuelto.textContent = `Faltan S/ ${formatMoney(Math.abs(vuelto))}`;
                     textVuelto.className = 'font-bold text-xl text-red-400';
                     btn.disabled = true;
-                    btn.innerHTML = `<i class="fas fa-cash-register text-xl"></i> SALDO INSUFICIENTE`;
+                    btn.innerHTML = `SALDO INSUFICIENTE`;
                 } else {
                     textVuelto.textContent = `S/ ${formatMoney(vuelto)}`;
                     textVuelto.className = 'font-bold text-2xl text-emerald-400';
                     btn.disabled = false;
-                    btn.innerHTML = `<i class="fas fa-cash-register text-xl"></i> REGISTRAR VENTA (S/ ${formatMoney(totalBrutoDigitado)})`;
+                    btn.innerHTML = `REGISTRAR VENTA (S/ ${formatMoney(totalBrutoDigitado)})`;
                 }
             }
         }
@@ -2581,7 +2596,7 @@
 
             if(carrito.length === 0) {
                 btn.disabled = true;
-                btn.innerHTML = `<i class="fas fa-cash-register text-xl"></i> REGISTRAR VENTA`;
+                btn.innerHTML = `REGISTRAR VENTA`;
                 if(wrapperPagos) {
                     wrapperPagos.style.display = 'none';
                     document.getElementById('inputMontoRecibido').value = '';
@@ -2606,7 +2621,7 @@
                 }
                 if (isEditMode) {
                     btn.disabled = false;
-                    btn.innerHTML = `<i class="fas fa-save text-xl"></i> GUARDAR EDICIÓN (S/ ${formatMoney(total)})`;
+                    btn.innerHTML = `GUARDAR EDICIÓN (S/ ${formatMoney(total)})`;
                     if (esCredito) {
                         const textSaldo = document.getElementById('txtSaldoFinanciar');
                         if (textSaldo) {
@@ -2616,7 +2631,7 @@
                     }
                 } else {
                     btn.disabled = false;
-                    btn.innerHTML = `<i class="fas fa-${esCredito ? 'handshake' : 'cash-register'} text-xl"></i> REGISTRAR ${esCredito ? 'CRÉDITO' : 'VENTA'} (S/ ${formatMoney(total)})`;
+                    btn.innerHTML = `REGISTRAR ${esCredito ? 'CRÉDITO' : 'VENTA'} (S/ ${formatMoney(total)})`;
                     validarVueltoInteractivo();
                 }
             }
