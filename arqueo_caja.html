@@ -25,6 +25,7 @@
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth-guard.js"></script>
+    <script src="impresora_tickets.js"></script>
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -237,97 +238,139 @@
         html.dark .page-wrap h2 { color: #f8fafc !important; }
         html.dark .page-wrap p.text-slate-500 { color: #94a3b8 !important; }
 
-        /* Tarjetas Principales (Glassmorphism) */
+        /* Tarjetas Principales (Glassmorphism en Dark, Sombra Nítida en Light) */
         html.dark .bg-white.rounded-xl.shadow-sm {
-            background-color: rgba(15, 23, 42, 0.8) !important;
-            border: 1px solid rgba(255, 255, 255, 0.05) !important;
-            backdrop-filter: blur(12px) !important;
-            -webkit-backdrop-filter: blur(12px) !important;
-            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5) !important;
+            background-color: rgba(15, 23, 42, 0.85) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(14px) !important;
+            -webkit-backdrop-filter: blur(14px) !important;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6) !important;
         }
 
         /* Cabeceras de tarjetas internas */
         html.dark .bg-amber-50 {
-            background-color: rgba(245, 158, 11, 0.1) !important;
-            border-bottom: 1px solid rgba(245, 158, 11, 0.2) !important;
+            background-color: rgba(245, 158, 11, 0.12) !important;
+            border-bottom: 1px solid rgba(245, 158, 11, 0.25) !important;
         }
-        html.dark .text-amber-800 { color: #fcd34d !important; }
-        html.dark .bg-amber-200 { background-color: rgba(245, 158, 11, 0.2) !important; color: #fcd34d !important; }
+        html.dark .text-amber-800 { color: #fde68a !important; }
         
         html.dark .bg-blue-50 {
-            background-color: rgba(59, 130, 246, 0.1) !important;
-            border-bottom: 1px solid rgba(59, 130, 246, 0.2) !important;
+            background-color: rgba(59, 130, 246, 0.12) !important;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.25) !important;
         }
-        html.dark .text-blue-800 { color: #93c5fd !important; }
+        html.dark .text-blue-800 { color: #bfdbfe !important; }
 
-        /* Filas de la calculadora / datos */
+        /* Filas de la calculadora y datos */
         html.dark .bg-slate-50, html.dark .border-slate-100, html.dark .border-slate-200, html.dark .border-slate-300 {
-            background-color: rgba(30, 41, 59, 0.3) !important;
-            border-color: rgba(255, 255, 255, 0.05) !important;
+            background-color: rgba(30, 41, 59, 0.45) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
         }
-        html.dark .text-slate-600 { color: #94a3b8 !important; }
+        html.dark .text-slate-500 { color: #94a3b8 !important; }
+        html.dark .text-slate-600 { color: #cbd5e1 !important; }
         html.dark .text-slate-700 { color: #e2e8f0 !important; }
         html.dark .text-slate-800 { color: #f8fafc !important; }
 
         /* Fix para tabla transitoria (dinámica) */
         html.dark tr.bg-white { background-color: transparent !important; }
 
-        /* Inputs Generales */
+        /* Inputs Generales con alto contraste */
         html.dark input[type="text"], html.dark input[type="number"], html.dark select {
-            background-color: rgba(30, 41, 59, 0.6) !important;
-            border-color: rgba(255, 255, 255, 0.1) !important;
+            background-color: rgba(15, 23, 42, 0.9) !important;
+            border: 1px solid #334155 !important;
             color: #f8fafc !important;
         }
         html.dark input:focus, html.dark select:focus {
-            border-color: #f59e0b !important; /* amber accent */
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
         }
-        html.dark #in-fondo-inicial { color: #60a5fa !important; }
+        html.dark #in-fondo-inicial { color: #60a5fa !important; font-weight: 800 !important; }
 
         /* Tabla de Billetes y Monedas */
-        html.dark .table-calc th { color: #94a3b8 !important; }
-        html.dark .table-calc td.text-slate-500 { color: #94a3b8 !important; }
-        html.dark .table-calc td.text-amber-600 { color: #fcd34d !important; }
-        html.dark .table-calc td.text-gray-500 { color: #94a3b8 !important; }
-        html.dark .subtotal { color: #e2e8f0 !important; }
+        .table-calc input[type="number"] {
+            border: 1px solid #94a3b8; border-radius: 6px; padding: 4px 8px; text-align: center; width: 70px;
+            font-weight: 800; outline: none; transition: 0.2s; background-color: #ffffff; color: #0f172a;
+        }
+        .table-calc input[type="number"]:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); }
+        .table-calc .subtotal { font-weight: 800; text-align: right; color: #0f172a; }
+
+        html.dark .table-calc input[type="number"] {
+            background-color: rgba(15, 23, 42, 0.95) !important;
+            border-color: #475569 !important;
+            color: #ffffff !important;
+        }
+        html.dark .table-calc input[type="number"]:focus {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
+        }
+        html.dark .table-calc th { color: #f1f5f9 !important; }
+        html.dark .table-calc td.text-slate-500 { color: #cbd5e1 !important; font-weight: 700 !important; }
+        html.dark .table-calc td.text-amber-600 { color: #fbbf24 !important; font-weight: 700 !important; }
+        html.dark .table-calc td.text-gray-500 { color: #94a3b8 !important; font-weight: 700 !important; }
+        html.dark .table-calc .subtotal { color: #ffffff !important; font-weight: 800 !important; }
 
         /* Footer de las tarjetas (Total Esperado y Físico) */
         html.dark .bg-slate-700 {
-            background-color: rgba(15, 23, 42, 0.9) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background-color: rgba(15, 23, 42, 0.95) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
         }
         html.dark .bg-blue-600 {
-            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important; /* blue premium gradient */
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
         }
 
         /* Resumen Final de Cuadre */
         html.dark #ui-cuadre-status.bg-emerald-50 {
-            background-color: rgba(16, 185, 129, 0.1) !important;
-            border-color: rgba(16, 185, 129, 0.2) !important;
+            background-color: rgba(16, 185, 129, 0.12) !important;
+            border-color: rgba(16, 185, 129, 0.3) !important;
         }
         html.dark #ui-cuadre-status.bg-emerald-50 #ui-descuadre-monto { color: #34d399 !important; }
-        html.dark #ui-cuadre-status.bg-emerald-50 #ui-cuadre-leyenda { background-color: rgba(16, 185, 129, 0.2) !important; color: #34d399 !important; border-color: rgba(16, 185, 129, 0.3) !important; }
+        html.dark #ui-cuadre-status.bg-emerald-50 #ui-cuadre-leyenda { 
+            background-color: rgba(6, 78, 59, 0.8) !important; 
+            color: #6ee7b7 !important; 
+            border-color: rgba(16, 185, 129, 0.4) !important; 
+        }
 
         html.dark #ui-cuadre-status.bg-rose-50 {
-            background-color: rgba(225, 29, 72, 0.1) !important;
-            border-color: rgba(225, 29, 72, 0.2) !important;
+            background-color: rgba(225, 29, 72, 0.12) !important;
+            border-color: rgba(225, 29, 72, 0.3) !important;
         }
         html.dark #ui-cuadre-status.bg-rose-50 #ui-descuadre-monto { color: #fb7185 !important; }
-        html.dark #ui-cuadre-status.bg-rose-50 #ui-cuadre-leyenda { background-color: rgba(225, 29, 72, 0.2) !important; color: #fb7185 !important; border-color: rgba(225, 29, 72, 0.3) !important; }
+        html.dark #ui-cuadre-status.bg-rose-50 #ui-cuadre-leyenda { 
+            background-color: rgba(136, 19, 55, 0.8) !important; 
+            color: #fecdd3 !important; 
+            border-color: rgba(225, 29, 72, 0.4) !important; 
+        }
 
         html.dark #ui-cuadre-status.bg-blue-50 {
-            background-color: rgba(59, 130, 246, 0.1) !important;
-            border-color: rgba(59, 130, 246, 0.2) !important;
+            background-color: rgba(59, 130, 246, 0.12) !important;
+            border-color: rgba(59, 130, 246, 0.3) !important;
         }
         html.dark #ui-cuadre-status.bg-blue-50 #ui-descuadre-monto { color: #60a5fa !important; }
-        html.dark #ui-cuadre-status.bg-blue-50 #ui-cuadre-leyenda { background-color: rgba(59, 130, 246, 0.2) !important; color: #60a5fa !important; border-color: rgba(59, 130, 246, 0.3) !important; }
+        html.dark #ui-cuadre-status.bg-blue-50 #ui-cuadre-leyenda { 
+            background-color: rgba(30, 58, 138, 0.8) !important; 
+            color: #bfdbfe !important; 
+            border-color: rgba(59, 130, 246, 0.4) !important; 
+        }
 
         /* Global spinner z-index override */
-        html.dark #global-spinner { background-color: rgba(2, 6, 23, 0.8) !important; }
+        html.dark #global-spinner { background-color: rgba(2, 6, 23, 0.85) !important; }
 
-        /* MODO CLARO ESTRICTO */
-        html:not(.dark) body { background-color: #f8fafc !important; color: #1e293b !important; }
+        /* MODO CLARO ESTRICTO (ALTA DEFINICIÓN Y CONTRASTE) */
+        html:not(.dark) body { background-color: #f8fafc !important; color: #0f172a !important; }
         html:not(.dark) .submodule-header h1 { color: #ffffff !important; }
         html:not(.dark) .submodule-header { border-bottom: 1px solid #1e293b !important; }
+        html:not(.dark) .page-wrap h2 { color: #0f172a !important; }
+        html:not(.dark) .page-wrap p.text-slate-500 { color: #475569 !important; font-weight: 500; }
+        html:not(.dark) .table-calc td.text-amber-600 { color: #b45309 !important; font-weight: 700; }
+        html:not(.dark) .table-calc td.text-gray-500 { color: #475569 !important; font-weight: 700; }
+        html:not(.dark) .table-calc td.text-slate-500 { color: #334155 !important; font-weight: 700; }
+        html:not(.dark) input[type="text"], html:not(.dark) input[type="number"], html:not(.dark) select {
+            border-color: #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+    </style>
+</head>
     </style>
 </head>
 
@@ -357,14 +400,26 @@
         <span id="print-empresa-nombre" style="display: none;"></span>
         
         <!-- Dashboard Superior -->
-        <div class="flex justify-between items-center mb-8 no-print">
+        <div class="flex justify-between items-center mb-8 no-print flex-wrap gap-4">
             <div>
-                <h2 class="text-2xl font-bold text-slate-800">Cierre del Día</h2>
-                <p class="text-slate-500 text-sm">Este módulo se reinicia a las cero horas cada día.</p>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Cierre de Caja y Turno</h2>
+                    <span id="txtBadgeOperadorArqueo" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold border transition shadow-sm bg-indigo-50 border-indigo-200 text-indigo-900 dark:bg-indigo-950/80 dark:border-indigo-600/70 dark:text-indigo-200 dark:shadow-[0_0_12px_rgba(99,102,241,0.2)]">
+                        <i class="fas fa-cash-register text-indigo-600 dark:text-indigo-400"></i>
+                        <span>Cargando Operador...</span>
+                    </span>
+                </div>
+                <p id="txtSubtituloTurno" class="text-slate-600 dark:text-slate-400 text-sm mt-1 font-medium">Conciliación económica del turno activo para esta terminal de cobro.</p>
             </div>
-            <div class="flex gap-3">
-                <button onclick="generarReporteImpresion(); window.print()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-5 rounded-lg shadow-md transition flex items-center gap-2">
-                    <i class="fas fa-print"></i> Imprimir Reporte
+            <div class="flex gap-2 flex-wrap items-center">
+                <button onclick="imprimirCierreTermicoDirecto()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide" title="Imprimir lectura de control (Corte X) sin cerrar turno">
+                    Corte Parcial (X)
+                </button>
+                <button onclick="iniciarCierreZDefinitivo()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide" title="Sellar turno inmutablemente en Supabase e imprimir Cierre Z">
+                    Cierre Definitivo (Z)
+                </button>
+                <button onclick="generarReporteImpresion(); window.print()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm border border-slate-700 dark:border-slate-600" title="Imprimir reporte en formato A4">
+                    Reporte A4
                 </button>
             </div>
         </div>
@@ -375,70 +430,73 @@
             <div class="lg:col-span-6 space-y-6">
                 
                 <!-- CARD: Sistema Core -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="bg-amber-50 px-5 py-4 border-b border-amber-100 flex items-center justify-between">
-                        <h3 class="font-bold text-amber-800 flex items-center gap-2">
-                            <i class="fas fa-desktop"></i> Dinero Esperado
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <div class="bg-amber-50 dark:bg-amber-950/30 px-5 py-4 border-b border-amber-100 dark:border-amber-900/40 flex items-center justify-between">
+                        <h3 class="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                            <i class="fas fa-desktop text-amber-600 dark:text-amber-400"></i> Dinero Esperado
                         </h3>
-                        <span class="text-xs bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded">HOY</span>
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-full border bg-amber-100 text-amber-900 border-amber-300/80 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-600/50">TURNO ACTIVO</span>
                     </div>
                     <div class="p-5 space-y-4 text-sm">
                         
-                        <div class="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-100">
-                            <span class="text-slate-600">Saldo inicial:</span>
+                        <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700/60">
+                            <span class="text-slate-700 dark:text-slate-200 font-semibold">Saldo inicial:</span>
                             <div class="relative w-32 shrink-0">
-                                <span class="absolute left-2 top-1.5 text-slate-400 font-bold">S/</span>
-                                <input type="text" inputmode="decimal" id="in-fondo-inicial" class="w-full text-right bg-white border border-slate-300 rounded px-2 py-1 outline-none font-bold text-blue-600 pl-6 focus:border-amber-400 no-print" value="0.00" oninput="maskDecimal(this); autoguardarLocal(); recalcularTodo();">
+                                <span class="absolute left-2 top-1.5 text-slate-500 dark:text-slate-400 font-bold">S/</span>
+                                <input type="text" inputmode="decimal" id="in-fondo-inicial" class="w-full text-right bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 outline-none font-extrabold text-blue-700 dark:text-blue-400 pl-6 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 no-print" value="0.00" oninput="maskDecimal(this); autoguardarLocal(); recalcularTodo();">
                                 <div class="print-only text-right font-bold pr-2" id="print-fondo-inicial">S/ 0.00</div>
                             </div>
                         </div>
 
-                        <div class="flex justify-between items-center p-2 mb-2">
-                            <span class="text-slate-600">(+) Ventas en Sistema:</span>
-                            <div class="font-bold text-slate-800 w-32 text-right pr-2 shrink-0" id="ui-vta-contado">S/ 0.00</div>
+                        <div class="flex justify-between items-center p-2.5 mb-2 rounded-lg bg-white dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800">
+                            <div>
+                                <span class="text-slate-700 dark:text-slate-200 font-semibold">(+) Ventas en Sistema:</span>
+                                <span id="txtTurnoInfo" class="block text-xs text-slate-600 dark:text-slate-400 font-medium mt-0.5">Calculando ventas del turno...</span>
+                            </div>
+                            <div class="font-black text-slate-900 dark:text-white text-base w-32 text-right pr-2 shrink-0" id="ui-vta-contado">S/ 0.00</div>
                         </div>
 
                         <!-- Integración Dinámica: Otros Movimientos -->
-                        <div class="mt-2 pt-3 border-t border-slate-100">
+                        <div class="mt-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                             <div class="flex justify-between items-center p-2 mb-1">
-                                <span class="font-bold text-slate-700 flex items-center gap-2"><i class="fas fa-edit text-slate-400"></i> Otros Movimientos a Considerar</span>
+                                <span class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2"><i class="fas fa-edit text-slate-500 dark:text-slate-400"></i> Otros Movimientos a Considerar</span>
                             </div>
                             
-                            <p class="text-xs text-slate-400 mb-3 px-2 no-print">Agrega aquí las otras entradas y salidas de dinero que afectan tu gaveta real antes del cierre.</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3 px-2 no-print">Agrega aquí las otras entradas y salidas de dinero que afectan tu gaveta real antes del cierre.</p>
                             
                             <form id="frm-ajuste" class="flex gap-2 mb-4 px-2 no-print" onsubmit="event.preventDefault(); addAjuste();">
-                                <input type="text" id="ajuste-desc" class="flex-1 border border-slate-300 rounded px-3 py-2 text-sm outline-none bg-white" placeholder="Ej. Retiro de caja autorizado" required>
-                                <select id="ajuste-tipo" class="border border-slate-300 rounded px-2 py-2 text-sm outline-none bg-white">
-                                    <option value="INGRESO">Ingreso</option>
-                                    <option value="EGRESO" selected>Retiro</option>
+                                <input type="text" id="ajuste-desc" class="flex-1 border border-slate-300 dark:border-slate-600 rounded px-3 py-2 text-sm outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Ej. Retiro de caja autorizado" required>
+                                <select id="ajuste-tipo" class="border border-slate-300 dark:border-slate-600 rounded px-2 py-2 text-sm outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                                    <option value="INGRESO">Ingreso (+)</option>
+                                    <option value="EGRESO" selected>Retiro (-)</option>
                                 </select>
-                                <input type="text" inputmode="decimal" id="ajuste-monto" class="w-24 text-right border border-slate-300 rounded px-2 py-2 text-sm outline-none bg-white" placeholder="0.00" oninput="maskDecimal(this)" required>
-                                <button type="submit" class="bg-blue-600 text-white px-3 py-2 rounded font-bold hover:bg-blue-700 transition">
+                                <input type="text" inputmode="decimal" id="ajuste-monto" class="w-24 text-right border border-slate-300 dark:border-slate-600 rounded px-2 py-2 text-sm outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold" placeholder="0.00" oninput="maskDecimal(this)" required>
+                                <button type="submit" class="bg-blue-600 text-white px-3 py-2 rounded font-bold hover:bg-blue-500 transition shadow-sm">
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </form>
 
                             <!-- Tabla Transitoria -->
                             <div class="overflow-x-auto px-2 mb-2">
-                                <table class="w-full text-sm text-left text-slate-600">
+                                <table class="w-full text-sm text-left text-slate-700 dark:text-slate-300">
                                     <thead>
-                                        <tr class="bg-slate-50 border-y border-slate-200 uppercase text-xs">
+                                        <tr class="bg-slate-100 dark:bg-slate-800/80 border-y border-slate-200 dark:border-slate-700 uppercase text-xs font-bold">
                                             <th class="px-3 py-2">Detalle de Movimientos</th>
                                             <th class="px-3 py-2 text-center w-24">Operación</th>
-                                            <th class="px-3 py-2 text-right w-32 border-l border-slate-200">Monto</th>
+                                            <th class="px-3 py-2 text-right w-32 border-l border-slate-200 dark:border-slate-700">Monto</th>
                                             <th class="px-3 py-2 w-8 no-print"></th>
                                         </tr>
                                     </thead>
-                                    <tbody id="tbl-ajustes-body" class="border-b border-dashed border-slate-200">
+                                    <tbody id="tbl-ajustes-body" class="border-b border-dashed border-slate-200 dark:border-slate-700">
                                         <!-- Inyectado por JS -->
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
-                    <div class="bg-slate-700 text-white font-bold text-center py-3 text-lg flex justify-between px-8 mx-5 rounded-md mb-5 shadow-inner" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
-                        <span>TOTAL ESPERADO EN GAVETA:</span>
-                        <span id="ui-saldo-teorico">S/ 0.00</span>
+                    <div class="bg-slate-800 dark:bg-slate-900 text-white font-extrabold text-center py-3.5 text-lg flex justify-between px-8 mx-5 rounded-lg mb-5 shadow-md border border-slate-700 dark:border-slate-700/60" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                        <span class="tracking-wide">TOTAL ESPERADO EN GAVETA:</span>
+                        <span id="ui-saldo-teorico" class="text-amber-400">S/ 0.00</span>
                     </div>
                 </div>
 
@@ -449,75 +507,79 @@
             <div class="lg:col-span-6 space-y-6">
 
                 <!-- CARD: Calculadora Monedas -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="bg-blue-50 px-5 py-4 border-b border-blue-100 flex items-center justify-between">
-                        <h3 class="font-bold text-blue-800 flex items-center gap-2">
-                            <i class="fas fa-coins"></i> Dinero en Gaveta
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <div class="bg-blue-50 dark:bg-blue-950/30 px-5 py-4 border-b border-blue-100 dark:border-blue-900/40 flex items-center justify-between">
+                        <h3 class="font-bold text-blue-900 dark:text-blue-300 flex items-center gap-2">
+                            <i class="fas fa-coins text-blue-600 dark:text-blue-400"></i> Dinero en Gaveta
                         </h3>
                         <div class="flex gap-2">
-                            <button type="button" onclick="compartirCalculadora()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-3 py-1 rounded transition no-print flex items-center gap-1" title="Compartir Calculadora Móvil">
+                            <button type="button" onclick="compartirCalculadora()" class="text-xs font-bold px-3 py-1.5 rounded-lg border transition shadow-sm no-print flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300/80 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/90 dark:text-emerald-200 dark:border-emerald-600/60" title="Compartir Calculadora Móvil">
                                 <i class="fas fa-share-nodes"></i> Compartir
                             </button>
-                            <button type="button" onclick="limpiarGaveta()" class="text-xs bg-blue-200 hover:bg-blue-300 text-blue-800 font-bold px-3 py-1 rounded transition no-print flex items-center gap-1">
-                                <i class="fas fa-eraser"></i> Limpiar
+                            <button type="button" onclick="limpiarGaveta()" class="text-xs font-bold px-3 py-1.5 rounded-lg border transition shadow-sm no-print flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 dark:border-slate-600" title="Poner en cero todas las cantidades">
+                                <i class="fas fa-eraser text-slate-500 dark:text-slate-400"></i> Limpiar
                             </button>
                         </div>
                     </div>
                     <div class="p-5 flex gap-12">
                         
                         <!-- Billetes -->
-                        <div class="flex-1 border-r border-slate-200 pr-6">
+                        <div class="flex-1 border-r border-slate-200 dark:border-slate-700/60 pr-6">
+                            <div class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 mb-2">
+                                <span id="ui-sum-billetes" class="font-bold text-slate-800 dark:text-slate-200 text-xs tracking-wide">Billetes: S/ 0.00</span>
+                            </div>
                             <table class="w-full table-calc">
-                                <thead><tr><th colspan="3"><span id="ui-sum-billetes" class="font-bold text-slate-700 dark:text-slate-200 normal-case">Billetes: S/ 0.00</span></th></tr></thead>
                                 <tbody>
-                                    <tr><td class="text-slate-500 font-bold w-12 text-sm">200</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="200" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-slate-500 font-bold text-sm">100</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="100" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-slate-500 font-bold text-sm">50</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="50" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-slate-500 font-bold text-sm">20</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="20" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-slate-500 font-bold text-sm">10</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="10" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-700 dark:text-slate-200 font-bold w-12 text-sm">200</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="200" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-700 dark:text-slate-200 font-bold text-sm">100</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="100" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-700 dark:text-slate-200 font-bold text-sm">50</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="50" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-700 dark:text-slate-200 font-bold text-sm">20</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="20" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-700 dark:text-slate-200 font-bold text-sm">10</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="10" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
                                 </tbody>
                             </table>
                         </div>
 
                         <!-- Monedas -->
                         <div class="flex-1">
+                            <div class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 mb-2">
+                                <span id="ui-sum-monedas" class="font-bold text-slate-800 dark:text-slate-200 text-xs tracking-wide">Monedas: S/ 0.00</span>
+                            </div>
                             <table class="w-full table-calc">
-                                <thead><tr><th colspan="3"><span id="ui-sum-monedas" class="font-bold text-slate-700 dark:text-slate-200 normal-case">Monedas: S/ 0.00</span></th></tr></thead>
                                 <tbody>
-                                    <tr><td class="text-amber-600 font-bold w-12 text-sm">5.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="5" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-amber-600 font-bold text-sm">2.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="2" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-amber-600 font-bold text-sm">1.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="1" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-gray-500 font-bold text-sm">0.50</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.5" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-gray-500 font-bold text-sm">0.20</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.2" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
-                                    <tr><td class="text-gray-500 font-bold text-sm">0.10</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.1" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-amber-700 dark:text-amber-400 font-bold w-12 text-sm">5.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="5" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-amber-700 dark:text-amber-400 font-bold text-sm">2.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="2" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-amber-700 dark:text-amber-400 font-bold text-sm">1.00</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="1" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-600 dark:text-slate-400 font-bold text-sm">0.50</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.5" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-600 dark:text-slate-400 font-bold text-sm">0.20</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.2" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
+                                    <tr><td class="text-slate-600 dark:text-slate-400 font-bold text-sm">0.10</td><td>x <input type="number" min="0" class="qty-calc no-print" data-val="0.1" value="0"><span class="print-only qty-print">0</span></td><td class="subtotal">0.00</td></tr>
                                 </tbody>
                             </table>
                         </div>
 
                     </div>
-                    <div class="bg-blue-600 text-white font-bold text-center py-3 text-lg flex justify-between px-8 mx-5 rounded-md mb-5 shadow-inner" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
-                        <span>TOTAL EFECTIVO FÍSICO:</span>
+                    <div class="bg-blue-600 text-white font-extrabold text-center py-3.5 text-lg flex justify-between px-8 mx-5 rounded-lg mb-5 shadow-md border border-blue-500/40" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                        <span class="tracking-wide">TOTAL EFECTIVO FÍSICO:</span>
                         <span id="ui-total-efectivo">S/ 0.00</span>
                     </div>
                 </div>
 
                 <!-- CARD: Resultados de Generación de Descuadre (Executive Report) -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
                     <div class="p-6">
-                        <h3 class="font-bold text-slate-700 mb-4 pb-2 border-b border-slate-100 uppercase text-xs tracking-wider">Resumen de Cuadre</h3>
-                        <div class="flex justify-between text-slate-500 text-sm mb-2 font-medium">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4 pb-2 border-b border-slate-200 dark:border-slate-700/60 uppercase text-xs tracking-wider">Resumen de Cuadre</h3>
+                        <div class="flex justify-between text-slate-600 dark:text-slate-300 text-sm mb-2.5 font-semibold">
                             <span>(+) TOTAL EFECTIVO FÍSICO</span>
-                            <span id="res-fisico" class="text-slate-800 font-bold">S/ 0.00</span>
+                            <span id="res-fisico" class="text-slate-900 dark:text-white font-black">S/ 0.00</span>
                         </div>
-                        <div class="flex justify-between text-slate-500 text-sm mb-5 font-medium">
+                        <div class="flex justify-between text-slate-600 dark:text-slate-300 text-sm mb-5 font-semibold">
                             <span>(-) TOTAL ESPERADO EN GAVETA</span>
-                            <span id="res-teorico" class="text-slate-800 font-bold">S/ 0.00</span>
+                            <span id="res-teorico" class="text-slate-900 dark:text-white font-black">S/ 0.00</span>
                         </div>
                         
-                        <div id="ui-cuadre-status" class="bg-slate-50 text-center py-5 rounded-lg mt-2 border border-slate-200 transition-colors">
-                            <span class="text-xs font-bold text-slate-500 block mb-1 tracking-wide">DIFERENCIA REAL EN CAJA FÍSICA:</span>
-                            <div class="text-3xl font-black text-slate-700" id="ui-descuadre-monto">S/ 0.00</div>
-                            <div class="text-xs mt-2 font-bold tracking-widest text-slate-500 uppercase px-4 py-1 rounded inline-block bg-white border border-slate-100 shadow-sm" id="ui-cuadre-leyenda">ESPERANDO DATA...</div>
+                        <div id="ui-cuadre-status" class="bg-slate-50 dark:bg-slate-900/50 text-center py-5 rounded-xl mt-2 border border-slate-200 dark:border-slate-700 transition-colors">
+                            <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1 tracking-wide">DIFERENCIA REAL EN CAJA FÍSICA:</span>
+                            <div class="text-3xl font-black text-slate-900 dark:text-slate-100" id="ui-descuadre-monto">S/ 0.00</div>
+                            <div class="text-xs mt-2 font-bold tracking-widest text-slate-700 dark:text-slate-200 uppercase px-4 py-1.5 rounded-full inline-block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm" id="ui-cuadre-leyenda">ESPERANDO DATA...</div>
                         </div>
                     </div>
                 </div>
@@ -540,6 +602,11 @@
         let currentEmpresaId = null;
         let objAjustesLocales = [];
         let mathSysVentasContado = 0;
+        let currentResumenTurno = null;
+        let windowCajeroName = 'Cajero';
+        let windowCajaIdentificador = 'Caja 1';
+        let windowUserRole = 'CAJERO';
+        let currentTurnoActivo = null;
 
         function maskDecimal(input) {
             input.value = input.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
@@ -552,8 +619,71 @@
         document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('global-spinner').classList.remove('hidden');
             await checkAuth(); 
-            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', window.currentUser.id).single();
-            currentEmpresaId = perfil.empresa_id;
+
+            try {
+                const { data: perfil } = await window.supabaseClient
+                    .from('perfiles_usuario')
+                    .select('empresa_id, rol, nombre_completo, display_name')
+                    .eq('id', window.currentUser.id)
+                    .single();
+
+                if (perfil) {
+                    currentEmpresaId = perfil.empresa_id;
+                    windowUserRole = (perfil.rol || 'CAJERO').toUpperCase();
+                    windowCajeroName = perfil.display_name || perfil.nombre_completo || (window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero');
+                } else {
+                    windowCajeroName = window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero';
+                }
+            } catch (errPerfil) {
+                console.warn("No se pudo obtener el perfil completo:", errPerfil);
+                windowCajeroName = window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero';
+            }
+
+            // Identificar turno activo si existe
+            windowCajaIdentificador = localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
+            try {
+                const { data: turnosAbiertos } = await window.supabaseClient
+                    .from('pos_turnos_activos')
+                    .select('*')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('usuario_id', window.currentUser.id)
+                    .eq('estado', 'ABIERTO')
+                    .order('hora_apertura', { ascending: false })
+                    .limit(1);
+
+                if (turnosAbiertos && turnosAbiertos.length > 0) {
+                    currentTurnoActivo = turnosAbiertos[0];
+                    windowCajeroName = currentTurnoActivo.cajero_nombre;
+                    windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                }
+            } catch (errT) {
+                console.warn("Consulta turno activo arqueo:", errT);
+            }
+
+            if (!currentTurnoActivo) {
+                try {
+                    const str = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
+                    if (str) {
+                        currentTurnoActivo = JSON.parse(str);
+                        if (currentTurnoActivo.cajero_nombre) windowCajeroName = currentTurnoActivo.cajero_nombre;
+                        if (currentTurnoActivo.caja_identificador) windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                    }
+                } catch (_) {}
+            }
+
+            // Actualizar badge visual de operador
+            const badgeOperador = document.getElementById('txtBadgeOperadorArqueo');
+            if (badgeOperador) {
+                badgeOperador.innerHTML = `<i class="fas fa-cash-register text-indigo-600 dark:text-indigo-400"></i> <span>${windowCajeroName} (${windowCajaIdentificador}) - Operador en Turno</span>`;
+            }
+
+            // Precargar fondo inicial del turno activo si está disponible
+            if (currentTurnoActivo && currentTurnoActivo.fondo_inicial) {
+                const inpFondo = document.getElementById('in-fondo-inicial');
+                if (inpFondo && (!inpFondo.value || parseFloat(inpFondo.value) === 0)) {
+                    inpFondo.value = parseFloat(currentTurnoActivo.fondo_inicial).toFixed(2);
+                }
+            }
 
             const spanFecha = document.getElementById('print-fecha-hora');
             const fechaLima = new Intl.DateTimeFormat('es-PE', { 
@@ -591,7 +721,8 @@
         }
 
         function getLlaveLocal() {
-            return `arqueo_${currentEmpresaId}_${asFechaStr()}`;
+            const uId = window.currentUser ? window.currentUser.id : 'anon';
+            return `arqueo_${currentEmpresaId}_${uId}_${asFechaStr()}`;
         }
 
         function chequearMemoriaAmnesicaDiaria() {
@@ -638,45 +769,93 @@
         }
 
         async function extraerVentasBD() {
+            try {
+                // 1. Intentar balance atómico del turno vía RPC dedicada
+                const { data: resumen, error: errRpc } = await window.supabaseClient.rpc('rpc_obtener_resumen_cierre_caja', {
+                    p_usuario_id: window.currentUser.id,
+                    p_empresa_id: currentEmpresaId,
+                    p_caja_identificador: windowCajaIdentificador || 'Caja 1'
+                });
+
+                if (!errRpc && resumen) {
+                    currentResumenTurno = resumen;
+                    mathSysVentasContado = Number(resumen.total_sistema || 0);
+                    document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
+                    
+                    const infoComprobantes = document.getElementById('txtTurnoInfo');
+                    if (infoComprobantes) {
+                        const cant = resumen.cantidad_tickets || 0;
+                        const rango = (resumen.primer_ticket && resumen.ultimo_ticket && resumen.primer_ticket !== '---') 
+                            ? ` (${resumen.primer_ticket} al ${resumen.ultimo_ticket})` 
+                            : '';
+                        infoComprobantes.innerHTML = `<span class="font-bold text-slate-800 dark:text-slate-200">${cant} comprobante(s)</span> emitido(s) en turno${rango}`;
+                    }
+
+                    if (resumen.empresa_nombre) {
+                        document.getElementById('print-empresa-nombre').textContent = resumen.empresa_nombre;
+                    }
+                    return;
+                }
+            } catch (errRpcEx) {
+                console.warn("RPC rpc_obtener_resumen_cierre_caja en espera, usando fallback directo:", errRpcEx);
+            }
+
+            // Fallback de contingencia: consulta directa filtrando por operador en turno
             const fStr = asFechaStr();
             const isoDesde = new Date(fStr + 'T00:00:00-05:00').toISOString();
             const isoHasta = new Date(fStr + 'T23:59:59-05:00').toISOString();
 
             try {
-                // 1. Ventas Contado
-                const { data: dataContado, error: errC } = await window.supabaseClient.from('ventas')
-                    .select('precio_venta_total')
+                // 1. Ventas Contado del usuario activo
+                let qContado = window.supabaseClient.from('ventas')
+                    .select('id, numero_completo, precio_venta_total, created_at')
                     .eq('empresa_id', currentEmpresaId)
                     .in('estado', ['REGISTRADO'])
                     .eq('condicion_pago', 'CONTADO')
                     .gte('fecha_recepcion_pago', fStr)
                     .lte('fecha_recepcion_pago', fStr);
 
-                // 2. Pagos de Crédito (Cuota inicial o amortizaciones)
-                const { data: dataCredito, error: errCr } = await window.supabaseClient.from('ventas_credito_pagos')
+                if (window.currentUser && window.currentUser.id) {
+                    qContado = qContado.or(`usuario_id.eq.${window.currentUser.id},created_by.ilike.%${windowCajeroName}%`);
+                }
+
+                const { data: dataContado } = await qContado;
+
+                // 2. Pagos de Crédito
+                const { data: dataCredito } = await window.supabaseClient.from('ventas_credito_pagos')
                     .select('monto')
                     .eq('empresa_id', currentEmpresaId)
                     .eq('estado', 'PAGADO')
                     .gte('fecha_pago', isoDesde)
                     .lte('fecha_pago', isoHasta);
 
-                let totalSistema = 0;
-                
-                if (dataContado) {
-                    totalSistema += dataContado.reduce((acc, v) => acc + Number(v.precio_venta_total || 0), 0);
-                }
-                
-                if (dataCredito) {
-                    totalSistema += dataCredito.reduce((acc, p) => acc + Number(p.monto || 0), 0);
-                }
+                let totalContado = (dataContado || []).reduce((acc, v) => acc + Number(v.precio_venta_total || 0), 0);
+                let totalCredito = (dataCredito || []).reduce((acc, p) => acc + Number(p.monto || 0), 0);
+                mathSysVentasContado = totalContado + totalCredito;
 
-                mathSysVentasContado = totalSistema;
+                currentResumenTurno = {
+                    total_ventas_contado: totalContado,
+                    total_cobros_credito: totalCredito,
+                    total_sistema: mathSysVentasContado,
+                    cantidad_tickets: dataContado ? dataContado.length : 0,
+                    primer_ticket: dataContado && dataContado.length > 0 ? dataContado[0].numero_completo : null,
+                    ultimo_ticket: dataContado && dataContado.length > 0 ? dataContado[dataContado.length - 1].numero_completo : null,
+                    hora_apertura: dataContado && dataContado.length > 0 ? dataContado[0].created_at : isoDesde
+                };
+
                 document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
 
-                const {data: eData} = await window.supabaseClient.from('empresas').select('nombre').eq('id', currentEmpresaId).single();
+                const infoComprobantes = document.getElementById('txtTurnoInfo');
+                if (infoComprobantes && dataContado) {
+                    infoComprobantes.innerHTML = `<span class="font-bold text-slate-800 dark:text-slate-200">${dataContado.length} comprobante(s)</span> emitido(s) en turno`;
+                }
+
+                const { data: eData } = await window.supabaseClient.from('empresas').select('nombre').eq('id', currentEmpresaId).single();
                 if(eData) document.getElementById('print-empresa-nombre').textContent = eData.nombre;
 
-            } catch (error) { console.error(error); }
+            } catch (error) { 
+                console.error("Error al extraer ventas:", error); 
+            }
         }
 
         function addAjuste() {
@@ -711,23 +890,23 @@
             table.innerHTML = "";
 
             if(objAjustesLocales.length === 0) {
-                table.innerHTML = `<tr><td colspan="4" class="px-3 py-4 text-center text-slate-400 text-xs italic border border-dashed border-slate-200">El día de hoy no registra notas manuales que descuadren la caja base.</td></tr>`;
+                table.innerHTML = `<tr><td colspan="4" class="px-3 py-4 text-center text-slate-500 dark:text-slate-400 text-xs italic border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 rounded">El día de hoy no registra notas manuales que descuadren la caja base.</td></tr>`;
                 return;
             }
 
             objAjustesLocales.forEach(x => {
                 const isI = x.tipo === 'INGRESO';
                 table.innerHTML += `
-                    <tr class="border-b border-slate-100 bg-white">
-                        <td class="px-3 py-2 font-medium">${x.desc}</td>
+                    <tr class="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
+                        <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">${x.desc}</td>
                         <td class="px-3 py-2 text-center text-xs">
-                            <span class="${isI ? 'text-emerald-700 bg-emerald-100' : 'text-rose-700 bg-rose-100'} px-2 py-0.5 rounded font-bold" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                            <span class="${isI ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/80 border border-emerald-300/60' : 'text-rose-700 bg-rose-100 dark:text-rose-300 dark:bg-rose-950/80 border border-rose-300/60'} px-2 py-0.5 rounded font-bold" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
                                 ${isI ? '+' : '-'}
                             </span>
                         </td>
-                        <td class="px-3 py-2 text-right font-bold tracking-tight text-slate-700">S/ ${formatMoney(x.monto)}</td>
+                        <td class="px-3 py-2 text-right font-bold tracking-tight text-slate-900 dark:text-slate-100">S/ ${formatMoney(x.monto)}</td>
                         <td class="px-3 py-2 text-right no-print">
-                            <button onclick="deleteAjuste('${x.id}')" class="text-rose-400 hover:text-rose-600 transition px-1"><i class="fas fa-trash-alt"></i></button>
+                            <button onclick="deleteAjuste('${x.id}')" class="text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 transition px-1" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
                         </td>
                     </tr>
                 `;
@@ -779,25 +958,25 @@
             const msgDiv = document.getElementById('ui-cuadre-leyenda');
 
             uiDiv.classList.remove('bg-rose-50', 'border-rose-200', 'bg-emerald-50', 'border-emerald-200', 'bg-blue-50', 'border-blue-200', 'bg-slate-50', 'border-slate-200');
-            moDiv.classList.remove('text-rose-700', 'text-emerald-700', 'text-blue-700', 'text-slate-700');
-            msgDiv.classList.remove('text-rose-600', 'text-emerald-600', 'text-blue-600', 'text-slate-500');
+            moDiv.classList.remove('text-rose-700', 'text-emerald-700', 'text-blue-700', 'text-slate-700', 'text-slate-900', 'dark:text-slate-100');
+            msgDiv.classList.remove('text-rose-600', 'text-emerald-600', 'text-blue-600', 'text-slate-500', 'text-slate-700', 'dark:text-slate-200');
 
             if (Math.abs(descuadre) < 0.01) {
                 uiDiv.classList.add('bg-emerald-50', 'border-emerald-200');
                 moDiv.classList.add('text-emerald-700');
-                msgDiv.classList.add('text-emerald-600');
+                msgDiv.classList.add('text-emerald-700');
                 moDiv.textContent = `S/ 0.00`;
                 msgDiv.textContent = 'CAJA CUADRADA CORRECTAMENTE';
             } else if (descuadre < 0) {
                 uiDiv.classList.add('bg-rose-50', 'border-rose-200');
                 moDiv.classList.add('text-rose-700');
-                msgDiv.classList.add('text-rose-600');
+                msgDiv.classList.add('text-rose-700');
                 moDiv.textContent = `S/ ${formatMoney(descuadre)}`;
                 msgDiv.textContent = 'FALTANTE EN CAJA DETECTADO';
             } else {
                 uiDiv.classList.add('bg-blue-50', 'border-blue-200');
                 moDiv.classList.add('text-blue-700');
-                msgDiv.classList.add('text-blue-600');
+                msgDiv.classList.add('text-blue-700');
                 moDiv.textContent = `S/ +${formatMoney(descuadre)}`;
                 msgDiv.textContent = 'SOBRANTE DE CAJA (SOBRA DINERO)';
             }
@@ -839,10 +1018,313 @@
             });
         }
 
+        async function iniciarCierreZDefinitivo() {
+            // Solicitar PIN de Supervisor para sellar el turno formalmente
+            const { value: pinIngresado } = await Swal.fire({
+                title: 'Autorización Cierre Z',
+                html: `
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Ingrese el PIN de Supervisor (4 dígitos) para confirmar y sellar definitivamente el turno:</p>
+                    <input type="password" id="swalPinCierreZ" maxlength="4" class="swal2-input text-center text-2xl tracking-[0.5em] font-mono font-bold" placeholder="••••" autocomplete="off" autofocus>
+                    <div class="grid grid-cols-3 gap-2 mt-4 max-w-[220px] mx-auto">
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '1'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">1</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '2'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">2</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '3'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">3</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '4'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">4</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '5'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">5</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '6'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">6</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '7'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">7</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '8'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">8</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '9'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">9</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value = '';" class="py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 rounded font-bold text-xs uppercase tracking-wider transition">Borrar</button>
+                        <button type="button" onclick="document.getElementById('swalPinCierreZ').value += '0'; if(document.getElementById('swalPinCierreZ').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">0</button>
+                        <button type="button" onclick="Swal.clickConfirm();" class="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-xs uppercase tracking-wider transition">OK</button>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Autorizar Cierre Z',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                preConfirm: () => {
+                    const input = document.getElementById('swalPinCierreZ');
+                    const pin = input ? input.value.trim() : '';
+                    if (!pin || pin.length !== 4) {
+                        Swal.showValidationMessage('El PIN debe tener 4 dígitos.');
+                        return false;
+                    }
+                    return pin;
+                },
+                didOpen: () => {
+                    const inp = document.getElementById('swalPinCierreZ');
+                    if (inp) {
+                        inp.focus();
+                        inp.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter' && inp.value.length === 4) {
+                                Swal.clickConfirm();
+                            }
+                        });
+                    }
+                }
+            });
+
+            if (!pinIngresado) return;
+
+            Swal.fire({
+                title: 'Validando PIN de Supervisor...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const { data, error } = await window.supabaseClient.rpc('rpc_validar_pin_supervisor', {
+                    p_empresa_id: currentEmpresaId,
+                    p_pin: pinIngresado
+                });
+
+                if (error) throw error;
+
+                if (data && data.valido) {
+                    Swal.close();
+                    await guardarCierreEnNube();
+                } else {
+                    let msg = data?.mensaje || 'PIN de Supervisor incorrecto.';
+                    if (data?.codigo === 'SIN_CONFIGURAR') {
+                        msg = 'El Administrador aún no ha configurado el PIN de Supervisor en esta tienda. Debe configurarse primero en el POS.';
+                    } else if (data?.codigo === 'BLOQUEADO') {
+                        msg = data.mensaje;
+                    } else if (data?.intentos_restantes !== undefined) {
+                        msg += ` Intentos restantes: ${data.intentos_restantes}`;
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Autorización Denegada',
+                        text: msg
+                    });
+                }
+            } catch (err) {
+                console.error("Error validando PIN para Cierre Z:", err);
+                Swal.fire('Error', err.message || 'No se pudo validar el PIN.', 'error');
+            }
+        }
+
+        async function guardarCierreEnNube() {
+            if (!currentEmpresaId || !window.currentUser) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sesión no disponible',
+                    text: 'No se pudo identificar la sesión activa o la empresa.'
+                });
+                return;
+            }
+
+            const fondoInicial = parseFloat(document.getElementById('in-fondo-inicial').value) || 0;
+            const ventasSistema = mathSysVentasContado || 0;
+            
+            let otrosIngresos = 0;
+            let otrosEgresos = 0;
+            objAjustesLocales.forEach(x => {
+                if (x.tipo === 'INGRESO') otrosIngresos += parseFloat(x.monto || 0);
+                else otrosEgresos += parseFloat(x.monto || 0);
+            });
+
+            const saldoTeorico = fondoInicial + ventasSistema + otrosIngresos - otrosEgresos;
+
+            let sumFisico = 0;
+            let desgloseMonedas = {};
+            document.querySelectorAll('.qty-calc').forEach(inp => {
+                let q = parseInt(inp.value) || 0;
+                let val = parseFloat(inp.getAttribute('data-val'));
+                desgloseMonedas[inp.getAttribute('data-val')] = q;
+                sumFisico += (q * val);
+            });
+
+            const descuadre = sumFisico - saldoTeorico;
+            let estadoCuadre = 'CUADRADO';
+            if (Math.abs(descuadre) >= 0.01) {
+                estadoCuadre = descuadre < 0 ? 'FALTANTE' : 'SOBRANTE';
+            }
+
+            // Diálogo de confirmación
+            const confirmacion = await Swal.fire({
+                title: '¿Confirmar Cierre Definitivo de Turno (Z)?',
+                html: `
+                    <div class="text-left text-sm space-y-2 p-3 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
+                        <div><b>Operador:</b> ${windowCajeroName} - Operador en Turno</div>
+                        <div><b>Saldo Inicial (Fondo):</b> S/ ${formatMoney(fondoInicial)}</div>
+                        <div><b>Ventas en Sistema:</b> S/ ${formatMoney(ventasSistema)}</div>
+                        <div><b>Saldo Esperado (Teórico):</b> S/ ${formatMoney(saldoTeorico)}</div>
+                        <div><b>Dinero Físico Gaveta:</b> S/ ${formatMoney(sumFisico)}</div>
+                        <div class="pt-2 border-t font-bold ${estadoCuadre === 'CUADRADO' ? 'text-emerald-600' : (estadoCuadre === 'FALTANTE' ? 'text-rose-600' : 'text-blue-600')}">
+                            Resultado: ${estadoCuadre} (${estadoCuadre === 'CUADRADO' ? 'S/ 0.00' : 'S/ ' + formatMoney(descuadre)})
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-3">Al confirmar se sellará el turno inmutablemente en la nube de Supabase y se imprimirá el comprobante oficial.</p>
+                `,
+                icon: estadoCuadre === 'CUADRADO' ? 'question' : 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Confirmar Cierre Z',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (!confirmacion.isConfirmed) return;
+
+            document.getElementById('global-spinner-msg').textContent = 'Guardando Cierre en la Nube...';
+            document.getElementById('global-spinner').classList.remove('hidden');
+
+            const payloadCierre = {
+                empresa_id: currentEmpresaId,
+                usuario_id: window.currentUser.id,
+                turno_id: currentTurnoActivo ? currentTurnoActivo.id : null,
+                cajero_nombre: windowCajeroName,
+                caja_identificador: windowCajaIdentificador || 'Caja 1',
+                saldo_inicial: fondoInicial,
+                total_ventas_contado: ventasSistema,
+                total_ventas_credito: currentResumenTurno ? (currentResumenTurno.total_ventas_credito || 0) : 0,
+                total_cuotas_credito: currentResumenTurno ? (currentResumenTurno.total_cuotas_credito || 0) : 0,
+                otros_movimientos_ingreso: otrosIngresos,
+                otros_movimientos_egreso: otrosEgresos,
+                total_esperado_gaveta: saldoTeorico,
+                total_real_conteo: sumFisico,
+                diferencia: descuadre,
+                desglose_billetes_monedas: desgloseMonedas,
+                ajustes_detalle: objAjustesLocales,
+                total_tickets: currentResumenTurno ? (currentResumenTurno.total_tickets || currentResumenTurno.cantidad_tickets || 0) : 0,
+                primer_ticket: currentResumenTurno ? currentResumenTurno.primer_ticket : null,
+                ultimo_ticket: currentResumenTurno ? currentResumenTurno.ultimo_ticket : null,
+                hora_apertura: currentResumenTurno ? currentResumenTurno.hora_apertura : new Date(asFechaStr() + 'T00:00:00-05:00').toISOString(),
+                hora_cierre: new Date().toISOString(),
+                estado: 'CERRADO',
+                tipo_cierre: 'CORTE_Z'
+            };
+
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('pos_cierres_caja')
+                    .insert([payloadCierre])
+                    .select()
+                    .single();
+
+                document.getElementById('global-spinner').classList.add('hidden');
+
+                if (error) throw error;
+
+                // Cerrar formalmente el turno en pos_turnos_activos y limpiar memoria local
+                try {
+                    if (currentTurnoActivo && currentTurnoActivo.id) {
+                        await window.supabaseClient
+                            .from('pos_turnos_activos')
+                            .update({ estado: 'CERRADO', hora_cierre: new Date().toISOString() })
+                            .eq('id', currentTurnoActivo.id);
+                    }
+                } catch (errUpdTurno) {
+                    console.warn("Actualización pos_turnos_activos:", errUpdTurno);
+                }
+                localStorage.removeItem('pos_turno_activo_' + currentEmpresaId);
+
+                const cierreGuardado = data || payloadCierre;
+                cierreGuardado.tipo_cierre = 'CORTE_Z';
+
+                const resSwal = await Swal.fire({
+                    icon: 'success',
+                    title: '¡Cierre de Turno Guardado!',
+                    html: `
+                        <p class="text-sm text-slate-600 mb-2">El cierre fue registrado de forma inmutable en Supabase con éxito.</p>
+                        <p class="text-xs text-slate-500">¿Deseas imprimir el Ticket Térmico de Cierre para tu archivo físico?</p>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Imprimir Ticket Térmico',
+                    cancelButtonText: 'Cerrar'
+                });
+
+                if (resSwal.isConfirmed) {
+                    if (typeof window.imprimirTicketCierreCaja === 'function') {
+                        const empNombre = document.getElementById('print-empresa-nombre').textContent || 'MicroERP Cloud';
+                        cierreGuardado.empresa_nombre = empNombre;
+                        window.imprimirTicketCierreCaja(cierreGuardado);
+                    }
+                }
+
+            } catch (err) {
+                document.getElementById('global-spinner').classList.add('hidden');
+                console.error("Error al guardar cierre de caja:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al Guardar Cierre',
+                    text: err.message || 'Ocurrió un error inesperado al conectar con Supabase.'
+                });
+            }
+        }
+
+        function imprimirCierreTermicoDirecto() {
+            if (typeof window.imprimirTicketCierreCaja !== 'function') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Módulo de Impresión no disponible',
+                    text: 'No se encontró la biblioteca impresora_tickets.js.'
+                });
+                return;
+            }
+
+            const fondoInicial = parseFloat(document.getElementById('in-fondo-inicial').value) || 0;
+            const ventasSistema = mathSysVentasContado || 0;
+            
+            let otrosIngresos = 0;
+            let otrosEgresos = 0;
+            objAjustesLocales.forEach(x => {
+                if (x.tipo === 'INGRESO') otrosIngresos += parseFloat(x.monto || 0);
+                else otrosEgresos += parseFloat(x.monto || 0);
+            });
+
+            const saldoTeorico = fondoInicial + ventasSistema + otrosIngresos - otrosEgresos;
+
+            let sumFisico = 0;
+            let desgloseMonedas = {};
+            document.querySelectorAll('.qty-calc').forEach(inp => {
+                let q = parseInt(inp.value) || 0;
+                let val = parseFloat(inp.getAttribute('data-val'));
+                desgloseMonedas[inp.getAttribute('data-val')] = q;
+                sumFisico += (q * val);
+            });
+
+            const descuadre = sumFisico - saldoTeorico;
+            let estadoCuadre = 'CUADRADO';
+            if (Math.abs(descuadre) >= 0.01) {
+                estadoCuadre = descuadre < 0 ? 'FALTANTE' : 'SOBRANTE';
+            }
+
+            const empNombre = document.getElementById('print-empresa-nombre').textContent || 'MicroERP Cloud';
+
+            const payloadCierre = {
+                empresa_nombre: empNombre,
+                nombre_operador: `${windowCajeroName} - Operador en Turno`,
+                saldo_inicial: fondoInicial,
+                ventas_sistema: ventasSistema,
+                otros_ingresos: otrosIngresos,
+                otros_egresos: otrosEgresos,
+                saldo_teorico: saldoTeorico,
+                dinero_fisico: sumFisico,
+                descuadre: descuadre,
+                estado_cuadre: estadoCuadre,
+                desglose_billetes_monedas: desgloseMonedas,
+                primer_ticket: currentResumenTurno ? currentResumenTurno.primer_ticket : null,
+                ultimo_ticket: currentResumenTurno ? currentResumenTurno.ultimo_ticket : null,
+                total_tickets: currentResumenTurno ? (currentResumenTurno.cantidad_tickets || 0) : 0,
+                hora_apertura: currentResumenTurno ? currentResumenTurno.hora_apertura : null,
+                hora_cierre: new Date().toISOString(),
+                tipo_cierre: 'CORTE_X'
+            };
+
+            window.imprimirTicketCierreCaja(payloadCierre);
+        }
+
         function generarReporteImpresion() {
             const dt = new Date();
             const fechaHoraStr = `${dt.toLocaleDateString('es-PE')} - ${dt.toLocaleTimeString('es-PE')}`;
-            // Intento de tomar el nombre real guardado por extraerVentasBD()
             const empresaNode = document.getElementById('print-empresa-nombre');
             const empresaStr = empresaNode && empresaNode.textContent ? empresaNode.textContent : "MicroERP Cloud";
             
@@ -851,7 +1333,6 @@
             
             let ajustesHTML = '';
             
-            // Reparación Quirúrgica: Prevenir lectura en la celda combinada vacía.
             if (objAjustesLocales && objAjustesLocales.length > 0) {
                 const trs = document.querySelectorAll('#tbl-ajustes-body tr');
                 trs.forEach(tr => {
@@ -888,11 +1369,17 @@
             });
             if (fisicoTabla === '') fisicoTabla = `<tr><td>Efectivo no contabilizado o gaveta vacía</td><td class="align-center">0 und.</td><td class="align-right">S/ 0.00</td></tr>`;
 
+            const rTickets = (currentResumenTurno && currentResumenTurno.primer_ticket) 
+                ? `<p style="font-size: 11px; color: #4b5563;">Comprobantes en Turno: ${currentResumenTurno.cantidad_tickets || 0} (${currentResumenTurno.primer_ticket} al ${currentResumenTurno.ultimo_ticket})</p>`
+                : '';
+
             const html = `
                 <div class="print-header">
-                    <h1>ARQUEO DE CAJA</h1>
+                    <h1>ARQUEO Y CIERRE DE CAJA</h1>
                     <p style="font-weight: 800; color: #1f2937;">${empresaStr}</p>
+                    <p style="font-weight: 600; color: #2563eb;">${windowCajeroName} - Operador en Turno</p>
                     <p>Fecha de arqueo físico: ${fechaHoraStr}</p>
+                    ${rTickets}
                 </div>
                 
                 <div class="print-module-title">Dinero Esperado</div>
@@ -928,11 +1415,11 @@
                 <div class="print-signatures">
                     <div class="signature-block">
                         <div class="signature-line"></div>
-                        <p>Firma Cajero Entregante</p>
+                        <p>Firma Cajero Entregante<br><span style="font-size:10px; font-weight:normal;">(${windowCajeroName})</span></p>
                     </div>
                     <div class="signature-block">
                         <div class="signature-line"></div>
-                        <p>Firma Cajero Receptor</p>
+                        <p>Firma Supervisor / Receptor</p>
                     </div>
                 </div>
             `;

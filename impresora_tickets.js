@@ -233,6 +233,19 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
         const esAnulado = v.estado === 'ANULADO';
         const anuladoWatermark = esAnulado ? `<div style="text-align:center; font-size:24px; font-weight:bold; color:black; margin: 10px 0; border: 2px solid black; padding: 5px;">ANULADO</div>` : '';
 
+        const cajeroCrudo = v.created_by ? (v.created_by.includes('@') ? v.created_by.split('@')[0] : v.created_by) : 'Cajero';
+        let lineaCajeroHTML = `<b>CAJERO:</b> ${cajeroCrudo}`;
+        if (cajeroCrudo.includes('(') && cajeroCrudo.includes(')')) {
+            const matchCaja = cajeroCrudo.match(/^(.*?)\s*\((.*?)\)$/);
+            if (matchCaja) {
+                const nom = matchCaja[1].trim();
+                const term = matchCaja[2].trim();
+                lineaCajeroHTML = `<b>CAJERO:</b> ${nom} &nbsp;|&nbsp; <b>TERMINAL:</b> ${term}`;
+            }
+        } else if (!cajeroCrudo.toLowerCase().includes('admin') && !cajeroCrudo.toLowerCase().includes('operador')) {
+            lineaCajeroHTML = `<b>CAJERO:</b> ${cajeroCrudo} - Operador en Turno`;
+        }
+
         // Inyectar HTML en el DOM global
         const container = document.getElementById('microerp-print-container');
         document.body.appendChild(container); // Garantizar que sea hijo directo de body (Bypassing sidebar.js wrapper)
@@ -250,7 +263,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             <p style="text-align: left;" class="ticket-text"><b>F. RECEPCIÓN PAGO:</b> ${v.fecha_recepcion_pago ? new Date(v.fecha_recepcion_pago + 'T00:00:00-05:00').toLocaleDateString('es-PE', { timeZone: 'America/Lima' }) : (v.condicion_pago === 'CREDITO' ? 'PENDIENTE' : fechaStr)}</p>
             <p style="text-align: left;" class="ticket-text"><b>CLIENTE:</b> ${clienteNombre}</p>
             <p style="text-align: left;" class="ticket-text"><b>DOC:</b> ${clienteDoc}</p>
-            <p style="text-align: left;" class="ticket-text"><b>CAJERO:</b> ${v.created_by ? (v.created_by.includes('@') ? v.created_by.split('@')[0] : v.created_by) : 'Sistema'}</p>
+            <p style="text-align: left;" class="ticket-text">${lineaCajeroHTML}</p>
 
             <div class="ticket-divisor"></div>
 
@@ -323,6 +336,163 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                 window.print();
                 
                 // Limpieza después de que cierra el diálogo nativo (la mayoría lo bloquean asíncronamente)
+                setTimeout(() => {
+                    document.body.classList.remove('printing-ticket');
+                    container.innerHTML = '';
+                    resolve();
+                }, 500);
+            }, 300);
+        });
+
+    } catch (e) {
+        console.error(e);
+        Swal.fire('Error de Impresión', e.message, 'error');
+        throw e;
+    }
+}
+
+async function imprimirTicketCierreCaja(cierre) {
+    try {
+        Swal.fire({ title: 'Generando Ticket de Cierre...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        const container = document.getElementById('microerp-print-container');
+        document.body.appendChild(container);
+
+        const empNombre = cierre.empresa_nombre || 'MICRO ERP';
+        const empRuc = cierre.empresa_ruc || '';
+        const empDir = cierre.empresa_direccion || '';
+
+        const fApertura = cierre.hora_apertura ? new Date(cierre.hora_apertura).toLocaleString('es-PE', { timeZone: 'America/Lima', hour12: true }) : '---';
+        const fCierre = cierre.hora_cierre ? new Date(cierre.hora_cierre).toLocaleString('es-PE', { timeZone: 'America/Lima', hour12: true }) : new Date().toLocaleString('es-PE', { timeZone: 'America/Lima', hour12: true });
+
+        const saldoIni = Number(cierre.saldo_inicial || 0);
+        const vtaContado = Number(cierre.total_ventas_contado !== undefined ? cierre.total_ventas_contado : (cierre.ventas_sistema || 0));
+        const cuotasCredito = Number(cierre.total_cuotas_credito || 0);
+        const otrosIng = Number(cierre.otros_movimientos_ingreso !== undefined ? cierre.otros_movimientos_ingreso : (cierre.otros_ingresos || 0));
+        const otrosEg = Number(cierre.otros_movimientos_egreso !== undefined ? cierre.otros_movimientos_egreso : (cierre.otros_egresos || 0));
+        const espGaveta = Number(cierre.total_esperado_gaveta !== undefined ? cierre.total_esperado_gaveta : (cierre.saldo_teorico || 0));
+        const realConteo = Number(cierre.total_real_conteo !== undefined ? cierre.total_real_conteo : (cierre.dinero_fisico || 0));
+        const dif = Number(cierre.diferencia !== undefined ? cierre.diferencia : (cierre.descuadre !== undefined ? cierre.descuadre : 0));
+        const operadorDisplay = cierre.nombre_operador || (cierre.cajero_nombre ? (cierre.cajero_nombre.includes('Operador') ? cierre.cajero_nombre : `${cierre.cajero_nombre} - Operador en Turno`) : 'Operador en Turno');
+
+        let difBadge = 'CAJA CUADRADA (S/ 0.00)';
+        if (dif > 0.009) difBadge = `SOBRANTE: +S/ ${formatMoney(dif)}`;
+        else if (dif < -0.009) difBadge = `FALTANTE: -S/ ${formatMoney(Math.abs(dif))}`;
+
+        let desgloseHTML = '';
+        if (cierre.desglose_billetes_monedas && typeof cierre.desglose_billetes_monedas === 'object') {
+            const keys = Object.keys(cierre.desglose_billetes_monedas).sort((a,b) => parseFloat(b) - parseFloat(a));
+            const itemsConteo = [];
+            keys.forEach(k => {
+                const cant = parseInt(cierre.desglose_billetes_monedas[k], 10);
+                if (cant > 0) {
+                    const subVal = cant * parseFloat(k);
+                    itemsConteo.push(`<tr><td style="padding:1px 0;">S/ ${k} x ${cant}</td><td style="text-align:right; padding:1px 0;">S/ ${formatMoney(subVal)}</td></tr>`);
+                }
+            });
+            if (itemsConteo.length > 0) {
+                desgloseHTML = `
+                    <div class="ticket-divisor"></div>
+                    <p style="text-align:center; font-size:11px; margin:2px 0;"><b>DETALLE ARQUEO FÍSICO</b></p>
+                    <table style="width:100%; font-size:11px; border-collapse:collapse;">
+                        ${itemsConteo.join('')}
+                    </table>
+                `;
+            }
+        }
+
+        const esCorteX = (cierre.tipo_cierre === 'CORTE_X');
+        const tituloPrincipal = esCorteX ? 'REPORTE PARCIAL DE CAJA' : 'REPORTE FINAL DE CIERRE';
+        const subtituloCierre = esCorteX ? '*** CORTE X (TURNO ACTIVO) ***' : '*** CORTE Z (CIERRE DEFINITIVO) ***';
+        const labelFechaFinal = esCorteX ? 'LECTURA:' : 'CIERRE:';
+
+        container.innerHTML = `
+            <div class="ticket-header">${empNombre}</div>
+            ${empRuc ? `<p class="ticket-text">RUC: ${empRuc}</p>` : ''}
+            ${empDir ? `<p class="ticket-text">${empDir}</p>` : ''}
+            
+            <div class="ticket-divisor"></div>
+            
+            <p style="font-size: 14px; font-weight: bold; margin: 3px 0; text-align: center;">${tituloPrincipal}</p>
+            <p style="font-size: 11px; font-weight: bold; margin: 1px 0; text-align: center;">${subtituloCierre}</p>
+            
+            <div class="ticket-divisor"></div>
+            
+            <p style="text-align: left;" class="ticket-text"><b>OPERADOR:</b> ${operadorDisplay}</p>
+            <p style="text-align: left;" class="ticket-text"><b>APERTURA:</b> ${fApertura}</p>
+            <p style="text-align: left;" class="ticket-text"><b>${labelFechaFinal}</b> ${fCierre}</p>
+            <p style="text-align: left;" class="ticket-text"><b>TICKETS:</b> ${cierre.primer_ticket || '---'} al ${cierre.ultimo_ticket || '---'} (${cierre.total_tickets || 0})</p>
+            
+            <div class="ticket-divisor"></div>
+            
+            <div class="ticket-totales" style="font-size:12px;">
+                <div>SALDO INICIAL:</div>
+                <div>S/ ${formatMoney(saldoIni)}</div>
+                <div>VENTAS CONTADO:</div>
+                <div>S/ ${formatMoney(vtaContado)}</div>
+                ${cuotasCredito > 0 ? `
+                <div>CUOTAS EFECTIVO:</div>
+                <div>S/ ${formatMoney(cuotasCredito)}</div>
+                ` : ''}
+                ${otrosIng > 0 ? `
+                <div>OTROS INGRESOS:</div>
+                <div>S/ ${formatMoney(otrosIng)}</div>
+                ` : ''}
+                ${otrosEg > 0 ? `
+                <div>RETIROS / GASTOS:</div>
+                <div>-S/ ${formatMoney(otrosEg)}</div>
+                ` : ''}
+            </div>
+
+            <div class="ticket-totales ticket-gran-total" style="font-size:13px; margin-top:3px;">
+                <div>TOTAL ESPERADO:</div>
+                <div>S/ ${formatMoney(espGaveta)}</div>
+            </div>
+
+            <div class="ticket-totales" style="font-size:13px; margin-top:3px; font-weight:bold;">
+                <div>EFECTIVO CONTADO:</div>
+                <div>S/ ${formatMoney(realConteo)}</div>
+            </div>
+
+            <div class="ticket-divisor"></div>
+
+            <p style="text-align:center; font-size:13px; font-weight:bold; margin:4px 0; padding:2px; border:1px solid #000;">
+                ${difBadge}
+            </p>
+
+            ${Number(cierre.total_ventas_credito || 0) > 0 ? `
+            <p style="text-align:left; font-size:10.5px; margin-top:3px;" class="ticket-text"><b>Ventas Crédito (Por Cobrar):</b> S/ ${formatMoney(cierre.total_ventas_credito)}</p>
+            ` : ''}
+
+            ${desgloseHTML}
+
+            ${cierre.observaciones ? `
+            <div class="ticket-divisor"></div>
+            <p style="text-align:left; font-size:10px; margin:2px 0;"><b>Obs:</b> ${cierre.observaciones}</p>
+            ` : ''}
+
+            ${esCorteX ? `
+            <div class="ticket-divisor" style="margin-top:15px;"></div>
+            <p style="margin-top: 6px; font-size: 8.5px; text-align: center;" class="ticket-text"><b>* CORTE PARCIAL DE CONTROL *</b></p>
+            <p style="margin-top: 2px; font-size: 8px; text-align: center;" class="ticket-text">Este reporte es informativo y NO cierra el turno contable en curso.</p>
+            ` : `
+            <div class="ticket-divisor" style="margin-top:15px;"></div>
+            <div style="margin-top: 35px; text-align: center; font-size:10px;">
+                <div style="border-top: 1px solid #000; width: 80%; margin: 0 auto; padding-top: 2px;">Firma Cajero(a) en Turno</div>
+                <div style="border-top: 1px solid #000; width: 80%; margin: 35px auto 5px auto; padding-top: 2px;">Firma Administrador(a)</div>
+            </div>
+            `}
+
+            <p style="margin-top: 8px; font-size: 8px; text-align: center;" class="ticket-text">${esCorteX ? 'MicroERP POS - Control de Turno' : 'MicroERP POS - Arqueo Oficial'}</p>
+            <p style="margin-bottom: 6px; font-size: 8px;" class="ticket-text">-</p>
+        `;
+
+        Swal.close();
+
+        return new Promise((resolve) => {
+            document.body.classList.add('printing-ticket');
+            setTimeout(() => {
+                window.print();
                 setTimeout(() => {
                     document.body.classList.remove('printing-ticket');
                     container.innerHTML = '';

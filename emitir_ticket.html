@@ -416,12 +416,28 @@
                 ← Volver
             </button>
             <h1>Terminal Punto de Venta (POS)</h1>
-            <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 mt-2 z-10 relative"></div>
-            <button id="themeToggleBtn" onclick="toggleTheme()" class="absolute right-[20px] top-[20px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow flex items-center gap-2 z-50">
-                <i class="fas fa-sun text-amber-500 dark:hidden"></i>
-                <i class="fas fa-moon text-blue-300 hidden dark:inline"></i>
-                <span class="text-sm font-bold tracking-wide">TEMA</span>
-            </button>
+            <div id="badgeOperadorTerminal" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600/30 border border-blue-400/40 text-blue-200 text-xs font-bold shadow-sm mt-1.5 z-10 cursor-pointer hover:bg-blue-600/40 transition" onclick="solicitarCambioTurno()" title="Clic para ver estado o solicitar relevo de turno">
+                <span id="txtBadgeOperador">Operador en Turno</span>
+            </div>
+            <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 mt-1 z-10 relative"></div>
+            <div class="absolute right-[20px] top-[18px] flex items-center gap-2 z-50">
+                <button id="btnConfigurarPinPOS" onclick="abrirModalConfigurarPinPOS()" class="h-9 px-3.5 rounded-lg bg-slate-700/80 hover:bg-slate-600 text-slate-200 font-bold transition shadow-sm text-xs border border-slate-500/40 flex items-center justify-center hidden" title="Definir o cambiar el PIN de Supervisor para autorización de precios y Cierre Z">
+                    <span>PIN</span>
+                </button>
+                <button id="btnVerCarritosCongelados" onclick="abrirModalCarritosCongelados()" class="h-9 px-3.5 rounded-lg bg-sky-700/70 hover:bg-sky-600 text-white font-bold transition shadow-sm text-xs border border-sky-400/30 flex items-center justify-center gap-1.5" title="Ver pedidos en espera (congelados)">
+                    <span>En Espera</span>
+                    <span id="badgeCountCongelados" class="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-400 text-slate-900 font-black hidden">0</span>
+                </button>
+                <button id="btnRelevoCajero" onclick="solicitarCambioTurno()" class="h-9 px-3.5 rounded-lg bg-blue-700/70 hover:bg-blue-600 text-white font-bold transition shadow-sm text-xs border border-blue-400/30 flex items-center justify-center hidden" title="Relevo de Operador de Caja">
+                    <span>Relevo</span>
+                </button>
+                <button id="btnIrArqueoCaja" onclick="window.location.href='arqueo_caja.html'" class="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-sm text-xs border border-emerald-500/40 flex items-center justify-center" title="Ir al Arqueo y Cierre de Turno">
+                    <span>Cierre de Turno</span>
+                </button>
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="h-9 px-3.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition hover:bg-slate-100 dark:hover:bg-slate-700 shadow-sm text-xs font-bold tracking-wide flex items-center justify-center">
+                    <span>TEMA</span>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -436,7 +452,7 @@
             <div class="panel" style="min-height: 600px;">
                 <div class="panel-header">
                     <div class="flex items-center gap-4 flex-wrap">
-                        <div><i class="fas fa-barcode text-blue-500 mr-2"></i> Búsqueda de Productos u Órdenes</div>
+                        <div class="font-bold text-slate-800 dark:text-slate-200">Búsqueda de Productos u Órdenes</div>
                         <div class="flex items-center gap-2" title="Permite vender productos sin inventario. No se descontará del almacén.">
                             <span class="text-xs font-semibold text-slate-500">Búsqueda Sin Stock:</span>
                             <label class="relative inline-flex items-center cursor-pointer">
@@ -446,8 +462,7 @@
                         </div>
                         <!-- Módulo Opcional de Balanza Electrónica POS -->
                         <div id="contenedorBalanzaPOS" class="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-3">
-                            <button type="button" id="btnBalanzaPOS" onclick="BalanzaCASManager.toggleConexion()" class="text-xs font-semibold px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 shadow-sm" title="Balanza electrónica opcional. Clic para conectar o configurar.">
-                                <i class="fas fa-balance-scale"></i>
+                            <button type="button" id="btnBalanzaPOS" onclick="BalanzaCASManager.toggleConexion()" class="text-xs font-semibold px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-all shadow-sm" title="Balanza electrónica opcional. Clic para conectar o configurar.">
                                 <span id="txtBalanzaEstado">Balanza: Inactiva</span>
                             </button>
                         </div>
@@ -459,34 +474,32 @@
 
                 <div class="search-hero" style="display: flex; gap: 10px;">
                     <div style="position: relative; flex: 1;">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="buscadorGeneral" placeholder="Busca por código o descripción..." autocomplete="off">
+                        <input type="text" id="buscadorGeneral" placeholder="Busca por código o descripción..." autocomplete="off" class="w-full">
                         <div id="resultadosBusqueda" class="autocomplete-results"></div>
                     </div>
-                    <button type="button" onclick="abrirModalImportacionTicket()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-700/50 px-5 rounded-xl font-bold flex items-center justify-center transition flex-shrink-0" title="Importar desde Excel (.xlsx)">
-                        <i class="fas fa-file-excel text-2xl lg:mr-2"></i> <span class="hidden lg:inline">Importar</span>
+                    <button type="button" onclick="abrirModalImportacionTicket()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-700/50 px-5 rounded-xl font-bold transition flex-shrink-0 text-sm" title="Importar desde Excel (.xlsx)">
+                        <span>Importar</span>
                     </button>
                 </div>
 
                 <div class="giro-tabs" id="tabsGiros">
-                    <div class="giro-tab" id="tabItems" onclick="setFiltroGiro('ITEMS')"><i class="fas fa-box"></i> Inventario Físico</div>
-                    <div class="giro-tab" id="tabCUS" onclick="setFiltroGiro('CUS')"><i class="fas fa-concierge-bell"></i> Servicios (CUS)</div>
-                    <div class="giro-tab" id="tabCUP" onclick="setFiltroGiro('CUP')"><i class="fas fa-industry"></i> Producción (CUP)</div>
+                    <div class="giro-tab" id="tabItems" onclick="setFiltroGiro('ITEMS')">Inventario Físico</div>
+                    <div class="giro-tab" id="tabCUS" onclick="setFiltroGiro('CUS')">Servicios (CUS)</div>
+                    <div class="giro-tab" id="tabCUP" onclick="setFiltroGiro('CUP')">Producción (CUP)</div>
                 </div>
 
                 <div class="p-6 text-center text-slate-500" id="mensajeVacio">
-                    <i class="fas fa-shopping-basket text-4xl mb-3 text-slate-300"></i>
-                    <p>Usa el buscador para añadir elementos al ticket.</p>
+                    <p class="text-sm">Usa el buscador para añadir elementos al ticket.</p>
                 </div>
             </div>
 
             <!-- PANEL DERECHO: El Ticket y Cobro -->
             <div class="panel">
                 <div class="panel-header" style="background: #eff6ff;">
-                    <span class="text-blue-800"><i class="fas fa-receipt mr-2"></i> Ticket Actual</span>
+                    <span class="text-blue-800 dark:text-blue-300 font-bold">Ticket Actual</span>
                     <div class="flex items-center gap-2">
-                        <button onclick="toggleOrdenCarrito()" type="button" class="text-slate-400 hover:text-blue-500 transition" title="Invertir orden visual de la canasta (Más recientes arriba)">
-                            <i id="iconoOrdenCarrito" class="fas fa-sort-amount-down"></i>
+                        <button onclick="toggleOrdenCarrito()" type="button" class="text-slate-400 hover:text-blue-500 transition text-xs font-bold" title="Invertir orden visual de la canasta (Más recientes arriba)">
+                            <span>Invertir</span>
                         </button>
                         <span class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded" id="ticketNumber">TICKET-XXX</span>
                     </div>
@@ -497,11 +510,10 @@
                     <div class="mb-3 relative" id="containerBuscadorCliente">
                         <label class="text-xs font-semibold text-slate-500 uppercase">Cliente</label>
                         <div class="flex items-center gap-2 mt-1 relative">
-                            <i class="fas fa-user absolute left-3 text-slate-400"></i>
-                            <input type="text" id="clienteSearchInput" class="w-full border border-gray-300 rounded py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none" placeholder="Buscar Cliente..." autocomplete="off">
+                            <input type="text" id="clienteSearchInput" class="w-full border border-gray-300 rounded py-2 px-3 text-sm focus:border-blue-500 focus:outline-none" placeholder="Buscar Cliente..." autocomplete="off">
                             <input type="hidden" id="clienteSelect" value="NN">
-                            <button onclick="respaldarYRedirigir()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded text-sm transition-colors flex-shrink-0 border border-blue-200" title="Nuevo Cliente" type="button">
-                                <i class="fas fa-plus"></i>
+                            <button onclick="respaldarYRedirigir()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded text-sm transition-colors flex-shrink-0 border border-blue-200 font-bold" title="Nuevo Cliente" type="button">
+                                +
                             </button>
                         </div>
                         <div id="clienteSearchResults" class="absolute left-0 right-[42px] top-[60px] bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto hidden z-50"></div>
@@ -542,7 +554,7 @@
                                 <th width="45%">Descripción</th>
                                 <th width="15%" class="text-center">Cant.</th>
                                 <th width="25%" class="text-right">Precio(S/)</th>
-                                <th width="15%" class="text-center"><i class="fas fa-trash"></i></th>
+                                <th width="15%" class="text-center text-xs">Quitar</th>
                             </tr>
                         </thead>
                         <tbody id="carritoBody">
@@ -598,13 +610,181 @@
                         </div>
                     </div>
 
-                    <button id="btnPagar" onclick="procesarVenta()" class="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transform hover:-translate-y-0.5" disabled>
-                        <i class="fas fa-cash-register text-xl"></i> REGISTRAR VENTA
+                    <!-- Botonera de Gestión de Canasta: Vaciar y Congelar -->
+                    <div class="grid grid-cols-12 gap-2 mt-4">
+                        <button type="button" id="btnVaciarCarrito" onclick="confirmarVaciarCarrito()" class="col-span-4 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 dark:text-slate-300 dark:hover:text-rose-300 border border-slate-300 dark:border-slate-700 dark:hover:border-rose-800/50 font-bold py-2.5 px-2 rounded-xl flex items-center justify-center transition text-xs shadow-xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-100 disabled:hover:text-slate-600" disabled title="Vaciar todos los productos de la canasta">
+                            <span>Vaciar Canasta</span>
+                        </button>
+                        <button type="button" id="btnCongelarCarrito" onclick="abrirModalCongelarCarrito()" class="col-span-8 bg-sky-50 hover:bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 font-bold py-2.5 px-3 rounded-xl flex items-center justify-center transition text-xs shadow-xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-50 disabled:hover:text-sky-800" disabled title="Pausar y guardar este avance para atender al siguiente cliente">
+                            <span>CONGELAR PEDIDO</span>
+                        </button>
+                    </div>
+
+                    <button id="btnPagar" onclick="procesarVenta()" class="w-full mt-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 rounded-xl flex justify-center items-center transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transform hover:-translate-y-0.5 tracking-wider text-base" disabled>
+                        REGISTRAR VENTA
                     </button>
                 </div>
             </div>
 
         </div>
+
+        <!-- MODAL APERTURA DE TURNO POS -->
+        <dialog id="modalAperturaTurno" class="backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm p-0 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden m-auto hidden items-center justify-center">
+            <div class="w-full">
+                <div class="p-6 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white text-xl">
+                            <i class="fas fa-cash-register"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold">Apertura de Turno POS</h3>
+                            <p class="text-xs text-blue-100">Identifica al operador y la terminal para iniciar ventas</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form id="formAperturaTurno" onsubmit="handleIniciarTurnoSubmit(event)" class="p-6 space-y-4">
+                    <!-- Selector de Caja Física (Visible solo si limite_cajas > 1) -->
+                    <div id="containerSelectorCajaTurno" class="hidden">
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
+                            <i class="fas fa-desktop text-blue-500 mr-1"></i> Terminal / Caja Física
+                        </label>
+                        <div id="gridBotonesCajas" class="grid grid-cols-2 gap-2">
+                            <!-- Inyectado dinámicamente según limite_cajas -->
+                        </div>
+                        <input type="hidden" id="inputCajaSeleccionada" value="Caja 1">
+                    </div>
+
+                    <!-- Nombre del Cajero(a) con Datalist -->
+                    <div>
+                        <label for="inputNombreCajeroTurno" class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                            <i class="fas fa-user text-blue-500 mr-1"></i> Nombre del Cajero(a) <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="text" id="inputNombreCajeroTurno" list="dlCajerosFrecuentes" placeholder="Ej. Andrea Calle" autocomplete="off" required
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm transition">
+                        <datalist id="dlCajerosFrecuentes"></datalist>
+                        <p class="text-[0.7rem] text-slate-400 mt-1">Selecciona de la lista sugerida o escribe tu nombre.</p>
+                    </div>
+
+                    <!-- Fondo Inicial de Gaveta -->
+                    <div>
+                        <label for="inputFondoInicialTurno" class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                            <i class="fas fa-coins text-amber-500 mr-1"></i> Fondo Inicial / Sencillo (S/)
+                        </label>
+                        <input type="number" step="0.10" min="0" id="inputFondoInicialTurno" value="0.00" placeholder="0.00"
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                        <p class="text-[0.7rem] text-slate-400 mt-1">Monto en efectivo recibido en gaveta para dar vuelto.</p>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" id="btnConfirmarApertura"
+                            class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition transform hover:-translate-y-0.5">
+                            <i class="fas fa-sign-in-alt text-lg"></i>
+                            <span>Iniciar Turno y Abrir Caja</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </dialog>
+
+        <!-- MODAL CONGELAR PEDIDO EN ESPERA -->
+        <dialog id="modalCongelarCarrito" class="backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm p-0 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden m-auto hidden items-center justify-center">
+            <div class="w-full">
+                <div class="p-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 text-white">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white text-lg">
+                                <i class="fas fa-snowflake"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold">Congelar Pedido en Espera</h3>
+                                <p class="text-xs text-sky-100">Guarda el avance para atender al siguiente cliente</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="cerrarModalCongelarCarrito()" class="text-white/80 hover:text-white text-lg">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <form id="formCongelarCarrito" onsubmit="handleCongelarCarritoSubmit(event)" class="p-6 space-y-4">
+                    <!-- Resumen del Carrito a Congelar -->
+                    <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                        <div>
+                            <span class="text-slate-500 dark:text-slate-400 font-medium">Productos:</span>
+                            <span id="txtCongelarItemsCount" class="font-bold text-slate-800 dark:text-white ml-1">0 ítems</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 dark:text-slate-400 font-medium">Monto a Pausar:</span>
+                            <span id="txtCongelarTotalMonto" class="font-extrabold text-blue-600 dark:text-sky-400 text-sm ml-1">S/ 0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Input Identificador del Pedido -->
+                    <div>
+                        <label for="inputIdentificadorPedido" class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                            Identificador o Referencia del Pedido <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="text" id="inputIdentificadorPedido" required maxlength="100" autocomplete="off"
+                            placeholder="Ej: Cliente casaca azul / Mesa 4 / Don Lucho..."
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm transition">
+                        <p class="text-[0.7rem] text-slate-500 dark:text-slate-400 mt-1">
+                            Escribe una frase o nombre que permita al cajero reconocer al cliente cuando regrese.
+                        </p>
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <button type="button" onclick="cerrarModalCongelarCarrito()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="btnConfirmarCongelar" class="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-sm shadow-md shadow-sky-500/20 transition flex items-center gap-2">
+                            <i class="fas fa-snowflake"></i> Confirmar y Congelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </dialog>
+
+        <!-- MODAL LISTA DE PEDIDOS CONGELADOS EN ESPERA -->
+        <dialog id="modalCarritosCongelados" class="backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm p-0 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden m-auto hidden items-center justify-center">
+            <div class="w-full flex flex-col max-h-[85vh]">
+                <div class="p-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-sky-700 via-blue-700 to-indigo-700 text-white flex-shrink-0">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white text-lg">
+                                <i class="fas fa-snowflake"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold">Pedidos en Espera (Carritos Congelados)</h3>
+                                <p class="text-xs text-sky-100">Selecciona un pedido para retomarlo o descartarlo</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="cerrarModalCarritosCongelados()" class="text-white/80 hover:text-white text-lg">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Contenedor scrollable con la lista de tarjetas -->
+                <div id="listaCarritosCongeladosContainer" class="p-6 overflow-y-auto flex-1 space-y-3">
+                    <div class="text-center py-10 text-slate-400">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-2 text-sky-500"></i>
+                        <p class="text-sm">Cargando pedidos en espera...</p>
+                    </div>
+                </div>
+
+                <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                    <div class="flex items-center gap-1.5">
+                        <i class="fas fa-info-circle text-sky-500"></i>
+                        <span>Los pedidos congelados son visibles en todas las cajas de la tienda.</span>
+                    </div>
+                    <button type="button" onclick="cerrarModalCarritosCongelados()" class="px-4 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </dialog>
 
         <!-- MODAL 1: IMPORTAR EXCEL -->
         <dialog id="modalImportExcelPaso1" class="backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm p-0 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden m-auto hidden items-center justify-center">
@@ -684,6 +864,48 @@
         let originalEditDate = null;
         window.cacheLotesBusqueda = {}; // Caché de lotes por item_id para agilizar adición al carrito
         let currentSearchToken = 0; // Token anti-race-condition para tipeo veloz
+        let windowUserRole = 'CAJERO';
+        let currentTurnoActivo = null; // { id, caja_identificador, cajero_nombre, fondo_inicial, hora_apertura }
+        window.cajaIdentificador = 'Caja 1';
+        window.cajeroName = 'Cajero';
+
+        // Blindaje Anti-Microcortes e Idempotencia
+        window.isProcessingVenta = false;
+        window.pendingClientVentaId = null;
+        window.catalogoItemsCache = [];
+
+        function esErrorDeRed(err) {
+            if (!err) return false;
+            const msg = (err.message || '').toLowerCase();
+            const name = (err.name || '').toLowerCase();
+            return (
+                name.includes('timeout') ||
+                msg.includes('timeout') ||
+                msg.includes('failed to fetch') ||
+                msg.includes('networkerror') ||
+                msg.includes('network error') ||
+                msg.includes('fetch failed') ||
+                msg.includes('connection refused') ||
+                msg.includes('offline') ||
+                err.status === 502 ||
+                err.status === 503 ||
+                err.status === 504 ||
+                err.code === 'PGRST000' ||
+                !navigator.onLine
+            );
+        }
+
+        function fetchWithTimeout(promise, ms = 8000) {
+            let timer;
+            const timeoutPromise = new Promise((_, reject) => {
+                timer = setTimeout(() => {
+                    const err = new Error('TIMEOUT_RED_POS: El servidor tardó más de 8s en responder.');
+                    err.name = 'TimeoutError';
+                    reject(err);
+                }, ms);
+            });
+            return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+        }
 
         // Helper para ignorar tildes
         function removeAccents(str) {
@@ -1113,12 +1335,26 @@
 
         async function cargarContextoInicial() {
             // 1. Obtener Empresa y Perfil del Usuario Cajero
-            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id, nombre_completo').eq('id', window.currentUser.id).single();
+            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol, nombre_completo').eq('id', window.currentUser.id).single();
             currentEmpresaId = perfil.empresa_id;
+            windowUserRole = (perfil?.rol || 'CAJERO').toUpperCase();
+            window.currentUserProfile = perfil;
             window.cajeroName = perfil.nombre_completo || window.currentUser.email.split('@')[0];
 
             const { data: emp } = await window.supabaseClient.from('empresas').select('*').eq('id', currentEmpresaId).single();
             perfilEmpresa = emp;
+
+            // Precarga de catálogo en memoria RAM para resiliencia de búsqueda ante microcortes
+            try {
+                const { data: catItems } = await window.supabaseClient.from('items')
+                    .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('activo', true);
+                window.catalogoItemsCache = catItems || [];
+            } catch (eCat) {
+                console.warn("No se pudo precargar catálogo en memoria:", eCat);
+                window.catalogoItemsCache = [];
+            }
 
             // Mostrar tabs habilitados
             let primerFiltro = null;
@@ -1199,6 +1435,333 @@
                 const pre = todosLosClientes.find(c => c.id == ncId);
                 if(pre) seleccionarClienteAuto(pre.id, pre.razon_social);
                 window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            // 7. Gestión y Verificación de Turno POS
+            await verificarGestionTurnoPOS();
+
+            // 8. Sincronizar Contador de Pedidos en Espera (Carritos Congelados)
+            await actualizarContadorCarritosCongelados();
+        }
+
+        // =========================================================================
+        // MÓDULO GESTIÓN DE TURNOS POS (APERTURA MANUAL, RELEVO Y MONITOREO)
+        // =========================================================================
+        async function verificarGestionTurnoPOS() {
+            const badgeTxt = document.getElementById('txtBadgeOperador');
+            const btnRelevo = document.getElementById('btnRelevoCajero');
+
+            // CASO A: Administrador (Exención total)
+            if (windowUserRole === 'ADMIN') {
+                window.cajeroName = window.currentUserProfile?.nombre_completo || 'Administrador';
+                window.cajaIdentificador = 'Admin';
+                if (badgeTxt) {
+                    badgeTxt.textContent = `${window.cajeroName} - Administrador`;
+                }
+                const btnPin = document.getElementById('btnConfigurarPinPOS');
+                if (btnPin) btnPin.classList.remove('hidden');
+                if (btnRelevo) btnRelevo.classList.add('hidden');
+                habilitarOperatividadPOS(true);
+                return;
+            }
+
+            // CASO B: Cajero
+            if (btnRelevo) btnRelevo.classList.remove('hidden');
+
+            // 1. Intentar restaurar turno activo desde Supabase para esta terminal
+            try {
+                const { data: turnosAbiertos, error: errTurno } = await window.supabaseClient
+                    .from('pos_turnos_activos')
+                    .select('*')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('usuario_id', window.currentUser.id)
+                    .eq('estado', 'ABIERTO')
+                    .order('hora_apertura', { ascending: false })
+                    .limit(1);
+
+                if (!errTurno && turnosAbiertos && turnosAbiertos.length > 0) {
+                    currentTurnoActivo = turnosAbiertos[0];
+                    window.cajeroName = currentTurnoActivo.cajero_nombre;
+                    window.cajaIdentificador = currentTurnoActivo.caja_identificador;
+                    localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
+                    localStorage.setItem('microerp_pos_caja_id', window.cajaIdentificador);
+
+                    actualizarBadgeOperadorUI();
+                    habilitarOperatividadPOS(true);
+                    return;
+                }
+            } catch (errQ) {
+                console.warn("Verificación de turno en Supabase:", errQ);
+            }
+
+            // 2. Si no hay turno abierto en Supabase, verificar si hay un respaldo local activo
+            const turnoLocalStr = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
+            if (turnoLocalStr) {
+                try {
+                    const tLocal = JSON.parse(turnoLocalStr);
+                    if (tLocal && tLocal.cajero_nombre && tLocal.hora_apertura) {
+                        currentTurnoActivo = tLocal;
+                        window.cajeroName = tLocal.cajero_nombre;
+                        window.cajaIdentificador = tLocal.caja_identificador || 'Caja 1';
+                        actualizarBadgeOperadorUI();
+                        habilitarOperatividadPOS(true);
+                        return;
+                    }
+                } catch (_) {}
+            }
+
+            // 3. No hay turno abierto -> Desplegar modal bloqueante
+            habilitarOperatividadPOS(false);
+            abrirModalAperturaTurno();
+        }
+
+        async function abrirModalAperturaTurno() {
+            const modal = document.getElementById('modalAperturaTurno');
+            if (!modal) return;
+
+            // Prevenir cierre accidental con ESC si no es ADMIN
+            modal.oncancel = (e) => {
+                if (windowUserRole !== 'ADMIN' && !currentTurnoActivo) {
+                    e.preventDefault();
+                }
+            };
+
+            // 1. Configurar selector de Caja según limite_cajas de la empresa
+            const limiteCajas = (perfilEmpresa && perfilEmpresa.limite_cajas) ? perfilEmpresa.limite_cajas : 1;
+            const containerCajas = document.getElementById('containerSelectorCajaTurno');
+            const gridCajas = document.getElementById('gridBotonesCajas');
+            const inputCaja = document.getElementById('inputCajaSeleccionada');
+            
+            let ultimaCaja = localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
+
+            if (limiteCajas > 1) {
+                containerCajas.classList.remove('hidden');
+                gridCajas.innerHTML = '';
+                for (let i = 1; i <= limiteCajas; i++) {
+                    const cNom = `Caja ${i}`;
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    const esSeleccionada = (cNom === ultimaCaja) || (i === 1 && !ultimaCaja);
+                    btn.className = `py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition ${esSeleccionada ? 'bg-blue-600 text-white border-blue-600 shadow' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200'}`;
+                    btn.innerHTML = `<i class="fas fa-desktop"></i> ${cNom}`;
+                    btn.onclick = () => {
+                        Array.from(gridCajas.children).forEach(b => {
+                            b.className = 'py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200';
+                        });
+                        btn.className = 'py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition bg-blue-600 text-white border-blue-600 shadow';
+                        inputCaja.value = cNom;
+                        localStorage.setItem('microerp_pos_caja_id', cNom);
+                    };
+                    gridCajas.appendChild(btn);
+                }
+                inputCaja.value = ultimaCaja;
+            } else {
+                containerCajas.classList.add('hidden');
+                inputCaja.value = 'Caja 1';
+            }
+
+            // 2. Cargar Datalist de Cajeros Frecuentes
+            await cargarDatalistCajerosFrecuentes();
+
+            // 3. Foco en input
+            const inpNombre = document.getElementById('inputNombreCajeroTurno');
+            if (inpNombre) {
+                inpNombre.value = '';
+                setTimeout(() => inpNombre.focus(), 250);
+            }
+
+            // 4. Mostrar modal bloqueante
+            modal.showModal();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        async function cargarDatalistCajerosFrecuentes() {
+            const dl = document.getElementById('dlCajerosFrecuentes');
+            if (!dl) return;
+            dl.innerHTML = '';
+            const setNombres = new Set();
+
+            // A. Desde historial local
+            try {
+                const hist = JSON.parse(localStorage.getItem('pos_cajeros_frecuentes_' + currentEmpresaId) || '[]');
+                hist.forEach(n => { if (n && n.trim()) setNombres.add(n.trim()); });
+            } catch (_) {}
+
+            // B. Desde perfiles_usuario (usuarios cajeros)
+            try {
+                const { data: perfilesCajeros } = await window.supabaseClient
+                    .from('perfiles_usuario')
+                    .select('nombre_completo')
+                    .eq('empresa_id', currentEmpresaId)
+                    .ilike('rol', 'CAJERO');
+
+                (perfilesCajeros || []).forEach(p => {
+                    if (p.nombre_completo && p.nombre_completo.trim()) {
+                        setNombres.add(p.nombre_completo.trim());
+                    }
+                });
+            } catch (_) {}
+
+            // C. Desde turnos en pos_turnos_activos
+            try {
+                const { data: turnosRecientes } = await window.supabaseClient
+                    .from('pos_turnos_activos')
+                    .select('cajero_nombre')
+                    .eq('empresa_id', currentEmpresaId)
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                (turnosRecientes || []).forEach(t => {
+                    if (t.cajero_nombre && t.cajero_nombre.trim()) {
+                        setNombres.add(t.cajero_nombre.trim());
+                    }
+                });
+            } catch (_) {}
+
+            setNombres.forEach(nom => {
+                const opt = document.createElement('option');
+                opt.value = nom;
+                dl.appendChild(opt);
+            });
+        }
+
+        async function handleIniciarTurnoSubmit(e) {
+            e.preventDefault();
+            const nomInp = document.getElementById('inputNombreCajeroTurno').value.trim();
+            const cajaInp = document.getElementById('inputCajaSeleccionada').value.trim() || 'Caja 1';
+            const fondoInp = parseFloat(document.getElementById('inputFondoInicialTurno').value) || 0;
+
+            if (!nomInp) {
+                Swal.fire({ icon: 'warning', title: 'Nombre requerido', text: 'Por favor, ingresa o selecciona el nombre del cajero(a).' });
+                return;
+            }
+
+            const btnSubmit = document.getElementById('btnConfirmarApertura');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Abriendo Turno...`;
+
+            try {
+                const { data: respTurno, error: errTurno } = await window.supabaseClient.rpc('rpc_abrir_turno_pos', {
+                    p_payload: {
+                        empresa_id: currentEmpresaId,
+                        usuario_id: window.currentUser.id,
+                        caja_identificador: cajaInp,
+                        cajero_nombre: nomInp,
+                        fondo_inicial: fondoInp
+                    }
+                });
+
+                if (errTurno) throw errTurno;
+                if (!respTurno || !respTurno.success) throw new Error(respTurno?.error || "Error al aperturar turno");
+
+                currentTurnoActivo = respTurno;
+                window.cajeroName = nomInp;
+                window.cajaIdentificador = cajaInp;
+
+                // Guardar en sesión local
+                localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(respTurno));
+                localStorage.setItem('microerp_pos_caja_id', cajaInp);
+
+                // Guardar en lista de cajeros frecuentes
+                try {
+                    const keyFrec = 'pos_cajeros_frecuentes_' + currentEmpresaId;
+                    let frecs = JSON.parse(localStorage.getItem(keyFrec) || '[]');
+                    if (!frecs.includes(nomInp)) {
+                        frecs.unshift(nomInp);
+                        localStorage.setItem(keyFrec, JSON.stringify(frecs.slice(0, 15)));
+                    }
+                } catch (_) {}
+
+                // Cerrar modal
+                const modal = document.getElementById('modalAperturaTurno');
+                modal.close();
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+
+                actualizarBadgeOperadorUI();
+                habilitarOperatividadPOS(true);
+
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Turno Iniciado!',
+                    text: `Cajero: ${nomInp} | ${cajaInp}`,
+                    timer: 1600,
+                    showConfirmButton: false
+                });
+
+            } catch (err) {
+                console.error("Error al aperturar turno:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de Apertura',
+                    text: err.message || 'No se pudo aperturar el turno en el servidor.'
+                });
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = `<i class="fas fa-sign-in-alt text-lg"></i> <span>Iniciar Turno y Abrir Caja</span>`;
+            }
+        }
+
+        async function solicitarCambioTurno() {
+            if (windowUserRole === 'ADMIN') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sesión de Administrador',
+                    text: 'Como Administrador operas de forma libre sin turnos de cajero asignados.'
+                });
+                return;
+            }
+
+            if (!currentTurnoActivo) {
+                abrirModalAperturaTurno();
+                return;
+            }
+
+            const confirmacion = await Swal.fire({
+                title: 'Relevo de Operador',
+                html: `
+                    <div class="text-left text-sm space-y-2">
+                        <p>Turno activo actualmente: <b>${window.cajeroName}</b> (${window.cajaIdentificador})</p>
+                        <p class="text-slate-500">Para entregar la terminal y relevar el turno, es necesario realizar el <b>Arqueo y Cierre de Turno</b> para cuadrar el dinero físico de la gaveta.</p>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fas fa-lock mr-1"></i> Ir al Arqueo y Cierre',
+                cancelButtonText: 'Continuar en este turno'
+            });
+
+            if (confirmacion.isConfirmed) {
+                window.location.href = 'arqueo_caja.html';
+            }
+        }
+
+        function actualizarBadgeOperadorUI() {
+            const badgeTxt = document.getElementById('txtBadgeOperador');
+            if (!badgeTxt) return;
+            if (windowUserRole === 'ADMIN') {
+                badgeTxt.textContent = `${window.cajeroName} - Administrador`;
+            } else {
+                badgeTxt.textContent = `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'}) - En Turno`;
+            }
+        }
+
+        function habilitarOperatividadPOS(habilitado) {
+            const buscador = document.getElementById('buscadorGeneral');
+            if (buscador) {
+                buscador.disabled = !habilitado;
+                if (!habilitado) {
+                    buscador.placeholder = "Apertura de turno requerida para vender...";
+                } else {
+                    buscador.placeholder = "Busca por código o descripción...";
+                }
+            }
+            const btnPagar = document.getElementById('btnPagar');
+            if (btnPagar && !habilitado) {
+                btnPagar.disabled = true;
             }
         }
 
@@ -1415,12 +1978,27 @@
                     const safeTerm = term.replace(/"/g, ''); 
                     const normalizedTerm = removeAccents(safeTerm).toLowerCase();
                     
-                    // 1. Buscar Items coincidentes (máx 10)
-                    const { data: items, error: errItems } = await window.supabaseClient.from('items')
-                        .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta')
-                        .eq('empresa_id', currentEmpresaId)
-                        .eq('activo', true)
-                        .ilike('busqueda_vector', `%${normalizedTerm}%`).limit(10);
+                    // 1. Buscar Items coincidentes (máx 10) con resiliencia ante microcortes
+                    let items = null;
+                    try {
+                        const { data, error: errItems } = await window.supabaseClient.from('items')
+                            .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta')
+                            .eq('empresa_id', currentEmpresaId)
+                            .eq('activo', true)
+                            .ilike('busqueda_vector', `%${normalizedTerm}%`).limit(10);
+                        if (errItems) throw errItems;
+                        items = data;
+                    } catch (errBusq) {
+                        console.warn("Fallo de red en búsqueda de items, recurriendo a catálogo local en memoria:", errBusq);
+                        if (window.catalogoItemsCache && window.catalogoItemsCache.length > 0) {
+                            items = window.catalogoItemsCache.filter(it => {
+                                const v = (it.busqueda_vector || removeAccents((it.descripcion || '') + ' ' + (it.codigo || ''))).toLowerCase();
+                                return v.includes(normalizedTerm);
+                            }).slice(0, 10);
+                        } else {
+                            throw errBusq;
+                        }
+                    }
                     
                     if (thisSearchToken !== currentSearchToken) return; // Descartar si el usuario siguió escribiendo
 
@@ -1520,7 +2098,11 @@
             } catch(e) { 
                 console.error('Error busqueda:', e); 
                 if (thisSearchToken === currentSearchToken) {
-                    resDiv.innerHTML = '<div class="p-4 text-red-500">Error en búsqueda.</div>'; 
+                    if (esErrorDeRed(e)) {
+                        resDiv.innerHTML = '<div class="p-3 text-amber-600 bg-amber-50 rounded-lg text-xs font-medium"><i class="fas fa-wifi text-amber-500 mr-1"></i> Microcorte de red: Intermitencia momentánea detectada. Si persiste, revise el indicador en el menú lateral.</div>';
+                    } else {
+                        resDiv.innerHTML = '<div class="p-4 text-red-500">Error en búsqueda.</div>'; 
+                    }
                 }
             }
         }
@@ -1834,6 +2416,7 @@
         }
 
         function renderizarCarrito() {
+            window.pendingClientVentaId = null; // Resetear UUID de venta si cambia el carrito
             const tbody = document.getElementById('carritoBody');
             tbody.innerHTML = '';
 
@@ -1846,8 +2429,14 @@
 
             const carritoVisual = ordenInvertido ? [...carrito].reverse() : carrito;
 
+            const isAdmin = (windowUserRole === 'ADMIN' || window.currentUserProfile?.rol === 'ADMIN');
+            const preciosDesbloqueados = isAdmin || window.preciosDesbloqueadosPorSupervisor === true;
+
             carritoVisual.forEach(c => {
-                const isPriceRO = false;
+                const precioInputHTML = preciosDesbloqueados
+                    ? `<input type="text" inputmode="decimal" class="price-input" value="${c.precioFinalIngresado}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'precioFinalIngresado', this)">`
+                    : `<input type="text" inputmode="decimal" class="price-input bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-pointer" readonly value="${c.precioFinalIngresado}" onclick="solicitarAutorizacionPreciosSupervisor()" title="Precio protegido. Clic para autorizar edición con PIN de Supervisor">`;
+
                 tbody.innerHTML += `
                     <tr>
                         <td class="text-sm font-medium">
@@ -1858,10 +2447,10 @@
                             <input type="text" inputmode="decimal" class="qty-input" value="${c.cantidad}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'cantidad', this)" ${c.tipo==='ITEMS'?'disabled title="Eliminar y volver a añadir para recalcular FIFO"':''}>
                         </td>
                         <td class="text-right">
-                            <input type="text" inputmode="decimal" class="price-input" value="${c.precioFinalIngresado}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'precioFinalIngresado', this)">
+                            ${precioInputHTML}
                         </td>
-                        <td class="text-center text-red-400 hover:text-red-600 cursor-pointer" onclick="removerDelCarrito('${c.idFront}')">
-                            <i class="fas fa-trash"></i>
+                        <td class="text-center">
+                            <button type="button" class="text-xs font-bold text-slate-400 hover:text-red-500 transition px-2 py-1" onclick="removerDelCarrito('${c.idFront}')" title="Quitar item">✕</button>
                         </td>
                     </tr>
                 `;
@@ -1985,6 +2574,11 @@
             const panelCredito = document.getElementById('panelCredito');
             const esCredito = document.getElementById('condicionPago').value === 'CREDITO';
             
+            const btnVaciar = document.getElementById('btnVaciarCarrito');
+            const btnCongelar = document.getElementById('btnCongelarCarrito');
+            if (btnVaciar) btnVaciar.disabled = (carrito.length === 0);
+            if (btnCongelar) btnCongelar.disabled = (carrito.length === 0);
+
             if(carrito.length === 0) {
                 btn.disabled = true;
                 btn.innerHTML = `<i class="fas fa-cash-register text-xl"></i> REGISTRAR VENTA`;
@@ -2028,9 +2622,16 @@
             }
         }
 
-        // EL MOTOR DE TRANSACCIONES VENTA + KARDEX
+        // EL MOTOR DE TRANSACCIONES VENTA + KARDEX (CON BLINDAJE IDEMPOTENTE ANTI-MICROCORTES)
         async function procesarVenta() {
+            // Candado síncrono en línea 1 contra doble clic / rapid Enter
+            if (window.isProcessingVenta) {
+                console.warn("Venta en proceso. Petición concurrente bloqueada.");
+                return;
+            }
             if(carrito.length === 0) return;
+
+            const btnPagar = document.getElementById('btnPagar');
             const clienteIdStr = document.getElementById('clienteSelect').value;
             const clienteId = clienteIdStr === 'NN' ? null : clienteIdStr;
             const tipoComp = document.getElementById('tipoComprobante').value;
@@ -2062,6 +2663,11 @@
             });
 
             if (isEditMode) {
+                window.isProcessingVenta = true;
+                if (btnPagar) {
+                    btnPagar.disabled = true;
+                    btnPagar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando...';
+                }
                 let detallesRpc = [];
                 carrito.forEach(c => {
                     const precioLineaTotal = c.cantidad * c.precioFinalIngresado;
@@ -2128,6 +2734,12 @@
                     } else {
                         Swal.fire('Error en Edición', msg || 'Error desconocido.', 'error');
                     }
+                } finally {
+                    window.isProcessingVenta = false;
+                    if (btnPagar) {
+                        btnPagar.disabled = false;
+                        btnPagar.innerHTML = '<span>Pagar</span><i class="fas fa-arrow-right"></i>';
+                    }
                 }
                 return; // Cortar flujo normal
             }
@@ -2143,10 +2755,14 @@
                 saldoPendiente = 0;
             }
 
-            // Validaciones
+            // Activar candado síncrono y deshabilitar botón
+            window.isProcessingVenta = true;
+            if (btnPagar) {
+                btnPagar.disabled = true;
+                btnPagar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando...';
+            }
+
             try {
-                Swal.fire({ title: 'Registrando Venta...', html: 'Transaccionando base de datos...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()}});
-                
                 // 1. Preparar detalles comerciales y lotes logísticos en memoria
                 let detallesVentaInserts = [];
                 let lotesADescontar = [];
@@ -2192,9 +2808,16 @@
                     });
                 }
 
-                // 2. INVOCAR RPC ATÓMICO EN SUPABASE (1 solo viaje de red con garantía ACID)
+                // Generar o reutilizar UUID de idempotencia cliente
+                if (!window.pendingClientVentaId) {
+                    window.pendingClientVentaId = crypto.randomUUID();
+                }
+                const clientVentaId = window.pendingClientVentaId;
+
+                // 2. INVOCAR RPC ATÓMICO EN SUPABASE CON IDEMPOTENCIA
                 const payloadRpc = {
                     empresa_id: currentEmpresaId,
+                    venta_id: clientVentaId,
                     numero_ticket: numTk,
                     fecha_venta: fechaEmisionStr,
                     cliente_id: clienteId,
@@ -2206,7 +2829,7 @@
                     condicion_pago: condicionPago,
                     saldo_pendiente: Number(saldoPendiente.toFixed(2)),
                     fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
-                    created_by: window.cajeroName,
+                    created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
                     usuario_id: window.currentUser.id,
                     almacen_origen_id: document.getElementById('almacenOrigen').value,
                     pago_inicial: Number(pagoInicial_input.toFixed(2)),
@@ -2214,9 +2837,69 @@
                     lotes_a_descontar: lotesADescontar
                 };
 
-                const { data: respVenta, error: errRpc } = await window.supabaseClient.rpc('rpc_procesar_venta_pos', { p_payload: payloadRpc });
-                if(errRpc) throw errRpc;
-                if(!respVenta || !respVenta.success) throw new Error(respVenta?.error || "Error al procesar venta atómica.");
+                // Bucle de reintentos automáticos con timeout activo (8s) y backoff exponencial
+                const maxIntentos = 3;
+                const delaysBackoff = [0, 1000, 1500, 2200];
+                let respVenta = null;
+
+                for (let intento = 1; intento <= maxIntentos; intento++) {
+                    try {
+                        if (intento > 1) {
+                            Swal.fire({
+                                title: '⚡ Microcorte de Red Detectado',
+                                html: `
+                                    <div class="text-left text-sm text-slate-700">
+                                        <p class="mb-2">La conexión a internet experimentó una intermitencia momentánea.</p>
+                                        <p class="font-semibold text-blue-600 mb-2">Reintentando confirmación segura (intento ${intento} de ${maxIntentos})...</p>
+                                        <p class="text-xs text-slate-500">🛡️ El sistema verifica si el comprobante ya se emitió para no duplicar datos ni Kardex.</p>
+                                        <div class="w-full bg-slate-200 rounded-full h-2 mt-3 overflow-hidden">
+                                            <div class="bg-blue-600 h-2 rounded-full" style="width: ${(intento / maxIntentos) * 100}%; transition: width 0.3s ease;"></div>
+                                        </div>
+                                    </div>
+                                `,
+                                allowOutsideClick: false,
+                                didOpen: () => Swal.showLoading()
+                            });
+                            await new Promise(r => setTimeout(r, delaysBackoff[intento] || 1500));
+                        } else {
+                            Swal.fire({ 
+                                title: 'Registrando Venta...', 
+                                html: 'Transaccionando base de datos...', 
+                                allowOutsideClick: false, 
+                                didOpen: () => Swal.showLoading() 
+                            });
+                        }
+
+                        const rpcCall = window.supabaseClient.rpc('rpc_procesar_venta_pos', { p_payload: payloadRpc });
+                        const { data: resData, error: errRpc } = await fetchWithTimeout(rpcCall, 8000);
+
+                        if (errRpc) {
+                            if (errRpc.message && !esErrorDeRed(errRpc)) {
+                                const errNegocio = new Error(errRpc.message);
+                                errNegocio.isBusinessError = true;
+                                throw errNegocio;
+                            }
+                            throw errRpc;
+                        }
+
+                        if (!resData || !resData.success) {
+                            const errNegocio = new Error(resData?.error || "Error al procesar venta atómica.");
+                            errNegocio.isBusinessError = true;
+                            throw errNegocio;
+                        }
+
+                        respVenta = resData;
+                        break; // Confirmado exitosamente
+                    } catch (intentoErr) {
+                        console.warn(`Intento ${intento} fallido:`, intentoErr);
+                        if (intentoErr.isBusinessError || !esErrorDeRed(intentoErr) || intento === maxIntentos) {
+                            throw intentoErr;
+                        }
+                    }
+                }
+
+                // Venta confirmada: Liberar UUID de idempotencia retenido
+                window.pendingClientVentaId = null;
 
                 const ticketFinal = respVenta.numero_ticket || numTk;
                 document.getElementById('ticketNumber').textContent = ticketFinal;
@@ -2242,7 +2925,7 @@
                         fecha_venta: fechaEmisionStr,
                         fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
                         created_at: new Date().toISOString(),
-                        created_by: window.cajeroName,
+                        created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
                         condicion_pago: condicionPago,
                         genera_igv: generaIgv,
                         valor_venta_total: subtotal.toFixed(2),
@@ -2262,9 +2945,13 @@
                 };
 
                 // 4. ÉXITO Y NOTIFICACIÓN
+                const textoExito = respVenta.es_reintento_idempotente
+                    ? `El ticket ${ticketFinal} fue recuperado y validado con éxito tras el microcorte de red. No se duplicaron comprobantes ni inventario.`
+                    : `El ticket ${ticketFinal} ha ingresado en finanzas y sus salidas descontaron el Kardex logístico (si hubo físico) usando la ruta limpia.`;
+
                 Swal.fire({
-                    title: '¡Venta Procesada!',
-                    text: `El ticket ${ticketFinal} ha ingresado en finanzas y sus salidas descontaron el Kardex logístico (si hubo físico) usando la ruta limpia.`,
+                    title: respVenta.es_reintento_idempotente ? '¡Ticket Confirmado (Anti-Microcorte)!' : '¡Venta Procesada!',
+                    text: textoExito,
                     icon: 'success',
                     showDenyButton: true,
                     confirmButtonText: (activeLoteIndex !== null && lotesTickets.length > 1) ? '<i class="fas fa-layer-group"></i> Siguiente Lote' : '<i class="fas fa-plus"></i> Nueva Venta',
@@ -2302,11 +2989,46 @@
 
             } catch (fatal) {
                 console.error("Transacción fallida:", fatal);
-                Swal.fire('Error Crítico', 'La transacción falló: ' + (fatal.message || 'Error de comunicación.'), 'error');
+                
+                // Si fue error de red prolongado, PRESERVAR CARRITO y permitir reintento seguro
+                if (esErrorDeRed(fatal)) {
+                    Swal.fire({
+                        title: '⚠️ Falla de Red Prolongada',
+                        html: `
+                            <div class="text-left text-sm text-slate-700">
+                                <p class="mb-3">No se recibió confirmación del servidor debido a microcortes sucesivos en la red.</p>
+                                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900 text-xs mb-3">
+                                    <i class="fas fa-shield-alt mr-1 text-amber-600"></i> <b>Carrito 100% Protegido:</b> Tus productos y cantidades no se han perdido.
+                                </div>
+                                <p class="text-xs text-slate-600">Cuando la conexión se estabilice, pulsa <b>Reintentar Confirmación</b>. Gracias al blindaje de seguridad, la venta no se duplicará incluso si el servidor llegó a procesarla.</p>
+                            </div>
+                        `,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="fas fa-sync-alt mr-1"></i> Reintentar Confirmación',
+                        cancelButtonText: 'Cerrar y Revisar',
+                        confirmButtonColor: '#2563eb',
+                        cancelButtonColor: '#64748b'
+                    }).then((res) => {
+                        if (res.isConfirmed) {
+                            procesarVenta();
+                        }
+                    });
+                } else {
+                    window.pendingClientVentaId = null;
+                    Swal.fire('Error Crítico', 'La transacción falló: ' + (fatal.message || 'Error de comunicación.'), 'error');
+                }
+            } finally {
+                window.isProcessingVenta = false;
+                if (btnPagar) {
+                    btnPagar.disabled = false;
+                    btnPagar.innerHTML = '<span>Pagar</span><i class="fas fa-arrow-right"></i>';
+                }
             }
         }
 
         async function reiniciarVentaPOS() {
+            window.preciosDesbloqueadosPorSupervisor = false;
             carrito = [];
             renderizarCarrito();
             const inputRec = document.getElementById('inputMontoRecibido');
@@ -2319,8 +3041,13 @@
             const btnPagar = document.getElementById('btnPagar');
             if(btnPagar) {
                 btnPagar.disabled = false;
-                btnPagar.innerHTML = '<span>Pagar</span><i class="fas fa-arrow-right"></i>';
+                btnPagar.innerHTML = '<span>REGISTRAR VENTA</span>';
             }
+
+            const btnVac = document.getElementById('btnVaciarCarrito');
+            const btnCong = document.getElementById('btnCongelarCarrito');
+            if (btnVac) btnVac.disabled = true;
+            if (btnCong) btnCong.disabled = true;
 
             document.getElementById('buscadorGeneral').value = '';
             document.getElementById('resultadosBusqueda').style.display = 'none';
@@ -2341,6 +3068,402 @@
 
             // Devolver foco inmediato al buscador
             document.getElementById('buscadorGeneral').focus();
+        }
+
+        // =========================================================================
+        // MÓDULO VENTAS EN ESPERA (CONGELAR Y DESCONGELAR CARRITOS / VACIADO RÁPIDO)
+        // =========================================================================
+
+        function confirmarVaciarCarrito() {
+            if (carrito.length === 0) return;
+            Swal.fire({
+                title: '¿Vaciar la canasta?',
+                text: 'Se eliminarán todos los productos agregados a este ticket sin registrar ninguna venta.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> Sí, vaciar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#e11d48',
+                cancelButtonColor: '#64748b'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    reiniciarVentaPOS();
+                    mostrarToast('Canasta vaciada con éxito', 'info');
+                }
+            });
+        }
+
+        async function actualizarContadorCarritosCongelados() {
+            if (!currentEmpresaId) return;
+            try {
+                const { count, error } = await window.supabaseClient
+                    .from('pos_carritos_congelados')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('estado', 'CONGELADO');
+                if (error) throw error;
+                const badge = document.getElementById('badgeCountCongelados');
+                if (badge) {
+                    if (count > 0) {
+                        badge.textContent = count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.textContent = '0';
+                        badge.classList.add('hidden');
+                    }
+                }
+            } catch (err) {
+                console.warn("No se pudo sincronizar contador de pedidos congelados:", err);
+            }
+        }
+
+        function abrirModalCongelarCarrito() {
+            if (carrito.length === 0) {
+                Swal.fire('Canasta Vacía', 'Agrega al menos un producto a la canasta antes de congelar el pedido.', 'info');
+                return;
+            }
+            const modal = document.getElementById('modalCongelarCarrito');
+            const input = document.getElementById('inputIdentificadorPedido');
+            const txtCount = document.getElementById('txtCongelarItemsCount');
+            const txtMonto = document.getElementById('txtCongelarTotalMonto');
+
+            let total = 0;
+            carrito.forEach(c => { total += (c.cantidad * c.precioFinalIngresado); });
+
+            if (txtCount) txtCount.textContent = `${carrito.length} producto(s)`;
+            if (txtMonto) txtMonto.textContent = `S/ ${Number(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            if (input) {
+                input.value = '';
+                setTimeout(() => input.focus(), 150);
+            }
+
+            if (modal) {
+                modal.showModal();
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function cerrarModalCongelarCarrito() {
+            const modal = document.getElementById('modalCongelarCarrito');
+            if (modal) {
+                modal.close();
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+        }
+
+        async function handleCongelarCarritoSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById('inputIdentificadorPedido');
+            const identificador = input ? input.value.trim() : '';
+            if (!identificador) return;
+
+            const btnConfirm = document.getElementById('btnConfirmarCongelar');
+            if (btnConfirm) {
+                btnConfirm.disabled = true;
+                btnConfirm.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Guardando...';
+            }
+
+            try {
+                let total = 0;
+                carrito.forEach(c => { total += (c.cantidad * c.precioFinalIngresado); });
+
+                const payload = {
+                    empresa_id: currentEmpresaId,
+                    usuario_id: window.currentUser.id,
+                    cajero_nombre: window.cajeroName,
+                    caja_identificador: window.cajaIdentificador || 'Caja 1',
+                    identificador_pedido: identificador,
+                    cliente_id: document.getElementById('clienteSelect').value === 'NN' ? null : document.getElementById('clienteSelect').value,
+                    cliente_nombre: document.getElementById('clienteSearchInput').value,
+                    cliente_documento: '',
+                    almacen_id: document.getElementById('almacenOrigen').value,
+                    tipo_comprobante: document.getElementById('tipoComprobante').value,
+                    condicion_pago: document.getElementById('condicionPago').value,
+                    modo_verde: document.getElementById('toggleModoVerde') ? document.getElementById('toggleModoVerde').checked : false,
+                    total_estimado: Number(total.toFixed(2)),
+                    carrito_json: JSON.parse(JSON.stringify(carrito))
+                };
+
+                const { data, error } = await window.supabaseClient.rpc('rpc_congelar_carrito_pos', { p_payload: payload });
+                if (error) throw error;
+                if (!data || !data.success) throw new Error(data?.error || 'No se pudo congelar el pedido');
+
+                cerrarModalCongelarCarrito();
+                await reiniciarVentaPOS();
+                await actualizarContadorCarritosCongelados();
+
+                Swal.fire({
+                    title: '❄️ Pedido Congelado',
+                    html: `
+                        <div class="text-left text-sm text-slate-700 dark:text-slate-300">
+                            <p class="mb-2">El pedido <b>"${identificador}"</b> ha sido guardado en la nube con éxito.</p>
+                            <p class="text-xs text-slate-500">La canasta ha quedado libre para atender al siguiente cliente en mostrador.</p>
+                        </div>
+                    `,
+                    icon: 'success',
+                    confirmButtonText: 'Listo',
+                    confirmButtonColor: '#0284c7'
+                });
+            } catch (err) {
+                console.error("Error congelando carrito:", err);
+                Swal.fire('Error', 'No se pudo congelar el pedido: ' + (err.message || 'Error de comunicación.'), 'error');
+            } finally {
+                if (btnConfirm) {
+                    btnConfirm.disabled = false;
+                    btnConfirm.innerHTML = '<i class="fas fa-snowflake mr-1"></i> Confirmar y Congelar';
+                }
+            }
+        }
+
+        function abrirModalCarritosCongelados() {
+            const modal = document.getElementById('modalCarritosCongelados');
+            if (modal) {
+                modal.showModal();
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                cargarListaCarritosCongelados();
+            }
+        }
+
+        function cerrarModalCarritosCongelados() {
+            const modal = document.getElementById('modalCarritosCongelados');
+            if (modal) {
+                modal.close();
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+        }
+
+        async function cargarListaCarritosCongelados() {
+            const container = document.getElementById('listaCarritosCongeladosContainer');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="text-center py-10 text-slate-400">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2 text-sky-500"></i>
+                    <p class="text-sm">Consultando pedidos en espera...</p>
+                </div>
+            `;
+
+            try {
+                const { data, error } = await window.supabaseClient.rpc('rpc_listar_carritos_congelados', { p_empresa_id: currentEmpresaId });
+                if (error) throw error;
+                const lista = data?.carritos || [];
+
+                if (lista.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-12 text-slate-400 dark:text-slate-500">
+                            <div class="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3 text-slate-300 dark:text-slate-600 text-2xl">
+                                <i class="fas fa-snowflake"></i>
+                            </div>
+                            <p class="font-bold text-slate-600 dark:text-slate-300">No hay pedidos en espera</p>
+                            <p class="text-xs text-slate-400 mt-1">Usa el botón "CONGELAR PEDIDO" en la canasta para pausar ventas.</p>
+                        </div>
+                    `;
+                    actualizarContadorCarritosCongelados();
+                    return;
+                }
+
+                let html = '';
+                lista.forEach(c => {
+                    const min = c.minutos_transcurridos;
+                    const tiempoTexto = min <= 1 
+                        ? 'hace un momento' 
+                        : (min < 60 ? `hace ${min} min` : `hace ${Math.floor(min / 60)}h ${min % 60}m`);
+                    const montoFormat = Number(c.total_estimado || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const clienteTexto = c.cliente_nombre ? (c.cliente_nombre.includes('No Identificado') ? 'Cliente NN' : c.cliente_nombre) : 'Cliente NN';
+
+                    html += `
+                        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700/70 bg-white dark:bg-slate-800/80 hover:border-sky-300 dark:hover:border-sky-500/50 transition shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div class="space-y-1.5 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-base font-bold text-slate-900 dark:text-white">${c.identificador_pedido}</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                        <i class="fas fa-desktop mr-1"></i>${c.caja_identificador || 'Caja 1'}
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                        <i class="fas fa-clock mr-1"></i>${tiempoTexto}
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                                    <span><i class="fas fa-user-circle mr-1"></i>${c.cajero_nombre || 'Cajero'}</span>
+                                    <span>&bull;</span>
+                                    <span><i class="fas fa-user mr-1"></i>${clienteTexto}</span>
+                                    <span>&bull;</span>
+                                    <span class="font-semibold text-slate-700 dark:text-slate-300">${c.items_count} producto(s)</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-700/60">
+                                <div class="text-right">
+                                    <div class="text-[10px] uppercase font-bold text-slate-400">Total</div>
+                                    <div class="text-base font-extrabold text-blue-600 dark:text-sky-400">S/ ${montoFormat}</div>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" onclick="descartarPedidoCongelado('${c.id}', '${encodeURIComponent(c.identificador_pedido)}')" 
+                                        class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition text-sm" title="Descartar pedido (Cliente no volvió)">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                    <button type="button" onclick="descongelarPedido('${c.id}')" 
+                                        class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition flex items-center gap-1.5">
+                                        <i class="fas fa-play"></i> Descongelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+                actualizarContadorCarritosCongelados();
+            } catch (err) {
+                console.error("Error listando pedidos congelados:", err);
+                container.innerHTML = `<div class="p-4 text-center text-rose-500 text-xs font-semibold">Error al cargar pedidos: ${err.message}</div>`;
+            }
+        }
+
+        async function descartarPedidoCongelado(id, encIdentificador) {
+            const identificador = decodeURIComponent(encIdentificador);
+            const conf = await Swal.fire({
+                title: '¿Descartar Pedido?',
+                text: `¿Deseas descartar el pedido "${identificador}"? Se archivará y dejará de mostrarse en la lista activa.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, descartar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#e11d48',
+                cancelButtonColor: '#64748b'
+            });
+            if (!conf.isConfirmed) return;
+
+            try {
+                const { data, error } = await window.supabaseClient.rpc('rpc_descartar_carrito_congelado', { p_carrito_id: id, p_empresa_id: currentEmpresaId });
+                if (error) throw error;
+                mostrarToast('Pedido descartado correctamente', 'info');
+                cargarListaCarritosCongelados();
+            } catch (err) {
+                Swal.fire('Error', 'No se pudo descartar: ' + (err.message || 'Error desconocido'), 'error');
+            }
+        }
+
+        async function descongelarPedido(id) {
+            if (carrito.length > 0) {
+                const conf = await Swal.fire({
+                    title: 'Canasta Activa en Pantalla',
+                    text: `Ya tienes ${carrito.length} producto(s) en la canasta actual. ¿Deseas descartarla para cargar este pedido congelado?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, reemplazar canasta',
+                    cancelButtonText: 'Cancelar y conservar actual',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                });
+                if (!conf.isConfirmed) return;
+            }
+
+            Swal.fire({ title: 'Descongelando Pedido...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+                const { data, error } = await window.supabaseClient.rpc('rpc_descongelar_carrito_pos', { p_carrito_id: id, p_empresa_id: currentEmpresaId });
+                if (error) throw error;
+                if (!data || !data.success) {
+                    Swal.fire('Atención', data?.error || 'Este pedido no se pudo descongelar.', 'warning');
+                    cargarListaCarritosCongelados();
+                    return;
+                }
+
+                const pedido = data.carrito;
+                carrito = pedido.carrito_json || [];
+
+                // Restaurar Cliente
+                if (pedido.cliente_id && pedido.cliente_nombre) {
+                    seleccionarClienteAuto(pedido.cliente_id, pedido.cliente_nombre);
+                } else {
+                    seleccionarClienteAuto('NN', '-- Cliente No Identificado (NN) --');
+                }
+
+                // Restaurar Tipo Comprobante y Condición de Pago
+                if (pedido.tipo_comprobante && document.getElementById('tipoComprobante')) {
+                    document.getElementById('tipoComprobante').value = pedido.tipo_comprobante;
+                }
+                if (pedido.condicion_pago && document.getElementById('condicionPago')) {
+                    document.getElementById('condicionPago').value = pedido.condicion_pago;
+                }
+                if (pedido.modo_verde && document.getElementById('toggleModoVerde')) {
+                    document.getElementById('toggleModoVerde').checked = true;
+                }
+
+                // Re-validación de Stock y Re-asignación de Lotes FIFO
+                const almacenId = pedido.almacen_id || document.getElementById('almacenOrigen').value;
+                const itemsFisicos = carrito.filter(c => c.tipo === 'ITEMS');
+                let alertasStock = [];
+
+                if (itemsFisicos.length > 0 && !pedido.modo_verde && almacenId) {
+                    const itemIds = itemsFisicos.map(i => i.dbId);
+                    const { data: lotesActuales } = await window.supabaseClient.from('ingresos_detalle')
+                        .select('id, item_id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
+                        .in('item_id', itemIds)
+                        .eq('ingresos.almacen_destino_id', almacenId)
+                        .gt('cantidad_disponible', 0)
+                        .order('ingresos(fecha_ingreso)', { ascending: true });
+
+                    const lotesMap = {};
+                    (lotesActuales || []).forEach(l => {
+                        if (!lotesMap[l.item_id]) lotesMap[l.item_id] = [];
+                        lotesMap[l.item_id].push(l);
+                    });
+
+                    for (let item of itemsFisicos) {
+                        const misLotes = lotesMap[item.dbId] || [];
+                        const stockDisp = misLotes.reduce((s, l) => s + Number(l.cantidad_disponible), 0);
+                        if (stockDisp < item.cantidad) {
+                            alertasStock.push(`<b>${item.descripcion}</b>: pedía ${item.cantidad} unid. pero solo hay ${stockDisp} disponibles.`);
+                        }
+
+                        // Reasignar FIFO disponible
+                        let cantidadRestante = item.cantidad;
+                        let nuevosLotes = [];
+                        for (let l of misLotes) {
+                            if (cantidadRestante <= 0) break;
+                            let aTomar = Math.min(Number(l.cantidad_disponible), cantidadRestante);
+                            nuevosLotes.push({
+                                lotId: l.id,
+                                qty: aTomar,
+                                costo_unit_usado: parseFloat(l.costo_adquisicion_unitario)
+                            });
+                            cantidadRestante -= aTomar;
+                        }
+                        item.lotesAsignados = nuevosLotes;
+                    }
+                }
+
+                renderizarCarrito();
+                cerrarModalCarritosCongelados();
+                await actualizarContadorCarritosCongelados();
+
+                if (alertasStock.length > 0) {
+                    Swal.fire({
+                        title: '⚠️ Variación de Inventario',
+                        html: `
+                            <div class="text-left text-sm text-slate-700 dark:text-slate-300">
+                                <p class="mb-2">Mientras el pedido estuvo congelado, el stock en almacén varió:</p>
+                                <ul class="list-disc pl-4 space-y-1 text-xs text-rose-600 dark:text-rose-400 mb-3">
+                                    ${alertasStock.map(a => `<li>${a}</li>`).join('')}
+                                </ul>
+                                <p class="text-xs text-slate-500">Puedes ajustar las cantidades o activar "Búsqueda Sin Stock" si el cliente lo requiere.</p>
+                            </div>
+                        `,
+                        icon: 'warning',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#2563eb'
+                    });
+                } else {
+                    mostrarToast('Pedido descongelado con éxito', 'success');
+                }
+            } catch (err) {
+                console.error("Error descongelando:", err);
+                Swal.fire('Error', 'No se pudo descongelar el pedido: ' + (err.message || 'Error desconocido'), 'error');
+            }
         }
 
         // ==== FUNCIÓN PARA HIDRATACIÓN ====
@@ -2875,6 +3998,204 @@
             }, 500);
         }
 
+        // =========================================================================
+        // MÓDULO SEGURIDAD POS - PIN MAESTRO DE SUPERVISOR (AUTORIZACIONES)
+        // =========================================================================
+        window.preciosDesbloqueadosPorSupervisor = false;
+
+        async function solicitarAutorizacionPreciosSupervisor(callbackAlExito) {
+            if (windowUserRole === 'ADMIN' || window.currentUserProfile?.rol === 'ADMIN') {
+                window.preciosDesbloqueadosPorSupervisor = true;
+                renderizarCarrito();
+                if (typeof callbackAlExito === 'function') callbackAlExito();
+                return;
+            }
+
+            const { value: pinIngresado } = await Swal.fire({
+                title: 'Autorización de Supervisor',
+                html: `
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Ingrese el PIN de 4 dígitos para autorizar el cambio de precios en esta canasta:</p>
+                    <input type="password" id="swalPinSupervisor" maxlength="4" class="swal2-input text-center text-2xl tracking-[0.5em] font-mono font-bold" placeholder="••••" autocomplete="off" autofocus>
+                    <div class="grid grid-cols-3 gap-2 mt-4 max-w-[220px] mx-auto">
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '1'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">1</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '2'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">2</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '3'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">3</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '4'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">4</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '5'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">5</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '6'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">6</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '7'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">7</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '8'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">8</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '9'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">9</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value = '';" class="py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 rounded font-bold text-xs uppercase tracking-wider transition">Borrar</button>
+                        <button type="button" onclick="document.getElementById('swalPinSupervisor').value += '0'; if(document.getElementById('swalPinSupervisor').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">0</button>
+                        <button type="button" onclick="Swal.clickConfirm();" class="py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold text-xs uppercase tracking-wider transition">OK</button>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Autorizar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#64748b',
+                preConfirm: () => {
+                    const input = document.getElementById('swalPinSupervisor');
+                    const pin = input ? input.value.trim() : '';
+                    if (!pin || pin.length !== 4) {
+                        Swal.showValidationMessage('El PIN debe tener 4 dígitos.');
+                        return false;
+                    }
+                    return pin;
+                },
+                didOpen: () => {
+                    const inp = document.getElementById('swalPinSupervisor');
+                    if (inp) {
+                        inp.focus();
+                        inp.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter' && inp.value.length === 4) {
+                                Swal.clickConfirm();
+                            }
+                        });
+                    }
+                }
+            });
+
+            if (!pinIngresado) return;
+
+            Swal.fire({
+                title: 'Validando PIN de Supervisor...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const { data, error } = await window.supabaseClient.rpc('rpc_validar_pin_supervisor', {
+                    p_empresa_id: currentEmpresaId,
+                    p_pin: pinIngresado
+                });
+
+                if (error) throw error;
+
+                if (data && data.valido) {
+                    window.preciosDesbloqueadosPorSupervisor = true;
+                    renderizarCarrito();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Autorización Concedida',
+                        text: 'Precios desbloqueados para esta venta.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    if (typeof callbackAlExito === 'function') callbackAlExito();
+                } else {
+                    let msg = data?.mensaje || 'PIN de Supervisor incorrecto.';
+                    if (data?.codigo === 'SIN_CONFIGURAR') {
+                        msg = 'El Administrador aún no ha configurado el PIN de Supervisor en esta tienda. Solicítele configurarlo en el botón superior.';
+                    } else if (data?.codigo === 'BLOQUEADO') {
+                        msg = data.mensaje;
+                    } else if (data?.intentos_restantes !== undefined) {
+                        msg += ` Intentos restantes: ${data.intentos_restantes}`;
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Autorización Denegada',
+                        text: msg
+                    });
+                }
+            } catch (err) {
+                console.error("Error validando PIN:", err);
+                Swal.fire('Error', err.message || 'No se pudo contactar con Supabase.', 'error');
+            }
+        }
+
+        async function abrirModalConfigurarPinPOS() {
+            if (windowUserRole !== 'ADMIN' && window.currentUserProfile?.rol !== 'ADMIN') {
+                Swal.fire('Acceso Denegado', 'Solo usuarios con rol ADMIN pueden configurar el PIN.', 'warning');
+                return;
+            }
+
+            const { value: nuevoPin } = await Swal.fire({
+                title: 'Configurar PIN de Supervisor',
+                html: `
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Defina un número secreto de 4 dígitos para autorizaciones en caja (Cierre Z y modificación de precios):</p>
+                    <input type="password" id="swalNuevoPin" maxlength="4" class="swal2-input text-center text-2xl tracking-[0.5em] font-mono font-bold" placeholder="••••" autocomplete="off" autofocus>
+                    <div class="grid grid-cols-3 gap-2 mt-4 max-w-[220px] mx-auto">
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '1'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">1</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '2'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">2</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '3'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">3</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '4'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">4</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '5'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">5</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '6'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">6</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '7'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">7</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '8'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">8</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '9'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">9</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value = '';" class="py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 rounded font-bold text-xs uppercase tracking-wider transition">Borrar</button>
+                        <button type="button" onclick="document.getElementById('swalNuevoPin').value += '0'; if(document.getElementById('swalNuevoPin').value.length===4) Swal.clickConfirm();" class="py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-bold text-lg transition">0</button>
+                        <button type="button" onclick="Swal.clickConfirm();" class="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-xs uppercase tracking-wider transition">OK</button>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Guardar PIN',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                preConfirm: () => {
+                    const input = document.getElementById('swalNuevoPin');
+                    const pin = input ? input.value.trim() : '';
+                    if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+                        Swal.showValidationMessage('El PIN debe contener exactamente 4 dígitos numéricos.');
+                        return false;
+                    }
+                    return pin;
+                },
+                didOpen: () => {
+                    const inp = document.getElementById('swalNuevoPin');
+                    if (inp) {
+                        inp.focus();
+                        inp.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter' && inp.value.length === 4) {
+                                Swal.clickConfirm();
+                            }
+                        });
+                    }
+                }
+            });
+
+            if (!nuevoPin) return;
+
+            Swal.fire({
+                title: 'Guardando PIN en Supabase...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const { data, error } = await window.supabaseClient.rpc('rpc_establecer_pin_supervisor', {
+                    p_empresa_id: currentEmpresaId,
+                    p_nuevo_pin: nuevoPin
+                });
+
+                if (error) throw error;
+
+                if (data && data.exito) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'PIN Actualizado',
+                        text: 'El PIN Maestro de Supervisor ha sido configurado con éxito.'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'No se pudo guardar',
+                        text: data?.mensaje || 'Error desconocido al guardar el PIN.'
+                    });
+                }
+            } catch (err) {
+                console.error("Error al configurar PIN:", err);
+                Swal.fire('Error', err.message || 'No se pudo registrar el PIN.', 'error');
+            }
+        }
+
     </script>
 
     <!-- Script de Tema (Dualidad Light/Dark) -->
@@ -2888,12 +4209,16 @@
         function updateThemeIcon(isDark) {
             const btn = document.getElementById('themeToggleBtn');
             if(btn) {
-                if(isDark) {
-                    btn.querySelector('.fa-sun').classList.add('hidden');
-                    btn.querySelector('.fa-moon').classList.remove('hidden');
-                } else {
-                    btn.querySelector('.fa-sun').classList.remove('hidden');
-                    btn.querySelector('.fa-moon').classList.add('hidden');
+                const sun = btn.querySelector('.fa-sun');
+                const moon = btn.querySelector('.fa-moon');
+                if (sun && moon) {
+                    if(isDark) {
+                        sun.classList.add('hidden');
+                        moon.classList.remove('hidden');
+                    } else {
+                        sun.classList.remove('hidden');
+                        moon.classList.add('hidden');
+                    }
                 }
             }
         }
