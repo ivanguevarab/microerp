@@ -891,6 +891,21 @@
         window.pendingClientVentaId = null;
         window.catalogoItemsCache = [];
 
+        function mostrarToast(mensaje, tipo = 'info') {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2400,
+                    icon: tipo,
+                    title: mensaje
+                });
+            } else {
+                console.log(`[Toast ${tipo}]:`, mensaje);
+            }
+        }
+
         function esErrorDeRed(err) {
             if (!err) return false;
             const msg = (err.message || '').toLowerCase();
@@ -3458,7 +3473,7 @@
 
                 if (alertasStock.length > 0) {
                     Swal.fire({
-                        title: '⚠️ Variación de Inventario',
+                        title: 'Variación de Inventario',
                         html: `
                             <div class="text-left text-sm text-slate-700 dark:text-slate-300">
                                 <p class="mb-2">Mientras el pedido estuvo congelado, el stock en almacén varió:</p>
