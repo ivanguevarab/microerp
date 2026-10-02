@@ -35,10 +35,10 @@
     <style>
         .container-pos { max-width: 1400px; margin: 0 auto; padding: 20px; }
         
-        /* Grid Principal POS: 70% Izquierda (Catálogo), 30% Derecha (Ticket) */
+        /* Grid Principal POS: Balance Catálogo vs Ticket para 5 columnas */
         .pos-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr;
+            grid-template-columns: 1.3fr 1fr;
             gap: 24px;
             align-items: start;
         }
@@ -584,10 +584,11 @@
                     <table class="ticket-table">
                         <thead>
                             <tr>
-                                <th width="45%">Descripción</th>
-                                <th width="15%" class="text-center">Cant.</th>
-                                <th width="25%" class="text-right">Precio(S/)</th>
-                                <th width="15%" class="text-center text-xs">Quitar</th>
+                                <th width="36%">Descripción</th>
+                                <th width="14%" class="text-center">Cant.</th>
+                                <th width="20%" class="text-right">P. UNIT</th>
+                                <th width="20%" class="text-right">P. TOTAL</th>
+                                <th width="10%" class="text-center text-xs">Quitar</th>
                             </tr>
                         </thead>
                         <tbody id="carritoBody">
@@ -2439,6 +2440,14 @@
             }
 
             item[campo] = val;
+
+            // Actualización reactiva instantánea del subtotal de fila
+            const filaSubtotalEl = document.getElementById(`subtotal_fila_${idFront}`);
+            if (filaSubtotalEl) {
+                const subtotalFila = (Number(item.cantidad) || 0) * (Number(item.precioFinalIngresado) || 0);
+                filaSubtotalEl.textContent = `S/ ${formatMoney(subtotalFila)}`;
+            }
+
             recalcularTotales();
         }
 
@@ -2461,7 +2470,7 @@
             tbody.innerHTML = '';
 
             if(carrito.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-slate-400">Sin elementos.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-slate-400">Sin elementos.</td></tr>';
                 document.getElementById('mensajeVacio').style.display = 'block';
             } else {
                 document.getElementById('mensajeVacio').style.display = 'none';
@@ -2473,6 +2482,8 @@
             const preciosDesbloqueados = isAdmin || window.preciosDesbloqueadosPorSupervisor === true;
 
             carritoVisual.forEach(c => {
+                const subtotalFila = (Number(c.cantidad) || 0) * (Number(c.precioFinalIngresado) || 0);
+
                 const precioInputHTML = preciosDesbloqueados
                     ? `<input type="text" inputmode="decimal" class="price-input" value="${c.precioFinalIngresado}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'precioFinalIngresado', this)">`
                     : `<input type="text" inputmode="decimal" class="price-input bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-pointer" readonly value="${c.precioFinalIngresado}" onclick="solicitarAutorizacionPreciosSupervisor()" title="Precio protegido. Clic para autorizar edición con PIN de Supervisor">`;
@@ -2488,6 +2499,9 @@
                         </td>
                         <td class="text-right">
                             ${precioInputHTML}
+                        </td>
+                        <td class="text-right font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap" id="subtotal_fila_${c.idFront}">
+                            S/ ${formatMoney(subtotalFila)}
                         </td>
                         <td class="text-center">
                             <button type="button" class="text-xs font-bold text-slate-400 hover:text-red-500 transition px-2 py-1" onclick="removerDelCarrito('${c.idFront}')" title="Quitar item">✕</button>
