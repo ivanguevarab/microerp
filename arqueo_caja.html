@@ -1188,8 +1188,6 @@
                 `,
                 icon: estadoCuadre === 'CUADRADO' ? 'question' : 'warning',
                 showCancelButton: true,
-                showLoaderOnConfirm: true,
-                preConfirm: () => true,
                 confirmButtonColor: '#10b981',
                 cancelButtonColor: '#64748b',
                 confirmButtonText: 'Confirmar Cierre Z',
@@ -1238,7 +1236,7 @@
 
                 if (error) throw error;
 
-                // Cerrar formalmente el turno en pos_turnos_activos y limpiar memoria local
+                // Cerrar formalmente el turno en pos_turnos_activos y purgar memorias locales
                 try {
                     if (currentTurnoActivo && currentTurnoActivo.id) {
                         await window.supabaseClient
@@ -1252,34 +1250,7 @@
                 localStorage.removeItem('pos_turno_activo_' + currentEmpresaId);
                 localStorage.removeItem(getLlaveLocal());
 
-                const cierreGuardado = data || payloadCierre;
-                cierreGuardado.tipo_cierre = 'CORTE_Z';
-
-                const resSwal = await Swal.fire({
-                    icon: 'success',
-                    title: '¡Cierre de Turno Guardado!',
-                    html: `
-                        <p class="text-sm text-slate-600 mb-2">El cierre fue registrado de forma inmutable en Supabase con éxito.</p>
-                        <p class="text-xs text-slate-500">¿Deseas imprimir el Ticket Térmico de Cierre para tu archivo físico?</p>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonColor: '#2563eb',
-                    cancelButtonColor: '#64748b',
-                    confirmButtonText: 'Imprimir Ticket Térmico',
-                    cancelButtonText: 'Continuar'
-                });
-
-                if (resSwal.isConfirmed) {
-                    if (typeof window.imprimirTicketCierreCaja === 'function') {
-                        const empNombre = (currentEmpresaData && currentEmpresaData.nombre) || document.getElementById('print-empresa-nombre')?.textContent || 'MicroERP Cloud';
-                        cierreGuardado.empresa_nombre = empNombre;
-                        cierreGuardado.empresa_ruc = currentEmpresaData ? currentEmpresaData.ruc : '';
-                        cierreGuardado.empresa_direccion = currentEmpresaData ? currentEmpresaData.direccion : '';
-                        window.imprimirTicketCierreCaja(cierreGuardado);
-                    }
-                }
-
-                // Saneamiento de interfaz y redirección al POS para apertura de nuevo turno
+                // Resetear estado visual del arqueo
                 document.getElementById('in-fondo-inicial').value = "0.00";
                 objAjustesLocales = [];
                 dibujarAjustesLocales();
@@ -1290,13 +1261,33 @@
                 });
                 recalcularTodo();
 
-                await Swal.fire({
-                    icon: 'info',
-                    title: 'Turno Concluido con Éxito',
-                    text: 'El cierre contable ha sido sellado inmutablemente. Al volver al mostrador de ventas se requerirá abrir el nuevo turno de caja.',
-                    confirmButtonText: 'Volver a Ventas POS',
-                    confirmButtonColor: '#10b981'
+                const cierreGuardado = data || payloadCierre;
+                cierreGuardado.tipo_cierre = 'CORTE_Z';
+
+                const resSwal = await Swal.fire({
+                    icon: 'success',
+                    title: '¡Cierre de Turno Guardado con Éxito!',
+                    html: `
+                        <p class="text-sm text-slate-600 mb-2">El cierre contable fue registrado de forma inmutable en Supabase.</p>
+                        <p class="text-xs text-slate-500 mb-3">Al regresar a ventas se solicitará la apertura del siguiente turno.</p>
+                        <p class="text-xs font-semibold text-slate-700">¿Deseas imprimir el Ticket Térmico oficial para la gaveta?</p>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#10b981',
+                    confirmButtonText: 'Imprimir Ticket Térmico',
+                    cancelButtonText: 'Volver a Ventas POS'
                 });
+
+                if (resSwal.isConfirmed) {
+                    if (typeof window.imprimirTicketCierreCaja === 'function') {
+                        const empNombre = (currentEmpresaData && currentEmpresaData.nombre) || document.getElementById('print-empresa-nombre')?.textContent || 'MicroERP Cloud';
+                        cierreGuardado.empresa_nombre = empNombre;
+                        cierreGuardado.empresa_ruc = currentEmpresaData ? currentEmpresaData.ruc : '';
+                        cierreGuardado.empresa_direccion = currentEmpresaData ? currentEmpresaData.direccion : '';
+                        await window.imprimirTicketCierreCaja(cierreGuardado);
+                    }
+                }
 
                 window.location.href = 'emitir_ticket.html';
 
