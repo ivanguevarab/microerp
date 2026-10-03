@@ -961,14 +961,20 @@
 
         const BalanzaCASManager = {
             port: null,
+            reader: null,
             ultimoPeso: 0,
+            esEstable: false,
             habilitado: false,
+            conectado: false,
+            escuchando: false,
+            buffer: '',
 
             async init() {
                 if (!('serial' in navigator)) return;
 
                 navigator.serial.addEventListener('disconnect', (e) => {
                     if (this.port === e.target) {
+                        console.warn('Balanza CAS desconectada físicamente del puerto serie.');
                         this.desactivar(true);
                     }
                 });
@@ -977,17 +983,141 @@
                     try {
                         const ports = await navigator.serial.getPorts();
                         if (ports && ports.length > 0) {
-                            this.port = ports[0];
+                            const savedVid = localStorage.getItem('microerp_balanza_vid');
+                            const savedPid = localStorage.getItem('microerp_balanza_pid');
+                            
+                            let targetPort = null;
+                            if (savedVid && savedPid) {
+                                targetPort = ports.find(p => {
+                                    const info = p.getInfo ? p.getInfo() : {};
+                                    return String(info.usbVendorId) === String(savedVid) && String(info.usbProductId) === String(savedPid);
+                                });
+                            }
+                            this.port = targetPort || ports[0];
                             this.habilitado = true;
-                            this.actualizarUI(true);
+                            await this.iniciarConexion();
                         } else {
                             this.actualizarUI(false);
                         }
                     } catch (e) {
-                        console.warn('Verificación silenciosa de balanza:', e);
+                        console.warn('Verificación de balanza al inicio:', e);
                         this.actualizarUI(false);
                     }
                 }
+            },
+
+            async iniciarConexion() {
+                if (!this.port) return false;
+                if (this.conectado && this.escuchando) return true;
+
+                try {
+                    await this.port.open({
+                        baudRate: 9600,
+                        dataBits: 8,
+                        stopBits: 1,
+                        parity: 'none',
+                        flowControl: 'none'
+                    });
+
+                    // Activar señales de control RS-232 (DTR / RTS) para conversores tipo GLINK y balanzas CAS
+                    try {
+                        await this.port.setSignals({ dataTerminalReady: true, requestToSend: true });
+                    } catch (sigErr) {
+                        console.warn('Señales DTR/RTS no soportadas por el driver serie:', sigErr);
+                    }
+
+                    this.conectado = true;
+                    this.actualizarUI(true);
+                    this.iniciarBucleLectura();
+                    return true;
+                } catch (err) {
+                    console.error('Error al abrir puerto de balanza:', err);
+                    if (err.name === 'InvalidStateError') {
+                        // El puerto ya está abierto en otra pestaña o proceso
+                        mostrarToast('El puerto de la balanza ya está abierto en otra pestaña o proceso', 'warning');
+                        this.conectado = true;
+                        this.actualizarUI(true);
+                        return true;
+                    }
+                    this.conectado = false;
+                    this.actualizarUI(false);
+                    return false;
+                }
+            },
+
+            async iniciarBucleLectura() {
+                if (this.escuchando) return;
+                this.escuchando = true;
+
+                try {
+                    const textDecoder = new TextDecoder();
+                    this.reader = this.port.readable.getReader();
+
+                    while (this.escuchando) {
+                        const { value, done } = await this.reader.read();
+                        if (done) break;
+                        if (value) {
+                            const chunk = textDecoder.decode(value, { stream: true });
+                            this.procesarBuffer(chunk);
+                        }
+                    }
+                } catch (err) {
+                    if (err.name === 'NetworkError') {
+                        console.warn('Dispositivo de balanza desconectado durante lectura.');
+                        this.desactivar(true);
+                    } else if (this.escuchando) {
+                        console.warn('Excepción en bucle de lectura de balanza:', err);
+                    }
+                } finally {
+                    this.escuchando = false;
+                    if (this.reader) {
+                        try { this.reader.releaseLock(); } catch (_) {}
+                        this.reader = null;
+                    }
+                }
+            },
+
+            procesarBuffer(chunk) {
+                this.buffer += chunk;
+                let idx;
+                while ((idx = this.buffer.indexOf('\n')) >= 0 || (idx = this.buffer.indexOf('\r')) >= 0) {
+                    const linea = this.buffer.slice(0, idx).trim();
+                    this.buffer = this.buffer.slice(idx + 1);
+                    if (!linea) continue;
+
+                    // Análisis de trama CAS (ej: ST,GS,+  0.245kg o simple 0.245 kg)
+                    this.esEstable = linea.includes('ST') || !linea.includes('US');
+                    
+                    const match = linea.match(/([+-]?\s*\d+(?:\.\d+)?)/);
+                    if (match) {
+                        const p = parseFloat(match[1].replace(/\s+/g, ''));
+                        if (!isNaN(p)) {
+                            this.ultimoPeso = p;
+                            this.actualizarLecturaUI(p);
+                        }
+                    }
+                }
+            },
+
+            async obtenerPesoActual(timeoutMs = 600) {
+                if (!this.habilitado) return null;
+
+                // Si no está conectado, intentar conectar
+                if (!this.conectado || !this.escuchando) {
+                    const ok = await this.iniciarConexion();
+                    if (!ok) return null;
+                    await new Promise(r => setTimeout(r, Math.min(timeoutMs, 400)));
+                } else if (this.ultimoPeso <= 0) {
+                    // Si el peso está en cero o asentándose, conceder breve margen
+                    await new Promise(r => setTimeout(r, Math.min(timeoutMs, 250)));
+                }
+
+                return this.ultimoPeso;
+            },
+
+            // Alias de compatibilidad hacia atrás
+            async capturarPesoBajoDemanda(timeoutMs = 800) {
+                return await this.obtenerPesoActual(timeoutMs);
             },
 
             async toggleConexion() {
@@ -1005,18 +1135,18 @@
                         title: 'Balanza Electrónica CAS',
                         html: `
                             <div class="text-sm text-slate-600 dark:text-slate-300 mb-2">
-                                Modo: <span class="font-bold text-emerald-600">Lectura Bajo Demanda (Cero Candado)</span>
+                                Canal: <span class="font-bold text-emerald-600">RS-232 Dedicado (GLINK)</span>
                             </div>
                             <div class="text-xs text-slate-500 mb-3">
-                                El puerto permanece cerrado y libre para otros sistemas (VISITEC). Solo se abre durante 200 ms al añadir un producto de peso.
+                                Conexión directa e independiente. No interfiere con VISITEC ni requiere turnos de puerto.
                             </div>
                             <div id="resultadoPruebaBalanza" class="text-xs p-2 rounded bg-slate-100 dark:bg-slate-800 font-mono text-slate-700 dark:text-slate-200">
-                                Última lectura: ${this.ultimoPeso > 0 ? this.ultimoPeso.toFixed(3) + ' kg' : 'Sin pesajes recientes'}
+                                Lectura en vivo: <span class="font-bold ${this.ultimoPeso > 0 ? 'text-emerald-600' : 'text-slate-400'}">${this.ultimoPeso > 0 ? this.ultimoPeso.toFixed(3) + ' kg' : 'Plato en reposo o 0.000 kg'}</span>
                             </div>
                         `,
                         showCancelButton: true,
                         showDenyButton: true,
-                        confirmButtonText: '<i class="fas fa-play mr-1"></i> Probar Pesaje Ahora',
+                        confirmButtonText: '<i class="fas fa-plug mr-1"></i> Cambiar / Re-vincular Puerto',
                         denyButtonText: '<i class="fas fa-power-off mr-1"></i> Desactivar',
                         cancelButtonText: 'Cerrar',
                         confirmButtonColor: '#2563eb',
@@ -1024,31 +1154,13 @@
                     });
 
                     if (isConfirmed) {
-                        Swal.fire({
-                            title: 'Leyendo Balanza...',
-                            text: 'Consultando puerto por 200 ms...',
-                            allowOutsideClick: false,
-                            didOpen: async () => {
-                                Swal.showLoading();
-                                const p = await this.capturarPesoBajoDemanda(1000);
-                                if (p !== null) {
-                                    Swal.fire({
-                                        title: `Peso Detectado: ${p.toFixed(3)} kg`,
-                                        text: 'El puerto se abrió, leyó y cerró instantáneamente.',
-                                        icon: 'success'
-                                    });
-                                } else {
-                                    Swal.fire({
-                                        title: 'Sin Respuesta de Balanza',
-                                        html: '<div class="text-xs text-slate-500">Verifique que la balanza esté encendida o que otro sistema no tenga el puerto ocupado en este instante.</div>',
-                                        icon: 'info'
-                                    });
-                                }
-                            }
-                        });
+                        await this.detenerEscucha();
+                        await this.solicitarAutorizacion();
                     } else if (isDenied) {
                         localStorage.removeItem('microerp_balanza_habilitada');
-                        this.desactivar();
+                        localStorage.removeItem('microerp_balanza_vid');
+                        localStorage.removeItem('microerp_balanza_pid');
+                        await this.desactivar();
                         Swal.fire({ title: 'Balanza Desactivada', icon: 'info', timer: 1200, showConfirmButton: false });
                     }
                 } else {
@@ -1058,28 +1170,25 @@
 
             async solicitarAutorizacion() {
                 try {
-                    const port = await navigator.serial.requestPort({
-                        filters: [
-                            { usbVendorId: 0x04D9, usbProductId: 0xB534 },
-                            {}
-                        ]
-                    });
-
+                    // Apertura universal sin filtros restrictivos de hardware
+                    const port = await navigator.serial.requestPort();
                     this.port = port;
                     this.habilitado = true;
                     localStorage.setItem('microerp_balanza_habilitada', 'true');
-                    this.actualizarUI(true);
 
-                    // Hacer una prueba rápida de lectura para verificar que responde
-                    const pesoPrueba = await this.capturarPesoBajoDemanda(1200);
+                    const info = port.getInfo ? port.getInfo() : {};
+                    if (info.usbVendorId) localStorage.setItem('microerp_balanza_vid', info.usbVendorId);
+                    if (info.usbProductId) localStorage.setItem('microerp_balanza_pid', info.usbProductId);
+
+                    await this.iniciarConexion();
 
                     Swal.fire({
                         title: '¡Balanza Enlazada!',
                         html: `
                             <div class="text-sm text-slate-600 dark:text-slate-300">
-                                Modo: <b>Bajo Demanda (Cero Candado)</b>.<br>
-                                ${pesoPrueba !== null ? `Lectura de prueba: <b>${pesoPrueba.toFixed(3)} kg</b>.<br>` : ''}
-                                MicroERP no retendrá el puerto: solo lo abrirá 200 ms al pesar y lo cerrará inmediatamente, permitiendo que VISITEC funcione en paz.
+                                Modo: <b>Canal Dedicado RS-232 / USB</b>.<br>
+                                Puerto COM enlazado con éxito a 9600 8-N-1.<br>
+                                MicroERP leerá el peso en tiempo real sin interferir con VISITEC.
                             </div>
                         `,
                         icon: 'success'
@@ -1093,78 +1202,17 @@
                 }
             },
 
-            async capturarPesoBajoDemanda(timeoutMs = 900) {
-                if (!this.port) {
-                    const ports = await navigator.serial.getPorts();
-                    if (ports && ports.length > 0) this.port = ports[0];
-                    else return null;
+            async detenerEscucha() {
+                this.escuchando = false;
+                if (this.reader) {
+                    try { await this.reader.cancel(); } catch (_) {}
+                    try { this.reader.releaseLock(); } catch (_) {}
+                    this.reader = null;
                 }
-
-                let reader = null;
-                let pesoEncontrado = null;
-                let buffer = '';
-
-                try {
-                    // Abrir el puerto serie de forma efímera
-                    await this.port.open({
-                        baudRate: 9600,
-                        dataBits: 8,
-                        stopBits: 1,
-                        parity: 'none',
-                        flowControl: 'none'
-                    });
-
-                    const decoder = new TextDecoderStream();
-                    this.port.readable.pipeTo(decoder.writable);
-                    reader = decoder.readable.getReader();
-
-                    const tiempoInicio = Date.now();
-
-                    while (Date.now() - tiempoInicio < timeoutMs) {
-                        const res = await Promise.race([
-                            reader.read(),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_BALANZA')), timeoutMs))
-                        ]);
-
-                        if (res.done) break;
-                        if (res.value) {
-                            buffer += res.value;
-                            let lineEnd;
-                            while ((lineEnd = buffer.indexOf('\n')) >= 0 || (lineEnd = buffer.indexOf('\r')) >= 0) {
-                                const linea = buffer.slice(0, lineEnd).trim();
-                                buffer = buffer.slice(lineEnd + 1);
-                                const match = linea.match(/([+-]?\d+(?:\.\d+)?)/);
-                                if (match) {
-                                    const p = parseFloat(match[1]);
-                                    if (!isNaN(p)) {
-                                        pesoEncontrado = p;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (pesoEncontrado !== null) break;
-                        }
-                    }
-                } catch (err) {
-                    console.warn('Captura bajo demanda:', err.message || err);
-                } finally {
-                    // GARANTÍA INQUEBRANTABLE: LIBERAR Y CERRAR PUERTO SIEMPRE
-                    try {
-                        if (reader) {
-                            await reader.cancel();
-                            reader.releaseLock();
-                        }
-                    } catch (_) {}
-                    try {
-                        await this.port.close();
-                    } catch (_) {}
+                if (this.port) {
+                    try { await this.port.close(); } catch (_) {}
                 }
-
-                if (pesoEncontrado !== null) {
-                    this.ultimoPeso = pesoEncontrado;
-                    this.actualizarLecturaUI(pesoEncontrado);
-                }
-                return pesoEncontrado;
+                this.conectado = false;
             },
 
             actualizarUI(activo) {
@@ -1174,8 +1222,8 @@
 
                 if (activo) {
                     btn.className = "text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 transition-all flex items-center gap-1.5 shadow-sm";
-                    btn.title = "Balanza CAS enlazada en modo Bajo Demanda (Cero Candado). Clic para opciones.";
-                    txt.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> Balanza: <span id="pesoBalanzaHeader">${this.ultimoPeso > 0 ? this.ultimoPeso.toFixed(3) : 'Lista'}</span>${this.ultimoPeso > 0 ? ' kg' : ''}`;
+                    btn.title = "Balanza CAS enlazada en canal dedicado RS-232. Clic para opciones o re-vincular.";
+                    txt.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span> Balanza: <span id="pesoBalanzaHeader">${this.ultimoPeso > 0 ? this.ultimoPeso.toFixed(3) : 'Lista'}</span>${this.ultimoPeso > 0 ? ' kg' : ''}`;
                 } else {
                     btn.className = "text-xs font-semibold px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 shadow-sm";
                     btn.title = "Balanza electrónica opcional. Clic para conectar o configurar.";
@@ -1190,7 +1238,8 @@
                 }
             },
 
-            desactivar(porErrorFisico = false) {
+            async desactivar(porErrorFisico = false) {
+                await this.detenerEscucha();
                 this.habilitado = false;
                 this.port = null;
                 this.ultimoPeso = 0;
@@ -2192,14 +2241,14 @@
             const obj = JSON.parse(decodeURIComponent(dataStr));
             const idFront = "CRT_" + Math.random().toString(36).substr(2, 9);
             
-            // Detección de balanza electrónica opcional (Modo Bajo Demanda / Cero Candado)
+            // Detección de balanza electrónica opcional (Modo Canal Dedicado RS-232 / Streaming)
             const aplicaBalanza = (obj.paramTipo === 'ITEMS') && esUnidadDePeso(obj.unidad_medida) && BalanzaCASManager.habilitado;
             let valorInicialCantidad = '1';
             let htmlBalanzaBadge = '';
 
             if (aplicaBalanza) {
-                // Capturar el peso en 200 ms y cerrar de inmediato el puerto (Cero Candado)
-                const pesoCapturado = await BalanzaCASManager.capturarPesoBajoDemanda(800);
+                // Obtener peso actual en tiempo real desde la balanza
+                const pesoCapturado = await BalanzaCASManager.obtenerPesoActual(600);
                 if (pesoCapturado !== null && pesoCapturado >= 0.005) {
                     valorInicialCantidad = pesoCapturado.toFixed(3);
                     htmlBalanzaBadge = `
@@ -2213,8 +2262,21 @@
                             </button>
                         </div>
                     `;
+                } else if (pesoCapturado !== null && pesoCapturado < 0) {
+                    // Detección de tara o plato negativo
+                    htmlBalanzaBadge = `
+                        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-xs font-semibold mb-2 shadow-sm">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fas fa-exclamation-circle text-rose-500"></i>
+                                <span id="lblSwalBalanza">Peso negativo (${pesoCapturado.toFixed(3)} kg). Ajuste la tara.</span>
+                            </span>
+                            <button type="button" onclick="window.repesarModalBalanza('${obj.unidad_medida || 'KG'}')" class="text-xs bg-rose-100 hover:bg-rose-200 text-rose-800 px-2 py-0.5 rounded transition flex items-center gap-1 shadow-xs">
+                                <i class="fas fa-sync-alt"></i> Re-pesar
+                            </button>
+                        </div>
+                    `;
                 } else if (pesoCapturado !== null) {
-                    // Plato en cero o tara
+                    // Plato en cero o sin producto aún
                     htmlBalanzaBadge = `
                         <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold mb-2 shadow-sm">
                             <span class="flex items-center gap-1.5">
@@ -2227,12 +2289,12 @@
                         </div>
                     `;
                 } else {
-                    // Puerto ocupado por otro sistema (VISITEC) o timeout
+                    // Puerto no conectado o en espera
                     htmlBalanzaBadge = `
                         <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 text-xs font-semibold mb-2 shadow-sm">
                             <span class="flex items-center gap-1.5">
                                 <i class="fas fa-exclamation-triangle text-amber-500"></i>
-                                <span id="lblSwalBalanza">Puerto en espera o en uso. Ingrese manual.</span>
+                                <span id="lblSwalBalanza">Balanza en espera o desconectada. Ingrese manual.</span>
                             </span>
                             <button type="button" onclick="window.repesarModalBalanza('${obj.unidad_medida || 'KG'}')" class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-2 py-0.5 rounded transition flex items-center gap-1 shadow-xs">
                                 <i class="fas fa-sync-alt"></i> Reintentar
@@ -2246,7 +2308,7 @@
             window.repesarModalBalanza = async (unidad) => {
                 const btnRe = event?.currentTarget;
                 if (btnRe) btnRe.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Pesando...`;
-                const nuevoP = await BalanzaCASManager.capturarPesoBajoDemanda(900);
+                const nuevoP = await BalanzaCASManager.obtenerPesoActual(600);
                 const input = Swal.getInput();
                 const lbl = document.getElementById('lblSwalBalanza');
                 if (nuevoP !== null && nuevoP >= 0.005) {
@@ -2255,10 +2317,12 @@
                         input.select();
                     }
                     if (lbl) lbl.textContent = `Balanza CAS: ${nuevoP.toFixed(3)} ${unidad}`;
+                } else if (nuevoP !== null && nuevoP < 0) {
+                    if (lbl) lbl.textContent = `Peso negativo (${nuevoP.toFixed(3)} kg). Ajuste la tara.`;
                 } else if (nuevoP !== null) {
                     if (lbl) lbl.textContent = `Plato vacío (0.000 kg). Coloque el producto.`;
                 } else {
-                    if (lbl) lbl.textContent = `Puerto ocupado por otro sistema. Ingrese manual.`;
+                    if (lbl) lbl.textContent = `Balanza no disponible. Ingrese manual.`;
                 }
                 if (btnRe) btnRe.innerHTML = `<i class="fas fa-sync-alt"></i> Re-pesar`;
             };
