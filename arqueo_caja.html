@@ -1188,6 +1188,7 @@
                 `,
                 icon: estadoCuadre === 'CUADRADO' ? 'question' : 'warning',
                 showCancelButton: true,
+                showLoaderOnConfirm: true,
                 confirmButtonColor: '#10b981',
                 cancelButtonColor: '#64748b',
                 confirmButtonText: 'Confirmar Cierre Z',
@@ -1248,6 +1249,7 @@
                     console.warn("Actualización pos_turnos_activos:", errUpdTurno);
                 }
                 localStorage.removeItem('pos_turno_activo_' + currentEmpresaId);
+                localStorage.removeItem(getLlaveLocal());
 
                 const cierreGuardado = data || payloadCierre;
                 cierreGuardado.tipo_cierre = 'CORTE_Z';
@@ -1263,7 +1265,7 @@
                     confirmButtonColor: '#2563eb',
                     cancelButtonColor: '#64748b',
                     confirmButtonText: 'Imprimir Ticket Térmico',
-                    cancelButtonText: 'Cerrar'
+                    cancelButtonText: 'Continuar'
                 });
 
                 if (resSwal.isConfirmed) {
@@ -1275,6 +1277,27 @@
                         window.imprimirTicketCierreCaja(cierreGuardado);
                     }
                 }
+
+                // Saneamiento de interfaz y redirección al POS para apertura de nuevo turno
+                document.getElementById('in-fondo-inicial').value = "0.00";
+                objAjustesLocales = [];
+                dibujarAjustesLocales();
+                document.querySelectorAll('.qty-calc').forEach(inp => {
+                    inp.value = 0;
+                    const pSp = inp.nextElementSibling;
+                    if (pSp && pSp.classList.contains('qty-print')) pSp.textContent = '0';
+                });
+                recalcularTotalEsperado();
+
+                await Swal.fire({
+                    icon: 'info',
+                    title: 'Turno Concluido con Éxito',
+                    text: 'El cierre contable ha sido sellado inmutablemente. Al volver al mostrador de ventas se requerirá abrir el nuevo turno de caja.',
+                    confirmButtonText: 'Volver a Ventas POS',
+                    confirmButtonColor: '#10b981'
+                });
+
+                window.location.href = 'emitir_ticket.html';
 
             } catch (err) {
                 document.getElementById('global-spinner').classList.add('hidden');
