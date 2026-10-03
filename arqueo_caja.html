@@ -1189,6 +1189,7 @@
                 icon: estadoCuadre === 'CUADRADO' ? 'question' : 'warning',
                 showCancelButton: true,
                 showLoaderOnConfirm: true,
+                preConfirm: () => true,
                 confirmButtonColor: '#10b981',
                 cancelButtonColor: '#64748b',
                 confirmButtonText: 'Confirmar Cierre Z',
@@ -1287,7 +1288,7 @@
                     const pSp = inp.nextElementSibling;
                     if (pSp && pSp.classList.contains('qty-print')) pSp.textContent = '0';
                 });
-                recalcularTotalEsperado();
+                recalcularTodo();
 
                 await Swal.fire({
                     icon: 'info',
