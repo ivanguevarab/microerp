@@ -304,7 +304,41 @@
         return `TCK-${year}-${prefixCaja}`;
     }
 
-    async function obtenerSiguienteCorrelativoSoberano(arg1, arg2) {
+    async function previsualizarSiguienteCorrelativoSoberano(arg1, arg2) {
+        let serie;
+        if (typeof arg1 === 'string' && arg1.startsWith('TCK-')) {
+            serie = arg1;
+        } else {
+            serie = calcularSeriePorCaja(arg2 || arg1);
+        }
+        let siguienteNumero = 1;
+
+        try {
+            const db = await openDatabase();
+            await new Promise((resolve) => {
+                const tx = db.transaction('correlativos_terminal', 'readonly');
+                const store = tx.objectStore('correlativos_terminal');
+                const req = store.get(serie);
+                req.onsuccess = () => {
+                    const reg = req.result;
+                    if (reg && reg.ultimo_numero) {
+                        siguienteNumero = reg.ultimo_numero + 1;
+                    }
+                    resolve();
+                };
+                req.onerror = () => resolve();
+            });
+        } catch (_) {}
+
+        const correlativoStr = String(siguienteNumero).padStart(6, '0');
+        return {
+            serie: serie,
+            numero: siguienteNumero,
+            numero_ticket: `${serie}-${correlativoStr}`
+        };
+    }
+
+    async function consumirSiguienteCorrelativoSoberano(arg1, arg2) {
         let serie;
         if (typeof arg1 === 'string' && arg1.startsWith('TCK-')) {
             serie = arg1;
@@ -334,6 +368,10 @@
             numero: siguienteNumero,
             numero_ticket: `${serie}-${correlativoStr}`
         };
+    }
+
+    async function obtenerSiguienteCorrelativoSoberano(arg1, arg2) {
+        return consumirSiguienteCorrelativoSoberano(arg1, arg2);
     }
 
     async function forzarPunteroCorrelativoSiMayor(serie, numero) {
@@ -539,6 +577,61 @@
     // =========================================================================
     // 8. ARQUEO Y CIERRE Z OFFLINE
     // =========================================================================
+    function actualizarSnapshotVentaOnlineEnTurno(empresaId, venta) {
+        if (!empresaId || !venta) return;
+        try {
+            const keyTurno = 'pos_turno_activo_' + empresaId;
+            const strTurno = localStorage.getItem(keyTurno);
+            if (!strTurno) return;
+            const t = JSON.parse(strTurno);
+            const total = Number(venta.precio_venta_total || 0);
+            if (venta.condicion_pago === 'CONTADO' || !venta.condicion_pago) {
+                t.ventas_online_contado = Number((Number(t.ventas_online_contado || 0) + total).toFixed(2));
+            } else {
+                t.ventas_online_credito = Number((Number(t.ventas_online_credito || 0) + total).toFixed(2));
+            }
+            t.cantidad_tickets_online = (Number(t.cantidad_tickets_online || 0) + 1);
+            if (!t.primer_ticket_online && venta.numero_ticket) t.primer_ticket_online = venta.numero_ticket;
+            if (venta.numero_ticket) t.ultimo_ticket_online = venta.numero_ticket;
+            localStorage.setItem(keyTurno, JSON.stringify(t));
+        } catch (e) {
+            console.warn('[Turno Snapshot] Error actualizando acumulador:', e);
+        }
+    }
+
+    function registrarSnapshotTurnoOnline(empresaId, datosTurno) {
+        if (!empresaId || !datosTurno) return;
+        try {
+            const keyTurno = 'pos_turno_activo_' + empresaId;
+            let t = {};
+            const str = localStorage.getItem(keyTurno);
+            if (str) {
+                try { t = JSON.parse(str); } catch (_) {}
+            }
+            t.id = datosTurno.id || t.id || crypto.randomUUID();
+            if (datosTurno.cajero_nombre) t.cajero_nombre = datosTurno.cajero_nombre;
+            if (datosTurno.caja_identificador) t.caja_identificador = datosTurno.caja_identificador;
+            if (datosTurno.fondo_inicial !== undefined) t.fondo_inicial = Number(datosTurno.fondo_inicial || 0);
+            if (datosTurno.hora_apertura) t.hora_apertura = datosTurno.hora_apertura;
+            if (datosTurno.ventas_online_contado !== undefined) {
+                t.ventas_online_contado = Number(Number(datosTurno.ventas_online_contado || 0).toFixed(2));
+            }
+            if (datosTurno.ventas_online_credito !== undefined) {
+                t.ventas_online_credito = Number(Number(datosTurno.ventas_online_credito || 0).toFixed(2));
+            }
+            if (datosTurno.cantidad_tickets_online !== undefined) {
+                t.cantidad_tickets_online = Number(datosTurno.cantidad_tickets_online || 0);
+            }
+            if (datosTurno.primer_ticket_online) t.primer_ticket_online = datosTurno.primer_ticket_online;
+            if (datosTurno.ultimo_ticket_online) t.ultimo_ticket_online = datosTurno.ultimo_ticket_online;
+
+            localStorage.setItem(keyTurno, JSON.stringify(t));
+            if (t.caja_identificador) localStorage.setItem('microerp_pos_caja_id', t.caja_identificador);
+        } catch (e) {
+            console.warn('[Turno Snapshot] Error registrando turno:', e);
+        }
+    }
+
     async function calcularResumenTurnoOffline(arg1, arg2, arg3) {
         let empresaId = null;
         let cajaIdentificador = null;
@@ -560,15 +653,34 @@
             horaAperturaIso = arg2;
         }
 
+        // 1. Recuperar snapshot acumulativo del turno activo si existe
+        let turnoSnapshot = null;
+        try {
+            const keyTurno = 'pos_turno_activo_' + (empresaId || '');
+            const strTurno = localStorage.getItem(keyTurno);
+            if (strTurno) {
+                turnoSnapshot = JSON.parse(strTurno);
+            }
+        } catch (_) {}
+
+        const fondoInicialSnapshot = Number(turnoSnapshot?.fondo_inicial || 0);
+        const cajeroNombreSnapshot = turnoSnapshot?.cajero_nombre || null;
+        const horaAperturaSnapshot = turnoSnapshot?.hora_apertura || horaAperturaIso;
+        const onlineContado = Number(turnoSnapshot?.ventas_online_contado || 0);
+        const onlineCredito = Number(turnoSnapshot?.ventas_online_credito || 0);
+        const onlineCantTickets = Number(turnoSnapshot?.cantidad_tickets_online || 0);
+        const onlinePrimerTicket = turnoSnapshot?.primer_ticket_online || null;
+        const onlineUltimoTicket = turnoSnapshot?.ultimo_ticket_online || null;
+
         const db = await openDatabase();
         return new Promise((resolve) => {
             const tx = db.transaction('cola_ventas_sync', 'readonly');
             const store = tx.objectStore('cola_ventas_sync');
-            let totalContado = 0;
-            let totalCredito = 0;
-            let cantidadTickets = 0;
-            let primerTicket = null;
-            let ultimoTicket = null;
+            let offlineContado = 0;
+            let offlineCredito = 0;
+            let offlineCantidadTickets = 0;
+            let offlinePrimerTicket = null;
+            let offlineUltimoTicket = null;
 
             const cursorReq = store.openCursor();
             cursorReq.onsuccess = (e) => {
@@ -585,43 +697,59 @@
                     const matchCaja = !cajaObjetivo || !cajaTicket || cajaTicket === cajaObjetivo || cajaObjetivo.includes(cajaTicket) || cajaTicket.includes(cajaObjetivo);
 
                     // 3. Coincidencia por marca temporal de apertura
-                    const matchHora = !horaAperturaIso || !v.hora_emision || v.hora_emision >= horaAperturaIso;
+                    const matchHora = !horaAperturaSnapshot || !v.hora_emision || v.hora_emision >= horaAperturaSnapshot;
 
                     if (matchEmpresa && matchCaja && matchHora) {
-                        cantidadTickets++;
-                        if (!primerTicket) primerTicket = v.numero_ticket;
-                        ultimoTicket = v.numero_ticket;
+                        offlineCantidadTickets++;
+                        if (!offlinePrimerTicket) offlinePrimerTicket = v.numero_ticket;
+                        offlineUltimoTicket = v.numero_ticket;
 
                         const total = Number(v.precio_venta_total || 0);
                         if (v.condicion_pago === 'CONTADO' || !v.condicion_pago) {
-                            totalContado += total;
+                            offlineContado += total;
                         } else {
-                            totalCredito += total;
+                            offlineCredito += total;
                         }
                     }
                     cursor.continue();
                 } else {
+                    const totalContado = Number((onlineContado + offlineContado).toFixed(2));
+                    const totalCredito = Number((onlineCredito + offlineCredito).toFixed(2));
+                    const totalCantidad = onlineCantTickets + offlineCantidadTickets;
+                    const primerTicket = onlinePrimerTicket || offlinePrimerTicket || '---';
+                    const ultimoTicket = offlineUltimoTicket || onlineUltimoTicket || '---';
+
                     resolve({
                         total_ventas_contado: totalContado,
                         total_ventas_credito: totalCredito,
                         total_cobros_credito: 0,
                         total_sistema: totalContado,
-                        cantidad_tickets: cantidadTickets,
-                        primer_ticket: primerTicket || '---',
-                        ultimo_ticket: ultimoTicket || '---',
-                        hora_apertura: horaAperturaIso
+                        cantidad_tickets: totalCantidad,
+                        primer_ticket: primerTicket,
+                        ultimo_ticket: ultimoTicket,
+                        hora_apertura: horaAperturaSnapshot,
+                        fondo_inicial: fondoInicialSnapshot,
+                        cajero_nombre: cajeroNombreSnapshot,
+                        caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
+                        ventas_offline_contado: Number(offlineContado.toFixed(2)),
+                        cantidad_tickets_offline: offlineCantidadTickets
                     });
                 }
             };
             cursorReq.onerror = () => resolve({
-                total_ventas_contado: 0,
-                total_ventas_credito: 0,
+                total_ventas_contado: onlineContado,
+                total_ventas_credito: onlineCredito,
                 total_cobros_credito: 0,
-                total_sistema: 0,
-                cantidad_tickets: 0,
-                primer_ticket: '---',
-                ultimo_ticket: '---',
-                hora_apertura: horaAperturaIso
+                total_sistema: onlineContado,
+                cantidad_tickets: onlineCantTickets,
+                primer_ticket: onlinePrimerTicket || '---',
+                ultimo_ticket: onlineUltimoTicket || '---',
+                hora_apertura: horaAperturaSnapshot,
+                fondo_inicial: fondoInicialSnapshot,
+                cajero_nombre: cajeroNombreSnapshot,
+                caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
+                ventas_offline_contado: 0,
+                cantidad_tickets_offline: 0
             });
         });
     }
@@ -1076,6 +1204,8 @@
         validarPinSupervisorOffline,
         obtenerTerminalHardwareId,
         calcularSeriePorCaja,
+        previsualizarSiguienteCorrelativoSoberano,
+        consumirSiguienteCorrelativoSoberano,
         obtenerSiguienteCorrelativoSoberano,
         forzarPunteroCorrelativoSiMayor,
         respaldarCanastaProgreso,
@@ -1087,6 +1217,8 @@
         emitirTicketOffline,
         abrirTurnoOffline,
         obtenerTurnoActivoOffline,
+        actualizarSnapshotVentaOnlineEnTurno,
+        registrarSnapshotTurnoOnline,
         calcularResumenTurnoOffline,
         guardarCierreZOffline,
         obtenerVentasLocales,

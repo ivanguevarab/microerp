@@ -722,8 +722,12 @@
                     const str = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
                     if (str) {
                         currentTurnoActivo = JSON.parse(str);
-                        if (currentTurnoActivo.cajero_nombre) windowCajeroName = currentTurnoActivo.cajero_nombre;
-                        if (currentTurnoActivo.caja_identificador) windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                        if (currentTurnoActivo.cajero_nombre && !currentTurnoActivo.cajero_nombre.startsWith('Caja ')) {
+                            windowCajeroName = currentTurnoActivo.cajero_nombre;
+                        }
+                        if (currentTurnoActivo.caja_identificador) {
+                            windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                        }
                     }
                 } catch (_) {}
             }
@@ -854,6 +858,20 @@
                         if (resumen.empresa_nombre) {
                             document.getElementById('print-empresa-nombre').textContent = resumen.empresa_nombre;
                         }
+
+                        // Sincronizar snapshot local con los datos reales del turno calculados por Supabase
+                        if (window.MicroERPOffline && currentEmpresaId) {
+                            window.MicroERPOffline.registrarSnapshotTurnoOnline(currentEmpresaId, {
+                                ventas_online_contado: Number(resumen.total_ventas_contado || resumen.total_sistema || 0),
+                                ventas_online_credito: Number(resumen.total_ventas_credito || 0),
+                                cantidad_tickets_online: Number(resumen.cantidad_tickets || 0),
+                                primer_ticket_online: (resumen.primer_ticket && resumen.primer_ticket !== '---') ? resumen.primer_ticket : null,
+                                ultimo_ticket_online: (resumen.ultimo_ticket && resumen.ultimo_ticket !== '---') ? resumen.ultimo_ticket : null,
+                                hora_apertura: resumen.hora_apertura,
+                                cajero_nombre: resumen.cajero_nombre || windowCajeroName,
+                                caja_identificador: windowCajaIdentificador
+                            });
+                        }
                         return;
                     }
                 } catch (errRpcEx) {
@@ -861,20 +879,42 @@
                 }
             }
 
-            // Fallback de contingencia: si no hay red o falló la consulta, calcular directamente desde IndexedDB cola_ventas_sync
+            // Fallback de contingencia: si no hay red o falló la consulta, calcular directamente desde IndexedDB cola_ventas_sync y snapshot local
             if (window.MicroERPOffline) {
                 const horaAp = (currentTurnoActivo && currentTurnoActivo.hora_apertura) ? currentTurnoActivo.hora_apertura : null;
                 const resOffline = await window.MicroERPOffline.calcularResumenTurnoOffline(currentEmpresaId, windowCajaIdentificador, horaAp);
                 currentResumenTurno = resOffline;
                 mathSysVentasContado = resOffline.total_sistema;
                 document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
+
+                // Actualizar operador y fondo inicial si vinieron del snapshot local
+                if (resOffline.cajero_nombre && !resOffline.cajero_nombre.startsWith('Caja ')) {
+                    windowCajeroName = resOffline.cajero_nombre;
+                }
+                if (resOffline.caja_identificador) {
+                    windowCajaIdentificador = resOffline.caja_identificador;
+                }
+                const badgeOperador = document.getElementById('txtBadgeOperadorArqueo');
+                if (badgeOperador) {
+                    badgeOperador.innerHTML = `<span>${windowCajeroName} (${windowCajaIdentificador}) - Operador en Turno</span>`;
+                }
+                if (resOffline.fondo_inicial !== undefined && resOffline.fondo_inicial > 0) {
+                    const inpFondo = document.getElementById('in-fondo-inicial');
+                    if (inpFondo && (!inpFondo.value || parseFloat(inpFondo.value) === 0)) {
+                        inpFondo.value = parseFloat(resOffline.fondo_inicial).toFixed(2);
+                    }
+                }
+
                 const infoComprobantes = document.getElementById('txtTurnoInfo');
                 if (infoComprobantes) {
                     const cant = resOffline.cantidad_tickets || 0;
                     const rango = (resOffline.primer_ticket && resOffline.ultimo_ticket && resOffline.primer_ticket !== '---') 
                         ? ` (${resOffline.primer_ticket} al ${resOffline.ultimo_ticket})` 
                         : '';
-                    infoComprobantes.innerHTML = `<span class="font-bold text-amber-600 dark:text-amber-400">${cant} comprobante(s) offline</span> emitido(s) en turno${rango}`;
+                    const txtOfflineSync = resOffline.cantidad_tickets_offline > 0 
+                        ? ` <span class="text-xs font-semibold text-amber-600 dark:text-amber-400">[${resOffline.cantidad_tickets_offline} en espera de sync]</span>` 
+                        : '';
+                    infoComprobantes.innerHTML = `<span class="font-bold text-slate-800 dark:text-slate-200">${cant} comprobante(s)</span> emitido(s) en turno${rango}${txtOfflineSync}`;
                 }
                 recalcularTodo();
                 return;
@@ -933,6 +973,19 @@
                 const { data: eData } = await window.supabaseClient.from('empresas').select('nombre').eq('id', currentEmpresaId).single();
                 if(eData) document.getElementById('print-empresa-nombre').textContent = eData.nombre;
 
+                if (window.MicroERPOffline && currentEmpresaId) {
+                    window.MicroERPOffline.registrarSnapshotTurnoOnline(currentEmpresaId, {
+                        ventas_online_contado: totalContado,
+                        ventas_online_credito: totalCredito,
+                        cantidad_tickets_online: dataContado ? dataContado.length : 0,
+                        primer_ticket_online: dataContado && dataContado.length > 0 ? dataContado[0].numero_completo : null,
+                        ultimo_ticket_online: dataContado && dataContado.length > 0 ? dataContado[dataContado.length - 1].numero_completo : null,
+                        hora_apertura: dataContado && dataContado.length > 0 ? dataContado[0].created_at : isoDesde,
+                        cajero_nombre: windowCajeroName,
+                        caja_identificador: windowCajaIdentificador
+                    });
+                }
+
             } catch (error) { 
                 console.error("Error al extraer ventas en la nube, recurriendo a IndexedDB:", error);
                 if (window.MicroERPOffline) {
@@ -941,6 +994,23 @@
                     currentResumenTurno = resOffline;
                     mathSysVentasContado = resOffline.total_sistema;
                     document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
+
+                    if (resOffline.cajero_nombre && !resOffline.cajero_nombre.startsWith('Caja ')) {
+                        windowCajeroName = resOffline.cajero_nombre;
+                    }
+                    if (resOffline.caja_identificador) {
+                        windowCajaIdentificador = resOffline.caja_identificador;
+                    }
+                    const badgeOperador = document.getElementById('txtBadgeOperadorArqueo');
+                    if (badgeOperador) {
+                        badgeOperador.innerHTML = `<span>${windowCajeroName} (${windowCajaIdentificador}) - Operador en Turno</span>`;
+                    }
+                    if (resOffline.fondo_inicial !== undefined && resOffline.fondo_inicial > 0) {
+                        const inpFondo = document.getElementById('in-fondo-inicial');
+                        if (inpFondo && (!inpFondo.value || parseFloat(inpFondo.value) === 0)) {
+                            inpFondo.value = parseFloat(resOffline.fondo_inicial).toFixed(2);
+                        }
+                    }
                     recalcularTodo();
                 }
             }

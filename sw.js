@@ -6,7 +6,7 @@
 //           estáticas incluso tras reiniciar la PC sin conexión a internet.
 // =====================================================================================
 
-const CACHE_NAME = 'microerp-pos-cache-v6';
+const CACHE_NAME = 'microerp-pos-cache-v7';
 
 // Recursos críticos requeridos para el rol CAJERO
 const ASSETS_TO_CACHE = [
@@ -31,7 +31,7 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('⚡ [SW POS v3] Pre-cacheando recursos críticos del cajero...');
+            console.log('⚡ [SW POS v7] Pre-cacheando recursos críticos del cajero...');
             return Promise.allSettled(
                 ASSETS_TO_CACHE.map((url) => {
                     const isExternal = url.startsWith('http');

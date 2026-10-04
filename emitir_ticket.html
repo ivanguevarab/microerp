@@ -454,7 +454,7 @@
                     <span id="txtSyncStatus">En línea</span>
                     <span id="badgeColaPendiente" class="hidden px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-slate-900 font-black">0</span>
                 </div>
-                <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 hidden xl:block flex-shrink-0"></div>
+                <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 hidden sm:block flex-shrink-0"></div>
             </div>
 
             <!-- Bloque Derecho: Botones de Acción (Sin Absolute) -->
@@ -465,9 +465,6 @@
                 <button id="btnVerCarritosCongelados" onclick="abrirModalCarritosCongelados()" class="h-9 px-3 sm:px-3.5 rounded-lg bg-sky-700/70 hover:bg-sky-600 text-white font-bold transition shadow-sm text-xs border border-sky-400/30 flex items-center justify-center gap-1.5" title="Ver pedidos en espera (congelados)">
                     <span>En Espera</span>
                     <span id="badgeCountCongelados" class="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-400 text-slate-900 font-black hidden">0</span>
-                </button>
-                <button id="btnRelevoCajero" onclick="solicitarCambioTurno()" class="h-9 px-3 sm:px-3.5 rounded-lg bg-blue-700/70 hover:bg-blue-600 text-white font-bold transition shadow-sm text-xs border border-blue-400/30 flex items-center justify-center hidden" title="Relevo de Operador de Caja">
-                    <span>Relevo</span>
                 </button>
                 <button id="btnIrArqueoCaja" onclick="window.location.href='arqueo_caja.html'" class="h-9 px-3 sm:px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-sm text-xs border border-emerald-500/40 flex items-center justify-center" title="Ir al Arqueo y Cierre de Turno">
                     <span class="hidden xl:inline">Cierre de Turno</span>
@@ -1494,7 +1491,7 @@
 
                     if (data && data.length > 0) {
                         const parts = data[0].numero_ticket.split('-');
-                        if (parts.length >= 4) {
+                        if (parts.length >= 3) {
                             const ultNum = parseInt(parts[parts.length - 1], 10);
                             if (!isNaN(ultNum) && window.MicroERPOffline) {
                                 await window.MicroERPOffline.forzarPunteroCorrelativoSiMayor(serie, ultNum);
@@ -1506,7 +1503,7 @@
 
             try {
                 if (window.MicroERPOffline) {
-                    const resCorrelativo = await window.MicroERPOffline.obtenerSiguienteCorrelativoSoberano(serie, cajaId);
+                    const resCorrelativo = await window.MicroERPOffline.previsualizarSiguienteCorrelativoSoberano(serie, cajaId);
                     const nuevoCodigo = (resCorrelativo && resCorrelativo.numero_ticket) ? resCorrelativo.numero_ticket : resCorrelativo;
                     document.getElementById('ticketNumber').textContent = nuevoCodigo;
                     return nuevoCodigo;
@@ -1517,7 +1514,7 @@
                 }
             } catch (err) {
                 console.error("Error al generar correlativo de ticket:", err);
-                const fallback = `${serie}-${String(Math.floor(Math.random() * 100000)).padStart(6, '0')}`;
+                const fallback = `${serie}-000001`;
                 document.getElementById('ticketNumber').textContent = fallback;
                 return fallback;
             }
@@ -1744,7 +1741,6 @@
         // =========================================================================
         async function verificarGestionTurnoPOS() {
             const badgeTxt = document.getElementById('txtBadgeOperador');
-            const btnRelevo = document.getElementById('btnRelevoCajero');
 
             // CASO A: Administrador (Exención total)
             if (windowUserRole === 'ADMIN') {
@@ -1753,14 +1749,11 @@
                 actualizarBadgeOperadorUI();
                 const btnPin = document.getElementById('btnConfigurarPinPOS');
                 if (btnPin) btnPin.classList.remove('hidden');
-                if (btnRelevo) btnRelevo.classList.add('hidden');
                 habilitarOperatividadPOS(true);
                 return;
             }
 
             // CASO B: Cajero
-            if (btnRelevo) btnRelevo.classList.remove('hidden');
-
             // 1. Intentar restaurar turno activo desde Supabase para esta terminal
             try {
                 const { data: turnosAbiertos, error: errTurno } = await window.supabaseClient
@@ -1776,6 +1769,14 @@
                     currentTurnoActivo = turnosAbiertos[0];
                     window.cajeroName = currentTurnoActivo.cajero_nombre;
                     window.cajaIdentificador = currentTurnoActivo.caja_identificador;
+
+                    const existingLocal = JSON.parse(localStorage.getItem('pos_turno_activo_' + currentEmpresaId) || '{}');
+                    currentTurnoActivo.ventas_online_contado = existingLocal.ventas_online_contado || 0;
+                    currentTurnoActivo.ventas_online_credito = existingLocal.ventas_online_credito || 0;
+                    currentTurnoActivo.cantidad_tickets_online = existingLocal.cantidad_tickets_online || 0;
+                    currentTurnoActivo.primer_ticket_online = existingLocal.primer_ticket_online || null;
+                    currentTurnoActivo.ultimo_ticket_online = existingLocal.ultimo_ticket_online || null;
+
                     localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
                     localStorage.setItem('microerp_pos_caja_id', window.cajaIdentificador);
 
@@ -1982,11 +1983,19 @@
                 }
 
                 currentTurnoActivo = respTurno;
+                currentTurnoActivo.cajero_nombre = nomInp;
+                currentTurnoActivo.caja_identificador = cajaInp;
+                currentTurnoActivo.fondo_inicial = Number(fondoInp || 0);
+                currentTurnoActivo.ventas_online_contado = 0;
+                currentTurnoActivo.ventas_online_credito = 0;
+                currentTurnoActivo.cantidad_tickets_online = 0;
+                currentTurnoActivo.primer_ticket_online = null;
+                currentTurnoActivo.ultimo_ticket_online = null;
                 window.cajeroName = nomInp;
                 window.cajaIdentificador = cajaInp;
 
                 // Guardar en sesión local
-                localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(respTurno));
+                localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
                 localStorage.setItem('microerp_pos_caja_id', cajaInp);
 
                 // Guardar en lista de cajeros frecuentes
@@ -3318,10 +3327,15 @@
                 // Si no hay red o si falló la nube, emitir en MODO OFFLINE LOCAL inmediato (0ms espera)
                 if (!respVenta) {
                     if (window.MicroERPOffline) {
+                        const cajaIdActual = window.cajaIdentificador || localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
+                        const serieTicketActual = window.MicroERPOffline.calcularSeriePorCaja(cajaIdActual);
+                        const resConsumo = await window.MicroERPOffline.consumirSiguienteCorrelativoSoberano(serieTicketActual, cajaIdActual);
+                        const numTkDefinitivo = (resConsumo && resConsumo.numero_ticket) ? resConsumo.numero_ticket : numTk;
+
                         const payloadOffline = {
                             id: clientVentaId,
                             empresa_id: currentEmpresaId,
-                            numero_ticket: numTk,
+                            numero_ticket: numTkDefinitivo,
                             tipo_comprobante: tipoComp,
                             fecha_venta: fechaEmisionStr,
                             hora_emision: window.MicroERPOffline.obtenerHoraOficialLima().iso,
@@ -3350,12 +3364,31 @@
                         respVenta = {
                             success: true,
                             venta_id: clientVentaId,
-                            numero_ticket: numTk,
+                            numero_ticket: numTkDefinitivo,
                             precio_venta_total: total,
                             offline: true
                         };
                     } else {
                         throw new Error("Módulo offline no disponible.");
+                    }
+                } else {
+                    // Venta exitosa en línea: Sincronizar puntero correlativo local y acumulador de turno
+                    if (window.MicroERPOffline) {
+                        const cajaIdActual = window.cajaIdentificador || localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
+                        const serieTicketActual = window.MicroERPOffline.calcularSeriePorCaja(cajaIdActual);
+                        const ticketConfirmado = respVenta.numero_ticket || numTk;
+                        const parts = ticketConfirmado.split('-');
+                        if (parts.length >= 3) {
+                            const ultNum = parseInt(parts[parts.length - 1], 10);
+                            if (!isNaN(ultNum)) {
+                                await window.MicroERPOffline.forzarPunteroCorrelativoSiMayor(serieTicketActual, ultNum);
+                            }
+                        }
+                        window.MicroERPOffline.actualizarSnapshotVentaOnlineEnTurno(currentEmpresaId, {
+                            numero_ticket: ticketConfirmado,
+                            precio_venta_total: total,
+                            condicion_pago: condicionPago
+                        });
                     }
                 }
 
