@@ -293,6 +293,9 @@
     }
 
     function calcularSeriePorCaja(cajaIdentificador) {
+        if (typeof cajaIdentificador === 'string' && cajaIdentificador.startsWith('TCK-')) {
+            return cajaIdentificador;
+        }
         // 'Caja 1' -> 'TCK-2026-01', 'Caja 2' -> 'TCK-2026-02', etc.
         const matches = (cajaIdentificador || 'Caja 1').match(/\d+/);
         const numCaja = matches ? parseInt(matches[0], 10) : 1;
@@ -301,8 +304,13 @@
         return `TCK-${year}-${prefixCaja}`;
     }
 
-    async function obtenerSiguienteCorrelativoSoberano(cajaIdentificador) {
-        const serie = calcularSeriePorCaja(cajaIdentificador);
+    async function obtenerSiguienteCorrelativoSoberano(arg1, arg2) {
+        let serie;
+        if (typeof arg1 === 'string' && arg1.startsWith('TCK-')) {
+            serie = arg1;
+        } else {
+            serie = calcularSeriePorCaja(arg2 || arg1);
+        }
         let siguienteNumero = 1;
 
         await dbTransaction('correlativos_terminal', 'readwrite', (store) => {
@@ -844,6 +852,79 @@
 
 
     // =========================================================================
+    // GESTOR DE CONECTIVIDAD REACTIVA Y CIRCUIT BREAKER (MicroERP POS)
+    // =========================================================================
+    window.isOfflineState = !navigator.onLine;
+
+    function marcarConectividadOffline() {
+        if (!window.isOfflineState) {
+            console.warn("📴 [POS Conectividad] Conmutado a MODO OFFLINE (Circuit Breaker Activado).");
+            window.isOfflineState = true;
+            window.dispatchEvent(new CustomEvent('pos-connectivity-changed', { detail: { online: false } }));
+            if (typeof window.actualizarBadgeSyncUI === 'function') {
+                window.actualizarBadgeSyncUI('OFFLINE');
+            }
+        }
+    }
+
+    function marcarConectividadOnline() {
+        if (window.isOfflineState) {
+            console.log("🌐 [POS Conectividad] Conmutado a MODO ONLINE (Red Reestablecida).");
+            window.isOfflineState = false;
+            window.dispatchEvent(new CustomEvent('pos-connectivity-changed', { detail: { online: true } }));
+            if (typeof window.actualizarBadgeSyncUI === 'function') {
+                window.actualizarBadgeSyncUI('ONLINE');
+            }
+        }
+    }
+
+    async function fetchConTimeout(promesaOrFn, ms = 1200) {
+        if (window.isOfflineState) {
+            throw new Error('CIRCUIT_OPEN_OFFLINE');
+        }
+
+        const promesa = typeof promesaOrFn === 'function' ? promesaOrFn() : promesaOrFn;
+        let timeoutId;
+        const timeoutPromesa = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                marcarConectividadOffline();
+                reject(new Error('TIMEOUT_RED_POS'));
+            }, ms);
+        });
+
+        try {
+            const res = await Promise.race([promesa, timeoutPromesa]);
+            clearTimeout(timeoutId);
+            return res;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.message === 'TIMEOUT_RED_POS' || err.name === 'TypeError' || (err.message && err.message.includes('fetch'))) {
+                marcarConectividadOffline();
+            }
+            throw err;
+        }
+    }
+
+    window.marcarConectividadOffline = marcarConectividadOffline;
+    window.marcarConectividadOnline = marcarConectividadOnline;
+    window.fetchConTimeout = fetchConTimeout;
+
+    window.addEventListener('offline', () => {
+        marcarConectividadOffline();
+    });
+
+    window.addEventListener('online', async () => {
+        try {
+            const res = await fetch('./styles.css?t=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+            if (res.ok || res.status === 200 || res.status === 304) {
+                marcarConectividadOnline();
+            }
+        } catch (_) {
+            console.warn("⚠️ Interfaz de red activa pero sin salida a internet.");
+        }
+    });
+
+    // =========================================================================
     // EXPORTACIÓN GLOBAL DE API
     // =========================================================================
     window.MicroERPOffline = {
@@ -871,7 +952,10 @@
         obtenerVentasLocales,
         obtenerVentaPorIdLocal,
         contarPendientesSync,
-        sincronizarColaOfflineConNube
+        sincronizarColaOfflineConNube,
+        marcarConectividadOffline,
+        marcarConectividadOnline,
+        fetchConTimeout
     };
 
     // Auto-solicitar persistencia al cargar script

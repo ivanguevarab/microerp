@@ -971,7 +971,7 @@
                 }
             }
 
-            if (!navigator.onLine) {
+            if (!navigator.onLine || window.isOfflineState || estado === 'OFFLINE') {
                 badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-600/30 border border-amber-400/50 text-amber-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-amber-600/40 transition flex-shrink-0";
                 dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
                 txt.textContent = pendientes > 0 ? `Modo Offline (${pendientes})` : 'Modo Offline';
@@ -1480,15 +1480,17 @@
             const cajaId = window.cajaIdentificador || localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
             const serie = window.MicroERPOffline ? window.MicroERPOffline.calcularSeriePorCaja(cajaId) : `TCK-${new Date().getFullYear()}-01`;
 
-            // Si hay red, sincronizar el puntero hacia adelante si la nube tiene un número mayor
-            if (navigator.onLine && window.supabaseClient && currentEmpresaId) {
+            // Si hay red y no estamos en offline forzado, sincronizar el puntero hacia adelante si la nube tiene un número mayor
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId) {
                 try {
-                    const { data } = await window.supabaseClient.from('ventas')
+                    const qPromise = window.supabaseClient.from('ventas')
                         .select('numero_ticket')
                         .eq('empresa_id', currentEmpresaId)
                         .ilike('numero_ticket', `${serie}-%`)
                         .order('numero_ticket', { ascending: false })
                         .limit(1);
+
+                    const { data } = await (window.fetchConTimeout ? window.fetchConTimeout(qPromise, 1000) : qPromise);
 
                     if (data && data.length > 0) {
                         const parts = data[0].numero_ticket.split('-');
@@ -1504,7 +1506,8 @@
 
             try {
                 if (window.MicroERPOffline) {
-                    const nuevoCodigo = await window.MicroERPOffline.obtenerSiguienteCorrelativoSoberano(serie, cajaId);
+                    const resCorrelativo = await window.MicroERPOffline.obtenerSiguienteCorrelativoSoberano(serie, cajaId);
+                    const nuevoCodigo = (resCorrelativo && resCorrelativo.numero_ticket) ? resCorrelativo.numero_ticket : resCorrelativo;
                     document.getElementById('ticketNumber').textContent = nuevoCodigo;
                     return nuevoCodigo;
                 } else {
@@ -1525,12 +1528,14 @@
             let perfil = null;
             let emp = null;
 
-            if (navigator.onLine && window.supabaseClient && window.currentUser) {
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient && window.currentUser) {
                 try {
-                    const { data: p } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol, nombre_completo').eq('id', window.currentUser.id).single();
+                    const profPromise = window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol, nombre_completo').eq('id', window.currentUser.id).single();
+                    const { data: p } = await (window.fetchConTimeout ? window.fetchConTimeout(profPromise, 1200) : profPromise);
                     perfil = p;
                     if (perfil?.empresa_id) {
-                        const { data: e } = await window.supabaseClient.from('empresas').select('*').eq('id', perfil.empresa_id).single();
+                        const empPromise = window.supabaseClient.from('empresas').select('*').eq('id', perfil.empresa_id).single();
+                        const { data: e } = await (window.fetchConTimeout ? window.fetchConTimeout(empPromise, 1200) : empPromise);
                         emp = e;
                     }
                 } catch (errRed) {
@@ -1566,36 +1571,40 @@
             let almacenesDisponibles = [];
             let clientesDisponibles = [];
 
-            if (navigator.onLine && window.supabaseClient && currentEmpresaId) {
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId) {
                 try {
-                    const { data: catItems } = await window.supabaseClient.from('items')
+                    const catPromise = window.supabaseClient.from('items')
                         .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector, stock_total')
                         .eq('empresa_id', currentEmpresaId)
                         .eq('activo', true);
+                    const { data: catItems } = await (window.fetchConTimeout ? window.fetchConTimeout(catPromise, 1200) : catPromise);
                     itemsParaMemoria = catItems || [];
 
                     // Cargar almacenes
                     if (emp.es_comercializadora) {
-                        const { data: alm } = await window.supabaseClient.from('almacenes').select('*').eq('activo', true);
+                        const almPromise = window.supabaseClient.from('almacenes').select('*').eq('activo', true);
+                        const { data: alm } = await (window.fetchConTimeout ? window.fetchConTimeout(almPromise, 1200) : almPromise);
                         almacenesDisponibles = alm || [];
                     }
 
                     // Cargar clientes
-                    const { data: cls } = await window.supabaseClient.from('clientes').select('id, razon_social, numero_documento').eq('empresa_id', currentEmpresaId);
+                    const clsPromise = window.supabaseClient.from('clientes').select('id, razon_social, numero_documento').eq('empresa_id', currentEmpresaId);
+                    const { data: cls } = await (window.fetchConTimeout ? window.fetchConTimeout(clsPromise, 1200) : clsPromise);
                     clientesDisponibles = cls || [];
 
                     // Cargar supervisores para contingencia offline
                     let supervisoresList = [];
                     try {
-                        const { data: sups } = await window.supabaseClient.from('perfiles_usuario')
+                        const supsPromise = window.supabaseClient.from('perfiles_usuario')
                             .select('id, nombre_completo, rol')
                             .eq('empresa_id', currentEmpresaId)
                             .in('rol', ['ADMIN', 'SUPERVISOR', 'GERENTE']);
+                        const { data: sups } = await (window.fetchConTimeout ? window.fetchConTimeout(supsPromise, 1000) : supsPromise);
                         supervisoresList = sups || [];
                     } catch (_) {}
 
                     // Persistir snapshot completo a IndexedDB en segundo plano
-                    if (window.MicroERPOffline) {
+                    if (window.MicroERPOffline && itemsParaMemoria.length > 0) {
                         window.MicroERPOffline.guardarSnapshotCatalogo(currentEmpresaId, {
                             items: itemsParaMemoria,
                             almacenes: almacenesDisponibles,
@@ -2292,31 +2301,29 @@
                     const safeTerm = term.replace(/"/g, ''); 
                     const normalizedTerm = removeAccents(safeTerm).toLowerCase();
                     
-                    // 1. Buscar Items coincidentes (máx 10) con resiliencia ante microcortes y offline
-                    let items = null;
-                    if (navigator.onLine && window.supabaseClient) {
+                    // 1. BÚSQUEDA LOCAL PRIORITARIA (RAM / IndexedDB) - Instantánea (< 3 ms)
+                    let items = [];
+                    if (window.catalogoItemsCache && window.catalogoItemsCache.length > 0) {
+                        items = window.catalogoItemsCache.filter(it => {
+                            const v = (it.busqueda_vector || removeAccents((it.descripcion || '') + ' ' + (it.codigo || ''))).toLowerCase();
+                            return v.includes(normalizedTerm);
+                        }).slice(0, 10);
+                    } else if (window.MicroERPOffline) {
+                        items = await window.MicroERPOffline.buscarItemsLocal(normalizedTerm, 10);
+                    }
+
+                    // 2. Si no hay items en local y no estamos en offline forzado, consultar Supabase con timeout de 1.2s
+                    if ((!items || items.length === 0) && navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                         try {
-                            const { data, error: errItems } = await window.supabaseClient.from('items')
+                            const qPromise = window.supabaseClient.from('items')
                                 .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, stock_total')
                                 .eq('empresa_id', currentEmpresaId)
                                 .eq('activo', true)
                                 .ilike('busqueda_vector', `%${normalizedTerm}%`).limit(10);
-                            if (errItems) throw errItems;
-                            items = data;
+                            const { data, error: errItems } = await (window.fetchConTimeout ? window.fetchConTimeout(qPromise, 1200) : qPromise);
+                            if (!errItems && data) items = data;
                         } catch (errBusq) {
-                            console.warn("Fallo de red en búsqueda de items, recurriendo a catálogo local:", errBusq);
-                        }
-                    }
-
-                    // Fallback a catálogo en memoria RAM o IndexedDB
-                    if (!items || items.length === 0) {
-                        if (window.catalogoItemsCache && window.catalogoItemsCache.length > 0) {
-                            items = window.catalogoItemsCache.filter(it => {
-                                const v = (it.busqueda_vector || removeAccents((it.descripcion || '') + ' ' + (it.codigo || ''))).toLowerCase();
-                                return v.includes(normalizedTerm);
-                            }).slice(0, 10);
-                        } else if (window.MicroERPOffline) {
-                            items = await window.MicroERPOffline.buscarItemsLocal(normalizedTerm, 10);
+                            console.warn("Fallo o timeout de red en búsqueda remota de items:", errBusq);
                         }
                     }
                     
@@ -2330,20 +2337,21 @@
                     const itemIds = items.map(p => p.id);
                     const lotesPorItem = {};
 
-                    // 2. BATCH FETCH DE LOTES (Online o Fallback a stock de catálogo local)
+                    // 3. BATCH FETCH DE LOTES (Online con timeout o Fallback a stock de catálogo local)
                     if (!modoVerdeActivo) {
                         let lotes = [];
-                        if (navigator.onLine && window.supabaseClient) {
+                        if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                             try {
-                                const { data: lData, error: errLotes } = await window.supabaseClient.from('ingresos_detalle')
+                                const lotesPromise = window.supabaseClient.from('ingresos_detalle')
                                     .select('id, item_id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
                                     .in('item_id', itemIds)
                                     .eq('ingresos.almacen_destino_id', almacenId)
                                     .gt('cantidad_disponible', 0)
                                     .order('ingresos(fecha_ingreso)', { ascending: true });
+                                const { data: lData, error: errLotes } = await (window.fetchConTimeout ? window.fetchConTimeout(lotesPromise, 800) : lotesPromise);
                                 if (!errLotes && lData) lotes = lData;
                             } catch (errL) {
-                                console.warn("Fallo de red al consultar lotes en Supabase, utilizando stock local:", errL);
+                                console.warn("Fallo o timeout al consultar lotes en Supabase, utilizando stock local:", errL);
                             }
                         }
 
@@ -2374,12 +2382,13 @@
                     } else {
                         // MODO BÚSQUEDA SIN STOCK (Modo Verde): Stock global cero
                         let lotesGlobales = [];
-                        if (navigator.onLine && window.supabaseClient) {
+                        if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                             try {
-                                const { data: lG } = await window.supabaseClient.from('ingresos_detalle')
+                                const lotesGlobalesPromise = window.supabaseClient.from('ingresos_detalle')
                                     .select('item_id, cantidad_disponible')
                                     .in('item_id', itemIds)
                                     .gt('cantidad_disponible', 0);
+                                const { data: lG } = await (window.fetchConTimeout ? window.fetchConTimeout(lotesGlobalesPromise, 800) : lotesGlobalesPromise);
                                 if (lG) lotesGlobales = lG;
                             } catch (_) {}
                         }
@@ -2414,14 +2423,15 @@
                     // Buscar CUS o CUP
                     const safeTerm = term.replace(/"/g, '');
                     let cods = [];
-                    if (navigator.onLine && window.supabaseClient) {
+                    if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                         try {
-                            const { data: cData } = await window.supabaseClient.from('codigos_unicos')
+                            const cusPromise = window.supabaseClient.from('codigos_unicos')
                                 .select('id, codigo, descripcion, precio_venta, tipo, cliente_id')
                                 .eq('empresa_id', currentEmpresaId)
                                 .eq('tipo', filtroActivo)
                                 .neq('estado', 'ANULADO')
                                 .or(`descripcion.ilike."%${safeTerm}%",codigo.ilike."%${safeTerm}%"`).limit(10);
+                            const { data: cData } = await (window.fetchConTimeout ? window.fetchConTimeout(cusPromise, 1000) : cusPromise);
                             cods = cData || [];
                         } catch (_) {}
                     }

@@ -21,16 +21,34 @@ if (typeof supabase !== 'undefined') {
 // Ejecuta apenas el script es leído por el navegador (antes de armar el DOM)
 // --------------------------------------------
 const currentPath = window.location.pathname;
+const isPublicRoute = currentPath.endsWith('index.html') || currentPath === '/' || currentPath.endsWith('despedida_usuarios.html');
 
-// Todas las rutas están protegidas globalmente vía CSS, excepto las de entrada pública
-const isPublicRoute = currentPath.endsWith('index.html') || currentPath.endsWith('bienvenida.html') || currentPath.endsWith('/');
+// Rutas de suite de mostrador del CAJERO con soporte offline autónomo
+const isPosRoute = currentPath.endsWith('emitir_ticket.html') || 
+                   currentPath.endsWith('arqueo_caja.html') || 
+                   currentPath.endsWith('registros_historicos_ventas.html');
 
-if (!isPublicRoute) {
+const hasPosSessionBackup = isPosRoute && !!localStorage.getItem('microerp_pos_session_backup');
+
+if (!isPublicRoute && !hasPosSessionBackup) {
     const style = document.createElement('style');
     style.id = 'auth-guard-hide-style';
     style.innerHTML = 'body { display: none !important; }';
     (document.head || document.documentElement).appendChild(style);
     console.log("🛡️ AuthGuard: Escudo visual perimetral activado.");
+} else if (hasPosSessionBackup) {
+    console.log("🛡️ AuthGuard: Modo POS con respaldo detectado. Pantalla desbloqueada para contingencia offline.");
+}
+
+// Failsafe de seguridad para POS: el mostrador jamás debe quedarse en blanco
+if (isPosRoute) {
+    setTimeout(() => {
+        const hideStyle = document.getElementById('auth-guard-hide-style');
+        if (hideStyle) {
+            console.warn("🛡️ AuthGuard: Failsafe activado. Escudo retirado preventivamente para POS.");
+            hideStyle.remove();
+        }
+    }, 250);
 }
 
 // Registro PWA Service Worker para soporte offline
@@ -46,11 +64,6 @@ if ('serviceWorker' in navigator) {
 const protectedRoutes = ['gestion_produccion_y_servicios.html', 'codigos_cup.html'];
 const isProtectedRoute = protectedRoutes.some(route => currentPath.endsWith(route));
 
-// Rutas de suite de mostrador del CAJERO con soporte offline autónomo
-const isPosRoute = currentPath.endsWith('emitir_ticket.html') || 
-                   currentPath.endsWith('arqueo_caja.html') || 
-                   currentPath.endsWith('registros_historicos_ventas.html');
-
 // ============================================
 // Verificación de Sesión (Asíncrona)
 // ============================================
@@ -61,7 +74,7 @@ async function checkAuth() {
 
     try {
         // --- RESCATE OFFLINE INMEDIATO PARA SUITE DE CAJERO ---
-        if (isPosRoute && (!navigator.onLine || !window.supabaseClient)) {
+        if (isPosRoute) {
             const backupStr = localStorage.getItem('microerp_pos_session_backup');
             if (backupStr) {
                 try {
@@ -69,23 +82,29 @@ async function checkAuth() {
                     if (backup && backup.user && backup.profile) {
                         window.currentUser = backup.user;
                         window.currentUserProfile = backup.profile;
-                        console.log("🛡️ [AuthGuard Offline] Sesión de CAJERO autorizada desde respaldo local inmutable.");
                         updateUserHeader(window.currentUser);
                         const hideStyle = document.getElementById('auth-guard-hide-style');
                         if (hideStyle) hideStyle.remove();
                         window.dispatchEvent(new Event('auth-ready'));
-                        return;
+
+                        // Si no hay red, autorizar inmediatamente sin esperar timeouts de Supabase
+                        if (!navigator.onLine) {
+                            console.log("🛡️ [AuthGuard Offline] Sesión de CAJERO autorizada inmediatamente desde respaldo local.");
+                            return;
+                        }
                     }
                 } catch (_) {}
             }
         }
 
-        // Obtener sesión actual
+        // Obtener sesión actual con timeout de seguridad (1.2s máx)
         let session = null;
         let authError = null;
 
         try {
-            const res = await window.supabaseClient.auth.getSession();
+            const sessionPromise = window.supabaseClient.auth.getSession();
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_RED_AUTH')), 1200));
+            const res = await Promise.race([sessionPromise, timeoutPromise]);
             session = res.data ? res.data.session : null;
             authError = res.error;
         } catch (errNetSession) {
@@ -93,7 +112,7 @@ async function checkAuth() {
         }
 
         if (authError || !session) {
-            // Si es ruta POS y falló la red, intentar rescate local antes de expulsar
+            // Si es ruta POS y falló la red o dio timeout, intentar rescate local antes de expulsar
             if (isPosRoute) {
                 const backupStr = localStorage.getItem('microerp_pos_session_backup');
                 if (backupStr) {
@@ -102,7 +121,7 @@ async function checkAuth() {
                         if (backup && backup.user && backup.profile) {
                             window.currentUser = backup.user;
                             window.currentUserProfile = backup.profile;
-                            console.log("🛡️ [AuthGuard Offline] Sesión de CAJERO autorizada tras microcorte de sesión.");
+                            console.log("🛡️ [AuthGuard Offline] Sesión de CAJERO autorizada tras microcorte/timeout de sesión.");
                             updateUserHeader(window.currentUser);
                             const hideStyle = document.getElementById('auth-guard-hide-style');
                             if (hideStyle) hideStyle.remove();
@@ -131,7 +150,7 @@ async function checkAuth() {
             let profileError = null;
 
             try {
-                const resProf = await window.supabaseClient
+                const profPromise = window.supabaseClient
                     .from('perfiles_usuario')
                     .select(`
                         id,
@@ -148,6 +167,8 @@ async function checkAuth() {
                     `)
                     .eq('id', session.user.id)
                     .single();
+                const timeoutProf = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_RED_PROF')), 1200));
+                const resProf = await Promise.race([profPromise, timeoutProf]);
                 profile = resProf.data;
                 profileError = resProf.error;
             } catch (errNetProf) {

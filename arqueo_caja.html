@@ -795,39 +795,43 @@
         }
 
         async function extraerVentasBD() {
-            try {
-                // 1. Intentar balance atómico del turno vía RPC dedicada
-                const { data: resumen, error: errRpc } = await window.supabaseClient.rpc('rpc_obtener_resumen_cierre_caja', {
-                    p_usuario_id: window.currentUser.id,
-                    p_empresa_id: currentEmpresaId,
-                    p_caja_identificador: windowCajaIdentificador || 'Caja 1'
-                });
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                try {
+                    // 1. Intentar balance atómico del turno vía RPC dedicada
+                    const rpcPromise = window.supabaseClient.rpc('rpc_obtener_resumen_cierre_caja', {
+                        p_usuario_id: window.currentUser.id,
+                        p_empresa_id: currentEmpresaId,
+                        p_caja_identificador: windowCajaIdentificador || 'Caja 1'
+                    });
 
-                if (!errRpc && resumen) {
-                    currentResumenTurno = resumen;
-                    mathSysVentasContado = Number(resumen.total_sistema || 0);
-                    document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
-                    
-                    const infoComprobantes = document.getElementById('txtTurnoInfo');
-                    if (infoComprobantes) {
-                        const cant = resumen.cantidad_tickets || 0;
-                        const rango = (resumen.primer_ticket && resumen.ultimo_ticket && resumen.primer_ticket !== '---') 
-                            ? ` (${resumen.primer_ticket} al ${resumen.ultimo_ticket})` 
-                            : '';
-                        infoComprobantes.innerHTML = `<span class="font-bold text-slate-800 dark:text-slate-200">${cant} comprobante(s)</span> emitido(s) en turno${rango}`;
-                    }
+                    const { data: resumen, error: errRpc } = await (window.fetchConTimeout ? window.fetchConTimeout(rpcPromise, 1200) : rpcPromise);
 
-                    if (resumen.empresa_nombre) {
-                        document.getElementById('print-empresa-nombre').textContent = resumen.empresa_nombre;
+                    if (!errRpc && resumen) {
+                        currentResumenTurno = resumen;
+                        mathSysVentasContado = Number(resumen.total_sistema || 0);
+                        document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
+                        
+                        const infoComprobantes = document.getElementById('txtTurnoInfo');
+                        if (infoComprobantes) {
+                            const cant = resumen.cantidad_tickets || 0;
+                            const rango = (resumen.primer_ticket && resumen.ultimo_ticket && resumen.primer_ticket !== '---') 
+                                ? ` (${resumen.primer_ticket} al ${resumen.ultimo_ticket})` 
+                                : '';
+                            infoComprobantes.innerHTML = `<span class="font-bold text-slate-800 dark:text-slate-200">${cant} comprobante(s)</span> emitido(s) en turno${rango}`;
+                        }
+
+                        if (resumen.empresa_nombre) {
+                            document.getElementById('print-empresa-nombre').textContent = resumen.empresa_nombre;
+                        }
+                        return;
                     }
-                    return;
+                } catch (errRpcEx) {
+                    console.warn("RPC rpc_obtener_resumen_cierre_caja no disponible o timeout, usando cálculo local:", errRpcEx);
                 }
-            } catch (errRpcEx) {
-                console.warn("RPC rpc_obtener_resumen_cierre_caja en espera, usando fallback:", errRpcEx);
             }
 
-            // Fallback de contingencia: si no hay red, calcular directamente desde IndexedDB cola_ventas_sync
-            if (!navigator.onLine && window.MicroERPOffline) {
+            // Fallback de contingencia: si no hay red o falló la consulta, calcular directamente desde IndexedDB cola_ventas_sync
+            if (window.MicroERPOffline) {
                 const horaAp = (currentTurnoActivo && currentTurnoActivo.hora_apertura) ? currentTurnoActivo.hora_apertura : null;
                 const resOffline = await window.MicroERPOffline.calcularResumenTurnoOffline(currentEmpresaId, windowCajaIdentificador, horaAp);
                 currentResumenTurno = resOffline;
