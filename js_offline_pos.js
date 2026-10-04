@@ -496,6 +496,7 @@
     // =========================================================================
     async function emitirTicketOffline(payloadVenta) {
         payloadVenta.id = payloadVenta.id || crypto.randomUUID();
+        payloadVenta.caja_identificador = payloadVenta.caja_identificador || window.cajaIdentificador || 'Caja 1';
         payloadVenta.estado_sync = 'PENDIENTE_SYNC';
         payloadVenta.hora_emision = payloadVenta.hora_emision || obtenerHoraOficialLima().iso;
 
@@ -538,7 +539,27 @@
     // =========================================================================
     // 8. ARQUEO Y CIERRE Z OFFLINE
     // =========================================================================
-    async function calcularResumenTurnoOffline(cajaIdentificador, horaAperturaIso) {
+    async function calcularResumenTurnoOffline(arg1, arg2, arg3) {
+        let empresaId = null;
+        let cajaIdentificador = null;
+        let horaAperturaIso = null;
+
+        if (arg3 !== undefined) {
+            // Firma de 3 argumentos: (empresaId, cajaIdentificador, horaAperturaIso)
+            empresaId = arg1;
+            cajaIdentificador = arg2;
+            horaAperturaIso = arg3;
+        } else if (typeof arg1 === 'string' && arg1.length > 20 && arg1.includes('-')) {
+            // Posible llamado como (empresaId, horaAperturaIso)
+            empresaId = arg1;
+            cajaIdentificador = null;
+            horaAperturaIso = arg2;
+        } else {
+            // Firma de 2 argumentos: (cajaIdentificador, horaAperturaIso)
+            cajaIdentificador = arg1;
+            horaAperturaIso = arg2;
+        }
+
         const db = await openDatabase();
         return new Promise((resolve) => {
             const tx = db.transaction('cola_ventas_sync', 'readonly');
@@ -554,14 +575,25 @@
                 const cursor = e.target.result;
                 if (cursor) {
                     const v = cursor.value;
-                    // Filtrar por terminal y fecha posterior a apertura
-                    if (v.caja_identificador === cajaIdentificador && (!horaAperturaIso || v.hora_emision >= horaAperturaIso)) {
+
+                    // 1. Coincidencia por empresa
+                    const matchEmpresa = !empresaId || !v.empresa_id || v.empresa_id === empresaId;
+
+                    // 2. Coincidencia por terminal/caja
+                    const cajaObjetivo = (cajaIdentificador || '').toLowerCase().trim();
+                    const cajaTicket = (v.caja_identificador || '').toLowerCase().trim();
+                    const matchCaja = !cajaObjetivo || !cajaTicket || cajaTicket === cajaObjetivo || cajaObjetivo.includes(cajaTicket) || cajaTicket.includes(cajaObjetivo);
+
+                    // 3. Coincidencia por marca temporal de apertura
+                    const matchHora = !horaAperturaIso || !v.hora_emision || v.hora_emision >= horaAperturaIso;
+
+                    if (matchEmpresa && matchCaja && matchHora) {
                         cantidadTickets++;
                         if (!primerTicket) primerTicket = v.numero_ticket;
                         ultimoTicket = v.numero_ticket;
 
                         const total = Number(v.precio_venta_total || 0);
-                        if (v.condicion_pago === 'CONTADO') {
+                        if (v.condicion_pago === 'CONTADO' || !v.condicion_pago) {
                             totalContado += total;
                         } else {
                             totalCredito += total;
@@ -572,15 +604,25 @@
                     resolve({
                         total_ventas_contado: totalContado,
                         total_ventas_credito: totalCredito,
+                        total_cobros_credito: 0,
                         total_sistema: totalContado,
                         cantidad_tickets: cantidadTickets,
-                        primer_ticket: primerTicket,
-                        ultimo_ticket: ultimoTicket,
+                        primer_ticket: primerTicket || '---',
+                        ultimo_ticket: ultimoTicket || '---',
                         hora_apertura: horaAperturaIso
                     });
                 }
             };
-            cursorReq.onerror = () => resolve({ total_ventas_contado: 0, total_sistema: 0, cantidad_tickets: 0 });
+            cursorReq.onerror = () => resolve({
+                total_ventas_contado: 0,
+                total_ventas_credito: 0,
+                total_cobros_credito: 0,
+                total_sistema: 0,
+                cantidad_tickets: 0,
+                primer_ticket: '---',
+                ultimo_ticket: '---',
+                hora_apertura: horaAperturaIso
+            });
         });
     }
 

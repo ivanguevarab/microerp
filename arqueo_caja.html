@@ -871,11 +871,12 @@
                 const infoComprobantes = document.getElementById('txtTurnoInfo');
                 if (infoComprobantes) {
                     const cant = resOffline.cantidad_tickets || 0;
-                    const rango = (resOffline.primer_ticket && resOffline.ultimo_ticket) 
+                    const rango = (resOffline.primer_ticket && resOffline.ultimo_ticket && resOffline.primer_ticket !== '---') 
                         ? ` (${resOffline.primer_ticket} al ${resOffline.ultimo_ticket})` 
                         : '';
                     infoComprobantes.innerHTML = `<span class="font-bold text-amber-600 dark:text-amber-400">${cant} comprobante(s) offline</span> emitido(s) en turno${rango}`;
                 }
+                recalcularTodo();
                 return;
             }
 
@@ -940,6 +941,7 @@
                     currentResumenTurno = resOffline;
                     mathSysVentasContado = resOffline.total_sistema;
                     document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
+                    recalcularTodo();
                 }
             }
         }

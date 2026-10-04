@@ -142,6 +142,8 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                 }
             }
 
+            let esVentaLocal = false;
+
             // Fallback a cola offline en IndexedDB
             if (!vBD && window.MicroERPOffline) {
                 const vOff = await window.MicroERPOffline.obtenerVentaPorIdLocal(ventaId);
@@ -156,6 +158,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                         dicc[it.id] = it.descripcion;
                         diccUM[it.id] = it.unidad_medida || 'NIU';
                     });
+                    esVentaLocal = true;
                 }
             }
 
@@ -163,58 +166,69 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             v = vBD;
             det = detBD || [];
 
-            // 1.2 Recuperar pago inicial si es crédito y estamos reimprimiendo
-            if (v.condicion_pago === 'CREDITO' && montoRecibido === 0) {
-                const { data: pIni } = await window.supabaseClient.from('ventas_credito_pagos')
-                    .select('monto')
-                    .eq('venta_id', ventaId)
-                    .eq('tipo_pago', 'INICIAL')
-                    .maybeSingle();
-                if (pIni) montoRecibido = Number(pIni.monto);
-            }
-
-            // 1.5 Obtener datos de la empresa por separado para evitar el error de cache de PostgREST
-            const { data: empBD } = await window.supabaseClient.from('empresas')
-                .select('*').eq('id', v.empresa_id).single();
-            emp = empBD;
-
-            // Obtener dirección del almacén a través del egreso (si existe impacto físico)
-            direccionTicket = emp?.direccion || 'Sede Principal';
-            const { data: egr } = await window.supabaseClient.from('egresos')
-                .select('almacen_origen_id')
-                .eq('observaciones', 'VENTA_REF:' + v.numero_ticket)
-                .limit(1);
-
-            if (egr && egr.length > 0 && egr[0].almacen_origen_id) {
-                const { data: alm } = await window.supabaseClient.from('almacenes')
-                    .select('nombre, descripcion')
-                    .eq('id', egr[0].almacen_origen_id)
-                    .single();
-                if (alm) {
-                    direccionTicket = alm.nombre;
-                    if (alm.descripcion) direccionTicket += ' - ' + alm.descripcion;
+            // Si es venta de la nube y estamos online, consultar complementos con seguridad
+            if (!esVentaLocal && navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                // 1.2 Recuperar pago inicial si es crédito y estamos reimprimiendo
+                if (v.condicion_pago === 'CREDITO' && montoRecibido === 0) {
+                    try {
+                        const { data: pIni } = await window.supabaseClient.from('ventas_credito_pagos')
+                            .select('monto')
+                            .eq('venta_id', ventaId)
+                            .eq('tipo_pago', 'INICIAL')
+                            .maybeSingle();
+                        if (pIni) montoRecibido = Number(pIni.monto);
+                    } catch (_) {}
                 }
-            }
 
-            // Mapeo Diccionario Elementos
-            const tItems = det.filter(d => d.tipo_item_vendido === 'ITEMS').map(d => d.referencia_id);
-            const tCods = det.filter(d => d.tipo_item_vendido === 'CUS' || d.tipo_item_vendido === 'CUP').map(d => d.referencia_id);
-            if(tItems.length > 0) {
-                const { data: iBD } = await window.supabaseClient.from('items')
-                    .select('id, descripcion, unidad_medida, unidades_medida(codigo)')
-                    .in('id', tItems);
-                (iBD||[]).forEach(x => {
-                    dicc[x.id] = x.descripcion;
-                    const uCod = (Array.isArray(x.unidades_medida) ? x.unidades_medida[0]?.codigo : x.unidades_medida?.codigo) || x.unidad_medida || 'NIU';
-                    diccUM[x.id] = uCod;
-                });
-            }
-            if(tCods.length > 0) {
-                const { data: cBD } = await window.supabaseClient.from('codigos_unicos').select('id, descripcion').in('id', tCods);
-                (cBD||[]).forEach(x => {
-                    dicc[x.id] = x.descripcion;
-                    diccUM[x.id] = 'NIU';
-                });
+                // 1.5 Obtener datos de la empresa por separado para evitar el error de cache de PostgREST
+                try {
+                    const { data: empBD } = await window.supabaseClient.from('empresas')
+                        .select('*').eq('id', v.empresa_id).single();
+                    if (empBD) emp = empBD;
+                } catch (_) {}
+
+                // Obtener dirección del almacén a través del egreso (si existe impacto físico)
+                try {
+                    direccionTicket = emp?.direccion || 'Sede Principal';
+                    const { data: egr } = await window.supabaseClient.from('egresos')
+                        .select('almacen_origen_id')
+                        .eq('observaciones', 'VENTA_REF:' + v.numero_ticket)
+                        .limit(1);
+
+                    if (egr && egr.length > 0 && egr[0].almacen_origen_id) {
+                        const { data: alm } = await window.supabaseClient.from('almacenes')
+                            .select('nombre, descripcion')
+                            .eq('id', egr[0].almacen_origen_id)
+                            .single();
+                        if (alm) {
+                            direccionTicket = alm.nombre;
+                            if (alm.descripcion) direccionTicket += ' - ' + alm.descripcion;
+                        }
+                    }
+                } catch (_) {}
+
+                // Mapeo Diccionario Elementos
+                try {
+                    const tItems = det.filter(d => d.tipo_item_vendido === 'ITEMS').map(d => d.referencia_id);
+                    const tCods = det.filter(d => d.tipo_item_vendido === 'CUS' || d.tipo_item_vendido === 'CUP').map(d => d.referencia_id);
+                    if(tItems.length > 0) {
+                        const { data: iBD } = await window.supabaseClient.from('items')
+                            .select('id, descripcion, unidad_medida, unidades_medida(codigo)')
+                            .in('id', tItems);
+                        (iBD||[]).forEach(x => {
+                            dicc[x.id] = x.descripcion;
+                            const uCod = (Array.isArray(x.unidades_medida) ? x.unidades_medida[0]?.codigo : x.unidades_medida?.codigo) || x.unidad_medida || 'NIU';
+                            diccUM[x.id] = uCod;
+                        });
+                    }
+                    if(tCods.length > 0) {
+                        const { data: cBD } = await window.supabaseClient.from('codigos_unicos').select('id, descripcion').in('id', tCods);
+                        (cBD||[]).forEach(x => {
+                            dicc[x.id] = x.descripcion;
+                            diccUM[x.id] = 'NIU';
+                        });
+                    }
+                } catch (_) {}
             }
         }
 

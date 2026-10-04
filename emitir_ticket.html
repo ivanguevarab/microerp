@@ -3339,6 +3339,7 @@
                             almacen_origen_id: document.getElementById('almacenOrigen')?.value,
                             detalles: detallesVentaInserts,
                             lotes_a_descontar: lotesADescontar,
+                            caja_identificador: window.cajaIdentificador || 'Caja 1',
                             estado: 'PENDIENTE_SYNC'
                         };
 
@@ -4513,43 +4514,65 @@
                 didOpen: () => { Swal.showLoading(); }
             });
 
-            try {
-                const { data, error } = await window.supabaseClient.rpc('rpc_validar_pin_supervisor', {
-                    p_empresa_id: currentEmpresaId,
-                    p_pin: pinIngresado
-                });
+            let esValido = false;
+            let msgError = 'PIN de Supervisor incorrecto.';
 
-                if (error) throw error;
-
-                if (data && data.valido) {
-                    window.preciosDesbloqueadosPorSupervisor = true;
-                    renderizarCarrito();
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Autorización Concedida',
-                        text: 'Precios desbloqueados para esta venta.',
-                        timer: 1500,
-                        showConfirmButton: false
+            // 1. Intentar validación en la nube si hay red
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                try {
+                    const rpcPromise = window.supabaseClient.rpc('rpc_validar_pin_supervisor', {
+                        p_empresa_id: currentEmpresaId,
+                        p_pin: pinIngresado
                     });
-                    if (typeof callbackAlExito === 'function') callbackAlExito();
-                } else {
-                    let msg = data?.mensaje || 'PIN de Supervisor incorrecto.';
-                    if (data?.codigo === 'SIN_CONFIGURAR') {
-                        msg = 'El Administrador aún no ha configurado el PIN de Supervisor en esta tienda. Solicítele configurarlo en el botón superior.';
-                    } else if (data?.codigo === 'BLOQUEADO') {
-                        msg = data.mensaje;
-                    } else if (data?.intentos_restantes !== undefined) {
-                        msg += ` Intentos restantes: ${data.intentos_restantes}`;
+                    const { data, error } = await (window.fetchConTimeout ? window.fetchConTimeout(rpcPromise, 1500) : rpcPromise);
+
+                    if (!error && data) {
+                        esValido = data.valido;
+                        if (!esValido) {
+                            msgError = data.mensaje || msgError;
+                            if (data.codigo === 'SIN_CONFIGURAR') {
+                                msgError = 'El Administrador aún no ha configurado el PIN de Supervisor en esta tienda.';
+                            } else if (data.intentos_restantes !== undefined) {
+                                msgError += ` Intentos restantes: ${data.intentos_restantes}`;
+                            }
+                        }
                     }
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Autorización Denegada',
-                        text: msg
-                    });
+                } catch (ePin) {
+                    console.warn("Fallo de red validando PIN en la nube, usando validador criptográfico offline:", ePin);
                 }
-            } catch (err) {
-                console.error("Error validando PIN:", err);
-                Swal.fire('Error', err.message || 'No se pudo contactar con Supabase.', 'error');
+            }
+
+            // 2. Fallback criptográfico offline (Web Crypto SHA-256 en IndexedDB)
+            if (!esValido && window.MicroERPOffline) {
+                try {
+                    const resOff = await window.MicroERPOffline.validarPinSupervisorOffline(currentEmpresaId, pinIngresado);
+                    if (resOff && resOff.valido) {
+                        esValido = true;
+                    } else if (resOff && resOff.mensaje) {
+                        msgError = resOff.mensaje;
+                    }
+                } catch (eOff) {
+                    console.warn("Error en validador offline de PIN:", eOff);
+                }
+            }
+
+            if (esValido) {
+                window.preciosDesbloqueadosPorSupervisor = true;
+                renderizarCarrito();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Autorización Concedida',
+                    text: 'Precios desbloqueados para esta venta.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                if (typeof callbackAlExito === 'function') callbackAlExito();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Autorización Denegada',
+                    text: msgError
+                });
             }
         }
 
