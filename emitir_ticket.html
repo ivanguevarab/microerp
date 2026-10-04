@@ -1543,11 +1543,14 @@
             // Fallback a respaldo local de sesión si no hubo respuesta de red
             if (!perfil || !emp) {
                 const sessionBackup = JSON.parse(localStorage.getItem('microerp_pos_session_backup') || '{}');
-                perfil = sessionBackup.userProfile || {
-                    empresa_id: sessionBackup.empresa_id || null,
+                perfil = sessionBackup.profile || sessionBackup.userProfile || {
+                    empresa_id: sessionBackup.empresa_id || localStorage.getItem('empresa_id') || null,
                     rol: sessionBackup.rol || 'CAJERO',
                     nombre_completo: sessionBackup.nombre_completo || 'Cajero'
                 };
+                if (!perfil.empresa_id) {
+                    perfil.empresa_id = localStorage.getItem('empresa_id') || sessionBackup.user?.user_metadata?.empresa_id || null;
+                }
                 emp = sessionBackup.empresa || {
                     id: perfil.empresa_id,
                     nombre_comercial: 'MicroERP',
@@ -1557,7 +1560,7 @@
                 };
             }
 
-            currentEmpresaId = perfil.empresa_id;
+            currentEmpresaId = perfil.empresa_id || localStorage.getItem('empresa_id');
             window.currentEmpresaId = currentEmpresaId;
             windowUserRole = (perfil?.rol || 'CAJERO').toUpperCase();
             window.currentUserProfile = perfil;
@@ -1755,20 +1758,22 @@
 
             // CASO B: Cajero
             // 1. Intentar restaurar turno activo desde Supabase para esta terminal
-            try {
-                const { data: turnosAbiertos, error: errTurno } = await window.supabaseClient
-                    .from('pos_turnos_activos')
-                    .select('*')
-                    .eq('empresa_id', currentEmpresaId)
-                    .eq('usuario_id', window.currentUser.id)
-                    .eq('estado', 'ABIERTO')
-                    .order('hora_apertura', { ascending: false })
-                    .limit(1);
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId && window.currentUser) {
+                try {
+                    const qTurno = window.supabaseClient
+                        .from('pos_turnos_activos')
+                        .select('*')
+                        .eq('empresa_id', currentEmpresaId)
+                        .eq('usuario_id', window.currentUser.id)
+                        .eq('estado', 'ABIERTO')
+                        .order('hora_apertura', { ascending: false })
+                        .limit(1);
+                    const { data: turnosAbiertos, error: errTurno } = await (window.fetchConTimeout ? window.fetchConTimeout(qTurno, 1200) : qTurno);
 
-                if (!errTurno && turnosAbiertos && turnosAbiertos.length > 0) {
-                    currentTurnoActivo = turnosAbiertos[0];
-                    window.cajeroName = currentTurnoActivo.cajero_nombre;
-                    window.cajaIdentificador = currentTurnoActivo.caja_identificador;
+                    if (!errTurno && turnosAbiertos && turnosAbiertos.length > 0) {
+                        currentTurnoActivo = turnosAbiertos[0];
+                        window.cajeroName = currentTurnoActivo.cajero_nombre;
+                        window.cajaIdentificador = currentTurnoActivo.caja_identificador;
 
                     const existingLocal = JSON.parse(localStorage.getItem('pos_turno_activo_' + currentEmpresaId) || '{}');
                     currentTurnoActivo.ventas_online_contado = existingLocal.ventas_online_contado || 0;
@@ -1783,9 +1788,9 @@
                     actualizarBadgeOperadorUI();
                     habilitarOperatividadPOS(true);
                     return;
+                } catch (errQ) {
+                    console.warn("Verificación de turno en Supabase:", errQ);
                 }
-            } catch (errQ) {
-                console.warn("Verificación de turno en Supabase:", errQ);
             }
 
             // 2. Si no hay turno abierto en Supabase, verificar si hay un respaldo local activo
@@ -1882,36 +1887,39 @@
                 hist.forEach(n => { if (n && n.trim()) setNombres.add(n.trim()); });
             } catch (_) {}
 
-            // B. Desde perfiles_usuario (usuarios cajeros)
-            try {
-                const { data: perfilesCajeros } = await window.supabaseClient
-                    .from('perfiles_usuario')
-                    .select('nombre_completo')
-                    .eq('empresa_id', currentEmpresaId)
-                    .ilike('rol', 'CAJERO');
+            // B. Desde perfiles_usuario y turnos de Supabase (solo online con timeout)
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId) {
+                try {
+                    const qPerfiles = window.supabaseClient
+                        .from('perfiles_usuario')
+                        .select('nombre_completo')
+                        .eq('empresa_id', currentEmpresaId)
+                        .ilike('rol', 'CAJERO');
+                    const { data: perfilesCajeros } = await (window.fetchConTimeout ? window.fetchConTimeout(qPerfiles, 1000) : qPerfiles);
 
-                (perfilesCajeros || []).forEach(p => {
-                    if (p.nombre_completo && p.nombre_completo.trim()) {
-                        setNombres.add(p.nombre_completo.trim());
-                    }
-                });
-            } catch (_) {}
+                    (perfilesCajeros || []).forEach(p => {
+                        if (p.nombre_completo && p.nombre_completo.trim()) {
+                            setNombres.add(p.nombre_completo.trim());
+                        }
+                    });
+                } catch (_) {}
 
-            // C. Desde turnos en pos_turnos_activos
-            try {
-                const { data: turnosRecientes } = await window.supabaseClient
-                    .from('pos_turnos_activos')
-                    .select('cajero_nombre')
-                    .eq('empresa_id', currentEmpresaId)
-                    .order('created_at', { ascending: false })
-                    .limit(10);
+                try {
+                    const qTurnosRec = window.supabaseClient
+                        .from('pos_turnos_activos')
+                        .select('cajero_nombre')
+                        .eq('empresa_id', currentEmpresaId)
+                        .order('created_at', { ascending: false })
+                        .limit(10);
+                    const { data: turnosRecientes } = await (window.fetchConTimeout ? window.fetchConTimeout(qTurnosRec, 1000) : qTurnosRec);
 
-                (turnosRecientes || []).forEach(t => {
-                    if (t.cajero_nombre && t.cajero_nombre.trim()) {
-                        setNombres.add(t.cajero_nombre.trim());
-                    }
-                });
-            } catch (_) {}
+                    (turnosRecientes || []).forEach(t => {
+                        if (t.cajero_nombre && t.cajero_nombre.trim()) {
+                            setNombres.add(t.cajero_nombre.trim());
+                        }
+                    });
+                } catch (_) {}
+            }
 
             setNombres.forEach(nom => {
                 const opt = document.createElement('option');
@@ -3437,6 +3445,27 @@
                     dicc: diccDesc,
                     diccUM: diccUM
                 };
+
+                // Persistir en histórico local de la terminal para consulta y reimpresión offline inmediata
+                if (window.MicroERPOffline) {
+                    try {
+                        const vHistorica = Object.assign({}, datosEnMemoria.venta, {
+                            clientes: datosEnMemoria.cliente,
+                            cliente_id: clienteId,
+                            caja_identificador: window.cajaIdentificador || 'Caja 1',
+                            estado_sync: 'SINCRONIZADO',
+                            detalles: (detallesVentaInserts || []).map(d => ({
+                                referencia_id: d.referencia_id,
+                                descripcion: diccDesc[d.referencia_id] || 'Producto',
+                                cantidad: d.cantidad,
+                                precio_unitario: d.precio_unitario,
+                                subtotal: d.subtotal,
+                                tipo_item_vendido: d.tipo_item_vendido || 'ITEMS'
+                            }))
+                        });
+                        window.MicroERPOffline.registrarVentaEnHistoricoLocal(vHistorica);
+                    } catch (_) {}
+                }
 
                 // 4. ÉXITO Y NOTIFICACIÓN
                 let tituloSwal = '¡Venta Procesada!';

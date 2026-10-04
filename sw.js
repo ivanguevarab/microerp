@@ -6,7 +6,7 @@
 //           estáticas incluso tras reiniciar la PC sin conexión a internet.
 // =====================================================================================
 
-const CACHE_NAME = 'microerp-pos-cache-v7';
+const CACHE_NAME = 'microerp-pos-cache-v8';
 
 // Recursos críticos requeridos para el rol CAJERO
 const ASSETS_TO_CACHE = [

@@ -9,7 +9,7 @@
     'use strict';
 
     const DB_NAME = 'MicroERP_POS_Offline';
-    const DB_VERSION = 1;
+    const DB_VERSION = 2;
     const CORPORATE_PIN_SALT = 'microerp_pos_pin_salt_2026';
 
     let dbInstance = null;
@@ -36,7 +36,7 @@
 
             request.onupgradeneeded = (e) => {
                 const db = e.target.result;
-                console.log('📦 [IndexedDB] Configurando almacenes de objetos (V1)...');
+                console.log('📦 [IndexedDB] Configurando almacenes de objetos (V' + (e.newVersion || DB_VERSION) + ')...');
 
                 // 1. Catálogo de productos
                 if (!db.objectStoreNames.contains('catalogo_items')) {
@@ -95,6 +95,14 @@
                 // 10. Canasta reactiva en progreso (anti-F5 durante escaneo)
                 if (!db.objectStoreNames.contains('pos_draft_cart')) {
                     db.createObjectStore('pos_draft_cart', { keyPath: 'key' });
+                }
+
+                // 11. Historial permanente de ventas locales (anti-purgado para consulta y reimpresión offline)
+                if (!db.objectStoreNames.contains('historico_ventas_local')) {
+                    const storeHist = db.createObjectStore('historico_ventas_local', { keyPath: 'id' });
+                    storeHist.createIndex('empresa_id', 'empresa_id', { unique: false });
+                    storeHist.createIndex('hora_emision', 'hora_emision', { unique: false });
+                    storeHist.createIndex('numero_ticket', 'numero_ticket', { unique: false });
                 }
             };
 
@@ -479,16 +487,29 @@
                 const tx = db.transaction(['catalogo_items', 'clientes', 'seguridad_empresa'], 'readonly');
                 const itemsReq = tx.objectStore('catalogo_items').getAll();
                 const clientesReq = tx.objectStore('clientes').getAll();
-                const segReq = tx.objectStore('seguridad_empresa').get(empresaId);
+                const segStore = tx.objectStore('seguridad_empresa');
 
                 itemsReq.onsuccess = () => { resultado.items = itemsReq.result || []; };
                 clientesReq.onsuccess = () => { resultado.clientes = clientesReq.result || []; };
-                segReq.onsuccess = () => {
-                    if (segReq.result) {
-                        resultado.empresa = segReq.result.empresa || null;
-                        resultado.almacenes = segReq.result.almacenes || [];
-                    }
-                };
+
+                if (empresaId) {
+                    const segReq = segStore.get(empresaId);
+                    segReq.onsuccess = () => {
+                        if (segReq.result) {
+                            resultado.empresa = segReq.result.empresa || null;
+                            resultado.almacenes = segReq.result.almacenes || [];
+                        }
+                    };
+                } else {
+                    const segAll = segStore.getAll();
+                    segAll.onsuccess = () => {
+                        if (segAll.result && segAll.result.length > 0) {
+                            const first = segAll.result[0];
+                            resultado.empresa = first.empresa || null;
+                            resultado.almacenes = first.almacenes || [];
+                        }
+                    };
+                }
 
                 tx.oncomplete = () => resolve(resultado);
                 tx.onerror = () => resolve(resultado);
@@ -529,6 +550,18 @@
     }
 
 
+    async function registrarVentaEnHistoricoLocal(venta) {
+        if (!venta || !venta.id) return;
+        try {
+            const vClon = JSON.parse(JSON.stringify(venta));
+            await dbTransaction('historico_ventas_local', 'readwrite', (store) => {
+                store.put(vClon);
+            });
+        } catch (e) {
+            console.warn('[Histórico Local] Error al guardar en histórico persistente:', e);
+        }
+    }
+
     // =========================================================================
     // 7. EMISIÓN Y SELLADO DE TICKETS OFFLINE
     // =========================================================================
@@ -538,10 +571,11 @@
         payloadVenta.estado_sync = 'PENDIENTE_SYNC';
         payloadVenta.hora_emision = payloadVenta.hora_emision || obtenerHoraOficialLima().iso;
 
-        // 1. Guardar comprobante en cola_ventas_sync
+        // 1. Guardar comprobante en cola_ventas_sync y en historico_ventas_local
         await dbTransaction('cola_ventas_sync', 'readwrite', (store) => {
             store.put(payloadVenta);
         });
+        await registrarVentaEnHistoricoLocal(payloadVenta);
 
         // 2. Deducción local optimista en stock de catalogo_items
         if (payloadVenta.detalles && payloadVenta.detalles.length > 0) {
@@ -674,49 +708,70 @@
 
         const db = await openDatabase();
         return new Promise((resolve) => {
-            const tx = db.transaction('cola_ventas_sync', 'readonly');
-            const store = tx.objectStore('cola_ventas_sync');
-            let offlineContado = 0;
-            let offlineCredito = 0;
-            let offlineCantidadTickets = 0;
-            let offlinePrimerTicket = null;
-            let offlineUltimoTicket = null;
+            try {
+                const stores = ['historico_ventas_local'];
+                if (db.objectStoreNames.contains('cola_ventas_sync')) stores.push('cola_ventas_sync');
+                const tx = db.transaction(stores, 'readonly');
+                let ventasH = [];
+                let ventasC = [];
 
-            const cursorReq = store.openCursor();
-            cursorReq.onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) {
-                    const v = cursor.value;
+                const reqH = tx.objectStore('historico_ventas_local').getAll();
+                reqH.onsuccess = () => { ventasH = reqH.result || []; };
 
-                    // 1. Coincidencia por empresa
-                    const matchEmpresa = !empresaId || !v.empresa_id || v.empresa_id === empresaId;
+                if (stores.includes('cola_ventas_sync')) {
+                    const reqC = tx.objectStore('cola_ventas_sync').getAll();
+                    reqC.onsuccess = () => { ventasC = reqC.result || []; };
+                }
 
-                    // 2. Coincidencia por terminal/caja
-                    const cajaObjetivo = (cajaIdentificador || '').toLowerCase().trim();
-                    const cajaTicket = (v.caja_identificador || '').toLowerCase().trim();
-                    const matchCaja = !cajaObjetivo || !cajaTicket || cajaTicket === cajaObjetivo || cajaObjetivo.includes(cajaTicket) || cajaTicket.includes(cajaObjetivo);
+                tx.oncomplete = () => {
+                    const mapaVentas = new Map();
+                    ventasH.forEach(v => { if (v && v.id) mapaVentas.set(v.id, v); });
+                    ventasC.forEach(v => { if (v && v.id) mapaVentas.set(v.id, v); });
+                    const todasLasVentas = Array.from(mapaVentas.values());
 
-                    // 3. Coincidencia por marca temporal de apertura
-                    const matchHora = !horaAperturaSnapshot || !v.hora_emision || v.hora_emision >= horaAperturaSnapshot;
+                    // Ordenar cronológicamente ascendente para determinar primer y último ticket
+                    todasLasVentas.sort((a, b) => (a.hora_emision || a.fecha_venta || '').localeCompare(b.hora_emision || b.fecha_venta || ''));
 
-                    if (matchEmpresa && matchCaja && matchHora) {
-                        offlineCantidadTickets++;
-                        if (!offlinePrimerTicket) offlinePrimerTicket = v.numero_ticket;
-                        offlineUltimoTicket = v.numero_ticket;
+                    let offlineContado = 0;
+                    let offlineCredito = 0;
+                    let offlineCantidadTickets = 0;
+                    let offlinePrimerTicket = null;
+                    let offlineUltimoTicket = null;
+                    let pendientesSyncCount = 0;
 
-                        const total = Number(v.precio_venta_total || 0);
-                        if (v.condicion_pago === 'CONTADO' || !v.condicion_pago) {
-                            offlineContado += total;
-                        } else {
-                            offlineCredito += total;
+                    for (const v of todasLasVentas) {
+                        // 1. Coincidencia por empresa
+                        const matchEmpresa = !empresaId || !v.empresa_id || v.empresa_id === empresaId;
+
+                        // 2. Coincidencia por terminal/caja
+                        const cajaObjetivo = (cajaIdentificador || '').toLowerCase().trim();
+                        const cajaTicket = (v.caja_identificador || '').toLowerCase().trim();
+                        const matchCaja = !cajaObjetivo || !cajaTicket || cajaTicket === cajaObjetivo || cajaObjetivo.includes(cajaTicket) || cajaTicket.includes(cajaObjetivo);
+
+                        // 3. Coincidencia por marca temporal de apertura
+                        const matchHora = !horaAperturaSnapshot || !v.hora_emision || v.hora_emision >= horaAperturaSnapshot;
+
+                        if (matchEmpresa && matchCaja && matchHora) {
+                            offlineCantidadTickets++;
+                            if (!offlinePrimerTicket) offlinePrimerTicket = v.numero_ticket;
+                            offlineUltimoTicket = v.numero_ticket;
+
+                            const total = Number(v.precio_venta_total || 0);
+                            if (v.condicion_pago === 'CONTADO' || !v.condicion_pago) {
+                                offlineContado += total;
+                            } else {
+                                offlineCredito += total;
+                            }
+                            if (v.estado_sync === 'PENDIENTE_SYNC') {
+                                pendientesSyncCount++;
+                            }
                         }
                     }
-                    cursor.continue();
-                } else {
-                    const totalContado = Number((onlineContado + offlineContado).toFixed(2));
-                    const totalCredito = Number((onlineCredito + offlineCredito).toFixed(2));
-                    const totalCantidad = onlineCantTickets + offlineCantidadTickets;
-                    const primerTicket = onlinePrimerTicket || offlinePrimerTicket || '---';
+
+                    const totalContado = Number(Math.max(onlineContado, offlineContado).toFixed(2));
+                    const totalCredito = Number(Math.max(onlineCredito, offlineCredito).toFixed(2));
+                    const totalCantidad = Math.max(onlineCantTickets, offlineCantidadTickets);
+                    const primerTicket = offlinePrimerTicket || onlinePrimerTicket || '---';
                     const ultimoTicket = offlineUltimoTicket || onlineUltimoTicket || '---';
 
                     resolve({
@@ -732,25 +787,42 @@
                         cajero_nombre: cajeroNombreSnapshot,
                         caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
                         ventas_offline_contado: Number(offlineContado.toFixed(2)),
-                        cantidad_tickets_offline: offlineCantidadTickets
+                        cantidad_tickets_offline: pendientesSyncCount
                     });
-                }
-            };
-            cursorReq.onerror = () => resolve({
-                total_ventas_contado: onlineContado,
-                total_ventas_credito: onlineCredito,
-                total_cobros_credito: 0,
-                total_sistema: onlineContado,
-                cantidad_tickets: onlineCantTickets,
-                primer_ticket: onlinePrimerTicket || '---',
-                ultimo_ticket: onlineUltimoTicket || '---',
-                hora_apertura: horaAperturaSnapshot,
-                fondo_inicial: fondoInicialSnapshot,
-                cajero_nombre: cajeroNombreSnapshot,
-                caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
-                ventas_offline_contado: 0,
-                cantidad_tickets_offline: 0
-            });
+                };
+
+                tx.onerror = () => resolve({
+                    total_ventas_contado: onlineContado,
+                    total_ventas_credito: onlineCredito,
+                    total_cobros_credito: 0,
+                    total_sistema: onlineContado,
+                    cantidad_tickets: onlineCantTickets,
+                    primer_ticket: onlinePrimerTicket || '---',
+                    ultimo_ticket: onlineUltimoTicket || '---',
+                    hora_apertura: horaAperturaSnapshot,
+                    fondo_inicial: fondoInicialSnapshot,
+                    cajero_nombre: cajeroNombreSnapshot,
+                    caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
+                    ventas_offline_contado: 0,
+                    cantidad_tickets_offline: 0
+                });
+            } catch (_) {
+                resolve({
+                    total_ventas_contado: onlineContado,
+                    total_ventas_credito: onlineCredito,
+                    total_cobros_credito: 0,
+                    total_sistema: onlineContado,
+                    cantidad_tickets: onlineCantTickets,
+                    primer_ticket: onlinePrimerTicket || '---',
+                    ultimo_ticket: onlineUltimoTicket || '---',
+                    hora_apertura: horaAperturaSnapshot,
+                    fondo_inicial: fondoInicialSnapshot,
+                    cajero_nombre: cajeroNombreSnapshot,
+                    caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
+                    ventas_offline_contado: 0,
+                    cantidad_tickets_offline: 0
+                });
+            }
         });
     }
 
@@ -828,27 +900,58 @@
     async function obtenerVentasLocales(empresaId) {
         const db = await openDatabase();
         return new Promise((resolve) => {
-            const tx = db.transaction('cola_ventas_sync', 'readonly');
-            const store = tx.objectStore('cola_ventas_sync');
-            const req = store.getAll();
-            req.onsuccess = () => {
-                const ventas = (req.result || []).filter(v => !empresaId || v.empresa_id === empresaId);
-                // Ordenar por hora_emision o fecha_venta descendente
-                ventas.sort((a, b) => (b.hora_emision || b.fecha_venta || '').localeCompare(a.hora_emision || a.fecha_venta || ''));
-                resolve(ventas);
-            };
-            req.onerror = () => resolve([]);
+            try {
+                const stores = ['historico_ventas_local'];
+                if (db.objectStoreNames.contains('cola_ventas_sync')) stores.push('cola_ventas_sync');
+                const tx = db.transaction(stores, 'readonly');
+                let ventasH = [];
+                let ventasC = [];
+
+                const reqH = tx.objectStore('historico_ventas_local').getAll();
+                reqH.onsuccess = () => { ventasH = reqH.result || []; };
+
+                if (stores.includes('cola_ventas_sync')) {
+                    const reqC = tx.objectStore('cola_ventas_sync').getAll();
+                    reqC.onsuccess = () => { ventasC = reqC.result || []; };
+                }
+
+                tx.oncomplete = () => {
+                    const mapaVentas = new Map();
+                    ventasH.forEach(v => { if (v && (!empresaId || v.empresa_id === empresaId)) mapaVentas.set(v.id, v); });
+                    ventasC.forEach(v => { if (v && (!empresaId || v.empresa_id === empresaId)) mapaVentas.set(v.id, v); });
+                    const ventas = Array.from(mapaVentas.values());
+                    ventas.sort((a, b) => (b.hora_emision || b.fecha_venta || '').localeCompare(a.hora_emision || a.fecha_venta || ''));
+                    resolve(ventas);
+                };
+                tx.onerror = () => resolve([]);
+            } catch (_) {
+                resolve([]);
+            }
         });
     }
 
     async function obtenerVentaPorIdLocal(ventaId) {
         const db = await openDatabase();
         return new Promise((resolve) => {
-            const tx = db.transaction('cola_ventas_sync', 'readonly');
-            const store = tx.objectStore('cola_ventas_sync');
-            const req = store.get(ventaId);
-            req.onsuccess = () => resolve(req.result || null);
-            req.onerror = () => resolve(null);
+            try {
+                const stores = ['historico_ventas_local'];
+                if (db.objectStoreNames.contains('cola_ventas_sync')) stores.push('cola_ventas_sync');
+                const tx = db.transaction(stores, 'readonly');
+                let encontrada = null;
+
+                const reqH = tx.objectStore('historico_ventas_local').get(ventaId);
+                reqH.onsuccess = () => { if (reqH.result) encontrada = reqH.result; };
+
+                if (stores.includes('cola_ventas_sync')) {
+                    const reqC = tx.objectStore('cola_ventas_sync').get(ventaId);
+                    reqC.onsuccess = () => { if (!encontrada && reqC.result) encontrada = reqC.result; };
+                }
+
+                tx.oncomplete = () => resolve(encontrada);
+                tx.onerror = () => resolve(null);
+            } catch (_) {
+                resolve(null);
+            }
         });
     }
 
@@ -978,7 +1081,7 @@
                     throw errRpc;
                 }
 
-                // 7. Purgar ventas confirmadas de IndexedDB
+                // 7. Purgar ventas confirmadas de cola_ventas_sync y marcar como SINCRONIZADO en historico_ventas_local
                 if (respRpc && respRpc.success) {
                     const idsConfirmados = (respRpc.ventas_procesadas || []).map(x => x.id).concat(
                         (respRpc.ventas_omitidas || []).map(x => x.id)
@@ -988,6 +1091,30 @@
                         await dbTransaction('cola_ventas_sync', 'readwrite', (store) => {
                             idsConfirmados.forEach(id => store.delete(id));
                         });
+
+                        // Actualizar estado en historico_ventas_local y acumular en snapshot del turno activo
+                        try {
+                            const db = await openDatabase();
+                            const txH = db.transaction('historico_ventas_local', 'readwrite');
+                            const storeH = txH.objectStore('historico_ventas_local');
+                            idsConfirmados.forEach(id => {
+                                const reqH = storeH.get(id);
+                                reqH.onsuccess = () => {
+                                    if (reqH.result) {
+                                        const reg = reqH.result;
+                                        reg.estado_sync = 'SINCRONIZADO';
+                                        reg.estado = 'EMITIDO';
+                                        storeH.put(reg);
+                                        // Acumular venta sincronizada en el snapshot del turno activo local
+                                        if (empresaId) {
+                                            actualizarSnapshotVentaOnlineEnTurno(empresaId, reg);
+                                        }
+                                    }
+                                };
+                            });
+                        } catch (eH) {
+                            console.warn('[Sync POS] Error actualizando historico_ventas_local tras sync:', eH);
+                        }
                     }
 
                     // Purgar cierres si fue el último paquete
@@ -1215,6 +1342,7 @@
         obtenerSnapshotCatalogo,
         buscarItemsLocal,
         emitirTicketOffline,
+        registrarVentaEnHistoricoLocal,
         abrirTurnoOffline,
         obtenerTurnoActivoOffline,
         actualizarSnapshotVentaOnlineEnTurno,

@@ -344,8 +344,8 @@
                     const clientesMap = {};
                     (snap?.clientes || []).forEach(c => { clientesMap[c.id] = c; });
                     ventasLocales.forEach(v => {
-                        v.clientes = clientesMap[v.cliente_id] || { razon_social: 'Cliente NN', numero_documento: '---' };
-                        v.estado = 'PENDIENTE_SYNC';
+                        v.clientes = v.clientes || clientesMap[v.cliente_id] || { razon_social: 'Cliente NN', numero_documento: '---' };
+                        v.estado = (v.estado_sync === 'PENDIENTE_SYNC') ? 'PENDIENTE_SYNC' : (v.estado || 'REGISTRADO');
                     });
                 } catch (_) {}
             }
@@ -507,16 +507,21 @@
         //  MODAL DETALLES DE VENTA
         // ==========================================
         async function verDetalle(ventaId) {
-            if (window.isOfflineState && window.MicroERPOffline) {
+            if ((window.isOfflineState || !navigator.onLine) && window.MicroERPOffline) {
                 try {
                     const vOff = await window.MicroERPOffline.obtenerVentaPorIdLocal(ventaId);
                     if (vOff) {
+                        const estadoHtml = (vOff.estado_sync === 'PENDIENTE_SYNC') 
+                            ? `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold">LOCAL (PENDIENTE SYNC)</span>` 
+                            : `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-xs font-bold">SINCRONIZADO EN NUBE</span>`;
                         Swal.fire({
                             title: `Ticket ${vOff.numero_ticket}`,
                             html: `<div class="text-left text-sm space-y-2 p-2">
                                 <p><b>Fecha:</b> ${vOff.fecha_venta || 'Hoy'}</p>
+                                <p><b>Cliente:</b> ${vOff.clientes?.razon_social || 'Cliente NN'}</p>
                                 <p><b>Total:</b> S/ ${formatMoney(vOff.precio_venta_total)}</p>
-                                <p><b>Estado:</b> <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold">LOCAL (PENDIENTE SYNC)</span></p>
+                                <p><b>Condición:</b> ${vOff.condicion_pago || 'CONTADO'}</p>
+                                <p><b>Estado:</b> ${estadoHtml}</p>
                                 <p class="text-xs text-gray-500 mt-3 border-t pt-2">Comprobante guardado de forma soberana en la terminal. Listo para reimpresión térmica con el botón de impresora.</p>
                             </div>`,
                             icon: 'info',
@@ -530,7 +535,7 @@
             Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
             
             try {
-                // Fase 1: Obtener cabecera y detalles en paralelo (1 solo viaje de red)
+                // Fase 1: Obtener cabecera y detalles en paralelo (1 solo viaje de red con timeout)
                 let queryCabecera = window.supabaseClient.from('ventas')
                     .select('*, clientes(razon_social, numero_documento)')
                     .eq('id', ventaId)
@@ -540,11 +545,12 @@
                     queryCabecera = queryCabecera.eq('usuario_id', currentUserId);
                 }
 
+                const pCab = queryCabecera.maybeSingle();
+                const pDet = window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
+
                 const [{ data: v, error: ev }, { data: det, error: ed }] = await Promise.all([
-                    queryCabecera.maybeSingle(),
-                    window.supabaseClient.from('ventas_detalle')
-                        .select('*')
-                        .eq('venta_id', ventaId)
+                    (window.fetchConTimeout ? window.fetchConTimeout(pCab, 1500) : pCab),
+                    (window.fetchConTimeout ? window.fetchConTimeout(pDet, 1500) : pDet)
                 ]);
                 if(ev) throw ev;
                 if(!v) {

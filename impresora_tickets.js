@@ -144,7 +144,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
 
             let esVentaLocal = false;
 
-            // Fallback a cola offline en IndexedDB
+            // Fallback a histórico local y cola offline en IndexedDB
             if (!vBD && window.MicroERPOffline) {
                 const vOff = await window.MicroERPOffline.obtenerVentaPorIdLocal(ventaId);
                 if (vOff) {
@@ -153,10 +153,16 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                     const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(vOff.empresa_id);
                     emp = snap?.empresa || { nombre_comercial: 'MicroERP', razon_social: 'MicroERP', ruc: '---' };
                     direccionTicket = emp.direccion || 'Sede Principal';
-                    vBD.clientes = (snap?.clientes || []).find(c => c.id === vOff.cliente_id) || { razon_social: 'Cliente NN', numero_documento: '---' };
+                    vBD.clientes = vOff.clientes || (snap?.clientes || []).find(c => c.id === vOff.cliente_id) || { razon_social: 'Cliente NN', numero_documento: '---' };
                     (snap?.items || []).forEach(it => {
                         dicc[it.id] = it.descripcion;
                         diccUM[it.id] = it.unidad_medida || 'NIU';
+                    });
+                    // Si el detalle ya traía descripción, usarlo como diccionario directo
+                    (detBD || []).forEach(d => {
+                        if (d.referencia_id && d.descripcion && !dicc[d.referencia_id]) {
+                            dicc[d.referencia_id] = d.descripcion;
+                        }
                     });
                     esVentaLocal = true;
                 }
@@ -166,40 +172,44 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             v = vBD;
             det = detBD || [];
 
-            // Si es venta de la nube y estamos online, consultar complementos con seguridad
+            // Si es venta de la nube y estamos online, consultar complementos con seguridad y timeout
             if (!esVentaLocal && navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                 // 1.2 Recuperar pago inicial si es crédito y estamos reimprimiendo
                 if (v.condicion_pago === 'CREDITO' && montoRecibido === 0) {
                     try {
-                        const { data: pIni } = await window.supabaseClient.from('ventas_credito_pagos')
+                        const qIni = window.supabaseClient.from('ventas_credito_pagos')
                             .select('monto')
                             .eq('venta_id', ventaId)
                             .eq('tipo_pago', 'INICIAL')
                             .maybeSingle();
+                        const { data: pIni } = await (window.fetchConTimeout ? window.fetchConTimeout(qIni, 1000) : qIni);
                         if (pIni) montoRecibido = Number(pIni.monto);
                     } catch (_) {}
                 }
 
-                // 1.5 Obtener datos de la empresa por separado para evitar el error de cache de PostgREST
+                // 1.5 Obtener datos de la empresa por separado
                 try {
-                    const { data: empBD } = await window.supabaseClient.from('empresas')
+                    const qEmp = window.supabaseClient.from('empresas')
                         .select('*').eq('id', v.empresa_id).single();
+                    const { data: empBD } = await (window.fetchConTimeout ? window.fetchConTimeout(qEmp, 1000) : qEmp);
                     if (empBD) emp = empBD;
                 } catch (_) {}
 
-                // Obtener dirección del almacén a través del egreso (si existe impacto físico)
+                // Obtener dirección del almacén a través del egreso
                 try {
                     direccionTicket = emp?.direccion || 'Sede Principal';
-                    const { data: egr } = await window.supabaseClient.from('egresos')
+                    const qEgr = window.supabaseClient.from('egresos')
                         .select('almacen_origen_id')
                         .eq('observaciones', 'VENTA_REF:' + v.numero_ticket)
                         .limit(1);
+                    const { data: egr } = await (window.fetchConTimeout ? window.fetchConTimeout(qEgr, 1000) : qEgr);
 
                     if (egr && egr.length > 0 && egr[0].almacen_origen_id) {
-                        const { data: alm } = await window.supabaseClient.from('almacenes')
+                        const qAlm = window.supabaseClient.from('almacenes')
                             .select('nombre, descripcion')
                             .eq('id', egr[0].almacen_origen_id)
                             .single();
+                        const { data: alm } = await (window.fetchConTimeout ? window.fetchConTimeout(qAlm, 1000) : qAlm);
                         if (alm) {
                             direccionTicket = alm.nombre;
                             if (alm.descripcion) direccionTicket += ' - ' + alm.descripcion;
@@ -212,9 +222,10 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                     const tItems = det.filter(d => d.tipo_item_vendido === 'ITEMS').map(d => d.referencia_id);
                     const tCods = det.filter(d => d.tipo_item_vendido === 'CUS' || d.tipo_item_vendido === 'CUP').map(d => d.referencia_id);
                     if(tItems.length > 0) {
-                        const { data: iBD } = await window.supabaseClient.from('items')
+                        const qItems = window.supabaseClient.from('items')
                             .select('id, descripcion, unidad_medida, unidades_medida(codigo)')
                             .in('id', tItems);
+                        const { data: iBD } = await (window.fetchConTimeout ? window.fetchConTimeout(qItems, 1000) : qItems);
                         (iBD||[]).forEach(x => {
                             dicc[x.id] = x.descripcion;
                             const uCod = (Array.isArray(x.unidades_medida) ? x.unidades_medida[0]?.codigo : x.unidades_medida?.codigo) || x.unidad_medida || 'NIU';
@@ -222,7 +233,8 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                         });
                     }
                     if(tCods.length > 0) {
-                        const { data: cBD } = await window.supabaseClient.from('codigos_unicos').select('id, descripcion').in('id', tCods);
+                        const qCods = window.supabaseClient.from('codigos_unicos').select('id, descripcion').in('id', tCods);
+                        const { data: cBD } = await (window.fetchConTimeout ? window.fetchConTimeout(qCods, 1000) : qCods);
                         (cBD||[]).forEach(x => {
                             dicc[x.id] = x.descripcion;
                             diccUM[x.id] = 'NIU';

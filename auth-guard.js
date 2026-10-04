@@ -210,9 +210,14 @@ async function checkAuth() {
                 // Guardar respaldo local de sesión para operatividad offline
                 if (profileData && profileData.rol === 'CAJERO') {
                     try {
+                        if (profileData.empresa_id) {
+                            localStorage.setItem('empresa_id', profileData.empresa_id);
+                        }
                         localStorage.setItem('microerp_pos_session_backup', JSON.stringify({
                             user: session.user,
                             profile: profileData,
+                            userProfile: profileData,
+                            empresa_id: profileData.empresa_id,
                             timestamp: Date.now()
                         }));
                     } catch (_) {}
