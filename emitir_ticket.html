@@ -1676,9 +1676,10 @@
             }
 
             // 4. Cargar Tipo Egreso para la parte logística
-            if (navigator.onLine && window.supabaseClient) {
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                 try {
-                    const { data: te } = await window.supabaseClient.from('tipos_egresos').select('id, nombre');
+                    const qTE = window.supabaseClient.from('tipos_egresos').select('id, nombre');
+                    const { data: te } = await (window.fetchConTimeout ? window.fetchConTimeout(qTE, 800) : qTE);
                     tipoEgresosDisponibles = te || [];
                 } catch (_) {}
             }
@@ -1935,9 +1936,9 @@
             try {
                 let respTurno = null;
 
-                if (navigator.onLine && window.supabaseClient) {
+                if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                     try {
-                        const { data, error } = await window.supabaseClient.rpc('rpc_abrir_turno_pos', {
+                        const rpcTurno = window.supabaseClient.rpc('rpc_abrir_turno_pos', {
                             p_payload: {
                                 empresa_id: currentEmpresaId,
                                 usuario_id: window.currentUser.id,
@@ -1946,6 +1947,7 @@
                                 fondo_inicial: fondoInp
                             }
                         });
+                        const { data, error } = await (window.fetchConTimeout ? window.fetchConTimeout(rpcTurno, 1200) : rpcTurno);
                         if (!error && data && data.success) {
                             respTurno = data;
                         } else if (error && !esErrorDeRed(error)) {
@@ -2672,16 +2674,22 @@
                         // LÓGICA FIFO EN MEMORIA: Reutilizar lotes ya traídos en la búsqueda (0ms de red)
                         let lotesBD = (window.cacheLotesBusqueda && window.cacheLotesBusqueda[obj.id]) ? window.cacheLotesBusqueda[obj.id] : null;
                         
-                        if (!lotesBD || lotesBD.length === 0) {
-                            // Fallback de respaldo por si no estuviese en caché
-                            const { data: lotesFetch } = await window.supabaseClient.from('ingresos_detalle')
-                                .select('id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
-                                .eq('item_id', obj.id)
-                                .eq('ingresos.almacen_destino_id', almacenId)
-                                .gt('cantidad_disponible', 0)
-                                .order('ingresos(fecha_ingreso)', { ascending: true });
-                            lotesBD = lotesFetch || [];
+                        // Solo intentar consultar la nube si estamos online, no estamos en offline forzado y no tenemos lotes en caché
+                        if ((!lotesBD || lotesBD.length === 0) && navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                            try {
+                                const qLotes = window.supabaseClient.from('ingresos_detalle')
+                                    .select('id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
+                                    .eq('item_id', obj.id)
+                                    .eq('ingresos.almacen_destino_id', almacenId)
+                                    .gt('cantidad_disponible', 0)
+                                    .order('ingresos(fecha_ingreso)', { ascending: true });
+                                const { data: lotesFetch } = await (window.fetchConTimeout ? window.fetchConTimeout(qLotes, 1000) : qLotes);
+                                lotesBD = lotesFetch || [];
+                            } catch (_) {
+                                lotesBD = [];
+                            }
                         }
+                        if (!lotesBD) lotesBD = [];
 
                         // Calcular porción ya consumida por lote en el carrito actual
                         const consumidoPorLote = {};
@@ -2710,22 +2718,22 @@
                         
                         // Si estamos offline o no se cubrió el lote físico contable, permitir venta con asignación diferida en servidor
                         if (pendiente > 0) {
-                            if (!modoVerdeActivo && navigator.onLine && lotesBD.length > 0) {
+                            if (!modoVerdeActivo && navigator.onLine && !window.isOfflineState && lotesBD.length > 0) {
                                 throw new Error("Descuadre transaccional FIFO durante la selección.");
                             } else {
                                 // Modo Offline o Modo Verde: Lote diferido
                                 lotesSeleccionados.push({
                                     lotId: null,
                                     qty: pendiente,
-                                    costo_unit_usado: 0
+                                    costo_unit_usado: Number(obj.costo_unitario || 0)
                                 });
                             }
                         }
                     } catch(e) {
                         console.error("Error resolviendo lotes:", e);
-                        // En offline no bloqueamos la venta
-                        if (!navigator.onLine) {
-                            lotesSeleccionados.push({ lotId: null, qty: cantidadReq, costo_unit_usado: 0 });
+                        // En offline o ante cualquier fallo transaccional jamás bloqueamos al mostrador
+                        if (!navigator.onLine || window.isOfflineState) {
+                            lotesSeleccionados = [{ lotId: null, qty: cantidadReq, costo_unit_usado: Number(obj.costo_unitario || 0) }];
                         } else {
                             Swal.fire('Control de Inventario', 'No se pudo resolver el FIFO contable del producto.', 'warning');
                             document.getElementById('buscadorGeneral').focus();
@@ -3247,8 +3255,8 @@
 
                 let respVenta = null;
 
-                // Si hay conexión, intentar procesar venta atómica en la nube
-                if (navigator.onLine && window.supabaseClient) {
+                // Si hay conexión y no estamos en modo offline forzado, intentar procesar venta atómica en la nube
+                if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                     const maxIntentos = 2; // Rápido para no demorar al cliente en cola
                     const delaysBackoff = [0, 800, 1200];
 

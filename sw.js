@@ -6,7 +6,7 @@
 //           estáticas incluso tras reiniciar la PC sin conexión a internet.
 // =====================================================================================
 
-const CACHE_NAME = 'microerp-pos-cache-v2';
+const CACHE_NAME = 'microerp-pos-cache-v3';
 
 // Recursos críticos requeridos para el rol CAJERO
 const ASSETS_TO_CACHE = [
@@ -30,11 +30,15 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('⚡ [SW POS] Pre-cacheando recursos críticos del cajero...');
+            console.log('⚡ [SW POS v3] Pre-cacheando recursos críticos del cajero...');
             return Promise.allSettled(
                 ASSETS_TO_CACHE.map((url) => {
-                    return cache.add(url).catch((err) => {
-                        console.warn(`[SW POS] Recurso no pre-cacheado en install (${url}):`, err);
+                    const isExternal = url.startsWith('http');
+                    const req = isExternal ? new Request(url, { mode: 'no-cors' }) : new Request(url);
+                    return fetch(req).then((res) => {
+                        return cache.put(req, res);
+                    }).catch((err) => {
+                        console.warn(`[SW POS v3] Recurso no pre-cacheado en install (${url}):`, err);
                     });
                 })
             );
