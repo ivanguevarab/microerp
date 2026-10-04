@@ -1775,19 +1775,20 @@
                         window.cajeroName = currentTurnoActivo.cajero_nombre;
                         window.cajaIdentificador = currentTurnoActivo.caja_identificador;
 
-                    const existingLocal = JSON.parse(localStorage.getItem('pos_turno_activo_' + currentEmpresaId) || '{}');
-                    currentTurnoActivo.ventas_online_contado = existingLocal.ventas_online_contado || 0;
-                    currentTurnoActivo.ventas_online_credito = existingLocal.ventas_online_credito || 0;
-                    currentTurnoActivo.cantidad_tickets_online = existingLocal.cantidad_tickets_online || 0;
-                    currentTurnoActivo.primer_ticket_online = existingLocal.primer_ticket_online || null;
-                    currentTurnoActivo.ultimo_ticket_online = existingLocal.ultimo_ticket_online || null;
+                        const existingLocal = JSON.parse(localStorage.getItem('pos_turno_activo_' + currentEmpresaId) || '{}');
+                        currentTurnoActivo.ventas_online_contado = existingLocal.ventas_online_contado || 0;
+                        currentTurnoActivo.ventas_online_credito = existingLocal.ventas_online_credito || 0;
+                        currentTurnoActivo.cantidad_tickets_online = existingLocal.cantidad_tickets_online || 0;
+                        currentTurnoActivo.primer_ticket_online = existingLocal.primer_ticket_online || null;
+                        currentTurnoActivo.ultimo_ticket_online = existingLocal.ultimo_ticket_online || null;
 
-                    localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
-                    localStorage.setItem('microerp_pos_caja_id', window.cajaIdentificador);
+                        localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
+                        localStorage.setItem('microerp_pos_caja_id', window.cajaIdentificador);
 
-                    actualizarBadgeOperadorUI();
-                    habilitarOperatividadPOS(true);
-                    return;
+                        actualizarBadgeOperadorUI();
+                        habilitarOperatividadPOS(true);
+                        return;
+                    }
                 } catch (errQ) {
                     console.warn("Verificación de turno en Supabase:", errQ);
                 }

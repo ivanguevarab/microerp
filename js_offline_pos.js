@@ -709,14 +709,36 @@
         const db = await openDatabase();
         return new Promise((resolve) => {
             try {
-                const stores = ['historico_ventas_local'];
+                const stores = [];
+                if (db.objectStoreNames.contains('historico_ventas_local')) stores.push('historico_ventas_local');
                 if (db.objectStoreNames.contains('cola_ventas_sync')) stores.push('cola_ventas_sync');
+
+                if (stores.length === 0) {
+                    return resolve({
+                        total_ventas_contado: onlineContado,
+                        total_ventas_credito: onlineCredito,
+                        total_cobros_credito: 0,
+                        total_sistema: onlineContado,
+                        cantidad_tickets: onlineCantTickets,
+                        primer_ticket: onlinePrimerTicket || '---',
+                        ultimo_ticket: onlineUltimoTicket || '---',
+                        hora_apertura: horaAperturaSnapshot,
+                        fondo_inicial: fondoInicialSnapshot,
+                        cajero_nombre: cajeroNombreSnapshot,
+                        caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
+                        ventas_offline_contado: 0,
+                        cantidad_tickets_offline: 0
+                    });
+                }
+
                 const tx = db.transaction(stores, 'readonly');
                 let ventasH = [];
                 let ventasC = [];
 
-                const reqH = tx.objectStore('historico_ventas_local').getAll();
-                reqH.onsuccess = () => { ventasH = reqH.result || []; };
+                if (stores.includes('historico_ventas_local')) {
+                    const reqH = tx.objectStore('historico_ventas_local').getAll();
+                    reqH.onsuccess = () => { ventasH = reqH.result || []; };
+                }
 
                 if (stores.includes('cola_ventas_sync')) {
                     const reqC = tx.objectStore('cola_ventas_sync').getAll();
@@ -901,14 +923,20 @@
         const db = await openDatabase();
         return new Promise((resolve) => {
             try {
-                const stores = ['historico_ventas_local'];
+                const stores = [];
+                if (db.objectStoreNames.contains('historico_ventas_local')) stores.push('historico_ventas_local');
                 if (db.objectStoreNames.contains('cola_ventas_sync')) stores.push('cola_ventas_sync');
+
+                if (stores.length === 0) return resolve([]);
+
                 const tx = db.transaction(stores, 'readonly');
                 let ventasH = [];
                 let ventasC = [];
 
-                const reqH = tx.objectStore('historico_ventas_local').getAll();
-                reqH.onsuccess = () => { ventasH = reqH.result || []; };
+                if (stores.includes('historico_ventas_local')) {
+                    const reqH = tx.objectStore('historico_ventas_local').getAll();
+                    reqH.onsuccess = () => { ventasH = reqH.result || []; };
+                }
 
                 if (stores.includes('cola_ventas_sync')) {
                     const reqC = tx.objectStore('cola_ventas_sync').getAll();
@@ -934,13 +962,19 @@
         const db = await openDatabase();
         return new Promise((resolve) => {
             try {
-                const stores = ['historico_ventas_local'];
+                const stores = [];
+                if (db.objectStoreNames.contains('historico_ventas_local')) stores.push('historico_ventas_local');
                 if (db.objectStoreNames.contains('cola_ventas_sync')) stores.push('cola_ventas_sync');
+
+                if (stores.length === 0) return resolve(null);
+
                 const tx = db.transaction(stores, 'readonly');
                 let encontrada = null;
 
-                const reqH = tx.objectStore('historico_ventas_local').get(ventaId);
-                reqH.onsuccess = () => { if (reqH.result) encontrada = reqH.result; };
+                if (stores.includes('historico_ventas_local')) {
+                    const reqH = tx.objectStore('historico_ventas_local').get(ventaId);
+                    reqH.onsuccess = () => { if (reqH.result) encontrada = reqH.result; };
+                }
 
                 if (stores.includes('cola_ventas_sync')) {
                     const reqC = tx.objectStore('cola_ventas_sync').get(ventaId);
