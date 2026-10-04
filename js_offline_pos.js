@@ -756,6 +756,7 @@
             if (ventasPendientes.length === 0 && cierresPendientes.length === 0) {
                 console.log('✅ [Sync POS] No hay registros pendientes de sincronización.');
                 isSyncInProgress = false;
+                marcarConectividadOnline();
                 window.dispatchEvent(new CustomEvent('pos-sync-status', { detail: { estado: 'SINCRONIZADO', pendientes: 0 } }));
                 return { sincronizado: true, total: 0 };
             }
@@ -837,12 +838,14 @@
             }
 
             console.log('🎉 [Sync POS] Sincronización batch completada al 100%.');
+            marcarConectividadOnline();
             window.dispatchEvent(new CustomEvent('pos-sync-status', { detail: { estado: 'COMPLETO', mensaje: 'Todas las ventas están sincronizadas.' } }));
 
             return { sincronizado: true, total: ventasPendientes.length };
 
         } catch (err) {
             console.error('⚠️ [Sync POS] La sincronización falló, reintentará en el siguiente ciclo:', err);
+            marcarConectividadOffline();
             window.dispatchEvent(new CustomEvent('pos-sync-status', { detail: { estado: 'ERROR', mensaje: 'Sincronización en espera de conexión estable.' } }));
             return { error: err.message };
         } finally {
@@ -909,19 +912,114 @@
     window.marcarConectividadOnline = marcarConectividadOnline;
     window.fetchConTimeout = fetchConTimeout;
 
+    // =========================================================================
+    // PROBADOR ACTIVO DE CONECTIVIDAD WAN DIRECTA A SUPABASE (Bypass Cache/OS)
+    // =========================================================================
+    async function probarConectividadActiva(timeoutMs = 2500) {
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            return false;
+        }
+
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        let timeoutId = null;
+        if (controller) {
+            timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        }
+
+        try {
+            let targetUrl = 'https://snyfzenjapyybbfqrnku.supabase.co/auth/v1/health';
+            if (window.supabaseClient && window.supabaseClient.supabaseUrl) {
+                targetUrl = window.supabaseClient.supabaseUrl.replace(/\/+$/, '') + '/auth/v1/health';
+            }
+
+            const fetchOptions = {
+                method: 'GET',
+                cache: 'no-store'
+            };
+            if (controller) {
+                fetchOptions.signal = controller.signal;
+            }
+
+            const resp = await fetch(targetUrl, fetchOptions);
+            if (timeoutId) clearTimeout(timeoutId);
+            return !!resp;
+        } catch (_) {
+            if (timeoutId) clearTimeout(timeoutId);
+            return false;
+        }
+    }
+
+    async function probarYAutoSincronizar() {
+        if (isSyncInProgress) {
+            return;
+        }
+
+        const onlineReal = await probarConectividadActiva(2500);
+        if (onlineReal) {
+            marcarConectividadOnline();
+            try {
+                const conteo = await contarPendientesSync();
+                if (conteo.total > 0) {
+                    const client = window.supabaseClient;
+                    const empresaId = window.currentEmpresaId || (window.currentUserProfile && window.currentUserProfile.empresa_id);
+                    const cajaId = window.cajaIdentificador || localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
+                    if (client && empresaId) {
+                        console.log(`🚀 [AutoSync POS] Red confirmada. Sincronizando ${conteo.total} registro(s) pendiente(s)...`);
+                        await sincronizarColaOfflineConNube(client, empresaId, cajaId);
+                    }
+                }
+            } catch (err) {
+                console.warn('⚠️ [AutoSync POS] Error en ciclo de auto-sincronización:', err);
+            }
+        } else {
+            marcarConectividadOffline();
+        }
+    }
+
+    // =========================================================================
+    // WATCHDOG ACTIVO EN SEGUNDO PLANO (HEARTBEAT POS)
+    // =========================================================================
+    let watchdogTimer = null;
+    function iniciarWatchdogAutoSync(intervaloMs = 12000) {
+        if (watchdogTimer) {
+            clearInterval(watchdogTimer);
+        }
+        watchdogTimer = setInterval(async () => {
+            if (window.isOfflineState) {
+                await probarYAutoSincronizar();
+            } else {
+                try {
+                    const conteo = await contarPendientesSync();
+                    if (conteo.total > 0) {
+                        await probarYAutoSincronizar();
+                    }
+                } catch (_) {}
+            }
+        }, intervaloMs);
+    }
+
+    // =========================================================================
+    // GATILLOS REACTIVOS DE ENTORNO
+    // =========================================================================
     window.addEventListener('offline', () => {
         marcarConectividadOffline();
     });
 
     window.addEventListener('online', async () => {
-        try {
-            const res = await fetch('./styles.css?t=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
-            if (res.ok || res.status === 200 || res.status === 304) {
-                marcarConectividadOnline();
+        console.log("🌐 [POS Conectividad] Evento de red del navegador detectado. Comprobando salida real...");
+        await probarYAutoSincronizar();
+    });
+
+    if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                probarYAutoSincronizar();
             }
-        } catch (_) {
-            console.warn("⚠️ Interfaz de red activa pero sin salida a internet.");
-        }
+        });
+    }
+
+    window.addEventListener('focus', () => {
+        probarYAutoSincronizar();
     });
 
     // =========================================================================
@@ -955,10 +1053,14 @@
         sincronizarColaOfflineConNube,
         marcarConectividadOffline,
         marcarConectividadOnline,
-        fetchConTimeout
+        fetchConTimeout,
+        probarConectividadActiva,
+        probarYAutoSincronizar,
+        iniciarWatchdogAutoSync
     };
 
-    // Auto-solicitar persistencia al cargar script
+    // Auto-solicitar persistencia e iniciar watchdog de auto-sincronización
     solicitarAlmacenamientoPersistente();
+    iniciarWatchdogAutoSync(12000);
 
 })(window);
