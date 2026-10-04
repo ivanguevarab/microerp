@@ -623,23 +623,37 @@
             document.getElementById('global-spinner').classList.remove('hidden');
             await checkAuth(); 
 
-            try {
-                const { data: perfil } = await window.supabaseClient
-                    .from('perfiles_usuario')
-                    .select('empresa_id, rol, nombre_completo')
-                    .eq('id', window.currentUser.id)
-                    .single();
+            let perfil = window.currentUserProfile;
 
-                if (perfil) {
-                    currentEmpresaId = perfil.empresa_id;
-                    windowUserRole = (perfil.rol || 'CAJERO').toUpperCase();
-                    windowCajeroName = perfil.nombre_completo || (window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero');
-                } else {
-                    windowCajeroName = window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero';
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient && window.currentUser?.id) {
+                try {
+                    const profPromise = window.supabaseClient
+                        .from('perfiles_usuario')
+                        .select('empresa_id, rol, nombre_completo')
+                        .eq('id', window.currentUser.id)
+                        .single();
+                    const { data: p } = await (window.fetchConTimeout ? window.fetchConTimeout(profPromise, 1200) : profPromise);
+                    if (p) perfil = p;
+                } catch (errPerfil) {
+                    console.warn("No se pudo obtener el perfil remoto en arqueo:", errPerfil);
                 }
-            } catch (errPerfil) {
-                console.warn("No se pudo obtener el perfil completo:", errPerfil);
-                windowCajeroName = window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Cajero';
+            }
+
+            if (!perfil) {
+                const sessionBackup = JSON.parse(localStorage.getItem('microerp_pos_session_backup') || '{}');
+                perfil = sessionBackup.profile || {
+                    empresa_id: sessionBackup.empresa_id || localStorage.getItem('empresa_id') || null,
+                    rol: sessionBackup.rol || 'CAJERO',
+                    nombre_completo: sessionBackup.nombre_completo || 'Cajero'
+                };
+            }
+
+            if (perfil) {
+                currentEmpresaId = perfil.empresa_id || localStorage.getItem('empresa_id');
+                windowUserRole = (perfil.rol || 'CAJERO').toUpperCase();
+                windowCajeroName = perfil.nombre_completo || (window.currentUser?.email ? window.currentUser.email.split('@')[0] : 'Cajero');
+            } else {
+                windowCajeroName = window.currentUser?.email ? window.currentUser.email.split('@')[0] : 'Cajero';
             }
 
             if (!currentEmpresaId) {
@@ -647,43 +661,60 @@
             }
 
             if (currentEmpresaId) {
-                try {
-                    const { data: empInfo } = await window.supabaseClient
-                        .from('empresas')
-                        .select('id, nombre, ruc, direccion')
-                        .eq('id', currentEmpresaId)
-                        .single();
-                    if (empInfo) {
-                        currentEmpresaData = empInfo;
-                        const elNom = document.getElementById('print-empresa-nombre');
-                        if (elNom) elNom.textContent = empInfo.nombre;
+                if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                    try {
+                        const empPromise = window.supabaseClient
+                            .from('empresas')
+                            .select('id, nombre, ruc, direccion')
+                            .eq('id', currentEmpresaId)
+                            .single();
+                        const { data: empInfo } = await (window.fetchConTimeout ? window.fetchConTimeout(empPromise, 1200) : empPromise);
+                        if (empInfo) {
+                            currentEmpresaData = empInfo;
+                            const elNom = document.getElementById('print-empresa-nombre');
+                            if (elNom) elNom.textContent = empInfo.nombre;
+                        }
+                    } catch (errEmp) {
+                        console.warn("Carga empresa arqueo:", errEmp);
                     }
-                } catch (errEmp) {
-                    console.warn("Carga empresa arqueo:", errEmp);
+                }
+
+                if (!currentEmpresaData && window.MicroERPOffline) {
+                    try {
+                        const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(currentEmpresaId);
+                        if (snap?.empresa) {
+                            currentEmpresaData = snap.empresa;
+                            const elNom = document.getElementById('print-empresa-nombre');
+                            if (elNom) elNom.textContent = snap.empresa.nombre_comercial || snap.empresa.razon_social;
+                        }
+                    } catch (_) {}
                 }
             }
 
             // Identificar turno activo si existe
             windowCajaIdentificador = localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
-            try {
-                if (currentEmpresaId && window.currentUser && window.currentUser.id) {
-                    const { data: turnosAbiertos } = await window.supabaseClient
-                        .from('pos_turnos_activos')
-                        .select('*')
-                        .eq('empresa_id', currentEmpresaId)
-                        .eq('usuario_id', window.currentUser.id)
-                        .eq('estado', 'ABIERTO')
-                        .order('hora_apertura', { ascending: false })
-                        .limit(1);
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                try {
+                    if (currentEmpresaId && window.currentUser && window.currentUser.id) {
+                        const tPromise = window.supabaseClient
+                            .from('pos_turnos_activos')
+                            .select('*')
+                            .eq('empresa_id', currentEmpresaId)
+                            .eq('usuario_id', window.currentUser.id)
+                            .eq('estado', 'ABIERTO')
+                            .order('hora_apertura', { ascending: false })
+                            .limit(1);
+                        const { data: turnosAbiertos } = await (window.fetchConTimeout ? window.fetchConTimeout(tPromise, 1200) : tPromise);
 
-                    if (turnosAbiertos && turnosAbiertos.length > 0) {
-                        currentTurnoActivo = turnosAbiertos[0];
-                        windowCajeroName = currentTurnoActivo.cajero_nombre;
-                        windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                        if (turnosAbiertos && turnosAbiertos.length > 0) {
+                            currentTurnoActivo = turnosAbiertos[0];
+                            windowCajeroName = currentTurnoActivo.cajero_nombre;
+                            windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                        }
                     }
+                } catch (errT) {
+                    console.warn("Consulta turno activo arqueo:", errT);
                 }
-            } catch (errT) {
-                console.warn("Consulta turno activo arqueo:", errT);
             }
 
             if (!currentTurnoActivo) {

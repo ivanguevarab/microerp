@@ -125,14 +125,16 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
             let vBD = null;
             let detBD = null;
 
-            if (navigator.onLine && window.supabaseClient) {
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                 try {
-                    const { data: vData } = await window.supabaseClient.from('ventas')
+                    const queryV = window.supabaseClient.from('ventas')
                         .select('*, clientes(*)')
                         .eq('id', ventaId).maybeSingle();
+                    const { data: vData } = await (window.fetchConTimeout ? window.fetchConTimeout(queryV, 1200) : queryV);
                     if (vData) {
                         vBD = vData;
-                        const { data: dData } = await window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
+                        const queryD = window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
+                        const { data: dData } = await (window.fetchConTimeout ? window.fetchConTimeout(queryD, 1200) : queryD);
                         detBD = dData || [];
                     }
                 } catch (eNet) {

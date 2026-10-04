@@ -26,7 +26,8 @@ const isPublicRoute = currentPath.endsWith('index.html') || currentPath === '/' 
 // Rutas de suite de mostrador del CAJERO con soporte offline autónomo
 const isPosRoute = currentPath.endsWith('emitir_ticket.html') || 
                    currentPath.endsWith('arqueo_caja.html') || 
-                   currentPath.endsWith('registros_historicos_ventas.html');
+                   currentPath.endsWith('registros_historicos_ventas.html') ||
+                   currentPath.endsWith('ventas_y_facturacion.html');
 
 const hasPosSessionBackup = isPosRoute && !!localStorage.getItem('microerp_pos_session_backup');
 
@@ -87,8 +88,8 @@ async function checkAuth() {
                         if (hideStyle) hideStyle.remove();
                         window.dispatchEvent(new Event('auth-ready'));
 
-                        // Si no hay red, autorizar inmediatamente sin esperar timeouts de Supabase
-                        if (!navigator.onLine) {
+                        // Si no hay red o estamos en modo offline, autorizar inmediatamente sin esperar timeouts de Supabase
+                        if (!navigator.onLine || window.isOfflineState) {
                             console.log("🛡️ [AuthGuard Offline] Sesión de CAJERO autorizada inmediatamente desde respaldo local.");
                             return;
                         }

@@ -6,13 +6,14 @@
 //           estáticas incluso tras reiniciar la PC sin conexión a internet.
 // =====================================================================================
 
-const CACHE_NAME = 'microerp-pos-cache-v4';
+const CACHE_NAME = 'microerp-pos-cache-v5';
 
 // Recursos críticos requeridos para el rol CAJERO
 const ASSETS_TO_CACHE = [
     './emitir_ticket.html',
     './arqueo_caja.html',
     './registros_historicos_ventas.html',
+    './ventas_y_facturacion.html',
     './auth-guard.js',
     './sidebar.js',
     './impresora_tickets.js',
@@ -90,6 +91,8 @@ self.addEventListener('fetch', (event) => {
                         navResponse = await cache.match('./arqueo_caja.html');
                     } else if (url.pathname.includes('registros_historicos_ventas')) {
                         navResponse = await cache.match('./registros_historicos_ventas.html');
+                    } else if (url.pathname.includes('ventas_y_facturacion')) {
+                        navResponse = await cache.match('./ventas_y_facturacion.html');
                     }
                 }
 
@@ -136,6 +139,10 @@ self.addEventListener('fetch', (event) => {
                     if (url.pathname.includes('registros_historicos_ventas')) {
                         const fallbackHist = await cache.match('./registros_historicos_ventas.html');
                         if (fallbackHist) return fallbackHist;
+                    }
+                    if (url.pathname.includes('ventas_y_facturacion')) {
+                        const fallbackVentas = await cache.match('./ventas_y_facturacion.html');
+                        if (fallbackVentas) return fallbackVentas;
                     }
                 }
 

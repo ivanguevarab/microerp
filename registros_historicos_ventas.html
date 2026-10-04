@@ -296,13 +296,32 @@
 
         async function cargarContextoInicial() {
             currentUserId = window.currentUser?.id;
-            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol').eq('id', currentUserId).single();
-            if (currentEmpresaId && currentEmpresaId !== perfil.empresa_id) {
+            let perfil = window.currentUserProfile;
+
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentUserId) {
+                try {
+                    const profPromise = window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol').eq('id', currentUserId).single();
+                    const { data: p } = await (window.fetchConTimeout ? window.fetchConTimeout(profPromise, 1200) : profPromise);
+                    if (p) perfil = p;
+                } catch (e) {
+                    console.warn("Fallo de red al consultar perfil en registros_historicos_ventas, recurriendo a backup:", e);
+                }
+            }
+
+            if (!perfil) {
+                const sessionBackup = JSON.parse(localStorage.getItem('microerp_pos_session_backup') || '{}');
+                perfil = sessionBackup.profile || {
+                    empresa_id: sessionBackup.empresa_id || localStorage.getItem('empresa_id') || null,
+                    rol: sessionBackup.rol || 'CAJERO'
+                };
+            }
+
+            if (currentEmpresaId && perfil?.empresa_id && currentEmpresaId !== perfil.empresa_id) {
                 cacheProductosCatalogo.clear();
                 cacheCodigosUnicosCatalogo.clear();
             }
-            currentEmpresaId = perfil.empresa_id;
-            currentUserRol = (perfil?.rol || window.currentUserProfile?.rol || '').toUpperCase();
+            currentEmpresaId = perfil?.empresa_id || window.currentEmpresaId || localStorage.getItem('empresa_id');
+            currentUserRol = (perfil?.rol || window.currentUserProfile?.rol || 'CAJERO').toUpperCase();
             isCajero = (currentUserRol === 'CAJERO');
         }
 
@@ -488,6 +507,26 @@
         //  MODAL DETALLES DE VENTA
         // ==========================================
         async function verDetalle(ventaId) {
+            if (window.isOfflineState && window.MicroERPOffline) {
+                try {
+                    const vOff = await window.MicroERPOffline.obtenerVentaPorIdLocal(ventaId);
+                    if (vOff) {
+                        Swal.fire({
+                            title: `Ticket ${vOff.numero_ticket}`,
+                            html: `<div class="text-left text-sm space-y-2 p-2">
+                                <p><b>Fecha:</b> ${vOff.fecha_venta || 'Hoy'}</p>
+                                <p><b>Total:</b> S/ ${formatMoney(vOff.precio_venta_total)}</p>
+                                <p><b>Estado:</b> <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold">LOCAL (PENDIENTE SYNC)</span></p>
+                                <p class="text-xs text-gray-500 mt-3 border-t pt-2">Comprobante guardado de forma soberana en la terminal. Listo para reimpresión térmica con el botón de impresora.</p>
+                            </div>`,
+                            icon: 'info',
+                            confirmButtonText: 'Aceptar'
+                        });
+                        return;
+                    }
+                } catch (_) {}
+            }
+
             Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
             
             try {
