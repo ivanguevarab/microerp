@@ -1584,11 +1584,11 @@
                     const { data: cls } = await window.supabaseClient.from('clientes').select('id, razon_social, numero_documento').eq('empresa_id', currentEmpresaId);
                     clientesDisponibles = cls || [];
 
-                    // Cargar supervisores con PIN para autorización offline
+                    // Cargar supervisores para contingencia offline
                     let supervisoresList = [];
                     try {
                         const { data: sups } = await window.supabaseClient.from('perfiles_usuario')
-                            .select('id, nombre_completo, rol, pin_pos_hash')
+                            .select('id, nombre_completo, rol')
                             .eq('empresa_id', currentEmpresaId)
                             .in('rol', ['ADMIN', 'SUPERVISOR', 'GERENTE']);
                         supervisoresList = sups || [];
@@ -1603,7 +1603,7 @@
                             empresa: emp,
                             seguridad: {
                                 empresa_id: currentEmpresaId,
-                                pin_pos_hash: emp.pin_pos_hash,
+                                pin_hash: emp?.pin_pos_supervisor || null,
                                 supervisores: supervisoresList
                             }
                         });

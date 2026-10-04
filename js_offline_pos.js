@@ -412,7 +412,12 @@
         if (dataCatalogo.seguridad || dataCatalogo.empresa) {
             const tx = db.transaction('seguridad_empresa', 'readwrite');
             const regSeg = dataCatalogo.seguridad || { empresa_id: empresaId };
-            if (dataCatalogo.empresa) regSeg.empresa = dataCatalogo.empresa;
+            if (dataCatalogo.empresa) {
+                regSeg.empresa = dataCatalogo.empresa;
+                if (!regSeg.pin_hash && dataCatalogo.empresa.pin_pos_supervisor) {
+                    regSeg.pin_hash = dataCatalogo.empresa.pin_pos_supervisor;
+                }
+            }
             if (dataCatalogo.almacenes) regSeg.almacenes = dataCatalogo.almacenes;
             tx.objectStore('seguridad_empresa').put(regSeg);
         }
