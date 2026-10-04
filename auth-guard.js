@@ -33,9 +33,23 @@ if (!isPublicRoute) {
     console.log("🛡️ AuthGuard: Escudo visual perimetral activado.");
 }
 
+// Registro PWA Service Worker para soporte offline
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('⚡ [SW POS] Service Worker registrado con éxito:', reg.scope))
+            .catch(err => console.warn('⚠️ [SW POS] Error al registrar Service Worker:', err));
+    });
+}
+
 // Variables específicas para validación extra de rutas con restricciones de módulo
 const protectedRoutes = ['gestion_produccion_y_servicios.html', 'codigos_cup.html'];
 const isProtectedRoute = protectedRoutes.some(route => currentPath.endsWith(route));
+
+// Rutas de suite de mostrador del CAJERO con soporte offline autónomo
+const isPosRoute = currentPath.endsWith('emitir_ticket.html') || 
+                   currentPath.endsWith('arqueo_caja.html') || 
+                   currentPath.endsWith('registros_historicos_ventas.html');
 
 // ============================================
 // Verificación de Sesión (Asíncrona)
@@ -46,10 +60,59 @@ async function checkAuth() {
     console.log("🛡️ AuthGuard: Verificando identidad...");
 
     try {
-        // Obtener sesión actual
-        const { data: { session }, error } = await window.supabaseClient.auth.getSession();
+        // --- RESCATE OFFLINE INMEDIATO PARA SUITE DE CAJERO ---
+        if (isPosRoute && (!navigator.onLine || !window.supabaseClient)) {
+            const backupStr = localStorage.getItem('microerp_pos_session_backup');
+            if (backupStr) {
+                try {
+                    const backup = JSON.parse(backupStr);
+                    if (backup && backup.user && backup.profile) {
+                        window.currentUser = backup.user;
+                        window.currentUserProfile = backup.profile;
+                        console.log("🛡️ [AuthGuard Offline] Sesión de CAJERO autorizada desde respaldo local inmutable.");
+                        updateUserHeader(window.currentUser);
+                        const hideStyle = document.getElementById('auth-guard-hide-style');
+                        if (hideStyle) hideStyle.remove();
+                        window.dispatchEvent(new Event('auth-ready'));
+                        return;
+                    }
+                } catch (_) {}
+            }
+        }
 
-        if (error || !session) {
+        // Obtener sesión actual
+        let session = null;
+        let authError = null;
+
+        try {
+            const res = await window.supabaseClient.auth.getSession();
+            session = res.data ? res.data.session : null;
+            authError = res.error;
+        } catch (errNetSession) {
+            authError = errNetSession;
+        }
+
+        if (authError || !session) {
+            // Si es ruta POS y falló la red, intentar rescate local antes de expulsar
+            if (isPosRoute) {
+                const backupStr = localStorage.getItem('microerp_pos_session_backup');
+                if (backupStr) {
+                    try {
+                        const backup = JSON.parse(backupStr);
+                        if (backup && backup.user && backup.profile) {
+                            window.currentUser = backup.user;
+                            window.currentUserProfile = backup.profile;
+                            console.log("🛡️ [AuthGuard Offline] Sesión de CAJERO autorizada tras microcorte de sesión.");
+                            updateUserHeader(window.currentUser);
+                            const hideStyle = document.getElementById('auth-guard-hide-style');
+                            if (hideStyle) hideStyle.remove();
+                            window.dispatchEvent(new Event('auth-ready'));
+                            return;
+                        }
+                    } catch (_) {}
+                }
+            }
+
             console.warn("⛔ Acceso Denegado: No se encontró sesión activa.");
             if (!window.location.pathname.endsWith('index.html') && window.location.pathname !== '/') {
                 if(!window.location.pathname.endsWith('despedida_usuarios.html')){
@@ -64,27 +127,57 @@ async function checkAuth() {
         
         // 1. Verificación de Admisión (Usuarios Nuevos vs Vinculados)
         if (!window.location.pathname.endsWith('index.html') && window.location.pathname !== '/') {
-            const { data: profile, error: profileError } = await window.supabaseClient
-                .from('perfiles_usuario')
-                .select(`
-                    id,
-                    rol,
-                    estado,
-                    nombre_completo,
-                    accesos_rutas,
-                    empresas (
-                        es_comercializadora,
-                        es_servicios,
-                        es_industrial,
-                        especialidades
-                    )
-                `)
-                .eq('id', session.user.id)
-                .single();
+            let profile = null;
+            let profileError = null;
+
+            try {
+                const resProf = await window.supabaseClient
+                    .from('perfiles_usuario')
+                    .select(`
+                        id,
+                        rol,
+                        estado,
+                        nombre_completo,
+                        accesos_rutas,
+                        empresas (
+                            es_comercializadora,
+                            es_servicios,
+                            es_industrial,
+                            especialidades
+                        )
+                    `)
+                    .eq('id', session.user.id)
+                    .single();
+                profile = resProf.data;
+                profileError = resProf.error;
+            } catch (errNetProf) {
+                profileError = errNetProf;
+            }
 
             const isBienvenida = window.location.pathname.endsWith('bienvenida.html');
 
             if (profileError || !profile) {
+                // Si es suite de cajero y ocurrió un error de red, rescatar perfil local
+                if (isPosRoute) {
+                    const backupStr = localStorage.getItem('microerp_pos_session_backup');
+                    if (backupStr) {
+                        try {
+                            const backup = JSON.parse(backupStr);
+                            if (backup && backup.profile) {
+                                profileData = backup.profile;
+                                window.currentUser = session.user || backup.user;
+                                window.currentUserProfile = profileData;
+                                console.log("🛡️ [AuthGuard Offline] Perfil de CAJERO recuperado de respaldo local ante fallo de red.");
+                                updateUserHeader(window.currentUser);
+                                const hideStyle = document.getElementById('auth-guard-hide-style');
+                                if (hideStyle) hideStyle.remove();
+                                window.dispatchEvent(new Event('auth-ready'));
+                                return;
+                            }
+                        } catch (_) {}
+                    }
+                }
+
                 if (!isBienvenida) {
                     console.warn("🛡️ AuthGuard: Usuario sin perfil asignado. Redirigiendo a bienvenida.");
                     window.location.replace('bienvenida.html');
@@ -92,6 +185,17 @@ async function checkAuth() {
                 return; // Detiene la ejecución, el usuario se queda en (o va a) bienvenida
             } else {
                 profileData = profile;
+                // Guardar respaldo local de sesión para operatividad offline
+                if (profileData && profileData.rol === 'CAJERO') {
+                    try {
+                        localStorage.setItem('microerp_pos_session_backup', JSON.stringify({
+                            user: session.user,
+                            profile: profileData,
+                            timestamp: Date.now()
+                        }));
+                    } catch (_) {}
+                }
+
                 if (isBienvenida) {
                     window.location.replace('dashboard.html');
                     return;

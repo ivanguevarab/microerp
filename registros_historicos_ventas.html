@@ -31,6 +31,7 @@
     <!-- Supabase & Auth -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth-guard.js"></script>
+    <script src="js_offline_pos.js"></script>
 
     <link rel="stylesheet" href="styles.css">
 
@@ -297,63 +298,86 @@
             const fecFin = document.getElementById('filtroFechaFin').value;
             
             const tbody = document.getElementById('tablaVentas');
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500"><i class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></i><br>Consultando BD...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500"><i class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></i><br>Consultando datos...</td></tr>';
 
-            try {
-                let query = window.supabaseClient.from('ventas')
-                    .select(`
-                        id, numero_ticket, fecha_venta, tipo_comprobante, genera_igv, precio_venta_total, condicion_pago, saldo_pendiente, estado, igv_debito_total, created_by,
-                        clientes ( id, razon_social, numero_documento )
-                    `)
-                    .eq('empresa_id', currentEmpresaId);
+            let ventasNube = [];
+            let ventasLocales = [];
 
-                // Filtrado estricto por cajero (Aprovecha índice compuesto B-Tree)
-                if (isCajero) {
-                    query = query.eq('usuario_id', currentUserId);
+            // 1. Consultar ventas locales offline en IndexedDB
+            if (window.MicroERPOffline) {
+                try {
+                    ventasLocales = await window.MicroERPOffline.obtenerVentasLocales(currentEmpresaId);
+                    const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(currentEmpresaId);
+                    const clientesMap = {};
+                    (snap?.clientes || []).forEach(c => { clientesMap[c.id] = c; });
+                    ventasLocales.forEach(v => {
+                        v.clientes = clientesMap[v.cliente_id] || { razon_social: 'Cliente NN', numero_documento: '---' };
+                        v.estado = 'PENDIENTE_SYNC';
+                    });
+                } catch (_) {}
+            }
+
+            // 2. Consultar ventas en la nube (si hay conexión a internet)
+            if (navigator.onLine && window.supabaseClient) {
+                try {
+                    let query = window.supabaseClient.from('ventas')
+                        .select(`
+                            id, numero_ticket, fecha_venta, tipo_comprobante, genera_igv, precio_venta_total, condicion_pago, saldo_pendiente, estado, igv_debito_total, created_by,
+                            clientes ( id, razon_social, numero_documento )
+                        `)
+                        .eq('empresa_id', currentEmpresaId);
+
+                    // Filtrado estricto por cajero (Aprovecha índice compuesto B-Tree)
+                    if (isCajero) {
+                        query = query.eq('usuario_id', currentUserId);
+                    }
+
+                    query = query.order('created_at', { ascending: false });
+
+                    if (fecInc) query = query.gte('fecha_venta', fecInc);
+                    if (fecFin) query = query.lte('fecha_venta', fecFin);
+
+                    const limiteMaximo = 500;
+                    if (!term) {
+                        query = query.limit(limiteMaximo);
+                    }
+
+                    const { data: vData, error } = await query;
+                    if (!error && vData) {
+                        ventasNube = vData;
+                    }
+                } catch (eNet) {
+                    console.warn("Fallo de red al consultar ventas históricas en Supabase:", eNet);
                 }
+            }
 
-                query = query.order('created_at', { ascending: false });
+            // 3. Fusionar ventas (Locales pendientes primero, seguidas de ventas de nube)
+            const idsNube = new Set(ventasNube.map(v => v.id));
+            const localesUnicas = ventasLocales.filter(v => !idsNube.has(v.id));
+            const todasLasVentas = [...localesUnicas, ...ventasNube];
 
-                if (fecInc) query = query.gte('fecha_venta', fecInc);
-                if (fecFin) query = query.lte('fecha_venta', fecFin);
-
-                // Límite protector para consultas masivas generales sin filtro de búsqueda específico
-                const limiteMaximo = 500;
-                if (!term) {
-                    query = query.limit(limiteMaximo);
-                }
-
-                const { data: ventas, error } = await query;
-                if(error) throw error;
-
-                // Filtrar localmente si hay término
-                let filtrados = ventas || [];
-                let alcanzadoTope = false;
-                if(term) {
-                    const t = term.toLowerCase();
-                    filtrados = filtrados.filter(v => {
-                        const c1 = (v.numero_ticket||'').toLowerCase().includes(t) ||
+            // 4. Filtrar si hay término de búsqueda
+            let filtrados = todasLasVentas;
+            let alcanzadoTope = false;
+            if (term) {
+                const t = term.toLowerCase();
+                filtrados = filtrados.filter(v => {
+                    const c1 = (v.numero_ticket||'').toLowerCase().includes(t) ||
                         (v.clientes?.razon_social||'').toLowerCase().includes(t) ||
                         (v.clientes?.numero_documento||'').includes(t);
-                        return c1;
-                    });
-                } else if ((ventas || []).length >= limiteMaximo) {
-                    alcanzadoTope = true;
-                }
+                    return c1;
+                });
+            } else if (ventasNube.length >= 500) {
+                alcanzadoTope = true;
+            }
 
-                renderTabla(filtrados, alcanzadoTope);
+            renderTabla(filtrados, alcanzadoTope);
 
-                // Auto-apertura si viene en URL y encontró 1 solo resultado exacto
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('autoopen') === 'true' && filtrados.length === 1) {
-                    setTimeout(() => { verDetalle(filtrados[0].id); }, 500);
-                    // Limpiar url para que si recarga no se vuelva a abrir y quitar el parámetro visualmente
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                }
-
-            } catch (e) {
-                console.error("Error cargas:", e);
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-red-500">Error al cargar datos.</td></tr>';
+            // Auto-apertura si viene en URL y encontró 1 solo resultado exacto
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('autoopen') === 'true' && filtrados.length === 1) {
+                setTimeout(() => { verDetalle(filtrados[0].id); }, 500);
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
         }
 
@@ -375,8 +399,14 @@
 
             ventas.forEach(v => {
                 const isAnulado = v.estado === 'ANULADO';
+                const isOfflinePendiente = v.estado === 'PENDIENTE_SYNC';
                 const textColorClass = isAnulado ? 'text-gray-400 line-through opacity-70' : '';
                 
+                let badgeEstadoHTML = `<span class="status-badge ${isAnulado ? 'status-anulado' : 'status-registrado'}">${v.estado}</span>`;
+                if (isOfflinePendiente) {
+                    badgeEstadoHTML = `<span class="status-badge bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 font-bold" title="Comprobante emitido en modo offline, pendiente de subir a Supabase"><i class="fas fa-clock mr-1"></i>LOCAL (SYNC)</span>`;
+                }
+
                 const tr = document.createElement('tr');
                 tr.className = isAnulado ? 'bg-gray-50' : '';
                 
@@ -400,7 +430,7 @@
                         ${v.condicion_pago === 'CREDITO' ? `<div class="text-[10px] text-rose-500 font-bold mt-0.5" title="Saldo Pendiente de Crédito">Deuda: S/ ${formatMoney(v.saldo_pendiente||0)}</div>` : ''}
                     </td>
                     <td class="text-center ${textColorClass}">
-                        <span class="status-badge ${isAnulado ? 'status-anulado' : 'status-registrado'}">${v.estado}</span>
+                        ${badgeEstadoHTML}
                     </td>
                     <td class="text-center ${textColorClass}">
                         <div class="flex gap-2">
@@ -676,11 +706,17 @@
                                     <h3 class="font-bold text-blue-900 text-[14px]">Adelantos y Transacciones de Pago</h3>
                                     <p class="text-[12px] text-blue-700 mt-0.5">Deuda Pendiente: <span class="font-black text-rose-500 bg-white px-2 rounded ml-1 border border-rose-100">S/ ${formatMoney(v.saldo_pendiente||0)}</span></p>
                                 </div>
-                                ${v.saldo_pendiente > 0 && v.estado !== 'ANULADO' ? `
-                                <button onclick="registrarAdelanto('${v.id}', ${v.saldo_pendiente||0})" class="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-1.5 px-3 rounded-lg shadow transition-colors flex items-center">
-                                    <i class="fas fa-plus mr-1.5"></i> Ingresar Pago
-                                </button>
-                                ` : (v.saldo_pendiente <= 0 ? `<div class="bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded border border-emerald-200 shadow-sm"><i class="fas fa-check-double mr-1 text-emerald-600"></i> DEUDA SALDADA</div>` : '')}
+                                ${v.saldo_pendiente > 0 && v.estado !== 'ANULADO' ? (
+                                    isCajero ? `
+                                    <button disabled class="bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[11px] font-bold py-1.5 px-3 rounded-lg shadow-none flex items-center cursor-not-allowed opacity-60" title="Acceso Bloqueado: El rol Cajero no está autorizado para ingresar cobranzas de créditos">
+                                        <i class="fas fa-lock mr-1.5"></i> Ingresar Pago
+                                    </button>
+                                    ` : `
+                                    <button onclick="registrarAdelanto('${v.id}', ${v.saldo_pendiente||0})" class="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-1.5 px-3 rounded-lg shadow transition-colors flex items-center">
+                                        <i class="fas fa-plus mr-1.5"></i> Ingresar Pago
+                                    </button>
+                                    `
+                                ) : (v.saldo_pendiente <= 0 ? `<div class="bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded border border-emerald-200 shadow-sm"><i class="fas fa-check-double mr-1 text-emerald-600"></i> DEUDA SALDADA</div>` : '')}
                             </div>
                             <div class="bg-white rounded border border-blue-100 overflow-hidden px-4">
                                 ${rowsPagos || '<div class="py-4 text-center text-xs text-blue-400 font-medium">Ningún pago registrado todavía.</div>'}
@@ -758,6 +794,15 @@
         //  REGISTRO DINÁMICO DE ADELANTOS (CRÉDITO)
         // ==========================================
         async function registrarAdelanto(ventaId, saldoActual) {
+            if (isCajero) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Acceso Restringido',
+                    text: 'El rol Cajero no está autorizado para registrar cobranzas de créditos.'
+                });
+                return;
+            }
+
             // Close the current modal temporarily to show the input form to avoid Z-index overlaps
             Swal.close();
 

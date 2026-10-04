@@ -121,16 +121,45 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                 v.clientes = datosEnMemoria.cliente;
             }
         } else {
-            // 1. Obtener Datos de la Venta (Safe Fallback para reimpresión histórica)
-            const { data: vBD, error: eV } = await window.supabaseClient.from('ventas')
-                .select('*, clientes(*)')
-                .eq('id', ventaId).single();
-            if (eV || !vBD) throw new Error("No se encontró la cabecera de la venta: " + (eV ? eV.message : ''));
-            v = vBD;
+            // 1. Obtener Datos de la Venta (con Fallback Offline a IndexedDB)
+            let vBD = null;
+            let detBD = null;
 
-            const { data: detBD, error: eD } = await window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
-            if (eD) throw new Error("No se encontraron detalles de la venta: " + eD.message);
-            det = detBD;
+            if (navigator.onLine && window.supabaseClient) {
+                try {
+                    const { data: vData } = await window.supabaseClient.from('ventas')
+                        .select('*, clientes(*)')
+                        .eq('id', ventaId).maybeSingle();
+                    if (vData) {
+                        vBD = vData;
+                        const { data: dData } = await window.supabaseClient.from('ventas_detalle').select('*').eq('venta_id', ventaId);
+                        detBD = dData || [];
+                    }
+                } catch (eNet) {
+                    console.warn("Fallo de red al consultar ticket en Supabase:", eNet);
+                }
+            }
+
+            // Fallback a cola offline en IndexedDB
+            if (!vBD && window.MicroERPOffline) {
+                const vOff = await window.MicroERPOffline.obtenerVentaPorIdLocal(ventaId);
+                if (vOff) {
+                    vBD = vOff;
+                    detBD = vOff.detalles || [];
+                    const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(vOff.empresa_id);
+                    emp = snap?.empresa || { nombre_comercial: 'MicroERP', razon_social: 'MicroERP', ruc: '---' };
+                    direccionTicket = emp.direccion || 'Sede Principal';
+                    vBD.clientes = (snap?.clientes || []).find(c => c.id === vOff.cliente_id) || { razon_social: 'Cliente NN', numero_documento: '---' };
+                    (snap?.items || []).forEach(it => {
+                        dicc[it.id] = it.descripcion;
+                        diccUM[it.id] = it.unidad_medida || 'NIU';
+                    });
+                }
+            }
+
+            if (!vBD) throw new Error("No se encontró la cabecera del ticket ni en servidor ni en terminal local.");
+            v = vBD;
+            det = detBD || [];
 
             // 1.2 Recuperar pago inicial si es crédito y estamos reimprimiendo
             if (v.condicion_pago === 'CREDITO' && montoRecibido === 0) {

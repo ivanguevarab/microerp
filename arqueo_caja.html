@@ -28,6 +28,7 @@
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js_offline_pos.js"></script>
 
     <link rel="stylesheet" href="styles.css">
 
@@ -822,10 +823,28 @@
                     return;
                 }
             } catch (errRpcEx) {
-                console.warn("RPC rpc_obtener_resumen_cierre_caja en espera, usando fallback directo:", errRpcEx);
+                console.warn("RPC rpc_obtener_resumen_cierre_caja en espera, usando fallback:", errRpcEx);
             }
 
-            // Fallback de contingencia: consulta directa filtrando por operador en turno
+            // Fallback de contingencia: si no hay red, calcular directamente desde IndexedDB cola_ventas_sync
+            if (!navigator.onLine && window.MicroERPOffline) {
+                const horaAp = (currentTurnoActivo && currentTurnoActivo.hora_apertura) ? currentTurnoActivo.hora_apertura : null;
+                const resOffline = await window.MicroERPOffline.calcularResumenTurnoOffline(currentEmpresaId, windowCajaIdentificador, horaAp);
+                currentResumenTurno = resOffline;
+                mathSysVentasContado = resOffline.total_sistema;
+                document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
+                const infoComprobantes = document.getElementById('txtTurnoInfo');
+                if (infoComprobantes) {
+                    const cant = resOffline.cantidad_tickets || 0;
+                    const rango = (resOffline.primer_ticket && resOffline.ultimo_ticket) 
+                        ? ` (${resOffline.primer_ticket} al ${resOffline.ultimo_ticket})` 
+                        : '';
+                    infoComprobantes.innerHTML = `<span class="font-bold text-amber-600 dark:text-amber-400">${cant} comprobante(s) offline</span> emitido(s) en turno${rango}`;
+                }
+                return;
+            }
+
+            // Fallback de contingencia online: consulta directa filtrando por operador en turno
             const fStr = asFechaStr();
             const isoDesde = new Date(fStr + 'T00:00:00-05:00').toISOString();
             const isoHasta = new Date(fStr + 'T23:59:59-05:00').toISOString();
@@ -879,7 +898,14 @@
                 if(eData) document.getElementById('print-empresa-nombre').textContent = eData.nombre;
 
             } catch (error) { 
-                console.error("Error al extraer ventas:", error); 
+                console.error("Error al extraer ventas en la nube, recurriendo a IndexedDB:", error);
+                if (window.MicroERPOffline) {
+                    const horaAp = (currentTurnoActivo && currentTurnoActivo.hora_apertura) ? currentTurnoActivo.hora_apertura : null;
+                    const resOffline = await window.MicroERPOffline.calcularResumenTurnoOffline(currentEmpresaId, windowCajaIdentificador, horaAp);
+                    currentResumenTurno = resOffline;
+                    mathSysVentasContado = resOffline.total_sistema;
+                    document.getElementById('ui-vta-contado').textContent = `S/ ${formatMoney(mathSysVentasContado)}`;
+                }
             }
         }
 
@@ -1102,29 +1128,42 @@
             });
 
             try {
-                const { data, error } = await window.supabaseClient.rpc('rpc_validar_pin_supervisor', {
-                    p_empresa_id: currentEmpresaId,
-                    p_pin: pinIngresado
-                });
+                let esValido = false;
+                let msgError = 'PIN de Supervisor incorrecto.';
 
-                if (error) throw error;
+                if (navigator.onLine && window.supabaseClient) {
+                    try {
+                        const { data, error } = await window.supabaseClient.rpc('rpc_validar_pin_supervisor', {
+                            p_empresa_id: currentEmpresaId,
+                            p_pin: pinIngresado
+                        });
+                        if (!error && data) {
+                            esValido = data.valido;
+                            if (!esValido) msgError = data.mensaje || msgError;
+                        }
+                    } catch (ePin) {
+                        console.warn("Fallo de red validando PIN en la nube, usando validación criptográfica offline:", ePin);
+                    }
+                }
 
-                if (data && data.valido) {
+                // Fallback criptográfico offline (Web Crypto SHA-256 en IndexedDB)
+                if (!esValido && window.MicroERPOffline) {
+                    try {
+                        const resOff = await window.MicroERPOffline.validarPinSupervisorOffline(currentEmpresaId, pinIngresado);
+                        if (resOff && resOff.valido) {
+                            esValido = true;
+                        }
+                    } catch (_) {}
+                }
+
+                if (esValido) {
                     Swal.close();
                     await guardarCierreEnNube();
                 } else {
-                    let msg = data?.mensaje || 'PIN de Supervisor incorrecto.';
-                    if (data?.codigo === 'SIN_CONFIGURAR') {
-                        msg = 'El Administrador aún no ha configurado el PIN de Supervisor en esta tienda. Debe configurarse primero en el POS.';
-                    } else if (data?.codigo === 'BLOQUEADO') {
-                        msg = data.mensaje;
-                    } else if (data?.intentos_restantes !== undefined) {
-                        msg += ` Intentos restantes: ${data.intentos_restantes}`;
-                    }
                     Swal.fire({
                         icon: 'error',
                         title: 'Autorización Denegada',
-                        text: msg
+                        text: msgError
                     });
                 }
             } catch (err) {
@@ -1226,19 +1265,41 @@
             };
 
             try {
-                const { data, error } = await window.supabaseClient
-                    .from('pos_cierres_caja')
-                    .insert([payloadCierre])
-                    .select()
-                    .single();
+                let dataCierre = null;
+                let esOffline = false;
+
+                if (navigator.onLine && window.supabaseClient) {
+                    try {
+                        const { data, error } = await window.supabaseClient
+                            .from('pos_cierres_caja')
+                            .insert([payloadCierre])
+                            .select()
+                            .single();
+                        if (!error && data) {
+                            dataCierre = data;
+                        } else if (error) {
+                            console.warn("Fallo de red al insertar cierre en Supabase:", error);
+                        }
+                    } catch (eCierreNet) {
+                        console.warn("Error de red al guardar Cierre Z en Supabase:", eCierreNet);
+                    }
+                }
+
+                // Modo Offline: Guardar en cola de IndexedDB para sincronización diferida
+                if (!dataCierre) {
+                    if (window.MicroERPOffline) {
+                        dataCierre = await window.MicroERPOffline.guardarCierreZOffline(payloadCierre);
+                        esOffline = true;
+                    } else {
+                        dataCierre = payloadCierre;
+                    }
+                }
 
                 document.getElementById('global-spinner').classList.add('hidden');
 
-                if (error) throw error;
-
                 // Cerrar formalmente el turno en pos_turnos_activos y purgar memorias locales
                 try {
-                    if (currentTurnoActivo && currentTurnoActivo.id) {
+                    if (currentTurnoActivo && currentTurnoActivo.id && navigator.onLine) {
                         await window.supabaseClient
                             .from('pos_turnos_activos')
                             .update({ estado: 'CERRADO', hora_cierre: new Date().toISOString() })
@@ -1261,14 +1322,19 @@
                 });
                 recalcularTodo();
 
-                const cierreGuardado = data || payloadCierre;
+                const cierreGuardado = dataCierre || payloadCierre;
                 cierreGuardado.tipo_cierre = 'CORTE_Z';
 
+                const tituloExito = esOffline ? '¡Cierre de Turno Registrado (Modo Offline)!' : '¡Cierre de Turno Guardado con Éxito!';
+                const detalleExito = esOffline 
+                    ? 'El Cierre Z fue guardado de forma segura en la terminal física y se sincronizará automáticamente al volver el internet.' 
+                    : 'El cierre contable fue registrado de forma inmutable en Supabase.';
+
                 const resSwal = await Swal.fire({
-                    icon: 'success',
-                    title: '¡Cierre de Turno Guardado con Éxito!',
+                    icon: esOffline ? 'info' : 'success',
+                    title: tituloExito,
                     html: `
-                        <p class="text-sm text-slate-600 mb-2">El cierre contable fue registrado de forma inmutable en Supabase.</p>
+                        <p class="text-sm text-slate-600 mb-2">${detalleExito}</p>
                         <p class="text-xs text-slate-500 mb-3">Al regresar a ventas se solicitará la apertura del siguiente turno.</p>
                         <p class="text-xs font-semibold text-slate-700">¿Deseas imprimir el Ticket Térmico oficial para la gaveta?</p>
                     `,

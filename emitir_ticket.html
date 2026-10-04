@@ -29,6 +29,7 @@
     <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="js_offline_pos.js"></script>
 
     <link rel="stylesheet" href="styles.css">
 
@@ -447,6 +448,11 @@
                 </h1>
                 <div id="badgeOperadorTerminal" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600/30 border border-blue-400/40 text-blue-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-blue-600/40 transition flex-shrink-0" onclick="solicitarCambioTurno()" title="Clic para ver estado o solicitar relevo de turno">
                     <span id="txtBadgeOperador">Operador en Turno</span>
+                </div>
+                <div id="badgeSyncOffline" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-emerald-600/40 transition flex-shrink-0" onclick="forzarSincronizacionManual()" title="Clic para verificar o forzar sincronización con la nube">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400" id="dotSyncStatus"></span>
+                    <span id="txtSyncStatus">En línea</span>
+                    <span id="badgeColaPendiente" class="hidden px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-slate-900 font-black">0</span>
                 </div>
                 <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 hidden xl:block flex-shrink-0"></div>
             </div>
@@ -940,6 +946,80 @@
             return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
         }
 
+        // =========================================================================
+        // GESTIÓN DEL BADGE DE SINCRONIZACIÓN Y RESILIENCIA OFFLINE
+        // =========================================================================
+        async function actualizarBadgeSyncUI(estado, detalle = '') {
+            const badge = document.getElementById('badgeSyncOffline');
+            const dot = document.getElementById('dotSyncStatus');
+            const txt = document.getElementById('txtSyncStatus');
+            const badgeCount = document.getElementById('badgeColaPendiente');
+            if (!badge || !dot || !txt) return;
+
+            let pendientes = 0;
+            if (window.MicroERPOffline) {
+                const c = await window.MicroERPOffline.contarPendientesSync();
+                pendientes = c.total;
+            }
+
+            if (badgeCount) {
+                if (pendientes > 0) {
+                    badgeCount.textContent = pendientes;
+                    badgeCount.classList.remove('hidden');
+                } else {
+                    badgeCount.classList.add('hidden');
+                }
+            }
+
+            if (!navigator.onLine) {
+                badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-600/30 border border-amber-400/50 text-amber-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-amber-600/40 transition flex-shrink-0";
+                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+                txt.textContent = pendientes > 0 ? `Modo Offline (${pendientes})` : 'Modo Offline';
+            } else if (estado === 'SUBIENDO') {
+                badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600/30 border border-blue-400/50 text-blue-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-blue-600/40 transition flex-shrink-0";
+                dot.className = "w-2 h-2 rounded-full bg-blue-400";
+                txt.textContent = detalle || 'Sincronizando...';
+            } else if (pendientes > 0) {
+                badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-600/30 border border-amber-400/50 text-amber-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-amber-600/40 transition flex-shrink-0";
+                dot.className = "w-2 h-2 rounded-full bg-amber-400";
+                txt.textContent = `Pendientes (${pendientes})`;
+            } else {
+                badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-emerald-600/40 transition flex-shrink-0";
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                txt.textContent = 'En línea';
+            }
+        }
+
+        window.forzarSincronizacionManual = async () => {
+            if (!navigator.onLine) {
+                mostrarToast("Terminal sin internet. Las ventas se sincronizarán al restablecerse la red.", "warning");
+                return;
+            }
+            mostrarToast("Verificando cola de sincronización...", "info");
+            if (window.MicroERPOffline && window.supabaseClient && currentEmpresaId) {
+                await window.MicroERPOffline.sincronizarColaOfflineConNube(window.supabaseClient, currentEmpresaId, window.cajaIdentificador);
+                actualizarBadgeSyncUI();
+            }
+        };
+
+        window.addEventListener('online', () => {
+            console.log("🌐 Red restablecida. Disparando sincronización en segundo plano...");
+            actualizarBadgeSyncUI();
+            if (window.MicroERPOffline && window.supabaseClient && currentEmpresaId) {
+                window.MicroERPOffline.sincronizarColaOfflineConNube(window.supabaseClient, currentEmpresaId, window.cajaIdentificador);
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            console.warn("📴 Terminal desconectada. Modo Offline activo.");
+            actualizarBadgeSyncUI();
+        });
+
+        window.addEventListener('pos-sync-status', (e) => {
+            const d = e.detail || {};
+            actualizarBadgeSyncUI(d.estado, d.mensaje);
+        });
+
         // Helper para ignorar tildes
         function removeAccents(str) {
             if (!str) return '';
@@ -1397,75 +1477,173 @@
         }
 
         async function generarNuevoTicket() {
-            const year = new Date().getFullYear();
-            const prefix = `TCK-${year}-`;
+            const cajaId = window.cajaIdentificador || localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
+            const serie = window.MicroERPOffline ? window.MicroERPOffline.calcularSeriePorCaja(cajaId) : `TCK-${new Date().getFullYear()}-01`;
+
+            // Si hay red, sincronizar el puntero hacia adelante si la nube tiene un número mayor
+            if (navigator.onLine && window.supabaseClient && currentEmpresaId) {
+                try {
+                    const { data } = await window.supabaseClient.from('ventas')
+                        .select('numero_ticket')
+                        .eq('empresa_id', currentEmpresaId)
+                        .ilike('numero_ticket', `${serie}-%`)
+                        .order('numero_ticket', { ascending: false })
+                        .limit(1);
+
+                    if (data && data.length > 0) {
+                        const parts = data[0].numero_ticket.split('-');
+                        if (parts.length >= 4) {
+                            const ultNum = parseInt(parts[parts.length - 1], 10);
+                            if (!isNaN(ultNum) && window.MicroERPOffline) {
+                                await window.MicroERPOffline.forzarPunteroCorrelativoSiMayor(serie, ultNum);
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
+
             try {
-                const { data, error } = await window.supabaseClient.from('ventas')
-                    .select('numero_ticket')
-                    .eq('empresa_id', currentEmpresaId)
-                    .ilike('numero_ticket', `${prefix}%`)
-                    .order('numero_ticket', { ascending: false })
-                    .limit(1);
-
-                if (error) throw error;
-
-                let sec = 1;
-                if (data && data.length > 0) {
-                    const parts = data[0].numero_ticket.split('-');
-                    if (parts.length === 3) sec = parseInt(parts[2], 10) + 1;
+                if (window.MicroERPOffline) {
+                    const nuevoCodigo = await window.MicroERPOffline.obtenerSiguienteCorrelativoSoberano(serie, cajaId);
+                    document.getElementById('ticketNumber').textContent = nuevoCodigo;
+                    return nuevoCodigo;
+                } else {
+                    const fallback = `${serie}-000001`;
+                    document.getElementById('ticketNumber').textContent = fallback;
+                    return fallback;
                 }
-                const nuevoCodigo = `${prefix}${String(sec).padStart(6, '0')}`;
-                document.getElementById('ticketNumber').textContent = nuevoCodigo;
-                return nuevoCodigo;
             } catch (err) {
                 console.error("Error al generar correlativo de ticket:", err);
-                const fallback = `${prefix}${String(Math.floor(Math.random() * 100000)).padStart(6, '0')}`;
+                const fallback = `${serie}-${String(Math.floor(Math.random() * 100000)).padStart(6, '0')}`;
                 document.getElementById('ticketNumber').textContent = fallback;
                 return fallback;
             }
         }
 
         async function cargarContextoInicial() {
-            // 1. Obtener Empresa y Perfil del Usuario Cajero
-            const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol, nombre_completo').eq('id', window.currentUser.id).single();
+            // 1. Obtener Empresa y Perfil del Usuario Cajero (con fallback offline)
+            let perfil = null;
+            let emp = null;
+
+            if (navigator.onLine && window.supabaseClient && window.currentUser) {
+                try {
+                    const { data: p } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol, nombre_completo').eq('id', window.currentUser.id).single();
+                    perfil = p;
+                    if (perfil?.empresa_id) {
+                        const { data: e } = await window.supabaseClient.from('empresas').select('*').eq('id', perfil.empresa_id).single();
+                        emp = e;
+                    }
+                } catch (errRed) {
+                    console.warn("Fallo al consultar perfil/empresa en Supabase, recurriendo a backup:", errRed);
+                }
+            }
+
+            // Fallback a respaldo local de sesión si no hubo respuesta de red
+            if (!perfil || !emp) {
+                const sessionBackup = JSON.parse(localStorage.getItem('microerp_pos_session_backup') || '{}');
+                perfil = sessionBackup.userProfile || {
+                    empresa_id: sessionBackup.empresa_id || null,
+                    rol: sessionBackup.rol || 'CAJERO',
+                    nombre_completo: sessionBackup.nombre_completo || 'Cajero'
+                };
+                emp = sessionBackup.empresa || {
+                    id: perfil.empresa_id,
+                    nombre_comercial: 'MicroERP',
+                    razon_social: 'MicroERP',
+                    es_comercializadora: true,
+                    limite_cajas: 2
+                };
+            }
+
             currentEmpresaId = perfil.empresa_id;
             windowUserRole = (perfil?.rol || 'CAJERO').toUpperCase();
             window.currentUserProfile = perfil;
-            window.cajeroName = perfil.nombre_completo || window.currentUser.email.split('@')[0];
-
-            const { data: emp } = await window.supabaseClient.from('empresas').select('*').eq('id', currentEmpresaId).single();
+            window.cajeroName = perfil.nombre_completo || window.currentUser?.email?.split('@')[0] || 'Cajero';
             perfilEmpresa = emp;
 
-            // Precarga de catálogo en memoria RAM para resiliencia de búsqueda ante microcortes
-            try {
-                const { data: catItems } = await window.supabaseClient.from('items')
-                    .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector')
-                    .eq('empresa_id', currentEmpresaId)
-                    .eq('activo', true);
-                window.catalogoItemsCache = catItems || [];
-            } catch (eCat) {
-                console.warn("No se pudo precargar catálogo en memoria:", eCat);
-                window.catalogoItemsCache = [];
+            // 2. Cargar Catálogo de Items (Online con snapshotting a IndexedDB o Fallback Offline)
+            let itemsParaMemoria = [];
+            let almacenesDisponibles = [];
+            let clientesDisponibles = [];
+
+            if (navigator.onLine && window.supabaseClient && currentEmpresaId) {
+                try {
+                    const { data: catItems } = await window.supabaseClient.from('items')
+                        .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector, stock_total')
+                        .eq('empresa_id', currentEmpresaId)
+                        .eq('activo', true);
+                    itemsParaMemoria = catItems || [];
+
+                    // Cargar almacenes
+                    if (emp.es_comercializadora) {
+                        const { data: alm } = await window.supabaseClient.from('almacenes').select('*').eq('activo', true);
+                        almacenesDisponibles = alm || [];
+                    }
+
+                    // Cargar clientes
+                    const { data: cls } = await window.supabaseClient.from('clientes').select('id, razon_social, numero_documento').eq('empresa_id', currentEmpresaId);
+                    clientesDisponibles = cls || [];
+
+                    // Cargar supervisores con PIN para autorización offline
+                    let supervisoresList = [];
+                    try {
+                        const { data: sups } = await window.supabaseClient.from('perfiles_usuario')
+                            .select('id, nombre_completo, rol, pin_pos_hash')
+                            .eq('empresa_id', currentEmpresaId)
+                            .in('rol', ['ADMIN', 'SUPERVISOR', 'GERENTE']);
+                        supervisoresList = sups || [];
+                    } catch (_) {}
+
+                    // Persistir snapshot completo a IndexedDB en segundo plano
+                    if (window.MicroERPOffline) {
+                        window.MicroERPOffline.guardarSnapshotCatalogo(currentEmpresaId, {
+                            items: itemsParaMemoria,
+                            almacenes: almacenesDisponibles,
+                            clientes: clientesDisponibles,
+                            empresa: emp,
+                            seguridad: {
+                                empresa_id: currentEmpresaId,
+                                pin_pos_hash: emp.pin_pos_hash,
+                                supervisores: supervisoresList
+                            }
+                        });
+                    }
+
+                } catch (eCat) {
+                    console.warn("Fallo de red al obtener catálogo, recurriendo a IndexedDB:", eCat);
+                }
             }
+
+            // Si falló la red o estamos offline, restaurar catálogo desde IndexedDB
+            if (itemsParaMemoria.length === 0 && window.MicroERPOffline) {
+                const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(currentEmpresaId);
+                itemsParaMemoria = snap.items || [];
+                if (almacenesDisponibles.length === 0) almacenesDisponibles = snap.almacenes || [];
+                if (clientesDisponibles.length === 0) clientesDisponibles = snap.clientes || [];
+                if (!perfilEmpresa && snap.empresa) perfilEmpresa = snap.empresa;
+            }
+
+            window.catalogoItemsCache = itemsParaMemoria;
+            todosLosClientes = clientesDisponibles;
 
             // Mostrar tabs habilitados
             let primerFiltro = null;
-            if(emp.es_comercializadora) { document.getElementById('tabItems').style.display = 'block'; document.getElementById('almacenesContainer').style.display = 'flex'; primerFiltro = 'ITEMS'; }
-            if(emp.es_servicios) { document.getElementById('tabCUS').style.display = 'block'; primerFiltro = primerFiltro || 'CUS'; }
-            if(emp.es_industrial) { document.getElementById('tabCUP').style.display = 'block'; primerFiltro = primerFiltro || 'CUP';}
+            if (emp.es_comercializadora) { document.getElementById('tabItems').style.display = 'block'; document.getElementById('almacenesContainer').style.display = 'flex'; primerFiltro = 'ITEMS'; }
+            if (emp.es_servicios) { document.getElementById('tabCUS').style.display = 'block'; primerFiltro = primerFiltro || 'CUS'; }
+            if (emp.es_industrial) { document.getElementById('tabCUP').style.display = 'block'; primerFiltro = primerFiltro || 'CUP'; }
             
-            if(primerFiltro) setFiltroGiro(primerFiltro);
+            if (primerFiltro) setFiltroGiro(primerFiltro);
 
-            // 2. Cargar Almacenes (Para venta de Items físicos)
-            if(emp.es_comercializadora) {
-                const { data: alm } = await window.supabaseClient.from('almacenes').select('*').eq('activo', true);
+            // 3. Renderizar Selector de Almacenes
+            if (emp.es_comercializadora) {
                 const container = document.getElementById('almacenesContainer');
                 const inputOculto = document.getElementById('almacenOrigen');
+                container.innerHTML = '';
                 
                 const guardado = localStorage.getItem('microerp_pos_almacen');
-                let seleccionado = (alm||[]).find(a => a.id == guardado) ? guardado : ((alm && alm.length > 0) ? alm[0].id : '');
+                let seleccionado = (almacenesDisponibles||[]).find(a => a.id == guardado) ? guardado : ((almacenesDisponibles && almacenesDisponibles.length > 0) ? almacenesDisponibles[0].id : '');
 
-                (alm||[]).forEach(a => {
+                (almacenesDisponibles||[]).forEach(a => {
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = `px-4 py-2 rounded-lg text-sm transition-all border font-medium shadow-sm ${a.id == seleccionado ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/30' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`;
@@ -1488,15 +1666,16 @@
                 inputOculto.value = seleccionado;
             }
 
-            // 3. Cargar Clientes
-            const { data: clientes } = await window.supabaseClient.from('clientes').select('id, razon_social, numero_documento').eq('empresa_id', currentEmpresaId);
-            todosLosClientes = clientes || [];
+            // 4. Cargar Tipo Egreso para la parte logística
+            if (navigator.onLine && window.supabaseClient) {
+                try {
+                    const { data: te } = await window.supabaseClient.from('tipos_egresos').select('id, nombre');
+                    tipoEgresosDisponibles = te || [];
+                } catch (_) {}
+            }
 
-            // 4. Cargar Tipo Egreso para la parte logística (Si vende items, tiene que enlazar un egreso físico)
-            const { data: te } = await window.supabaseClient.from('tipos_egresos').select('id, nombre');
-            tipoEgresosDisponibles = te || [];
-
-            // 5. HIDRATACIÓN (Recuperar backup de SessionStorage antes de auto-seleccionar)
+            // 5. HIDRATACIÓN DE CANASTA (Prioridad: sessionStorage -> IndexedDB borrador reactivo)
+            let canastaRestaurada = false;
             const backupStr = sessionStorage.getItem('tpvBackup');
             if (backupStr) {
                 try {
@@ -1507,16 +1686,28 @@
                     if(backup.filtroActivo) setFiltroGiro(backup.filtroActivo);
                     if(backup.toggleModoVerde && document.getElementById('toggleModoVerde')) {
                         document.getElementById('toggleModoVerde').checked = true;
-                        // Forzamos el despache de evento con setTimeout para asegurar que se escuche y deshabilite almacenes
                         setTimeout(() => document.getElementById('toggleModoVerde').dispatchEvent(new Event('change')), 100);
                     }
                     if(backup.clienteSelect && backup.clienteSearchInput) {
                         seleccionarClienteAuto(backup.clienteSelect, backup.clienteSearchInput);
                     }
                     renderizarCarrito();
+                    canastaRestaurada = true;
                 } catch(e) { console.error('Error restaurando backup TPV', e); }
                 sessionStorage.removeItem('tpvBackup');
-            } else {
+            }
+
+            // Si no había en sessionStorage, chequear borrador reactivo de IndexedDB
+            if (!canastaRestaurada && window.MicroERPOffline && currentEmpresaId) {
+                const borrador = await window.MicroERPOffline.recuperarCanastaProgreso(currentEmpresaId);
+                if (borrador && borrador.length > 0) {
+                    carrito = borrador;
+                    renderizarCarrito();
+                    mostrarToast("Canasta en progreso restaurada automáticamente", "info");
+                } else {
+                    seleccionarClienteAuto('NN', '-- Cliente No Identificado (NN) --');
+                }
+            } else if (!canastaRestaurada) {
                 seleccionarClienteAuto('NN', '-- Cliente No Identificado (NN) --');
             }
 
@@ -1532,8 +1723,9 @@
             // 7. Gestión y Verificación de Turno POS
             await verificarGestionTurnoPOS();
 
-            // 8. Sincronizar Contador de Pedidos en Espera (Carritos Congelados)
+            // 8. Sincronizar Contador de Pedidos en Espera y Badge de Sync
             await actualizarContadorCarritosCongelados();
+            await actualizarBadgeSyncUI();
         }
 
         // =========================================================================
@@ -1732,18 +1924,50 @@
             btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Abriendo Turno...`;
 
             try {
-                const { data: respTurno, error: errTurno } = await window.supabaseClient.rpc('rpc_abrir_turno_pos', {
-                    p_payload: {
-                        empresa_id: currentEmpresaId,
-                        usuario_id: window.currentUser.id,
-                        caja_identificador: cajaInp,
-                        cajero_nombre: nomInp,
-                        fondo_inicial: fondoInp
-                    }
-                });
+                let respTurno = null;
 
-                if (errTurno) throw errTurno;
-                if (!respTurno || !respTurno.success) throw new Error(respTurno?.error || "Error al aperturar turno");
+                if (navigator.onLine && window.supabaseClient) {
+                    try {
+                        const { data, error } = await window.supabaseClient.rpc('rpc_abrir_turno_pos', {
+                            p_payload: {
+                                empresa_id: currentEmpresaId,
+                                usuario_id: window.currentUser.id,
+                                caja_identificador: cajaInp,
+                                cajero_nombre: nomInp,
+                                fondo_inicial: fondoInp
+                            }
+                        });
+                        if (!error && data && data.success) {
+                            respTurno = data;
+                        } else if (error && !esErrorDeRed(error)) {
+                            throw error;
+                        }
+                    } catch (eRed) {
+                        if (!esErrorDeRed(eRed)) throw eRed;
+                        console.warn("Red no disponible para abrir turno en la nube. Abriendo turno localmente:", eRed);
+                    }
+                }
+
+                if (!respTurno) {
+                    if (window.MicroERPOffline) {
+                        respTurno = await window.MicroERPOffline.abrirTurnoOffline({
+                            empresa_id: currentEmpresaId,
+                            usuario_id: window.currentUser.id,
+                            caja_identificador: cajaInp,
+                            cajero_nombre: nomInp,
+                            fondo_inicial: fondoInp
+                        });
+                    } else {
+                        respTurno = {
+                            success: true,
+                            turno_id: crypto.randomUUID(),
+                            cajero_nombre: nomInp,
+                            caja_identificador: cajaInp,
+                            fondo_inicial: fondoInp,
+                            hora_apertura: new Date().toISOString()
+                        };
+                    }
+                }
 
                 currentTurnoActivo = respTurno;
                 window.cajeroName = nomInp;
@@ -2068,29 +2292,35 @@
                     const safeTerm = term.replace(/"/g, ''); 
                     const normalizedTerm = removeAccents(safeTerm).toLowerCase();
                     
-                    // 1. Buscar Items coincidentes (máx 10) con resiliencia ante microcortes
+                    // 1. Buscar Items coincidentes (máx 10) con resiliencia ante microcortes y offline
                     let items = null;
-                    try {
-                        const { data, error: errItems } = await window.supabaseClient.from('items')
-                            .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta')
-                            .eq('empresa_id', currentEmpresaId)
-                            .eq('activo', true)
-                            .ilike('busqueda_vector', `%${normalizedTerm}%`).limit(10);
-                        if (errItems) throw errItems;
-                        items = data;
-                    } catch (errBusq) {
-                        console.warn("Fallo de red en búsqueda de items, recurriendo a catálogo local en memoria:", errBusq);
+                    if (navigator.onLine && window.supabaseClient) {
+                        try {
+                            const { data, error: errItems } = await window.supabaseClient.from('items')
+                                .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, stock_total')
+                                .eq('empresa_id', currentEmpresaId)
+                                .eq('activo', true)
+                                .ilike('busqueda_vector', `%${normalizedTerm}%`).limit(10);
+                            if (errItems) throw errItems;
+                            items = data;
+                        } catch (errBusq) {
+                            console.warn("Fallo de red en búsqueda de items, recurriendo a catálogo local:", errBusq);
+                        }
+                    }
+
+                    // Fallback a catálogo en memoria RAM o IndexedDB
+                    if (!items || items.length === 0) {
                         if (window.catalogoItemsCache && window.catalogoItemsCache.length > 0) {
                             items = window.catalogoItemsCache.filter(it => {
                                 const v = (it.busqueda_vector || removeAccents((it.descripcion || '') + ' ' + (it.codigo || ''))).toLowerCase();
                                 return v.includes(normalizedTerm);
                             }).slice(0, 10);
-                        } else {
-                            throw errBusq;
+                        } else if (window.MicroERPOffline) {
+                            items = await window.MicroERPOffline.buscarItemsLocal(normalizedTerm, 10);
                         }
                     }
                     
-                    if (thisSearchToken !== currentSearchToken) return; // Descartar si el usuario siguió escribiendo
+                    if (thisSearchToken !== currentSearchToken) return;
 
                     if(!items || items.length === 0) { 
                         resDiv.innerHTML = '<div class="p-4 text-slate-500">No se hallaron registros en el catálogo con ese texto. Revise si hay errores de tipeo.</div>'; 
@@ -2100,14 +2330,22 @@
                     const itemIds = items.map(p => p.id);
                     const lotesPorItem = {};
 
-                    // 2. BATCH FETCH DE LOTES (1 sola consulta en vez de N consultas secuenciales)
+                    // 2. BATCH FETCH DE LOTES (Online o Fallback a stock de catálogo local)
                     if (!modoVerdeActivo) {
-                        const { data: lotes, error: errLotes } = await window.supabaseClient.from('ingresos_detalle')
-                            .select('id, item_id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
-                            .in('item_id', itemIds)
-                            .eq('ingresos.almacen_destino_id', almacenId)
-                            .gt('cantidad_disponible', 0)
-                            .order('ingresos(fecha_ingreso)', { ascending: true });
+                        let lotes = [];
+                        if (navigator.onLine && window.supabaseClient) {
+                            try {
+                                const { data: lData, error: errLotes } = await window.supabaseClient.from('ingresos_detalle')
+                                    .select('id, item_id, cantidad_disponible, costo_adquisicion_unitario, ingresos!inner(fecha_ingreso, almacen_destino_id)')
+                                    .in('item_id', itemIds)
+                                    .eq('ingresos.almacen_destino_id', almacenId)
+                                    .gt('cantidad_disponible', 0)
+                                    .order('ingresos(fecha_ingreso)', { ascending: true });
+                                if (!errLotes && lData) lotes = lData;
+                            } catch (errL) {
+                                console.warn("Fallo de red al consultar lotes en Supabase, utilizando stock local:", errL);
+                            }
+                        }
 
                         if (thisSearchToken !== currentSearchToken) return;
 
@@ -2122,6 +2360,10 @@
                             window.cacheLotesBusqueda[prod.id] = misLotes;
 
                             let stockActual = misLotes.reduce((s, l) => s + Number(l.cantidad_disponible), 0);
+                            // Si estamos offline o no hay lotes físicos específicos, usar stock_total local
+                            if (misLotes.length === 0 && (!navigator.onLine || prod.stock_total !== undefined)) {
+                                stockActual = Number(prod.stock_total || 999);
+                            }
                             if (isEditMode && window.stockRescatadoVirtual && window.stockRescatadoVirtual[prod.id]) {
                                 stockActual += window.stockRescatadoVirtual[prod.id];
                             }
@@ -2131,10 +2373,16 @@
                         }
                     } else {
                         // MODO BÚSQUEDA SIN STOCK (Modo Verde): Stock global cero
-                        const { data: lotesGlobales } = await window.supabaseClient.from('ingresos_detalle')
-                            .select('item_id, cantidad_disponible')
-                            .in('item_id', itemIds)
-                            .gt('cantidad_disponible', 0);
+                        let lotesGlobales = [];
+                        if (navigator.onLine && window.supabaseClient) {
+                            try {
+                                const { data: lG } = await window.supabaseClient.from('ingresos_detalle')
+                                    .select('item_id, cantidad_disponible')
+                                    .in('item_id', itemIds)
+                                    .gt('cantidad_disponible', 0);
+                                if (lG) lotesGlobales = lG;
+                            } catch (_) {}
+                        }
 
                         if (thisSearchToken !== currentSearchToken) return;
 
@@ -2165,12 +2413,18 @@
                 } else {
                     // Buscar CUS o CUP
                     const safeTerm = term.replace(/"/g, '');
-                    const { data: cods } = await window.supabaseClient.from('codigos_unicos')
-                        .select('id, codigo, descripcion, precio_venta, tipo, cliente_id')
-                        .eq('empresa_id', currentEmpresaId)
-                        .eq('tipo', filtroActivo)
-                        .neq('estado', 'ANULADO')
-                        .or(`descripcion.ilike."%${safeTerm}%",codigo.ilike."%${safeTerm}%"`).limit(10);
+                    let cods = [];
+                    if (navigator.onLine && window.supabaseClient) {
+                        try {
+                            const { data: cData } = await window.supabaseClient.from('codigos_unicos')
+                                .select('id, codigo, descripcion, precio_venta, tipo, cliente_id')
+                                .eq('empresa_id', currentEmpresaId)
+                                .eq('tipo', filtroActivo)
+                                .neq('estado', 'ANULADO')
+                                .or(`descripcion.ilike."%${safeTerm}%",codigo.ilike."%${safeTerm}%"`).limit(10);
+                            cods = cData || [];
+                        } catch (_) {}
+                    }
                     
                     if (thisSearchToken !== currentSearchToken) return;
 
@@ -2188,11 +2442,7 @@
             } catch(e) { 
                 console.error('Error busqueda:', e); 
                 if (thisSearchToken === currentSearchToken) {
-                    if (esErrorDeRed(e)) {
-                        resDiv.innerHTML = '<div class="p-3 text-amber-600 bg-amber-50 rounded-lg text-xs font-medium"><i class="fas fa-wifi text-amber-500 mr-1"></i> Microcorte de red: Intermitencia momentánea detectada. Si persiste, revise el indicador en el menú lateral.</div>';
-                    } else {
-                        resDiv.innerHTML = '<div class="p-4 text-red-500">Error en búsqueda.</div>'; 
-                    }
+                    resDiv.innerHTML = '<div class="p-3 text-amber-600 bg-amber-50 rounded-lg text-xs font-medium"><i class="fas fa-search mr-1"></i> Catálogo local listo. Escriba el código o nombre del producto.</div>';
                 }
             }
         }
@@ -2447,12 +2697,30 @@
                             });
                             pendiente -= aTomar;
                         }
-                        if(pendiente > 0 && !modoVerdeActivo) throw new Error("Descuadre transaccional FIFO durante la selección.");
+                        
+                        // Si estamos offline o no se cubrió el lote físico contable, permitir venta con asignación diferida en servidor
+                        if (pendiente > 0) {
+                            if (!modoVerdeActivo && navigator.onLine && lotesBD.length > 0) {
+                                throw new Error("Descuadre transaccional FIFO durante la selección.");
+                            } else {
+                                // Modo Offline o Modo Verde: Lote diferido
+                                lotesSeleccionados.push({
+                                    lotId: null,
+                                    qty: pendiente,
+                                    costo_unit_usado: 0
+                                });
+                            }
+                        }
                     } catch(e) {
                         console.error("Error resolviendo lotes:", e);
-                        Swal.fire('Error Interno', 'No se pudo resolver el FIFO.', 'error');
-                        document.getElementById('buscadorGeneral').focus();
-                        return;
+                        // En offline no bloqueamos la venta
+                        if (!navigator.onLine) {
+                            lotesSeleccionados.push({ lotId: null, qty: cantidadReq, costo_unit_usado: 0 });
+                        } else {
+                            Swal.fire('Control de Inventario', 'No se pudo resolver el FIFO contable del producto.', 'warning');
+                            document.getElementById('buscadorGeneral').focus();
+                            return;
+                        }
                     }
                 }
             }
@@ -2473,6 +2741,11 @@
             renderizarCarrito();
             document.getElementById('buscadorGeneral').focus();
 
+            // Respaldo reactivo de canasta en IndexedDB contra cortes inesperados
+            if (window.MicroERPOffline && currentEmpresaId) {
+                window.MicroERPOffline.respaldarCanastaProgreso(currentEmpresaId, carrito);
+            }
+
             // Autoseleccionar cliente si es CUS/CUP y tiene cliente asociado
             if((obj.paramTipo === 'CUS' || obj.paramTipo === 'CUP') && obj.paramClienteId) {
                 const cl = todosLosClientes.find(x => x.id === obj.paramClienteId);
@@ -2486,6 +2759,13 @@
         function removerDelCarrito(idFront) {
             carrito = carrito.filter(x => x.idFront !== idFront);
             renderizarCarrito();
+            if (window.MicroERPOffline && currentEmpresaId) {
+                if (carrito.length > 0) {
+                    window.MicroERPOffline.respaldarCanastaProgreso(currentEmpresaId, carrito);
+                } else {
+                    window.MicroERPOffline.limpiarCanastaProgreso(currentEmpresaId);
+                }
+            }
         }
 
         function actualizarFila(idFront, campo, ctx) {
@@ -2955,64 +3235,107 @@
                     lotes_a_descontar: lotesADescontar
                 };
 
-                // Bucle de reintentos automáticos con timeout activo (8s) y backoff exponencial
-                const maxIntentos = 3;
-                const delaysBackoff = [0, 1000, 1500, 2200];
                 let respVenta = null;
 
-                for (let intento = 1; intento <= maxIntentos; intento++) {
-                    try {
-                        if (intento > 1) {
-                            Swal.fire({
-                                title: '⚡ Microcorte de Red Detectado',
-                                html: `
-                                    <div class="text-left text-sm text-slate-700">
-                                        <p class="mb-2">La conexión a internet experimentó una intermitencia momentánea.</p>
-                                        <p class="font-semibold text-blue-600 mb-2">Reintentando confirmación segura (intento ${intento} de ${maxIntentos})...</p>
-                                        <p class="text-xs text-slate-500">🛡️ El sistema verifica si el comprobante ya se emitió para no duplicar datos ni Kardex.</p>
-                                        <div class="w-full bg-slate-200 rounded-full h-2 mt-3 overflow-hidden">
-                                            <div class="bg-blue-600 h-2 rounded-full" style="width: ${(intento / maxIntentos) * 100}%; transition: width 0.3s ease;"></div>
+                // Si hay conexión, intentar procesar venta atómica en la nube
+                if (navigator.onLine && window.supabaseClient) {
+                    const maxIntentos = 2; // Rápido para no demorar al cliente en cola
+                    const delaysBackoff = [0, 800, 1200];
+
+                    for (let intento = 1; intento <= maxIntentos; intento++) {
+                        try {
+                            if (intento > 1) {
+                                Swal.fire({
+                                    title: '⚡ Microcorte de Red Detectado',
+                                    html: `
+                                        <div class="text-left text-sm text-slate-700">
+                                            <p class="mb-2">La conexión a internet experimentó una intermitencia momentánea.</p>
+                                            <p class="font-semibold text-blue-600 mb-2">Reintentando confirmación rápida (${intento}/${maxIntentos})...</p>
                                         </div>
-                                    </div>
-                                `,
-                                allowOutsideClick: false,
-                                didOpen: () => Swal.showLoading()
-                            });
-                            await new Promise(r => setTimeout(r, delaysBackoff[intento] || 1500));
-                        } else {
-                            Swal.fire({ 
-                                title: 'Registrando Venta...', 
-                                html: 'Transaccionando base de datos...', 
-                                allowOutsideClick: false, 
-                                didOpen: () => Swal.showLoading() 
-                            });
-                        }
+                                    `,
+                                    allowOutsideClick: false,
+                                    didOpen: () => Swal.showLoading()
+                                });
+                                await new Promise(r => setTimeout(r, delaysBackoff[intento] || 1000));
+                            } else {
+                                Swal.fire({ 
+                                    title: 'Registrando Venta...', 
+                                    html: 'Transaccionando base de datos...', 
+                                    allowOutsideClick: false, 
+                                    didOpen: () => Swal.showLoading() 
+                                });
+                            }
 
-                        const rpcCall = window.supabaseClient.rpc('rpc_procesar_venta_pos', { p_payload: payloadRpc });
-                        const { data: resData, error: errRpc } = await fetchWithTimeout(rpcCall, 8000);
+                            const rpcCall = window.supabaseClient.rpc('rpc_procesar_venta_pos', { p_payload: payloadRpc });
+                            const { data: resData, error: errRpc } = await fetchWithTimeout(rpcCall, 4500);
 
-                        if (errRpc) {
-                            if (errRpc.message && !esErrorDeRed(errRpc)) {
-                                const errNegocio = new Error(errRpc.message);
+                            if (errRpc) {
+                                if (errRpc.message && !esErrorDeRed(errRpc)) {
+                                    const errNegocio = new Error(errRpc.message);
+                                    errNegocio.isBusinessError = true;
+                                    throw errNegocio;
+                                }
+                                throw errRpc;
+                            }
+
+                            if (!resData || !resData.success) {
+                                const errNegocio = new Error(resData?.error || "Error al procesar venta atómica.");
                                 errNegocio.isBusinessError = true;
                                 throw errNegocio;
                             }
-                            throw errRpc;
-                        }
 
-                        if (!resData || !resData.success) {
-                            const errNegocio = new Error(resData?.error || "Error al procesar venta atómica.");
-                            errNegocio.isBusinessError = true;
-                            throw errNegocio;
+                            respVenta = resData;
+                            break; // Confirmado exitosamente en nube
+                        } catch (intentoErr) {
+                            console.warn(`Intento ${intento} en nube falló:`, intentoErr);
+                            if (intentoErr.isBusinessError) throw intentoErr;
+                            if (intento === maxIntentos) {
+                                console.warn("Agotados reintentos en nube. Conmutando automáticamente a emisión offline.");
+                            }
                         }
+                    }
+                }
 
-                        respVenta = resData;
-                        break; // Confirmado exitosamente
-                    } catch (intentoErr) {
-                        console.warn(`Intento ${intento} fallido:`, intentoErr);
-                        if (intentoErr.isBusinessError || !esErrorDeRed(intentoErr) || intento === maxIntentos) {
-                            throw intentoErr;
-                        }
+                // Si no hay red o si falló la nube, emitir en MODO OFFLINE LOCAL inmediato (0ms espera)
+                if (!respVenta) {
+                    if (window.MicroERPOffline) {
+                        const payloadOffline = {
+                            id: clientVentaId,
+                            empresa_id: currentEmpresaId,
+                            numero_ticket: numTk,
+                            tipo_comprobante: tipoComp,
+                            fecha_venta: fechaEmisionStr,
+                            hora_emision: window.MicroERPOffline.obtenerHoraOficialLima().iso,
+                            cliente_id: clienteId,
+                            condicion_pago: condicionPago,
+                            genera_igv: generaIgv,
+                            valor_venta_total: Number(subtotal.toFixed(2)),
+                            igv_debito_total: Number(igv.toFixed(2)),
+                            precio_venta_total: Number(total.toFixed(2)),
+                            pago_inicial: Number(pagoInicial_input.toFixed(2)),
+                            saldo_pendiente: Number(saldoPendiente.toFixed(2)),
+                            fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
+                            usuario_id: window.currentUser.id,
+                            created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
+                            almacen_origen_id: document.getElementById('almacenOrigen')?.value,
+                            detalles: detallesVentaInserts,
+                            lotes_a_descontar: lotesADescontar,
+                            estado: 'PENDIENTE_SYNC'
+                        };
+
+                        await window.MicroERPOffline.emitirTicketOffline(payloadOffline);
+                        await window.MicroERPOffline.limpiarCanastaProgreso(currentEmpresaId);
+                        actualizarBadgeSyncUI();
+
+                        respVenta = {
+                            success: true,
+                            venta_id: clientVentaId,
+                            numero_ticket: numTk,
+                            precio_venta_total: total,
+                            offline: true
+                        };
+                    } else {
+                        throw new Error("Módulo offline no disponible.");
                     }
                 }
 
@@ -3063,14 +3386,21 @@
                 };
 
                 // 4. ÉXITO Y NOTIFICACIÓN
-                const textoExito = respVenta.es_reintento_idempotente
-                    ? `El ticket ${ticketFinal} fue recuperado y validado con éxito tras el microcorte de red. No se duplicaron comprobantes ni inventario.`
-                    : `El ticket ${ticketFinal} ha ingresado en finanzas y sus salidas descontaron el Kardex logístico (si hubo físico) usando la ruta limpia.`;
+                let tituloSwal = '¡Venta Procesada!';
+                let textoExito = `El ticket ${ticketFinal} ha ingresado en finanzas y sus salidas descontaron el Kardex logístico.`;
+
+                if (respVenta.offline) {
+                    tituloSwal = '¡Ticket Emitido (Modo Offline)!';
+                    textoExito = `El ticket ${ticketFinal} fue registrado e impreso en terminal física. Se sincronizará automáticamente con la nube al haber internet.`;
+                } else if (respVenta.es_reintento_idempotente) {
+                    tituloSwal = '¡Ticket Confirmado (Anti-Microcorte)!';
+                    textoExito = `El ticket ${ticketFinal} fue recuperado y validado con éxito tras el microcorte de red.`;
+                }
 
                 Swal.fire({
-                    title: respVenta.es_reintento_idempotente ? '¡Ticket Confirmado (Anti-Microcorte)!' : '¡Venta Procesada!',
+                    title: tituloSwal,
                     text: textoExito,
-                    icon: 'success',
+                    icon: respVenta.offline ? 'info' : 'success',
                     showDenyButton: true,
                     confirmButtonText: '<i class="fas fa-print"></i> Imprimir Ticket',
                     denyButtonText: (activeLoteIndex !== null && lotesTickets.length > 1) ? '<i class="fas fa-layer-group"></i> Siguiente Lote' : '<i class="fas fa-plus"></i> Nueva Venta',
@@ -3107,35 +3437,8 @@
 
             } catch (fatal) {
                 console.error("Transacción fallida:", fatal);
-                
-                // Si fue error de red prolongado, PRESERVAR CARRITO y permitir reintento seguro
-                if (esErrorDeRed(fatal)) {
-                    Swal.fire({
-                        title: '⚠️ Falla de Red Prolongada',
-                        html: `
-                            <div class="text-left text-sm text-slate-700">
-                                <p class="mb-3">No se recibió confirmación del servidor debido a microcortes sucesivos en la red.</p>
-                                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900 text-xs mb-3">
-                                    <i class="fas fa-shield-alt mr-1 text-amber-600"></i> <b>Carrito 100% Protegido:</b> Tus productos y cantidades no se han perdido.
-                                </div>
-                                <p class="text-xs text-slate-600">Cuando la conexión se estabilice, pulsa <b>Reintentar Confirmación</b>. Gracias al blindaje de seguridad, la venta no se duplicará incluso si el servidor llegó a procesarla.</p>
-                            </div>
-                        `,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: '<i class="fas fa-sync-alt mr-1"></i> Reintentar Confirmación',
-                        cancelButtonText: 'Cerrar y Revisar',
-                        confirmButtonColor: '#2563eb',
-                        cancelButtonColor: '#64748b'
-                    }).then((res) => {
-                        if (res.isConfirmed) {
-                            procesarVenta();
-                        }
-                    });
-                } else {
-                    window.pendingClientVentaId = null;
-                    Swal.fire('Error Crítico', 'La transacción falló: ' + (fatal.message || 'Error de comunicación.'), 'error');
-                }
+                window.pendingClientVentaId = null;
+                Swal.fire('Error en Venta', fatal.message || 'No se pudo registrar la venta.', 'error');
             } finally {
                 window.isProcessingVenta = false;
                 if (btnPagar) {
@@ -3179,10 +3482,16 @@
             const msLocal = cFecha.getTime() - offsetMs;
             const isoLocal = new Date(msLocal).toISOString().slice(0, 10);
             document.getElementById('fechaRecepcionPago').value = isoLocal;
-            document.getElementById('fechaEmision').value = isoLocal;
+            // Limpiar borrador de canasta en IndexedDB
+            if (window.MicroERPOffline && currentEmpresaId) {
+                window.MicroERPOffline.limpiarCanastaProgreso(currentEmpresaId);
+            }
 
             // Generar nuevo número correlativo
             await generarNuevoTicket();
+
+            // Refrescar estado del badge de sync
+            await actualizarBadgeSyncUI();
 
             // Devolver foco inmediato al buscador
             document.getElementById('buscadorGeneral').focus();
