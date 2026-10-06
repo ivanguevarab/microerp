@@ -295,12 +295,31 @@
         const cacheProductosCatalogo = new Map();     // key: `${currentEmpresaId}_${id}` -> { id, descripcion, codigo }
         const cacheCodigosUnicosCatalogo = new Map(); // key: `${currentEmpresaId}_${id}` -> { id, descripcion, codigo }
 
+        // Normalizador canónico de fechas a formato YYYY-MM-DD en Zona Horaria UTC-5 (America/Lima)
+        function normalizarFechaUTC5(fechaStr) {
+            if (!fechaStr) return '';
+            const str = String(fechaStr).trim();
+            if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+                return str.substring(0, 10);
+            }
+            const d = new Date(str);
+            if (isNaN(d.getTime())) return '';
+            return new Intl.DateTimeFormat('en-CA', { 
+                timeZone: 'America/Lima', 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit' 
+            }).format(d);
+        }
+
         async function cargarContextoInicial() {
             const sessionBackup = JSON.parse(localStorage.getItem('microerp_pos_session_backup') || '{}');
             currentUserId = window.currentUser?.id || sessionBackup.user?.id || sessionBackup.usuario_id || null;
             let perfil = window.currentUserProfile;
 
-            if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentUserId) {
+            const esModoOfflineDeclarado = Boolean(window.isOfflineState || !navigator.onLine);
+
+            if (!esModoOfflineDeclarado && window.supabaseClient && currentUserId) {
                 try {
                     const profPromise = window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol, nombre_completo').eq('id', currentUserId).single();
                     const { data: p } = await (window.fetchConTimeout ? window.fetchConTimeout(profPromise, 1200) : profPromise);
@@ -311,29 +330,31 @@
             }
 
             if (!perfil) {
-                perfil = sessionBackup.profile || {
+                perfil = sessionBackup.profile || sessionBackup.userProfile || {
                     empresa_id: sessionBackup.empresa_id || localStorage.getItem('empresa_id') || null,
-                    rol: sessionBackup.rol || 'CAJERO'
+                    rol: sessionBackup.rol || 'CAJERO',
+                    nombre_completo: sessionBackup.nombre_completo || ''
                 };
             }
 
-            const turnoBackup = JSON.parse(localStorage.getItem(`pos_turno_activo_${currentEmpresaId || perfil?.empresa_id}`) || '{}');
+            currentEmpresaId = perfil?.empresa_id || sessionBackup.empresa_id || window.currentEmpresaId || localStorage.getItem('empresa_id');
+            currentUserRol = (perfil?.rol || window.currentUserProfile?.rol || sessionBackup.rol || 'CAJERO').toUpperCase();
+            isCajero = (currentUserRol === 'CAJERO');
+
+            const turnoBackup = JSON.parse(localStorage.getItem(`pos_turno_activo_${currentEmpresaId}`) || '{}');
             currentUserName = (
                 perfil?.nombre_completo || 
                 sessionBackup.profile?.nombre_completo || 
+                sessionBackup.nombre_completo || 
                 turnoBackup.cajero_nombre || 
                 window.currentUser?.email?.split('@')[0] || 
                 sessionBackup.user?.email?.split('@')[0] || 
                 ''
             ).toLowerCase().trim();
 
-            if (currentEmpresaId && perfil?.empresa_id && currentEmpresaId !== perfil.empresa_id) {
-                cacheProductosCatalogo.clear();
-                cacheCodigosUnicosCatalogo.clear();
+            if (currentEmpresaId) {
+                window.currentEmpresaId = currentEmpresaId;
             }
-            currentEmpresaId = perfil?.empresa_id || window.currentEmpresaId || localStorage.getItem('empresa_id');
-            currentUserRol = (perfil?.rol || window.currentUserProfile?.rol || 'CAJERO').toUpperCase();
-            isCajero = (currentUserRol === 'CAJERO');
         }
 
         async function cargarVentashistoricas() {
@@ -355,42 +376,52 @@
                     const clientesMap = {};
                     (snap?.clientes || []).forEach(c => { clientesMap[c.id] = c; });
 
-                    // 1.1 Aislamiento estricto por rol CAJERO en almacenamiento local (Dual: usuario_id + created_by)
+                    console.log(`📦 [Offline Ventas] Recuperadas de IndexedDB: ${rawLocales.length}`);
+
+                    // 1.1 Aislamiento estricto por rol CAJERO en almacenamiento local
                     if (isCajero) {
                         const primerNombre = currentUserName ? currentUserName.split(' ')[0] : '';
+                        const cajaLocal = (localStorage.getItem('microerp_pos_caja_id') || 'caja 1').toLowerCase().replace(/\s+/g, '');
+
                         rawLocales = rawLocales.filter(v => {
-                            // 1. Si la venta local tiene usuario_id y tenemos currentUserId, evaluar coincidencia
-                            if (v.usuario_id && currentUserId) {
-                                return v.usuario_id === currentUserId;
+                            // Regla A: Coincidencia directa por usuario_id
+                            if (v.usuario_id && currentUserId && v.usuario_id === currentUserId) {
+                                return true;
                             }
-                            // 2. Si no tiene usuario_id (venta persistida localmente sin dicho campo), evaluar created_by contra el nombre del cajero
-                            if (v.created_by && (currentUserName || primerNombre)) {
+                            // Regla B: Coincidencia por autoría created_by (Tolerancia a "adelina (Caja 1)" vs "caja 1" / "caja1")
+                            if (v.created_by) {
                                 const cb = v.created_by.toLowerCase();
+                                const cbSinEspacios = cb.replace(/\s+/g, '');
                                 if (currentUserName && cb.includes(currentUserName)) return true;
                                 if (primerNombre && cb.includes(primerNombre)) return true;
+                                if (cajaLocal && cbSinEspacios.includes(cajaLocal)) return true;
                             }
-                            // 3. Fallback de contingencia en terminal física: ventas locales de la sesión sin ID explícito
-                            return !v.usuario_id;
+                            // Regla C: Si no tiene usuario_id ni created_by explícito, fue emitido en esta terminal física
+                            return !v.usuario_id && !v.created_by;
                         });
+                        console.log(`🎯 [Offline Ventas] Tras filtro Cajero (${currentUserName || 'Caja'}): ${rawLocales.length}`);
                     }
 
-                    // 1.2 Filtro temporal estricto en local contra fecInc y fecFin
+                    // 1.2 Filtro temporal estricto en local contra fecInc y fecFin (Zona Horaria UTC-5)
                     if (fecInc || fecFin) {
                         rawLocales = rawLocales.filter(v => {
-                            const fStr = (v.fecha_venta ? v.fecha_venta.substring(0, 10) : (v.hora_emision ? v.hora_emision.substring(0, 10) : ''));
+                            const fStr = normalizarFechaUTC5(v.fecha_venta || v.hora_emision || v.created_at);
                             if (!fStr) return true;
                             if (fecInc && fStr < fecInc) return false;
                             if (fecFin && fStr > fecFin) return false;
                             return true;
                         });
+                        console.log(`📅 [Offline Ventas] Tras filtro Fechas UTC-5 (${fecInc || 'Inicio'} a ${fecFin || 'Fin'}): ${rawLocales.length}`);
                     }
 
                     rawLocales.forEach(v => {
-                        v.clientes = v.clientes || clientesMap[v.cliente_id] || { razon_social: 'Cliente NN', numero_documento: '---' };
+                        v.clientes = v.clientes || clientesMap[v.cliente_id] || { razon_social: 'Cliente No Identificado (NN)', numero_documento: '---' };
                         v.estado = (v.estado_sync === 'PENDIENTE_SYNC') ? 'PENDIENTE_SYNC' : (v.estado || 'REGISTRADO');
                     });
                     ventasLocales = rawLocales;
-                } catch (_) {}
+                } catch (errLocal) {
+                    console.error("❌ [Offline Ventas] Error procesando ventas de IndexedDB:", errLocal);
+                }
             }
 
             // 2. Consultar ventas en la nube (si hay conexión a internet)
@@ -399,7 +430,7 @@
                 try {
                     let query = window.supabaseClient.from('ventas')
                         .select(`
-                            id, numero_ticket, fecha_venta, tipo_comprobante, genera_igv, precio_venta_total, condicion_pago, saldo_pendiente, estado, igv_debito_total, created_by,
+                            id, empresa_id, usuario_id, numero_ticket, fecha_venta, created_at, tipo_comprobante, genera_igv, precio_venta_total, condicion_pago, saldo_pendiente, estado, igv_debito_total, created_by,
                             clientes ( id, razon_social, numero_documento )
                         `)
                         .eq('empresa_id', currentEmpresaId);
@@ -419,10 +450,63 @@
                         query = query.limit(limiteMaximo);
                     }
 
-                    const { data: vData, error } = await (window.fetchConTimeout ? window.fetchConTimeout(query, 1200) : query);
+                    const { data: vData, error } = await (window.fetchConTimeout ? window.fetchConTimeout(query, 3500) : query);
+                    if (error) {
+                        console.error("❌ [Ventas Nube] Error devuelto por Supabase:", error);
+                    }
                     if (!error && vData) {
                         ventasNube = vData;
                         consultaNubeExitosa = true;
+
+                        // Auto-Caché Transaccional Seguro en IndexedDB para contingencia offline
+                        if (window.MicroERPOffline && Array.isArray(ventasNube) && ventasNube.length > 0) {
+                            try {
+                                const db = await window.MicroERPOffline.openDatabase();
+                                if (db.objectStoreNames.contains('historico_ventas_local')) {
+                                    const tx = db.transaction('historico_ventas_local', 'readwrite');
+                                    const store = tx.objectStore('historico_ventas_local');
+                                    
+                                    // Respaldar hasta 100 comprobantes más recientes para mantener IDB liviano y veloz
+                                    const loteCache = ventasNube.slice(0, 100);
+                                    for (const vn of loteCache) {
+                                        if (!vn || !vn.id) continue;
+                                        const reqExiste = store.get(vn.id);
+                                        reqExiste.onsuccess = () => {
+                                            const prev = reqExiste.result;
+                                            // Proteger ventas locales no sincronizadas (PENDIENTE_SYNC)
+                                            if (prev && prev.estado_sync === 'PENDIENTE_SYNC') return;
+
+                                            const vParaCache = {
+                                                id: vn.id,
+                                                empresa_id: vn.empresa_id || currentEmpresaId,
+                                                usuario_id: vn.usuario_id || currentUserId,
+                                                numero_ticket: vn.numero_ticket,
+                                                tipo_comprobante: vn.tipo_comprobante,
+                                                fecha_venta: vn.fecha_venta,
+                                                hora_emision: vn.created_at || (vn.fecha_venta ? vn.fecha_venta + 'T00:00:00-05:00' : ''),
+                                                created_at: vn.created_at,
+                                                created_by: vn.created_by,
+                                                condicion_pago: vn.condicion_pago,
+                                                genera_igv: vn.genera_igv,
+                                                igv_debito_total: vn.igv_debito_total,
+                                                precio_venta_total: vn.precio_venta_total,
+                                                saldo_pendiente: vn.saldo_pendiente,
+                                                estado: vn.estado,
+                                                estado_sync: 'SINCRONIZADO',
+                                                origen: 'NUBE_CACHE',
+                                                cliente_id: vn.cliente_id || vn.clientes?.id,
+                                                clientes: vn.clientes || prev?.clientes,
+                                                // Preservar detalles locales completos si ya existían
+                                                detalles: (prev && prev.detalles && prev.detalles.length > 0) ? prev.detalles : []
+                                            };
+                                            store.put(vParaCache);
+                                        };
+                                    }
+                                }
+                            } catch (eCache) {
+                                console.warn("⚠️ [Offline Cache] Aviso al respaldar ventas remotas en IndexedDB:", eCache);
+                            }
+                        }
                     }
                 } catch (eNet) {
                     console.warn("Fallo de red al consultar ventas históricas en Supabase:", eNet);
@@ -507,9 +591,10 @@
                 
                 tr.innerHTML = `
                     <td class="${textColorClass}">${(() => {
-                        if(!v.fecha_venta) return '---';
-                        const [y, m, d] = v.fecha_venta.split('T')[0].split('-');
-                        return new Date(y, m - 1, d).toLocaleDateString('es-PE');
+                        const fLimpia = normalizarFechaUTC5(v.fecha_venta || v.hora_emision || v.created_at);
+                        if (!fLimpia) return '---';
+                        const [y, m, d] = fLimpia.split('-');
+                        return `${d}/${m}/${y}`;
                     })()}</td>
                     <td class="font-bold text-blue-600 ${textColorClass}">
                         <div>${v.numero_ticket}</div>
@@ -579,23 +664,55 @@
                         const estadoHtml = (vOff.estado_sync === 'PENDIENTE_SYNC') 
                             ? `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold">LOCAL (PENDIENTE SYNC)</span>` 
                             : `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-xs font-bold">SINCRONIZADO EN NUBE</span>`;
+                        let detallesHtml = '';
+                        if (Array.isArray(vOff.detalles) && vOff.detalles.length > 0) {
+                            detallesHtml = `
+                                <div class="mt-3 border-t pt-2 max-h-40 overflow-y-auto">
+                                    <p class="font-bold text-xs text-gray-700 uppercase mb-1">Detalle de Productos:</p>
+                                    <table class="w-full text-xs text-left border border-gray-200">
+                                        <thead class="bg-gray-100 text-gray-600">
+                                            <tr>
+                                                <th class="p-1">Ítem</th>
+                                                <th class="p-1 text-center">Cant</th>
+                                                <th class="p-1 text-right">P.U.</th>
+                                                <th class="p-1 text-right">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${vOff.detalles.map(d => `
+                                                <tr class="border-t">
+                                                    <td class="p-1">${d.descripcion || 'Producto'}</td>
+                                                    <td class="p-1 text-center">${d.cantidad}</td>
+                                                    <td class="p-1 text-right">S/ ${formatMoney(d.precio_unitario)}</td>
+                                                    <td class="p-1 text-right font-semibold">S/ ${formatMoney(d.subtotal)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                        }
+
                         Swal.fire({
                             title: `Ticket ${vOff.numero_ticket}`,
-                            html: `<div class="text-left text-sm space-y-2 p-2">
+                            html: `<div class="text-left text-sm space-y-1.5 p-2">
                                 <p><b>Fecha:</b> ${vOff.fecha_venta || 'Hoy'}</p>
                                 <p><b>Emitido por:</b> ${vOff.created_by || 'Terminal POS'}</p>
                                 <p><b>Cliente:</b> ${vOff.clientes?.razon_social || 'Cliente NN'}</p>
                                 <p><b>Total:</b> S/ ${formatMoney(vOff.precio_venta_total)}</p>
                                 <p><b>Condición:</b> ${vOff.condicion_pago || 'CONTADO'}</p>
                                 <p><b>Estado:</b> ${estadoHtml}</p>
-                                <p class="text-xs text-gray-500 mt-3 border-t pt-2">Comprobante guardado de forma soberana en la terminal. Listo para reimpresión térmica con el botón de impresora.</p>
+                                ${detallesHtml}
+                                <p class="text-xs text-gray-500 mt-3 border-t pt-2">Comprobante preservado de forma soberana en terminal. Reimpresión térmica idéntica con el botón de impresora.</p>
                             </div>`,
                             icon: 'info',
                             confirmButtonText: 'Aceptar'
                         });
                         return;
                     }
-                } catch (_) {}
+                } catch (eOffDet) {
+                    console.warn("⚠️ [Offline Detalle] Error visualizando venta offline:", eOffDet);
+                }
             }
 
             Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
@@ -1535,7 +1652,14 @@
                         const match = locs.find(v => {
                             const matchNum = (v.numero_ticket || '').toLowerCase().includes(numNorm);
                             if (!matchNum) return false;
-                            if (isCajero && currentUserId && v.usuario_id && v.usuario_id !== currentUserId) return false;
+                            if (isCajero) {
+                                if (currentUserId && v.usuario_id && v.usuario_id !== currentUserId) return false;
+                                if (!v.usuario_id && v.created_by && currentUserName) {
+                                    const cb = v.created_by.toLowerCase();
+                                    const primerNombre = currentUserName.split(' ')[0];
+                                    if (!cb.includes(currentUserName) && !cb.includes(primerNombre)) return false;
+                                }
+                            }
                             return true;
                         });
                         if (match && match.id) {
