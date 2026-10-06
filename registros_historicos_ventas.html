@@ -287,6 +287,7 @@
 
         let currentEmpresaId = null;
         let currentUserId = null;
+        let currentUserName = null;
         let currentUserRol = null;
         let isCajero = false;
 
@@ -301,7 +302,7 @@
 
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentUserId) {
                 try {
-                    const profPromise = window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol').eq('id', currentUserId).single();
+                    const profPromise = window.supabaseClient.from('perfiles_usuario').select('empresa_id, rol, nombre_completo').eq('id', currentUserId).single();
                     const { data: p } = await (window.fetchConTimeout ? window.fetchConTimeout(profPromise, 1200) : profPromise);
                     if (p) perfil = p;
                 } catch (e) {
@@ -315,6 +316,16 @@
                     rol: sessionBackup.rol || 'CAJERO'
                 };
             }
+
+            const turnoBackup = JSON.parse(localStorage.getItem(`pos_turno_activo_${currentEmpresaId || perfil?.empresa_id}`) || '{}');
+            currentUserName = (
+                perfil?.nombre_completo || 
+                sessionBackup.profile?.nombre_completo || 
+                turnoBackup.cajero_nombre || 
+                window.currentUser?.email?.split('@')[0] || 
+                sessionBackup.user?.email?.split('@')[0] || 
+                ''
+            ).toLowerCase().trim();
 
             if (currentEmpresaId && perfil?.empresa_id && currentEmpresaId !== perfil.empresa_id) {
                 cacheProductosCatalogo.clear();
@@ -344,9 +355,23 @@
                     const clientesMap = {};
                     (snap?.clientes || []).forEach(c => { clientesMap[c.id] = c; });
 
-                    // 1.1 Aislamiento estricto por rol CAJERO en almacenamiento local
-                    if (isCajero && currentUserId) {
-                        rawLocales = rawLocales.filter(v => v.usuario_id === currentUserId);
+                    // 1.1 Aislamiento estricto por rol CAJERO en almacenamiento local (Dual: usuario_id + created_by)
+                    if (isCajero) {
+                        const primerNombre = currentUserName ? currentUserName.split(' ')[0] : '';
+                        rawLocales = rawLocales.filter(v => {
+                            // 1. Si la venta local tiene usuario_id y tenemos currentUserId, evaluar coincidencia
+                            if (v.usuario_id && currentUserId) {
+                                return v.usuario_id === currentUserId;
+                            }
+                            // 2. Si no tiene usuario_id (venta persistida localmente sin dicho campo), evaluar created_by contra el nombre del cajero
+                            if (v.created_by && (currentUserName || primerNombre)) {
+                                const cb = v.created_by.toLowerCase();
+                                if (currentUserName && cb.includes(currentUserName)) return true;
+                                if (primerNombre && cb.includes(primerNombre)) return true;
+                            }
+                            // 3. Fallback de contingencia en terminal física: ventas locales de la sesión sin ID explícito
+                            return !v.usuario_id;
+                        });
                     }
 
                     // 1.2 Filtro temporal estricto en local contra fecInc y fecFin
