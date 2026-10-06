@@ -152,7 +152,24 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                     detBD = vOff.detalles || [];
                     const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(vOff.empresa_id);
                     emp = snap?.empresa || { nombre_comercial: 'MicroERP', razon_social: 'MicroERP', ruc: '---' };
-                    direccionTicket = emp.direccion || 'Sede Principal';
+
+                    // Rescatar punto de venta / almacén con fidelidad exacta
+                    let dirLocal = vOff.almacen_nombre || vOff.almacen_direccion || vOff.direccion_ticket;
+                    if (!dirLocal && snap?.almacenes && snap.almacenes.length > 0) {
+                        const targetAlmId = vOff.almacen_origen_id || localStorage.getItem('microerp_pos_almacen');
+                        const matchedAlm = snap.almacenes.find(a => String(a.id) === String(targetAlmId)) || snap.almacenes[0];
+                        if (matchedAlm) {
+                            dirLocal = matchedAlm.nombre || '';
+                            if (matchedAlm.descripcion) {
+                                dirLocal = dirLocal ? `${dirLocal} - ${matchedAlm.descripcion}` : matchedAlm.descripcion;
+                            }
+                        }
+                    }
+                    if (!dirLocal) {
+                        dirLocal = localStorage.getItem('microerp_pos_almacen_nombre') || '';
+                    }
+                    direccionTicket = dirLocal || emp.direccion || 'Sede Principal';
+
                     vBD.clientes = vOff.clientes || (snap?.clientes || []).find(c => c.id === vOff.cliente_id) || { razon_social: 'Cliente NN', numero_documento: '---' };
                     (snap?.items || []).forEach(it => {
                         dicc[it.id] = it.descripcion;
@@ -213,6 +230,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                         if (alm) {
                             direccionTicket = alm.nombre;
                             if (alm.descripcion) direccionTicket += ' - ' + alm.descripcion;
+                            try { localStorage.setItem('microerp_pos_almacen_nombre', direccionTicket); } catch (_) {}
                         }
                     }
                 } catch (_) {}
@@ -272,12 +290,18 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
         const UMBRAL_CARACTERES_MISMA_LINEA = 13;
         let detallesHTML = '';
         det.forEach((d, index) => {
+            const itemPrecioTotal = (d.precio_total !== undefined && d.precio_total !== null)
+                ? Number(d.precio_total)
+                : ((d.subtotal !== undefined && d.subtotal !== null)
+                    ? Number(d.subtotal)
+                    : (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)));
+
             if (v.genera_igv && Number(d.igv_unitario) === 0) {
-                opInafecta += Number(d.precio_total);
+                opInafecta += itemPrecioTotal;
             }
 
-            const desc = dicc[d.referencia_id] || 'Servicio Varios';
-            const um = diccUM[d.referencia_id] || 'NIU';
+            const desc = dicc[d.referencia_id] || d.descripcion || 'Servicio Varios';
+            const um = diccUM[d.referencia_id] || d.unidad_medida || 'NIU';
             const esCorto = desc.length <= UMBRAL_CARACTERES_MISMA_LINEA;
 
             if (esCorto) {
@@ -288,7 +312,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                         </td>
                         <td class="col-cant" style="padding-top: ${index === 0 ? '1px' : '2px'};">${d.cantidad} ${um}</td>
                         <td class="col-punit" style="padding-top: ${index === 0 ? '1px' : '2px'};">${formatMoney(d.precio_unitario, 6)}</td>
-                        <td class="col-ptot" style="padding-top: ${index === 0 ? '1px' : '2px'};">${formatMoney(d.precio_total)}</td>
+                        <td class="col-ptot" style="padding-top: ${index === 0 ? '1px' : '2px'};">${formatMoney(itemPrecioTotal)}</td>
                     </tr>
                 `;
             } else {
@@ -302,7 +326,7 @@ async function imprimirTicketCerrado(ventaId, montoRecibido = 0, vuelto = 0, dat
                         <td class="col-desc"></td>
                         <td class="col-cant">${d.cantidad} ${um}</td>
                         <td class="col-punit">${formatMoney(d.precio_unitario, 6)}</td>
-                        <td class="col-ptot">${formatMoney(d.precio_total)}</td>
+                        <td class="col-ptot">${formatMoney(itemPrecioTotal)}</td>
                     </tr>
                 `;
             }

@@ -1653,6 +1653,12 @@
                 const guardado = localStorage.getItem('microerp_pos_almacen');
                 let seleccionado = (almacenesDisponibles||[]).find(a => a.id == guardado) ? guardado : ((almacenesDisponibles && almacenesDisponibles.length > 0) ? almacenesDisponibles[0].id : '');
 
+                const almInicial = (almacenesDisponibles||[]).find(a => a.id == seleccionado);
+                if (almInicial) {
+                    const nomComp = almInicial.nombre + (almInicial.descripcion ? ` - ${almInicial.descripcion}` : '');
+                    localStorage.setItem('microerp_pos_almacen_nombre', nomComp);
+                }
+
                 (almacenesDisponibles||[]).forEach(a => {
                     const btn = document.createElement('button');
                     btn.type = 'button';
@@ -1665,6 +1671,8 @@
                         btn.className = 'px-4 py-2 rounded-lg text-sm transition-all border font-medium shadow-sm bg-blue-600 text-white border-blue-600 shadow-blue-500/30';
                         inputOculto.value = a.id;
                         localStorage.setItem('microerp_pos_almacen', a.id);
+                        const nomComp = a.nombre + (a.descripcion ? ` - ${a.descripcion}` : '');
+                        localStorage.setItem('microerp_pos_almacen_nombre', nomComp);
                         
                         // Refrescar búsqueda si hay texto escrito
                         if (document.getElementById('buscadorGeneral').value.trim() && filtroActivo === 'ITEMS') {
@@ -3341,6 +3349,18 @@
                         const resConsumo = await window.MicroERPOffline.consumirSiguienteCorrelativoSoberano(serieTicketActual, cajaIdActual);
                         const numTkDefinitivo = (resConsumo && resConsumo.numero_ticket) ? resConsumo.numero_ticket : numTk;
 
+                        // Determinar nombre completo de almacén
+                        const almIdOff = document.getElementById('almacenOrigen')?.value;
+                        const almObjOff = (almacenesDisponibles || []).find(a => String(a.id) === String(almIdOff));
+                        let almNomOff = '';
+                        if (almObjOff) {
+                            almNomOff = almObjOff.nombre || '';
+                            if (almObjOff.descripcion) almNomOff = almNomOff ? `${almNomOff} - ${almObjOff.descripcion}` : almObjOff.descripcion;
+                        }
+                        if (!almNomOff) {
+                            almNomOff = localStorage.getItem('microerp_pos_almacen_nombre') || (perfilEmpresa?.direccion || 'Sede Principal');
+                        }
+
                         const payloadOffline = {
                             id: clientVentaId,
                             empresa_id: currentEmpresaId,
@@ -3359,8 +3379,13 @@
                             fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
                             usuario_id: window.currentUser.id,
                             created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
-                            almacen_origen_id: document.getElementById('almacenOrigen')?.value,
-                            detalles: detallesVentaInserts,
+                            almacen_origen_id: almIdOff,
+                            almacen_nombre: almNomOff,
+                            detalles: (detallesVentaInserts || []).map(d => ({
+                                ...d,
+                                descripcion: d.descripcion || (diccDesc && diccDesc[d.referencia_id]) || 'Producto',
+                                precio_total: (d.precio_total !== undefined && d.precio_total !== null) ? d.precio_total : (d.subtotal !== undefined ? d.subtotal : (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)))
+                            })),
                             lotes_a_descontar: lotesADescontar,
                             caja_identificador: window.cajaIdentificador || 'Caja 1',
                             estado: 'PENDIENTE_SYNC'
@@ -3410,8 +3435,18 @@
                 // 3. Preparar datos en memoria para impresión instantánea (0 peticiones HTTP)
                 const clienteNombreActual = document.getElementById('clienteSearchInput').value || 'Cliente No Identificado (NN)';
                 const clienteDocActual = (todosLosClientes.find(c => c.id === clienteId)?.numero_documento) || '---';
-                const btnAlmacenActivo = document.querySelector('#almacenesContainer button.bg-blue-600');
-                const almacenNombreActual = btnAlmacenActivo ? btnAlmacenActivo.textContent.trim() : (perfilEmpresa?.direccion || 'Sede Principal');
+                const almIdActual = document.getElementById('almacenOrigen')?.value;
+                const almObjActual = (almacenesDisponibles || []).find(a => String(a.id) === String(almIdActual));
+                let almacenNombreActual = '';
+                if (almObjActual) {
+                    almacenNombreActual = almObjActual.nombre || '';
+                    if (almObjActual.descripcion) almacenNombreActual = almacenNombreActual ? `${almacenNombreActual} - ${almObjActual.descripcion}` : almObjActual.descripcion;
+                }
+                if (!almacenNombreActual) {
+                    const btnAlmacenActivo = document.querySelector('#almacenesContainer button.bg-blue-600');
+                    almacenNombreActual = btnAlmacenActivo ? btnAlmacenActivo.textContent.trim() : (localStorage.getItem('microerp_pos_almacen_nombre') || perfilEmpresa?.direccion || 'Sede Principal');
+                }
+
                 const diccDesc = {};
                 const diccUM = {};
                 carrito.forEach(c => {
@@ -3423,9 +3458,11 @@
                     venta: {
                         id: respVenta.venta_id,
                         empresa_id: currentEmpresaId,
+                        usuario_id: window.currentUser?.id || (typeof currentUserId !== 'undefined' ? currentUserId : null),
                         numero_ticket: ticketFinal,
                         tipo_comprobante: tipoComp,
                         fecha_venta: fechaEmisionStr,
+                        hora_emision: window.MicroERPOffline ? window.MicroERPOffline.obtenerHoraOficialLima().iso : new Date().toISOString(),
                         fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
                         created_at: new Date().toISOString(),
                         created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
@@ -3454,6 +3491,8 @@
                             clientes: datosEnMemoria.cliente,
                             cliente_id: clienteId,
                             caja_identificador: window.cajaIdentificador || 'Caja 1',
+                            almacen_nombre: almacenNombreActual,
+                            almacen_origen_id: almIdActual || null,
                             estado_sync: 'SINCRONIZADO',
                             detalles: (detallesVentaInserts || []).map(d => ({
                                 referencia_id: d.referencia_id,
@@ -3461,6 +3500,7 @@
                                 cantidad: d.cantidad,
                                 precio_unitario: d.precio_unitario,
                                 subtotal: d.subtotal,
+                                precio_total: (d.precio_total !== undefined && d.precio_total !== null) ? d.precio_total : (d.subtotal !== undefined ? d.subtotal : (Number(d.cantidad || 0) * Number(d.precio_unitario || 0))),
                                 tipo_item_vendido: d.tipo_item_vendido || 'ITEMS'
                             }))
                         });

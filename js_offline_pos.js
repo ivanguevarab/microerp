@@ -762,6 +762,9 @@
                     let pendientesSyncCount = 0;
 
                     for (const v of todasLasVentas) {
+                        // Excluir ventas cacheadas desde la nube (evitar contaminar el cómputo offline con ventas históricas remotas)
+                        if (v.origen === 'NUBE_CACHE') continue;
+
                         // 1. Coincidencia por empresa
                         const matchEmpresa = !empresaId || !v.empresa_id || v.empresa_id === empresaId;
 
@@ -770,8 +773,9 @@
                         const cajaTicket = (v.caja_identificador || '').toLowerCase().trim();
                         const matchCaja = !cajaObjetivo || !cajaTicket || cajaTicket === cajaObjetivo || cajaObjetivo.includes(cajaTicket) || cajaTicket.includes(cajaObjetivo);
 
-                        // 3. Coincidencia por marca temporal de apertura
-                        const matchHora = !horaAperturaSnapshot || !v.hora_emision || v.hora_emision >= horaAperturaSnapshot;
+                        // 3. Coincidencia por marca temporal de apertura (estricto en UTC-5)
+                        const horaVenta = v.hora_emision || v.created_at || (v.fecha_venta ? v.fecha_venta + 'T00:00:00-05:00' : '');
+                        const matchHora = !horaAperturaSnapshot || (horaVenta && horaVenta >= horaAperturaSnapshot);
 
                         if (matchEmpresa && matchCaja && matchHora) {
                             offlineCantidadTickets++;

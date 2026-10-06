@@ -155,6 +155,7 @@ async function checkAuth() {
                     .from('perfiles_usuario')
                     .select(`
                         id,
+                        empresa_id,
                         rol,
                         estado,
                         nombre_completo,

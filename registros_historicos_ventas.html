@@ -427,6 +427,17 @@
             // 2. Consultar ventas en la nube (si hay conexión a internet)
             let consultaNubeExitosa = false;
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                if (!localStorage.getItem('microerp_pos_almacen_nombre')) {
+                    try {
+                        const { data: alms } = await window.supabaseClient.from('almacenes').select('id, nombre, descripcion').eq('activo', true);
+                        if (alms && alms.length > 0) {
+                            const a0 = alms[0];
+                            const nomCompleto = a0.nombre + (a0.descripcion ? ` - ${a0.descripcion}` : '');
+                            localStorage.setItem('microerp_pos_almacen_nombre', nomCompleto);
+                        }
+                    } catch (_) {}
+                }
+
                 try {
                     let query = window.supabaseClient.from('ventas')
                         .select(`
@@ -496,8 +507,13 @@
                                                 origen: 'NUBE_CACHE',
                                                 cliente_id: vn.cliente_id || vn.clientes?.id,
                                                 clientes: vn.clientes || prev?.clientes,
-                                                // Preservar detalles locales completos si ya existían
-                                                detalles: (prev && prev.detalles && prev.detalles.length > 0) ? prev.detalles : []
+                                                almacen_nombre: prev?.almacen_nombre || localStorage.getItem('microerp_pos_almacen_nombre') || '',
+                                                almacen_origen_id: prev?.almacen_origen_id || null,
+                                                // Preservar detalles locales completos si ya existían asegurando precio_total
+                                                detalles: (prev && prev.detalles && prev.detalles.length > 0) ? prev.detalles.map(d => ({
+                                                    ...d,
+                                                    precio_total: (d.precio_total !== undefined && d.precio_total !== null) ? d.precio_total : (d.subtotal !== undefined ? d.subtotal : (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)))
+                                                })) : []
                                             };
                                             store.put(vParaCache);
                                         };
