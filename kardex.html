@@ -425,9 +425,9 @@
                 </div>
             </div>
             
-            <div class="mt-4">
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
                 <!-- Producto / Buscador Ampliado -->
-                <div class="w-full">
+                <div class="md:col-span-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Búsqueda Inteligente</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -436,6 +436,15 @@
                         <input type="text" id="busquedaProducto" placeholder="Buscar item, documento, cliente, proveedor... o ingresa =Monto (ej. =150.50)" 
                             class="w-full pl-10 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                     </div>
+                </div>
+
+                <!-- Filtro por Categoría -->
+                <div class="md:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                    <select id="filtroCategoria" onchange="currentPage=1; cargarKardex()"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Todas</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -880,7 +889,7 @@
             document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                 
-                await cargarTiposMovimiento();
+                await Promise.all([cargarTiposMovimiento(), cargarCategorias()]);
                 
                 // Set default dates (current month)
                 const date = new Date();
@@ -894,6 +903,17 @@
                     document.getElementById('modoVista').value = localStorage.getItem('kardex_modoVista') || 'DETALLADO';
                     document.getElementById('registrosPorPagina').value = localStorage.getItem('kardex_registrosPorPagina') || '10';
                     document.getElementById('busquedaProducto').value = localStorage.getItem('kardex_busquedaProducto') || '';
+
+                    // Restauración validada de categoría (Blindaje Multi-Tenant)
+                    const savedCat = localStorage.getItem('kardex_filtroCategoria');
+                    const selectCat = document.getElementById('filtroCategoria');
+                    if (savedCat && selectCat && selectCat.querySelector(`option[value="${savedCat}"]`)) {
+                        selectCat.value = savedCat;
+                    } else if (selectCat) {
+                        selectCat.value = '';
+                        localStorage.removeItem('kardex_filtroCategoria');
+                    }
+
                     actualizarUiBotonFijar(true);
                 } else {
                     document.getElementById('fechaDesde').valueAsDate = firstDay;
@@ -983,6 +1003,7 @@
                     localStorage.removeItem('kardex_modoVista');
                     localStorage.removeItem('kardex_registrosPorPagina');
                     localStorage.removeItem('kardex_busquedaProducto');
+                    localStorage.removeItem('kardex_filtroCategoria');
                     actualizarUiBotonFijar(false);
                 } else {
                     localStorage.setItem('kardex_remember', 'true');
@@ -999,6 +1020,8 @@
                 localStorage.setItem('kardex_modoVista', document.getElementById('modoVista').value);
                 localStorage.setItem('kardex_registrosPorPagina', document.getElementById('registrosPorPagina').value);
                 localStorage.setItem('kardex_busquedaProducto', document.getElementById('busquedaProducto').value);
+                const selCat = document.getElementById('filtroCategoria');
+                if (selCat) localStorage.setItem('kardex_filtroCategoria', selCat.value);
             }
 
             function fijarDiaEspecifico() {
@@ -1112,6 +1135,31 @@
                 }
             }
 
+            async function cargarCategorias() {
+                try {
+                    const select = document.getElementById('filtroCategoria');
+                    if (!select) return;
+
+                    const { data: categorias, error } = await supabaseClient
+                        .from('categorias')
+                        .select('id, nombre')
+                        .eq('activo', true)
+                        .order('nombre');
+
+                    if (!error && categorias) {
+                        select.innerHTML = '<option value="">Todas</option>';
+                        categorias.forEach(cat => {
+                            const opt = document.createElement('option');
+                            opt.value = cat.id;
+                            opt.textContent = cat.nombre;
+                            select.appendChild(opt);
+                        });
+                    }
+                } catch(e) {
+                    console.error("Error al cargar categorías:", e);
+                }
+            }
+
             function normalizarTexto(texto) {
                 if (!texto) return '';
                 return texto.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -1122,6 +1170,7 @@
                 const fechaHasta = document.getElementById('fechaHasta').value;
                 const productoBusqueda = normalizarTexto(document.getElementById('busquedaProducto').value);
                 const tipoMovimiento = document.getElementById('tipoMovimiento').value;
+                const categoriaId = document.getElementById('filtroCategoria')?.value || '';
 
                 let itemIds = [];
                 let docsEncontrados = [];
@@ -1167,6 +1216,9 @@
                         const sonTodosCodigos = terminos.length > 1 && terminos.every(t => t.startsWith('item-') && !t.includes(' '));
 
                         let itemsQueryBuilder = supabaseClient.from('items').select('id');
+                        if (categoriaId) {
+                            itemsQueryBuilder = itemsQueryBuilder.eq('categoria_id', categoriaId);
+                        }
 
                         if (sonTodosCodigos) {
                             esBusquedaMultiCodigo = true;
@@ -1216,7 +1268,11 @@
                                 const wWild = w.replace(/[aeiou]/gi, '_');
 
                                 try {
-                                    const { data: items } = await supabaseClient.from('items').select('id').ilike('busqueda_vector', `%${w}%`).limit(50);
+                                    let qItemsW = supabaseClient.from('items').select('id').ilike('busqueda_vector', `%${w}%`);
+                                    if (categoriaId) {
+                                        qItemsW = qItemsW.eq('categoria_id', categoriaId);
+                                    }
+                                    const { data: items } = await qItemsW.limit(50);
                                     if (items && items.length > 0) orTerms.push(`item_id.in.(${items.map(i=>i.id).join(',')})`);
                                     
                                     let docs = [];
@@ -1302,24 +1358,51 @@
                 const dd = String(dateHastaObj.getDate()).padStart(2, '0');
                 const fechaLte = `${yyyy}-${mm}-${dd} 04:59:59`;
 
+                // Resolución homogénea de items por categoría
+                let catItemIds = null;
+                if (categoriaId) {
+                    const { data: itemsCat } = await supabaseClient
+                        .from('items')
+                        .select('id')
+                        .eq('categoria_id', categoriaId);
+                    catItemIds = (itemsCat || []).map(i => i.id);
+                }
+
                 let query;
                 if (tipoMovimiento === 'INVENTARIO_FINAL') {
                     query = supabaseClient
                         .rpc('fn_kardex_inventario_final', {}, { count: 'exact' })
                         .select('*');
                     // Nota: No aplicamos gte y lte de fechas, queremos ver todo el stock actual disponible independientemente de cuándo ingresó
+
+                    if (catItemIds !== null) {
+                        if (catItemIds.length > 0) {
+                            query = query.in('item_id', catItemIds);
+                        } else {
+                            query = query.eq('item_id', '00000000-0000-0000-0000-000000000000');
+                        }
+                    }
                 } else {
                     query = supabaseClient
                         .from('kardex')
                         .select(`
                         *,
-                        items:item_id!inner (codigo, descripcion, unidad_medida, precio_venta)
+                        items:item_id!inner (codigo, descripcion, unidad_medida, precio_venta, categoria_id)
                     `, { count: 'exact' })
                         .gte('fecha_movimiento', fechaGte)
                         .lte('fecha_movimiento', fechaLte)
                         .order('fecha_movimiento', { ascending: false })
                         .order('documento_referencia', { ascending: false })
                         .order('id', { ascending: false });
+
+                    // Filtro nativo por Categoría sobre columna propia item_id
+                    if (catItemIds !== null) {
+                        if (catItemIds.length > 0) {
+                            query = query.in('item_id', catItemIds);
+                        } else {
+                            query = query.eq('item_id', '00000000-0000-0000-0000-000000000000');
+                        }
+                    }
 
                     // Filtro por Tipo de Movimiento (Solo aplicable a kardex nativo)
                     if (tipoMovimiento === 'TRANSFORMACION') {
@@ -1331,7 +1414,13 @@
                         query = query.eq('tipo_movimiento', 'INGRESO').ilike('motivo', `%${motivoStr}%`);
                     } else if (tipoMovimiento.startsWith('TIPO_EGRESO:')) {
                         const motivoStr = tipoMovimiento.split(':')[1];
-                        query = query.eq('tipo_movimiento', 'EGRESO').ilike('motivo', `%${motivoStr}%`);
+                        // Si el tipo seleccionado es "Ventas" (definido por el usuario), buscar con raíz flexible %Venta%
+                        // para capturar fielmente 'Ventas', 'Venta', 'Venta Directa', etc. en BD
+                        if (normalizarTexto(motivoStr).startsWith('venta')) {
+                            query = query.eq('tipo_movimiento', 'EGRESO').ilike('motivo', '%Venta%');
+                        } else {
+                            query = query.eq('tipo_movimiento', 'EGRESO').ilike('motivo', `%${motivoStr}%`);
+                        }
                     } else if (tipoMovimiento) {
                         query = query.eq('tipo_movimiento', tipoMovimiento);
                     }
@@ -1983,7 +2072,13 @@
                     const modoVista = document.getElementById('modoVista').value;
                     const selectTipoMov = document.getElementById('tipoMovimiento');
                     const tipoMov = selectTipoMov.value;
-                    const filtroTxt = selectTipoMov.options[selectTipoMov.selectedIndex]?.text || 'Todos';
+                    let filtroTxt = selectTipoMov.options[selectTipoMov.selectedIndex]?.text || 'Todos';
+
+                    const selectCat = document.getElementById('filtroCategoria');
+                    const catNombre = selectCat && selectCat.value ? selectCat.options[selectCat.selectedIndex]?.text : '';
+                    if (catNombre && catNombre !== 'Todas') {
+                        filtroTxt += ` | Cat: ${catNombre}`;
+                    }
 
                     let modoTxt = 'Detallado (Por Item)';
                     if (tipoMov === 'INVENTARIO_FINAL') modoTxt = 'Inventario Final (Stock Disponible)';

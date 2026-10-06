@@ -295,7 +295,8 @@
         const cacheCodigosUnicosCatalogo = new Map(); // key: `${currentEmpresaId}_${id}` -> { id, descripcion, codigo }
 
         async function cargarContextoInicial() {
-            currentUserId = window.currentUser?.id;
+            const sessionBackup = JSON.parse(localStorage.getItem('microerp_pos_session_backup') || '{}');
+            currentUserId = window.currentUser?.id || sessionBackup.user?.id || sessionBackup.usuario_id || null;
             let perfil = window.currentUserProfile;
 
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentUserId) {
@@ -309,7 +310,6 @@
             }
 
             if (!perfil) {
-                const sessionBackup = JSON.parse(localStorage.getItem('microerp_pos_session_backup') || '{}');
                 perfil = sessionBackup.profile || {
                     empresa_id: sessionBackup.empresa_id || localStorage.getItem('empresa_id') || null,
                     rol: sessionBackup.rol || 'CAJERO'
@@ -339,18 +339,37 @@
             // 1. Consultar ventas locales offline en IndexedDB
             if (window.MicroERPOffline) {
                 try {
-                    ventasLocales = await window.MicroERPOffline.obtenerVentasLocales(currentEmpresaId);
+                    let rawLocales = await window.MicroERPOffline.obtenerVentasLocales(currentEmpresaId);
                     const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(currentEmpresaId);
                     const clientesMap = {};
                     (snap?.clientes || []).forEach(c => { clientesMap[c.id] = c; });
-                    ventasLocales.forEach(v => {
+
+                    // 1.1 Aislamiento estricto por rol CAJERO en almacenamiento local
+                    if (isCajero && currentUserId) {
+                        rawLocales = rawLocales.filter(v => v.usuario_id === currentUserId);
+                    }
+
+                    // 1.2 Filtro temporal estricto en local contra fecInc y fecFin
+                    if (fecInc || fecFin) {
+                        rawLocales = rawLocales.filter(v => {
+                            const fStr = (v.fecha_venta ? v.fecha_venta.substring(0, 10) : (v.hora_emision ? v.hora_emision.substring(0, 10) : ''));
+                            if (!fStr) return true;
+                            if (fecInc && fStr < fecInc) return false;
+                            if (fecFin && fStr > fecFin) return false;
+                            return true;
+                        });
+                    }
+
+                    rawLocales.forEach(v => {
                         v.clientes = v.clientes || clientesMap[v.cliente_id] || { razon_social: 'Cliente NN', numero_documento: '---' };
                         v.estado = (v.estado_sync === 'PENDIENTE_SYNC') ? 'PENDIENTE_SYNC' : (v.estado || 'REGISTRADO');
                     });
+                    ventasLocales = rawLocales;
                 } catch (_) {}
             }
 
             // 2. Consultar ventas en la nube (si hay conexión a internet)
+            let consultaNubeExitosa = false;
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                 try {
                     let query = window.supabaseClient.from('ventas')
@@ -378,18 +397,35 @@
                     const { data: vData, error } = await (window.fetchConTimeout ? window.fetchConTimeout(query, 1200) : query);
                     if (!error && vData) {
                         ventasNube = vData;
+                        consultaNubeExitosa = true;
                     }
                 } catch (eNet) {
                     console.warn("Fallo de red al consultar ventas históricas en Supabase:", eNet);
                 }
             }
 
-            // 3. Fusionar ventas (Locales pendientes primero, seguidas de ventas de nube)
-            const idsNube = new Set(ventasNube.map(v => v.id));
-            const localesUnicas = ventasLocales.filter(v => !idsNube.has(v.id));
-            const todasLasVentas = [...localesUnicas, ...ventasNube];
+            // 3. Fusionar ventas con criterio inteligente y ordenamiento cronológico unificado
+            let localesAInyectar = [];
+            if (consultaNubeExitosa) {
+                // Modo Online: Supabase es la fuente oficial. De IndexedDB solo inyectar comprobantes
+                // que sigan pendientes de sincronización (PENDIENTE_SYNC) y no existan aún en la nube.
+                const idsNube = new Set(ventasNube.map(v => v.id));
+                localesAInyectar = ventasLocales.filter(v => !idsNube.has(v.id) && v.estado_sync === 'PENDIENTE_SYNC');
+            } else {
+                // Modo Offline: Proyectar todo el subconjunto de ventas locales del rango
+                localesAInyectar = ventasLocales;
+            }
 
-            // 4. Filtrar si hay término de búsqueda
+            const todasLasVentas = [...localesAInyectar, ...ventasNube];
+
+            // Ordenamiento cronológico descendente unificado
+            todasLasVentas.sort((a, b) => {
+                const fechaA = a.created_at || a.hora_emision || (a.fecha_venta ? a.fecha_venta + 'T00:00:00' : '');
+                const fechaB = b.created_at || b.hora_emision || (b.fecha_venta ? b.fecha_venta + 'T00:00:00' : '');
+                return fechaB.localeCompare(fechaA);
+            });
+
+            // 4. Filtrar si hay término de búsqueda (incluyendo Autor / Cajero / Terminal)
             let filtrados = todasLasVentas;
             let alcanzadoTope = false;
             if (term) {
@@ -397,7 +433,8 @@
                 filtrados = filtrados.filter(v => {
                     const c1 = (v.numero_ticket||'').toLowerCase().includes(t) ||
                         (v.clientes?.razon_social||'').toLowerCase().includes(t) ||
-                        (v.clientes?.numero_documento||'').includes(t);
+                        (v.clientes?.numero_documento||'').includes(t) ||
+                        (v.created_by||'').toLowerCase().includes(t);
                     return c1;
                 });
             } else if (ventasNube.length >= 500) {
@@ -449,7 +486,10 @@
                         const [y, m, d] = v.fecha_venta.split('T')[0].split('-');
                         return new Date(y, m - 1, d).toLocaleDateString('es-PE');
                     })()}</td>
-                    <td class="font-bold text-blue-600 ${textColorClass}">${v.numero_ticket}</td>
+                    <td class="font-bold text-blue-600 ${textColorClass}">
+                        <div>${v.numero_ticket}</div>
+                        ${v.created_by ? `<div class="text-[11px] font-normal text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1" title="Cajero / Emisor"><i class="fas fa-user-circle text-[10px]"></i> <span>${v.created_by}</span></div>` : ''}
+                    </td>
                     <td class="${textColorClass}">
                         <div class="font-medium">${v.clientes ? v.clientes.razon_social : '<span class="italic text-gray-400">Cliente No Identificado (NN)</span>'}</div>
                         <div class="text-xs text-gray-500">${v.clientes ? v.clientes.numero_documento||'Sin Doc' : '---'}</div>
@@ -518,6 +558,7 @@
                             title: `Ticket ${vOff.numero_ticket}`,
                             html: `<div class="text-left text-sm space-y-2 p-2">
                                 <p><b>Fecha:</b> ${vOff.fecha_venta || 'Hoy'}</p>
+                                <p><b>Emitido por:</b> ${vOff.created_by || 'Terminal POS'}</p>
                                 <p><b>Cliente:</b> ${vOff.clientes?.razon_social || 'Cliente NN'}</p>
                                 <p><b>Total:</b> S/ ${formatMoney(vOff.precio_venta_total)}</p>
                                 <p><b>Condición:</b> ${vOff.condicion_pago || 'CONTADO'}</p>
@@ -696,6 +737,10 @@
                                         <p class="text-xs text-gray-500 mt-0.5"><i class="fas fa-id-card mr-1 text-gray-300"></i> ${v.clientes ? v.clientes.numero_documento||'' : '---'}</p>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="col-span-2 border-t border-gray-100 pt-3">
+                                <p class="text-[10px] uppercase text-gray-400 font-bold tracking-wider mb-1">Cajero / Terminal Emisora</p>
+                                <p class="font-semibold text-gray-700 text-sm flex items-center gap-1.5"><i class="fas fa-user-circle text-blue-500"></i> ${v.created_by || 'Terminal POS'}</p>
                             </div>
                             <div class="border-t border-gray-100 pt-3">
                                 <p class="text-[10px] uppercase text-gray-400 font-bold tracking-wider mb-1">Comprobante</p>
@@ -1434,20 +1479,50 @@
             });
             if(num) {
                 Swal.fire({ title: 'Buscando...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()} });
-                let queryReimp = window.supabaseClient.from('ventas').select('id')
-                    .eq('empresa_id', currentEmpresaId)
-                    .ilike('numero_ticket', `%${num}%`);
+                let ticketIdEncontrado = null;
 
-                if (isCajero) {
-                    queryReimp = queryReimp.eq('usuario_id', currentUserId);
+                // 1. Intento en Supabase (si hay conexión a internet)
+                if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                    try {
+                        let queryReimp = window.supabaseClient.from('ventas').select('id')
+                            .eq('empresa_id', currentEmpresaId)
+                            .ilike('numero_ticket', `%${num.trim()}%`);
+
+                        if (isCajero && currentUserId) {
+                            queryReimp = queryReimp.eq('usuario_id', currentUserId);
+                        }
+
+                        const pReimp = queryReimp.limit(1).maybeSingle();
+                        const { data: b } = await (window.fetchConTimeout ? window.fetchConTimeout(pReimp, 1200) : pReimp);
+                        if (b && b.id) {
+                            ticketIdEncontrado = b.id;
+                        }
+                    } catch (eNet) {
+                        console.warn("Fallo de red en búsqueda remota de ticket, intentando local:", eNet);
+                    }
                 }
 
-                const { data: b, error } = await queryReimp.limit(1).maybeSingle();
-                if(b) {
+                // 2. Fallback de rescate en almacenamiento local de IndexedDB
+                if (!ticketIdEncontrado && window.MicroERPOffline) {
+                    try {
+                        const locs = await window.MicroERPOffline.obtenerVentasLocales(currentEmpresaId);
+                        const numNorm = num.toLowerCase().trim();
+                        const match = locs.find(v => {
+                            const matchNum = (v.numero_ticket || '').toLowerCase().includes(numNorm);
+                            if (!matchNum) return false;
+                            if (isCajero && currentUserId && v.usuario_id && v.usuario_id !== currentUserId) return false;
+                            return true;
+                        });
+                        if (match && match.id) {
+                            ticketIdEncontrado = match.id;
+                        }
+                    } catch (_) {}
+                }
+
+                if (ticketIdEncontrado) {
                     Swal.close();
-                    imprimirTicketCerrado(b.id);
-                }
-                else {
+                    imprimirTicketCerrado(ticketIdEncontrado);
+                } else {
                     Swal.fire('No Encontrado', isCajero ? 'Ticket no encontrado en sus registros de venta.' : 'Ticket no encontrado en esta empresa.', 'warning');
                 }
             }
