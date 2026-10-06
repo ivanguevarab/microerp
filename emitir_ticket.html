@@ -878,6 +878,8 @@
         let filtroActivo = null; // ITEMS, CUS, CUP o null (busca todo)
         let tipoEgresosDisponibles = []; // Para encontrar el ID del Tipo 'Venta Directa' necesario para el Kardex
         let todosLosClientes = [];
+        let almacenesDisponibles = [];
+        window.almacenesDisponibles = almacenesDisponibles;
         let indiceAutocomplete = -1; // Navegación por teclado
         let ordenInvertido = false; // Estado para la visualización del carrito
         let isEditMode = false;
@@ -1569,7 +1571,8 @@
 
             // 2. Cargar Catálogo de Items (Online con snapshotting a IndexedDB o Fallback Offline)
             let itemsParaMemoria = [];
-            let almacenesDisponibles = [];
+            almacenesDisponibles = [];
+            window.almacenesDisponibles = almacenesDisponibles;
             let clientesDisponibles = [];
 
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId) {
@@ -3341,6 +3344,29 @@
                     }
                 }
 
+                // Mapear descripciones y unidades de medida de los ítems en memoria
+                const diccDesc = {};
+                const diccUM = {};
+                carrito.forEach(c => {
+                    diccDesc[c.dbId] = c.descripcion;
+                    diccUM[c.dbId] = c.unidad_medida || 'NIU';
+                });
+
+                // Determinar nombre completo de almacén / punto de venta
+                const almIdActual = document.getElementById('almacenOrigen')?.value;
+                const almObjActual = (window.almacenesDisponibles || (typeof almacenesDisponibles !== 'undefined' ? almacenesDisponibles : []) || []).find(a => String(a.id) === String(almIdActual));
+                let almacenNombreActual = '';
+                if (almObjActual) {
+                    almacenNombreActual = almObjActual.nombre || '';
+                    if (almObjActual.descripcion) {
+                        almacenNombreActual = almacenNombreActual ? `${almacenNombreActual} - ${almObjActual.descripcion}` : almObjActual.descripcion;
+                    }
+                }
+                if (!almacenNombreActual) {
+                    const btnAlmacenActivo = document.querySelector('#almacenesContainer button.bg-blue-600');
+                    almacenNombreActual = btnAlmacenActivo ? btnAlmacenActivo.textContent.trim() : (localStorage.getItem('microerp_pos_almacen_nombre') || perfilEmpresa?.direccion || 'Sede Principal');
+                }
+
                 // Si no hay red o si falló la nube, emitir en MODO OFFLINE LOCAL inmediato (0ms espera)
                 if (!respVenta) {
                     if (window.MicroERPOffline) {
@@ -3348,18 +3374,6 @@
                         const serieTicketActual = window.MicroERPOffline.calcularSeriePorCaja(cajaIdActual);
                         const resConsumo = await window.MicroERPOffline.consumirSiguienteCorrelativoSoberano(serieTicketActual, cajaIdActual);
                         const numTkDefinitivo = (resConsumo && resConsumo.numero_ticket) ? resConsumo.numero_ticket : numTk;
-
-                        // Determinar nombre completo de almacén
-                        const almIdOff = document.getElementById('almacenOrigen')?.value;
-                        const almObjOff = (almacenesDisponibles || []).find(a => String(a.id) === String(almIdOff));
-                        let almNomOff = '';
-                        if (almObjOff) {
-                            almNomOff = almObjOff.nombre || '';
-                            if (almObjOff.descripcion) almNomOff = almNomOff ? `${almNomOff} - ${almObjOff.descripcion}` : almObjOff.descripcion;
-                        }
-                        if (!almNomOff) {
-                            almNomOff = localStorage.getItem('microerp_pos_almacen_nombre') || (perfilEmpresa?.direccion || 'Sede Principal');
-                        }
 
                         const payloadOffline = {
                             id: clientVentaId,
@@ -3379,11 +3393,11 @@
                             fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
                             usuario_id: window.currentUser.id,
                             created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
-                            almacen_origen_id: almIdOff,
-                            almacen_nombre: almNomOff,
+                            almacen_origen_id: almIdActual,
+                            almacen_nombre: almacenNombreActual,
                             detalles: (detallesVentaInserts || []).map(d => ({
                                 ...d,
-                                descripcion: d.descripcion || (diccDesc && diccDesc[d.referencia_id]) || 'Producto',
+                                descripcion: d.descripcion || diccDesc[d.referencia_id] || 'Producto',
                                 precio_total: (d.precio_total !== undefined && d.precio_total !== null) ? d.precio_total : (d.subtotal !== undefined ? d.subtotal : (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)))
                             })),
                             lotes_a_descontar: lotesADescontar,
@@ -3435,24 +3449,6 @@
                 // 3. Preparar datos en memoria para impresión instantánea (0 peticiones HTTP)
                 const clienteNombreActual = document.getElementById('clienteSearchInput').value || 'Cliente No Identificado (NN)';
                 const clienteDocActual = (todosLosClientes.find(c => c.id === clienteId)?.numero_documento) || '---';
-                const almIdActual = document.getElementById('almacenOrigen')?.value;
-                const almObjActual = (almacenesDisponibles || []).find(a => String(a.id) === String(almIdActual));
-                let almacenNombreActual = '';
-                if (almObjActual) {
-                    almacenNombreActual = almObjActual.nombre || '';
-                    if (almObjActual.descripcion) almacenNombreActual = almacenNombreActual ? `${almacenNombreActual} - ${almObjActual.descripcion}` : almObjActual.descripcion;
-                }
-                if (!almacenNombreActual) {
-                    const btnAlmacenActivo = document.querySelector('#almacenesContainer button.bg-blue-600');
-                    almacenNombreActual = btnAlmacenActivo ? btnAlmacenActivo.textContent.trim() : (localStorage.getItem('microerp_pos_almacen_nombre') || perfilEmpresa?.direccion || 'Sede Principal');
-                }
-
-                const diccDesc = {};
-                const diccUM = {};
-                carrito.forEach(c => {
-                    diccDesc[c.dbId] = c.descripcion;
-                    diccUM[c.dbId] = c.unidad_medida || 'NIU';
-                });
 
                 const datosEnMemoria = {
                     venta: {
