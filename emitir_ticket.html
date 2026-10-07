@@ -1343,6 +1343,9 @@
             document.getElementById('fechaRecepcionPago').value = isoLocal;
             document.getElementById('fechaEmision').value = isoLocal;
 
+            // Iniciar eventos del DOM de forma inmediata (buscador y atajos activos en 0 ms)
+            configurarEventos();
+
             await cargarContextoInicial();
             
             // Lógica de Edición Magistral
@@ -1366,7 +1369,6 @@
                 await generarNuevoTicket();
             }
             
-            configurarEventos();
             // Inicializar Balanza Electrónica Opcional (si fue autorizada previamente)
             BalanzaCASManager.init();
         });
@@ -2322,11 +2324,18 @@
                 let resultadosDOM = '';
                 
                 if(filtroActivo === 'ITEMS') {
-                    const modoVerdeActivo = document.getElementById('toggleModoVerde').checked;
-                    const almacenId = document.getElementById('almacenOrigen').value;
+                    const modoVerdeActivo = document.getElementById('toggleModoVerde')?.checked;
+                    let almacenId = document.getElementById('almacenOrigen')?.value;
                     if(!almacenId && !modoVerdeActivo) {
-                        resDiv.innerHTML = '<div class="p-4 text-center text-red-500">Por favor seleccione un almacén origen primero.</div>';
-                        return;
+                        const guardado = localStorage.getItem('microerp_pos_almacen');
+                        almacenId = guardado || (window.almacenesDisponibles && window.almacenesDisponibles[0]?.id);
+                        if (almacenId) {
+                            const inp = document.getElementById('almacenOrigen');
+                            if (inp) inp.value = almacenId;
+                        } else {
+                            resDiv.innerHTML = '<div class="p-4 text-center text-red-500">Por favor seleccione un almacén origen primero.</div>';
+                            return;
+                        }
                     }
 
                     // Blindaje del query contra comas y pipes: reemplazar comillas dobles y normalizar
@@ -2401,7 +2410,7 @@
 
                             let stockActual = misLotes.reduce((s, l) => s + Number(l.cantidad_disponible), 0);
                             // Si estamos offline o no hay lotes físicos específicos, usar stock_total local
-                            if (misLotes.length === 0 && (!navigator.onLine || prod.stock_total !== undefined)) {
+                            if (misLotes.length === 0 && (!navigator.onLine || window.isOfflineState || prod.stock_total !== undefined)) {
                                 stockActual = Number(prod.stock_total || 999);
                             }
                             if (isEditMode && window.stockRescatadoVirtual && window.stockRescatadoVirtual[prod.id]) {
@@ -3641,12 +3650,14 @@
 
         async function actualizarContadorCarritosCongelados() {
             if (!currentEmpresaId) return;
+            if (!navigator.onLine || window.isOfflineState) return;
             try {
-                const { count, error } = await window.supabaseClient
+                const countPromise = window.supabaseClient
                     .from('pos_carritos_congelados')
                     .select('*', { count: 'exact', head: true })
                     .eq('empresa_id', currentEmpresaId)
                     .eq('estado', 'CONGELADO');
+                const { count, error } = await (window.fetchConTimeout ? window.fetchConTimeout(countPromise, 800) : countPromise);
                 if (error) throw error;
                 const badge = document.getElementById('badgeCountCongelados');
                 if (badge) {
