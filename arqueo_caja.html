@@ -402,6 +402,31 @@
         <!-- Dato global capturado de BD -->
         <span id="print-empresa-nombre" style="display: none;"></span>
         
+        <!-- Panel Exclusivo Super Admin: Selector de Auditoría de Cajas / Mi Caja -->
+        <div id="admin-selector-container" class="hidden mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800/90 dark:to-indigo-950/40 p-4 rounded-xl border border-blue-200/80 dark:border-indigo-900/50 shadow-sm flex flex-wrap items-center justify-between gap-4 no-print">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                        <span>Modo Auditoría de Supervisor (ADMIN)</span>
+                        <span class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Supervisión</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Selecciona tu propia caja del día o audita en vivo las terminales activas con turno en curso.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <label for="admin-select-caja" class="text-xs font-bold text-slate-700 dark:text-slate-300">Auditar Terminal / Caja:</label>
+                <select id="admin-select-caja" onchange="handleAdminCambioCaja(this.value)" class="bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-xs font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500 min-w-[260px]">
+                    <option value="ADMIN">👑 Mi Caja (Administrador) - Ventas del Día</option>
+                </select>
+                <button type="button" onclick="recargarTurnosAdmin()" class="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 px-2.5 py-2 rounded-lg text-xs font-bold transition shadow-sm" title="Refrescar terminales activas">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+
         <!-- Dashboard Superior -->
         <div class="flex justify-between items-center mb-8 no-print flex-wrap gap-4">
             <div>
@@ -414,13 +439,13 @@
                 <p id="txtSubtituloTurno" class="text-slate-600 dark:text-slate-400 text-sm mt-1 font-medium">Conciliación económica del turno activo para esta terminal de cobro.</p>
             </div>
             <div class="flex gap-2 flex-wrap items-center">
-                <button onclick="imprimirCierreTermicoDirecto()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide" title="Imprimir lectura de control (Corte X) sin cerrar turno">
+                <button id="btn-corte-x" onclick="imprimirCierreTermicoDirecto()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide" title="Imprimir lectura de control (Corte X) sin cerrar turno">
                     Corte Parcial (X)
                 </button>
-                <button onclick="iniciarCierreZDefinitivo()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide" title="Sellar turno inmutablemente en Supabase e imprimir Cierre Z">
+                <button id="btn-cierre-z" onclick="iniciarCierreZDefinitivo()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide" title="Sellar turno inmutablemente en Supabase e imprimir Cierre Z">
                     Cierre Definitivo (Z)
                 </button>
-                <button onclick="imprimirReporteA4()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm border border-slate-700 dark:border-slate-600" title="Imprimir reporte en formato A4">
+                <button id="btn-reporte-a4" onclick="imprimirReporteA4()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm border border-slate-700 dark:border-slate-600" title="Imprimir reporte en formato A4">
                     Reporte A4
                 </button>
             </div>
@@ -437,7 +462,7 @@
                         <h3 class="font-bold text-amber-900 dark:text-amber-300">
                             Dinero Esperado
                         </h3>
-                        <span class="text-xs font-bold px-2.5 py-1 rounded-full border bg-amber-100 text-amber-900 border-amber-300/80 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-600/50">TURNO ACTIVO</span>
+                        <span id="badgeEstadoTurnoCard" class="text-xs font-bold px-2.5 py-1 rounded-full border bg-amber-100 text-amber-900 border-amber-300/80 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-600/50">TURNO ACTIVO</span>
                     </div>
                     <div class="p-5 space-y-4 text-sm">
                         
@@ -691,59 +716,15 @@
                 }
             }
 
-            // Identificar turno activo si existe
-            windowCajaIdentificador = localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
-            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
-                try {
-                    if (currentEmpresaId && window.currentUser && window.currentUser.id) {
-                        const tPromise = window.supabaseClient
-                            .from('pos_turnos_activos')
-                            .select('*')
-                            .eq('empresa_id', currentEmpresaId)
-                            .eq('usuario_id', window.currentUser.id)
-                            .eq('estado', 'ABIERTO')
-                            .order('hora_apertura', { ascending: false })
-                            .limit(1);
-                        const { data: turnosAbiertos } = await (window.fetchConTimeout ? window.fetchConTimeout(tPromise, 1200) : tPromise);
-
-                        if (turnosAbiertos && turnosAbiertos.length > 0) {
-                            currentTurnoActivo = turnosAbiertos[0];
-                            windowCajeroName = currentTurnoActivo.cajero_nombre;
-                            windowCajaIdentificador = currentTurnoActivo.caja_identificador;
-                        }
-                    }
-                } catch (errT) {
-                    console.warn("Consulta turno activo arqueo:", errT);
-                }
-            }
-
-            if (!currentTurnoActivo) {
-                try {
-                    const str = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
-                    if (str) {
-                        currentTurnoActivo = JSON.parse(str);
-                        if (currentTurnoActivo.cajero_nombre && !currentTurnoActivo.cajero_nombre.startsWith('Caja ')) {
-                            windowCajeroName = currentTurnoActivo.cajero_nombre;
-                        }
-                        if (currentTurnoActivo.caja_identificador) {
-                            windowCajaIdentificador = currentTurnoActivo.caja_identificador;
-                        }
-                    }
-                } catch (_) {}
-            }
-
-            // Actualizar badge visual de operador
-            const badgeOperador = document.getElementById('txtBadgeOperadorArqueo');
-            if (badgeOperador) {
-                badgeOperador.innerHTML = `<span>${windowCajeroName} (${windowCajaIdentificador}) - Operador en Turno</span>`;
-            }
-
-            // Precargar fondo inicial del turno activo si está disponible
-            if (currentTurnoActivo && currentTurnoActivo.fondo_inicial) {
-                const inpFondo = document.getElementById('in-fondo-inicial');
-                if (inpFondo && (!inpFondo.value || parseFloat(inpFondo.value) === 0)) {
-                    inpFondo.value = parseFloat(currentTurnoActivo.fondo_inicial).toFixed(2);
-                }
+            // Flujo Diferenciado por Rol: ADMIN vs CAJERO
+            if (windowUserRole === 'ADMIN') {
+                const adminContainer = document.getElementById('admin-selector-container');
+                if (adminContainer) adminContainer.classList.remove('hidden');
+                await recargarTurnosAdmin();
+            } else {
+                const adminContainer = document.getElementById('admin-selector-container');
+                if (adminContainer) adminContainer.classList.add('hidden');
+                await inicializarModoCajeroArqueo();
             }
 
             const spanFecha = document.getElementById('print-fecha-hora');
@@ -775,6 +756,206 @@
             document.getElementById('global-spinner').classList.add('hidden');
         });
 
+        // ---------------------------------------------------------------------
+        // GESTIÓN DE AUDITORÍA Y ROLES (ADMIN vs CAJERO)
+        // ---------------------------------------------------------------------
+        let listaTurnosAdminActivos = [];
+
+        async function recargarTurnosAdmin() {
+            if (!currentEmpresaId || !window.supabaseClient) return;
+            const sel = document.getElementById('admin-select-caja');
+            if (!sel) return;
+
+            const valPrevio = sel.value;
+            sel.innerHTML = '<option value="ADMIN">👑 Mi Caja (Administrador) - Ventas del Día</option>';
+
+            try {
+                const qT = window.supabaseClient
+                    .from('pos_turnos_activos')
+                    .select('*')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('estado', 'ABIERTO')
+                    .order('hora_apertura', { ascending: false });
+                const { data: turnos, error } = await (window.fetchConTimeout ? window.fetchConTimeout(qT, 1200) : qT);
+
+                if (!error && turnos) {
+                    listaTurnosAdminActivos = turnos;
+                    turnos.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.id;
+                        let horaStr = '';
+                        try {
+                            horaStr = new Intl.DateTimeFormat('es-PE', { 
+                                timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' 
+                            }).format(new Date(t.hora_apertura));
+                        } catch (_) {}
+                        opt.textContent = `📦 Terminal: ${t.caja_identificador} | Operador: ${t.cajero_nombre} (Abierto ${horaStr})`;
+                        sel.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.warn("Carga turnos activos admin:", e);
+            }
+
+            if (valPrevio && Array.from(sel.options).some(o => o.value === valPrevio)) {
+                sel.value = valPrevio;
+            } else {
+                sel.value = 'ADMIN';
+            }
+            await aplicarConfiguracionVistaAdmin(sel.value);
+        }
+
+        async function handleAdminCambioCaja(val) {
+            document.getElementById('global-spinner').classList.remove('hidden');
+            await aplicarConfiguracionVistaAdmin(val);
+            await extraerVentasBD();
+            recalcularTodo();
+            document.getElementById('global-spinner').classList.add('hidden');
+        }
+
+        async function aplicarConfiguracionVistaAdmin(val) {
+            const btnZ = document.getElementById('btn-cierre-z');
+            const btnX = document.getElementById('btn-corte-x');
+            const subtitulo = document.getElementById('txtSubtituloTurno');
+            const badgeOperador = document.getElementById('txtBadgeOperadorArqueo');
+            const badgeEstadoCard = document.getElementById('badgeEstadoTurnoCard');
+            const inpFondo = document.getElementById('in-fondo-inicial');
+
+            if (val === 'ADMIN') {
+                currentTurnoActivo = null;
+                windowCajaIdentificador = 'Admin';
+                windowCajeroName = window.currentUserProfile?.nombre_completo || 'Administrador';
+
+                if (badgeOperador) {
+                    badgeOperador.innerHTML = `<span>👑 ${windowCajeroName} (Admin) - Conciliación Diaria</span>`;
+                }
+                if (subtitulo) {
+                    subtitulo.textContent = 'Conciliación del Administrador (ventas emitidas hoy desde 00:00 UTC-5). Se reinicia automáticamente cada día a medianoche.';
+                }
+                if (badgeEstadoCard) {
+                    badgeEstadoCard.textContent = 'JORNADA DIARIA';
+                }
+
+                // Ocultar Cierre Z y Corte X para el propio Admin (no maneja turnos formales)
+                if (btnZ) btnZ.classList.add('hidden');
+                if (btnX) btnX.classList.add('hidden');
+
+                if (inpFondo) inpFondo.value = '0.00';
+            } else {
+                const turnoSel = listaTurnosAdminActivos.find(t => t.id === val);
+                if (turnoSel) {
+                    currentTurnoActivo = turnoSel;
+                    windowCajaIdentificador = turnoSel.caja_identificador;
+                    windowCajeroName = turnoSel.cajero_nombre;
+
+                    if (badgeOperador) {
+                        badgeOperador.innerHTML = `<span>👁️ Auditoría: ${windowCajeroName} (${windowCajaIdentificador}) - Turno en Curso</span>`;
+                    }
+                    if (subtitulo) {
+                        subtitulo.textContent = `Auditoría en vivo de la terminal ${windowCajaIdentificador}. Operador en turno: ${windowCajeroName}.`;
+                    }
+                    if (badgeEstadoCard) {
+                        badgeEstadoCard.textContent = 'TURNO EN VIVO';
+                    }
+
+                    // Habilitar Corte X pero bloquear Cierre Z para auditoría de caja ajena
+                    if (btnX) {
+                        btnX.classList.remove('hidden');
+                        btnX.disabled = false;
+                        btnX.className = 'bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide';
+                    }
+                    if (btnZ) {
+                        btnZ.classList.remove('hidden');
+                        btnZ.disabled = true;
+                        btnZ.className = 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-bold py-2.5 px-4 rounded-lg shadow-none text-sm tracking-wide cursor-not-allowed opacity-60';
+                        btnZ.title = 'Acción Restringida: El Cierre Definitivo (Z) solo puede realizarse desde la terminal física del cajero en turno.';
+                    }
+
+                    if (inpFondo && turnoSel.fondo_inicial) {
+                        inpFondo.value = parseFloat(turnoSel.fondo_inicial).toFixed(2);
+                    }
+                }
+            }
+            chequearMemoriaAmnesicaDiaria();
+        }
+
+        async function inicializarModoCajeroArqueo() {
+            const btnZ = document.getElementById('btn-cierre-z');
+            const btnX = document.getElementById('btn-corte-x');
+            const subtitulo = document.getElementById('txtSubtituloTurno');
+            const badgeEstadoCard = document.getElementById('badgeEstadoTurnoCard');
+
+            if (subtitulo) {
+                subtitulo.textContent = 'Conciliación económica del turno activo para esta terminal de cobro.';
+            }
+            if (badgeEstadoCard) {
+                badgeEstadoCard.textContent = 'TURNO ACTIVO';
+            }
+            if (btnZ) {
+                btnZ.classList.remove('hidden');
+                btnZ.disabled = false;
+                btnZ.className = 'bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide';
+                btnZ.title = 'Sellar turno inmutablemente en Supabase e imprimir Cierre Z';
+            }
+            if (btnX) {
+                btnX.classList.remove('hidden');
+                btnX.disabled = false;
+                btnX.className = 'bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide';
+            }
+
+            windowCajaIdentificador = localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                try {
+                    if (currentEmpresaId && window.currentUser && window.currentUser.id) {
+                        const tPromise = window.supabaseClient
+                            .from('pos_turnos_activos')
+                            .select('*')
+                            .eq('empresa_id', currentEmpresaId)
+                            .eq('usuario_id', window.currentUser.id)
+                            .eq('estado', 'ABIERTO')
+                            .order('hora_apertura', { ascending: false })
+                            .limit(1);
+                        const { data: turnosAbiertos } = await (window.fetchConTimeout ? window.fetchConTimeout(tPromise, 1200) : tPromise);
+
+                        if (turnosAbiertos && turnosAbiertos.length > 0) {
+                            currentTurnoActivo = turnosAbiertos[0];
+                            windowCajeroName = currentTurnoActivo.cajero_nombre;
+                            windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                        }
+                    }
+                } catch (errT) {
+                    console.warn("Consulta turno activo cajero arqueo:", errT);
+                }
+            }
+
+            if (!currentTurnoActivo) {
+                try {
+                    const str = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
+                    if (str) {
+                        currentTurnoActivo = JSON.parse(str);
+                        if (currentTurnoActivo.cajero_nombre && !currentTurnoActivo.cajero_nombre.startsWith('Caja ')) {
+                            windowCajeroName = currentTurnoActivo.cajero_nombre;
+                        }
+                        if (currentTurnoActivo.caja_identificador) {
+                            windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            const badgeOperador = document.getElementById('txtBadgeOperadorArqueo');
+            if (badgeOperador) {
+                badgeOperador.innerHTML = `<span>${windowCajeroName} (${windowCajaIdentificador}) - Operador en Turno</span>`;
+            }
+
+            if (currentTurnoActivo && currentTurnoActivo.fondo_inicial) {
+                const inpFondo = document.getElementById('in-fondo-inicial');
+                if (inpFondo && (!inpFondo.value || parseFloat(inpFondo.value) === 0)) {
+                    inpFondo.value = parseFloat(currentTurnoActivo.fondo_inicial).toFixed(2);
+                }
+            }
+        }
+
         function asFechaStr() {
             const lima = new Date().toLocaleString("en-US", { timeZone: "America/Lima" });
             const p = new Date(lima);
@@ -783,7 +964,7 @@
 
         function getLlaveLocal() {
             const uId = window.currentUser ? window.currentUser.id : 'anon';
-            return `arqueo_${currentEmpresaId}_${uId}_${asFechaStr()}`;
+            return `arqueo_${currentEmpresaId}_${uId}_${windowCajaIdentificador}_${asFechaStr()}`;
         }
 
         function chequearMemoriaAmnesicaDiaria() {
@@ -832,11 +1013,12 @@
         async function extraerVentasBD() {
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                 try {
-                    // 1. Intentar balance atómico del turno vía RPC dedicada
+                    // 1. Intentar balance atómico del turno vía RPC unificada
                     const rpcPromise = window.supabaseClient.rpc('rpc_obtener_resumen_cierre_caja', {
                         p_usuario_id: window.currentUser.id,
                         p_empresa_id: currentEmpresaId,
-                        p_caja_identificador: windowCajaIdentificador || 'Caja 1'
+                        p_caja_identificador: windowCajaIdentificador || 'Caja 1',
+                        p_turno_id: currentTurnoActivo ? currentTurnoActivo.id : null
                     });
 
                     const { data: resumen, error: errRpc } = await (window.fetchConTimeout ? window.fetchConTimeout(rpcPromise, 1200) : rpcPromise);
@@ -852,7 +1034,10 @@
                             const rango = (resumen.primer_ticket && resumen.ultimo_ticket && resumen.primer_ticket !== '---') 
                                 ? ` (${resumen.primer_ticket} al ${resumen.ultimo_ticket})` 
                                 : '';
-                            infoComprobantes.innerHTML = `<span class="font-bold text-slate-800 dark:text-slate-200">${cant} comprobante(s)</span> emitido(s) en turno${rango}`;
+                            const txtCredito = (resumen.total_ventas_credito && Number(resumen.total_ventas_credito) > 0)
+                                ? `<span class="block text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5"><i class="fas fa-hand-holding-usd mr-1"></i>Ventas Crédito (Por Cobrar): S/ ${formatMoney(resumen.total_ventas_credito)}</span>`
+                                : '';
+                            infoComprobantes.innerHTML = `<span class="font-bold text-slate-800 dark:text-slate-200">${cant} comprobante(s)</span> emitido(s) en turno${rango}${txtCredito}`;
                         }
 
                         if (resumen.empresa_nombre) {
@@ -1177,6 +1362,16 @@
         }
 
         async function iniciarCierreZDefinitivo() {
+            if (windowUserRole === 'ADMIN') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Acción Restringida',
+                    text: 'Como Administrador en modo auditoría, no puedes ejecutar el Cierre Definitivo (Z) de una terminal remota. Este debe realizarse directamente desde la máquina física del cajero en turno.',
+                    confirmButtonColor: '#2563eb'
+                });
+                return;
+            }
+
             // Solicitar PIN de Supervisor para sellar el turno formalmente
             const { value: pinIngresado } = await Swal.fire({
                 title: 'Autorización Cierre Z',
