@@ -642,11 +642,16 @@
             if (str) {
                 try { t = JSON.parse(str); } catch (_) {}
             }
-            t.id = datosTurno.id || t.id || crypto.randomUUID();
+            const idNormalizado = datosTurno.id || datosTurno.turno_id || t.id || crypto.randomUUID();
+            t.id = idNormalizado;
+            t.turno_id = idNormalizado;
+            t.empresa_id = empresaId;
+            if (datosTurno.usuario_id) t.usuario_id = datosTurno.usuario_id;
             if (datosTurno.cajero_nombre) t.cajero_nombre = datosTurno.cajero_nombre;
             if (datosTurno.caja_identificador) t.caja_identificador = datosTurno.caja_identificador;
             if (datosTurno.fondo_inicial !== undefined) t.fondo_inicial = Number(datosTurno.fondo_inicial || 0);
             if (datosTurno.hora_apertura) t.hora_apertura = datosTurno.hora_apertura;
+            if (datosTurno.estado) t.estado = datosTurno.estado;
             if (datosTurno.ventas_online_contado !== undefined) {
                 t.ventas_online_contado = Number(Number(datosTurno.ventas_online_contado || 0).toFixed(2));
             }
@@ -661,6 +666,11 @@
 
             localStorage.setItem(keyTurno, JSON.stringify(t));
             if (t.caja_identificador) localStorage.setItem('microerp_pos_caja_id', t.caja_identificador);
+
+            // Persistir simétricamente en IndexedDB turnos_locales para blindaje offline
+            dbTransaction('turnos_locales', 'readwrite', (store) => {
+                store.put(t);
+            }).catch(eIdb => console.warn('[Turno Snapshot IDB] Advertencia guardando en turnos_locales:', eIdb));
         } catch (e) {
             console.warn('[Turno Snapshot] Error registrando turno:', e);
         }
@@ -1091,7 +1101,12 @@
                 paquetesVentas.push(paqueteActual);
             }
 
-            console.log(`📦 [Sync POS] ${ventasPendientes.length} ventas divididas en ${paquetesVentas.length} paquete(s) de subida.`);
+            // Si no hay ventas pendientes pero sí hay cierres Z en cola, crear un paquete dedicado a los cierres
+            if (paquetesVentas.length === 0 && cierresPendientes.length > 0) {
+                paquetesVentas.push([]);
+            }
+
+            console.log(`📦 [Sync POS] ${ventasPendientes.length} ventas y ${cierresPendientes.length} cierres en ${paquetesVentas.length} paquete(s) de subida.`);
 
             let paquetesCompletados = 0;
 
@@ -1176,7 +1191,7 @@
             marcarConectividadOnline();
             window.dispatchEvent(new CustomEvent('pos-sync-status', { detail: { estado: 'COMPLETO', mensaje: 'Todas las ventas están sincronizadas.' } }));
 
-            return { sincronizado: true, total: ventasPendientes.length };
+            return { sincronizado: true, total: ventasPendientes.length + cierresPendientes.length, ventas: ventasPendientes.length, cierres: cierresPendientes.length };
 
         } catch (err) {
             console.error('⚠️ [Sync POS] La sincronización falló, reintentará en el siguiente ciclo:', err);
@@ -1267,9 +1282,15 @@
                 targetUrl = window.supabaseClient.supabaseUrl.replace(/\/+$/, '') + '/auth/v1/health';
             }
 
+            const fetchHeaders = {};
+            if (window.supabaseClient && window.supabaseClient.supabaseKey) {
+                fetchHeaders['apikey'] = window.supabaseClient.supabaseKey;
+            }
+
             const fetchOptions = {
                 method: 'GET',
-                cache: 'no-store'
+                cache: 'no-store',
+                headers: fetchHeaders
             };
             if (controller) {
                 fetchOptions.signal = controller.signal;

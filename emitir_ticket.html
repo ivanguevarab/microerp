@@ -991,12 +991,32 @@
 
         window.forzarSincronizacionManual = async () => {
             mostrarToast("Comprobando conexión y cola de sincronización...", "info");
+            let resultado = null;
             if (window.MicroERPOffline && typeof window.MicroERPOffline.probarYAutoSincronizar === 'function') {
-                await window.MicroERPOffline.probarYAutoSincronizar();
-                actualizarBadgeSyncUI();
+                resultado = await window.MicroERPOffline.probarYAutoSincronizar();
             } else if (window.MicroERPOffline && window.supabaseClient && currentEmpresaId) {
-                await window.MicroERPOffline.sincronizarColaOfflineConNube(window.supabaseClient, currentEmpresaId, window.cajaIdentificador);
-                actualizarBadgeSyncUI();
+                resultado = await window.MicroERPOffline.sincronizarColaOfflineConNube(window.supabaseClient, currentEmpresaId, window.cajaIdentificador);
+            }
+            actualizarBadgeSyncUI();
+
+            if (window.MicroERPOffline && typeof window.MicroERPOffline.contarPendientesSync === 'function') {
+                const pendientes = await window.MicroERPOffline.contarPendientesSync();
+                if (pendientes.total === 0) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Sincronizado!',
+                        text: 'Todas las operaciones offline han sido sincronizadas exitosamente con la nube.',
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+                } else if (resultado && resultado.error) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Conexión Inestable',
+                        text: `Hay ${pendientes.total} registro(s) pendiente(s) guardados de forma segura en disco local. Se sincronizarán automáticamente al estabilizarse la red.`,
+                        confirmButtonText: 'Entendido'
+                    });
+                }
             }
         };
 
@@ -1789,6 +1809,7 @@
 
                     if (!errTurno && turnosAbiertos && turnosAbiertos.length > 0) {
                         currentTurnoActivo = turnosAbiertos[0];
+                        currentTurnoActivo.turno_id = currentTurnoActivo.id;
                         window.cajeroName = currentTurnoActivo.cajero_nombre;
                         window.cajaIdentificador = currentTurnoActivo.caja_identificador;
 
@@ -1799,8 +1820,12 @@
                         currentTurnoActivo.primer_ticket_online = existingLocal.primer_ticket_online || null;
                         currentTurnoActivo.ultimo_ticket_online = existingLocal.ultimo_ticket_online || null;
 
-                        localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
-                        localStorage.setItem('microerp_pos_caja_id', window.cajaIdentificador);
+                        if (window.MicroERPOffline && typeof window.MicroERPOffline.registrarSnapshotTurnoOnline === 'function') {
+                            window.MicroERPOffline.registrarSnapshotTurnoOnline(currentEmpresaId, currentTurnoActivo);
+                        } else {
+                            localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
+                            localStorage.setItem('microerp_pos_caja_id', window.cajaIdentificador);
+                        }
 
                         actualizarBadgeOperadorUI();
                         habilitarOperatividadPOS(true);
@@ -2009,6 +2034,9 @@
                 }
 
                 currentTurnoActivo = respTurno;
+                const idFinalTurno = respTurno.id || respTurno.turno_id;
+                currentTurnoActivo.id = idFinalTurno;
+                currentTurnoActivo.turno_id = idFinalTurno;
                 currentTurnoActivo.cajero_nombre = nomInp;
                 currentTurnoActivo.caja_identificador = cajaInp;
                 currentTurnoActivo.fondo_inicial = Number(fondoInp || 0);
@@ -2020,9 +2048,13 @@
                 window.cajeroName = nomInp;
                 window.cajaIdentificador = cajaInp;
 
-                // Guardar en sesión local
-                localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
-                localStorage.setItem('microerp_pos_caja_id', cajaInp);
+                // Guardar en sesión local e IndexedDB simétricamente
+                if (window.MicroERPOffline && typeof window.MicroERPOffline.registrarSnapshotTurnoOnline === 'function') {
+                    window.MicroERPOffline.registrarSnapshotTurnoOnline(currentEmpresaId, currentTurnoActivo);
+                } else {
+                    localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
+                    localStorage.setItem('microerp_pos_caja_id', cajaInp);
+                }
 
                 // Guardar en lista de cajeros frecuentes
                 try {

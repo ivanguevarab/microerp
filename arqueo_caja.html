@@ -1543,7 +1543,7 @@
             const payloadCierre = {
                 empresa_id: currentEmpresaId,
                 usuario_id: window.currentUser.id,
-                turno_id: currentTurnoActivo ? currentTurnoActivo.id : null,
+                turno_id: currentTurnoActivo ? (currentTurnoActivo.id || currentTurnoActivo.turno_id) : null,
                 cajero_nombre: windowCajeroName,
                 caja_identificador: windowCajaIdentificador || 'Caja 1',
                 saldo_inicial: fondoInicial,
@@ -1601,11 +1601,12 @@
 
                 // Cerrar formalmente el turno en pos_turnos_activos y purgar memorias locales
                 try {
-                    if (currentTurnoActivo && currentTurnoActivo.id && navigator.onLine) {
+                    const idTurnoCierre = currentTurnoActivo ? (currentTurnoActivo.id || currentTurnoActivo.turno_id) : null;
+                    if (idTurnoCierre && navigator.onLine) {
                         await window.supabaseClient
                             .from('pos_turnos_activos')
                             .update({ estado: 'CERRADO', hora_cierre: new Date().toISOString() })
-                            .eq('id', currentTurnoActivo.id);
+                            .eq('id', idTurnoCierre);
                     }
                 } catch (errUpdTurno) {
                     console.warn("Actualización pos_turnos_activos:", errUpdTurno);
