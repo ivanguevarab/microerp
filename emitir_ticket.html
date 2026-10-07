@@ -1591,6 +1591,7 @@
                         const almPromise = window.supabaseClient.from('almacenes').select('*').eq('activo', true);
                         const { data: alm } = await (window.fetchConTimeout ? window.fetchConTimeout(almPromise, 1200) : almPromise);
                         almacenesDisponibles = alm || [];
+                        window.almacenesDisponibles = almacenesDisponibles;
                     }
 
                     // Cargar clientes
@@ -1633,7 +1634,10 @@
             if (itemsParaMemoria.length === 0 && window.MicroERPOffline) {
                 const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(currentEmpresaId);
                 itemsParaMemoria = snap.items || [];
-                if (almacenesDisponibles.length === 0) almacenesDisponibles = snap.almacenes || [];
+                if (almacenesDisponibles.length === 0) {
+                    almacenesDisponibles = snap.almacenes || [];
+                    window.almacenesDisponibles = almacenesDisponibles;
+                }
                 if (clientesDisponibles.length === 0) clientesDisponibles = snap.clientes || [];
                 if (!perfilEmpresa && snap.empresa) perfilEmpresa = snap.empresa;
             }
@@ -3362,18 +3366,22 @@
                 });
 
                 // Determinar nombre completo de almacén / punto de venta
-                const almIdActual = document.getElementById('almacenOrigen')?.value;
-                const almObjActual = (window.almacenesDisponibles || (typeof almacenesDisponibles !== 'undefined' ? almacenesDisponibles : []) || []).find(a => String(a.id) === String(almIdActual));
+                const almIdActual = document.getElementById('almacenOrigen')?.value || localStorage.getItem('microerp_pos_almacen');
+                const listaAlmacenes = window.almacenesDisponibles || [];
+                const almObjActual = listaAlmacenes.find(a => String(a.id) === String(almIdActual));
                 let almacenNombreActual = '';
                 if (almObjActual) {
                     almacenNombreActual = almObjActual.nombre || '';
                     if (almObjActual.descripcion) {
-                        almacenNombreActual = almacenNombreActual ? `${almacenNombreActual} - ${almObjActual.descripcion}` : almObjActual.descripcion;
+                        almacenNombreActual = `${almacenNombreActual} - ${almObjActual.descripcion}`;
                     }
                 }
                 if (!almacenNombreActual) {
+                    almacenNombreActual = localStorage.getItem('microerp_pos_almacen_nombre') || '';
+                }
+                if (!almacenNombreActual) {
                     const btnAlmacenActivo = document.querySelector('#almacenesContainer button.bg-blue-600');
-                    almacenNombreActual = btnAlmacenActivo ? btnAlmacenActivo.textContent.trim() : (localStorage.getItem('microerp_pos_almacen_nombre') || perfilEmpresa?.direccion || 'Sede Principal');
+                    almacenNombreActual = btnAlmacenActivo ? btnAlmacenActivo.textContent.trim() : (perfilEmpresa?.direccion || 'Sede Principal');
                 }
 
                 // Si no hay red o si falló la nube, emitir en MODO OFFLINE LOCAL inmediato (0ms espera)
