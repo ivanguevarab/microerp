@@ -162,9 +162,17 @@
                     <i class="fas fa-boxes"></i> Ítems Destino (Productos Resultantes)
                 </h2>
                 <div class="relative">
-                    <button id="btnAgregarDestino" disabled class="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800/50 font-medium text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                        <i class="fas fa-plus"></i> Añadir Destino
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button id="btnRepartirPeso" type="button" onclick="distribuirPorCantidad()" class="hidden text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition" title="Calcular % proporcional al peso de los destinos">
+                            <i class="fas fa-balance-scale-right mr-1"></i> Por Peso
+                        </button>
+                        <button id="btnRepartirEquitativo" type="button" onclick="distribuirEquitativo()" class="hidden text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition" title="Repartir 100% en partes iguales">
+                            <i class="fas fa-divide mr-1"></i> Partes Iguales
+                        </button>
+                        <button id="btnAgregarDestino" disabled class="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800/50 font-medium text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-plus"></i> Añadir Destino
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -186,14 +194,15 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
-                            <th class="p-3 font-semibold w-1/2">Ítem Resultante</th>
-                            <th class="p-3 font-semibold text-right w-1/4">Cantidad Generada</th>
+                            <th class="p-3 font-semibold w-5/12">Ítem Resultante</th>
+                            <th class="p-3 font-semibold text-right w-3/12">Cantidad Generada</th>
+                            <th class="p-3 font-semibold text-right w-3/12">% Costo Asignado</th>
                             <th class="p-3 font-semibold text-center w-16">Acción</th>
                         </tr>
                     </thead>
                     <tbody id="tablaDestinos">
                         <tr id="filaVaciaDestinos">
-                            <td colspan="3" class="p-8 text-center text-slate-400 dark:text-slate-500">
+                            <td colspan="4" class="p-8 text-center text-slate-400 dark:text-slate-500">
                                 <i class="fas fa-box-open text-3xl mb-2 opacity-50 block"></i>
                                 No hay ítems destino asignados. Presione "Añadir Destino" para agregar.
                             </td>
@@ -202,9 +211,9 @@
                 </table>
             </div>
 
-            <!-- Panel de Balance de Masas -->
+            <!-- Panel de Balance y Distribución de Costo -->
             <div class="mt-6 p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="flex gap-8">
+                <div class="flex flex-wrap gap-6 items-center">
                     <div>
                         <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total a Extraer (Origen)</p>
                         <p class="text-xl font-bold text-orange-600 dark:text-orange-400" id="lblTotalOrigenPanel">0.000</p>
@@ -213,6 +222,10 @@
                         <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Suma Destinos</p>
                         <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400" id="lblTotalDestinoPanel">0.000</p>
                     </div>
+                    <div id="colSumaPorcentajePanel" class="hidden border-l border-slate-200 dark:border-slate-700 pl-6">
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Suma % Costo</p>
+                        <p class="text-xl font-bold text-blue-600 dark:text-blue-400" id="lblSumaPorcentajePanel">100.00%</p>
+                    </div>
                 </div>
                 
                 <div id="badgeBalance" class="px-6 py-2 rounded-full text-sm font-bold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center gap-2">
@@ -220,8 +233,8 @@
                 </div>
             </div>
             
-            <p class="text-xs text-slate-500 mt-3 text-center">
-                <i class="fas fa-info-circle mr-1"></i> La suma de las cantidades destino debe ser <span class="font-bold">EXACTAMENTE IGUAL</span> a la cantidad origen extraída para preservar la exactitud del costo unitario.
+            <p id="lblTextoAyudaPanel" class="text-xs text-slate-500 mt-3 text-center">
+                <i class="fas fa-info-circle mr-1"></i> Para 1 ítem destino, el 100% del costo se transfiere automáticamente. Para múltiples ítems, distribuya el % de costo hasta completar el 100%.
             </p>
         </div>
 
@@ -238,6 +251,39 @@
             <button id="btnTransformar" disabled class="px-8 py-2 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg flex items-center gap-2">
                 <i class="fas fa-check-circle"></i> Ejecutar Transformación
             </button>
+        </div>
+
+        <!-- Modal Nativo Glassmorphism de Confirmación de Transformación -->
+        <div id="modalConfirmacionTransformacion" class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm hidden items-center justify-center p-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 animate-fadeIn">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                            <i class="fas fa-exchange-alt text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100">Confirmar Transformación</h3>
+                            <p class="text-xs text-slate-500">Valide la transferencia de inventario y costos contables</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="cerrarModalConfirmacion()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+                
+                <div id="modalConfirmacionContenido" class="py-4 space-y-4 text-sm max-h-[60vh] overflow-y-auto">
+                    <!-- Se llena dinámicamente -->
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                    <button type="button" onclick="cerrarModalConfirmacion()" class="px-5 py-2 rounded-lg font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                        Volver / Modificar
+                    </button>
+                    <button type="button" id="btnEjecutarConfirmado" onclick="ejecutarTransformacionConfirmada()" class="px-6 py-2 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-lg flex items-center gap-2">
+                        <i class="fas fa-check"></i> Confirmar y Ejecutar
+                    </button>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -256,9 +302,22 @@
         };
         window.sanitizarCantidad = sanitizarCantidad;
 
+        const sanitizarPorcentaje = (valor) => {
+            return (valor || '')
+                .replace(/,/g, '.')
+                .replace(/[^0-9.]/g, '')
+                .replace(/(\..*?)\..*/g, '$1')
+                .replace(/(\.\d{2})\d+/g, '$1'); // Máximo 2 decimales para porcentaje
+        };
+        window.sanitizarPorcentaje = sanitizarPorcentaje;
+
         const formatQty = (num) => {
             const val = parseFloat(num || 0);
             return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+        };
+        const formatPercent = (num) => {
+            const val = parseFloat(num || 0);
+            return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
         const formatUnitCost = (num) => {
             const val = parseFloat(num || 0);
@@ -513,12 +572,19 @@
         function seleccionarDestino(producto) {
             itemsDestino.push({
                 producto: producto,
-                cantidad: 0
+                cantidad: 0,
+                porcentaje_costo: itemsDestino.length === 0 ? 100 : 0
             });
             
             document.getElementById('resultadosDestino').classList.add('hidden');
             document.getElementById('buscadorDestino').value = '';
             document.getElementById('destinoBuscadorContenedor').classList.add('hidden');
+            
+            // Si pasa a 2 destinos y el primero tenía 100%, sugerir 50% / 50%
+            if (itemsDestino.length === 2 && itemsDestino[0].porcentaje_costo === 100) {
+                itemsDestino[0].porcentaje_costo = 50;
+                itemsDestino[1].porcentaje_costo = 50;
+            }
             
             renderTablaDestinos();
         }
@@ -529,7 +595,7 @@
             if (itemsDestino.length === 0) {
                 tbody.innerHTML = `
                     <tr id="filaVaciaDestinos">
-                        <td colspan="3" class="p-8 text-center text-slate-400 dark:text-slate-500">
+                        <td colspan="4" class="p-8 text-center text-slate-400 dark:text-slate-500">
                             <i class="fas fa-box-open text-3xl mb-2 opacity-50 block"></i>
                             No hay ítems destino asignados. Presione "Añadir Destino" para agregar.
                         </td>
@@ -559,6 +625,22 @@
                             <span class="text-xs text-slate-400 w-8 text-left">${item.producto.unidad_medida}</span>
                         </div>
                     </td>
+                    <td class="p-3 text-right">
+                        <div class="flex items-center justify-end gap-1">
+                            ${itemsDestino.length === 1 ? `
+                                <input type="text" readonly tabindex="-1" value="100.00" 
+                                    class="form-input text-right w-24 font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
+                                    title="En monodestino el 100% del costo se transfiere automáticamente">
+                                <span class="text-xs font-bold text-slate-400">%</span>
+                            ` : `
+                                <input type="text" inputmode="decimal" value="${item.porcentaje_costo !== undefined ? item.porcentaje_costo : ''}" 
+                                    class="form-input text-right w-24 font-bold text-blue-600 dark:text-blue-400"
+                                    placeholder="0.00"
+                                    oninput="this.value = sanitizarPorcentaje(this.value); actualizarPorcentajeDestino(${index}, this.value)">
+                                <span class="text-xs font-bold text-slate-400">%</span>
+                            `}
+                        </div>
+                    </td>
                     <td class="p-3 text-center">
                         <button onclick="eliminarDestino(${index})" class="btn-delete p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20" title="Eliminar">
                             <i class="fas fa-trash"></i>
@@ -571,16 +653,70 @@
             validarBalance();
         }
 
-        // Must be global for the inline onclick handlers
+        // Handlers globales para inputs inline
         window.actualizarCantDestino = function(index, valor) {
             itemsDestino[index].cantidad = parseFloat(valor) || 0;
+            validarBalance();
+        }
+
+        window.actualizarPorcentajeDestino = function(index, valor) {
+            itemsDestino[index].porcentaje_costo = parseFloat(valor) || 0;
             validarBalance();
         }
         
         window.eliminarDestino = function(index) {
             itemsDestino.splice(index, 1);
+            if (itemsDestino.length === 1) {
+                itemsDestino[0].porcentaje_costo = 100;
+            }
             renderTablaDestinos();
         }
+
+        // Asistentes rápidos de prorrateo
+        window.distribuirEquitativo = function() {
+            if (itemsDestino.length === 0) return;
+            if (itemsDestino.length === 1) {
+                itemsDestino[0].porcentaje_costo = 100;
+                renderTablaDestinos();
+                return;
+            }
+            const parte = Math.floor((100 / itemsDestino.length) * 100) / 100;
+            let acumulado = 0;
+            itemsDestino.forEach((item, idx) => {
+                if (idx === itemsDestino.length - 1) {
+                    item.porcentaje_costo = Number((100 - acumulado).toFixed(2));
+                } else {
+                    item.porcentaje_costo = parte;
+                    acumulado += parte;
+                }
+            });
+            renderTablaDestinos();
+        };
+
+        window.distribuirPorCantidad = function() {
+            if (itemsDestino.length === 0) return;
+            if (itemsDestino.length === 1) {
+                itemsDestino[0].porcentaje_costo = 100;
+                renderTablaDestinos();
+                return;
+            }
+            const sumCantidades = itemsDestino.reduce((sum, item) => sum + (parseFloat(item.cantidad) || 0), 0);
+            if (sumCantidades <= 0) {
+                alert('Ingrese primero las cantidades generadas de los productos destino.');
+                return;
+            }
+            let acumulado = 0;
+            itemsDestino.forEach((item, idx) => {
+                if (idx === itemsDestino.length - 1) {
+                    item.porcentaje_costo = Number((100 - acumulado).toFixed(2));
+                } else {
+                    const p = Math.floor(((parseFloat(item.cantidad) || 0) / sumCantidades * 100) * 100) / 100;
+                    item.porcentaje_costo = p;
+                    acumulado += p;
+                }
+            });
+            renderTablaDestinos();
+        };
 
         // --- LÓGICA DE BALANCE Y VALIDACIÓN ---
         function validarBalance() {
@@ -592,6 +728,20 @@
             
             const badge = document.getElementById('badgeBalance');
             const btnTransformar = document.getElementById('btnTransformar');
+            const colPorcentaje = document.getElementById('colSumaPorcentajePanel');
+            const btnRepartirPeso = document.getElementById('btnRepartirPeso');
+            const btnRepartirEquitativo = document.getElementById('btnRepartirEquitativo');
+            
+            // Mostrar u ocultar controles multidestino
+            if (itemsDestino.length > 1) {
+                colPorcentaje?.classList.remove('hidden');
+                btnRepartirPeso?.classList.remove('hidden');
+                btnRepartirEquitativo?.classList.remove('hidden');
+            } else {
+                colPorcentaje?.classList.add('hidden');
+                btnRepartirPeso?.classList.add('hidden');
+                btnRepartirEquitativo?.classList.add('hidden');
+            }
             
             if (!origenSeleccionado) {
                 badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center gap-2';
@@ -601,7 +751,6 @@
             }
 
             const mgOrigen = Math.round(qtyOrigen * 1000);
-            const mgDestinos = Math.round(sumDestinos * 1000);
             const mgStock = Math.round(Number(origenSeleccionado.stock || 0) * 1000);
             
             if (mgOrigen > mgStock) {
@@ -611,38 +760,147 @@
                 return;
             }
 
-            const isBalanced = mgOrigen > 0 && itemsDestino.length > 0 && (mgOrigen === mgDestinos);
-
-            if (isBalanced) {
-                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-green-100 text-green-700 dark:bg-green-900/40 flex items-center gap-2 border border-green-200 dark:border-green-800 shadow-sm';
-                badge.innerHTML = '<i class="fas fa-check-circle"></i> Balance Perfecto';
-                btnTransformar.disabled = false;
-            } else if (qtyOrigen > 0) {
-                const diff = (sumDestinos - qtyOrigen);
-                const diffStr = (diff > 0 ? `+${formatQty(diff)}` : formatQty(diff));
-                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 flex items-center gap-2 border border-amber-200 dark:border-amber-800';
-                badge.innerHTML = `<i class="fas fa-exclamation-circle"></i> Desbalance (${diffStr})`;
-                btnTransformar.disabled = true;
-            } else {
+            if (qtyOrigen <= 0 || itemsDestino.length === 0) {
                 badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center gap-2';
                 badge.innerHTML = '<i class="fas fa-balance-scale"></i> Indique Cantidades';
+                btnTransformar.disabled = true;
+                return;
+            }
+
+            // Validar que todos los destinos tengan cantidad > 0
+            const tieneCantidadesValidas = itemsDestino.every(d => (parseFloat(d.cantidad) || 0) > 0);
+            if (!tieneCantidadesValidas) {
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 flex items-center gap-2 border border-amber-200 dark:border-amber-800';
+                badge.innerHTML = '<i class="fas fa-exclamation-circle"></i> Cantidad Destino Requerida';
+                btnTransformar.disabled = true;
+                return;
+            }
+
+            // Caso 1: Monodestino (1 solo ítem destino)
+            if (itemsDestino.length === 1) {
+                itemsDestino[0].porcentaje_costo = 100;
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-green-100 text-green-700 dark:bg-green-900/40 flex items-center gap-2 border border-green-200 dark:border-green-800 shadow-sm';
+                badge.innerHTML = '<i class="fas fa-check-circle"></i> Conversión Válida';
+                btnTransformar.disabled = false;
+                return;
+            }
+
+            // Caso 2: Multidestino (2 o más ítems destino)
+            const sumaPorcentajes = itemsDestino.reduce((sum, item) => sum + (parseFloat(item.porcentaje_costo) || 0), 0);
+            const sumPStr = formatPercent(sumaPorcentajes);
+            if (document.getElementById('lblSumaPorcentajePanel')) {
+                document.getElementById('lblSumaPorcentajePanel').textContent = `${sumPStr}%`;
+            }
+
+            const diff = (sumaPorcentajes - 100);
+            const esCien = Math.abs(diff) < 0.05;
+            const todosTienenPorcentaje = itemsDestino.every(d => (parseFloat(d.porcentaje_costo) || 0) > 0);
+
+            if (esCien && todosTienenPorcentaje) {
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-green-100 text-green-700 dark:bg-green-900/40 flex items-center gap-2 border border-green-200 dark:border-green-800 shadow-sm';
+                badge.innerHTML = '<i class="fas fa-check-circle"></i> Conversión Válida (100.00%)';
+                btnTransformar.disabled = false;
+            } else if (!todosTienenPorcentaje) {
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 flex items-center gap-2 border border-amber-200 dark:border-amber-800';
+                badge.innerHTML = '<i class="fas fa-exclamation-circle"></i> Asigne % a cada ítem';
+                btnTransformar.disabled = true;
+            } else if (diff < 0) {
+                const faltante = formatPercent(Math.abs(diff));
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 flex items-center gap-2 border border-amber-200 dark:border-amber-800';
+                badge.innerHTML = `<i class="fas fa-exclamation-circle"></i> Faltan ${faltante}% (Actual: ${sumPStr}%)`;
+                btnTransformar.disabled = true;
+            } else {
+                const exceso = formatPercent(diff);
+                badge.className = 'px-6 py-2 rounded-full text-sm font-bold bg-red-100 text-red-600 dark:bg-red-900/30 flex items-center gap-2 border border-red-200 dark:border-red-800';
+                badge.innerHTML = `<i class="fas fa-exclamation-circle"></i> Excede por ${exceso}% (Actual: ${sumPStr}%)`;
                 btnTransformar.disabled = true;
             }
         }
 
-        // --- ENVÍO A RPC ---
-        async function procesarTransformacion() {
-            const btn = document.getElementById('btnTransformar');
+        // --- POPUP / MODAL DE CONFIRMACIÓN PREVIA ---
+        function procesarTransformacion() {
+            const qtyOrigen = parseFloat(document.getElementById('cantidadOrigen').value) || 0;
+            const almacenSelect = document.getElementById('almacenSelect');
+            const almacenNombre = almacenSelect.options[almacenSelect.selectedIndex]?.text || 'Almacén seleccionado';
+            const fecha = document.getElementById('fechaTransformacion').value;
+            const obs = document.getElementById('observaciones').value.trim();
+
+            if (!origenSeleccionado || qtyOrigen <= 0 || itemsDestino.length === 0) {
+                alert('Complete los datos requeridos antes de procesar.');
+                return;
+            }
+
+            // Construir desglose en el modal
+            const contenedor = document.getElementById('modalConfirmacionContenido');
+            const esMonodestino = itemsDestino.length === 1;
+
+            contenedor.innerHTML = `
+                <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Materia Prima / Origen a Extraer</div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="font-bold text-slate-800 dark:text-slate-100">${origenSeleccionado.producto.descripcion}</span>
+                            <span class="text-xs text-slate-400 block">${origenSeleccionado.producto.codigo} (${almacenNombre})</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-bold text-orange-600 dark:text-orange-400">-${formatQty(qtyOrigen)} ${origenSeleccionado.producto.unidad_medida}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Productos Resultantes a Generar</span>
+                        <span class="text-xs font-bold text-blue-600 dark:text-blue-400">${esMonodestino ? 'Monodestino (100% Costo)' : 'Multidestino Ponderado'}</span>
+                    </div>
+                    <div class="space-y-2 pt-1">
+                        ${itemsDestino.map(d => `
+                            <div class="flex justify-between items-center py-1 border-b border-slate-200/50 dark:border-slate-700/50 last:border-none">
+                                <div>
+                                    <span class="font-medium text-slate-800 dark:text-slate-200">${d.producto.descripcion}</span>
+                                    <span class="text-xs text-slate-400 block">${d.producto.codigo}</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="font-bold text-emerald-600 dark:text-emerald-400">+${formatQty(d.cantidad)} ${d.producto.unidad_medida}</span>
+                                    <span class="text-xs font-bold text-blue-600 dark:text-blue-400 block">${formatPercent(d.porcentaje_costo)}% Costo</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2">
+                    <i class="fas fa-info-circle text-base mt-0.5 text-blue-600 dark:text-blue-400"></i>
+                    <div>
+                        <span class="font-bold">Transferencia Contable FIFO:</span> El 100.00% del costo total de adquisición de los lotes extraídos será transferido y distribuido con exactitud a los productos generados.
+                        ${obs ? `<div class="mt-1 text-slate-500 dark:text-slate-400 font-normal"><strong>Obs:</strong> ${obs}</div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Mostrar modal
+            const modal = document.getElementById('modalConfirmacionTransformacion');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        window.cerrarModalConfirmacion = function() {
+            const modal = document.getElementById('modalConfirmacionTransformacion');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        // --- EJECUCIÓN RPC ATÓMICA ---
+        async function ejecutarTransformacionConfirmada() {
+            const btn = document.getElementById('btnEjecutarConfirmado');
             const qtyOrigen = parseFloat(document.getElementById('cantidadOrigen').value) || 0;
             const almacenId = document.getElementById('almacenSelect').value;
             const fecha = document.getElementById('fechaTransformacion').value;
             const obs = document.getElementById('observaciones').value;
 
-            if (!confirm('¿CONFIRMAR TRANSFORMACIÓN?\n\nEsta operación deducirá stock del ítem origen e incrementará el de los destinos atómicamente.')) return;
-
             try {
                 btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando en Supabase...';
 
                 const sesionStr = localStorage.getItem('microerp_session');
                 const userSession = JSON.parse(sesionStr);
@@ -659,7 +917,8 @@
                     },
                     items_destino: itemsDestino.map(d => ({
                         item_id: d.producto.id,
-                        cantidad: Number(Number(d.cantidad).toFixed(3))
+                        cantidad: Number(Number(d.cantidad).toFixed(3)),
+                        porcentaje_costo: itemsDestino.length === 1 ? 100 : Number(Number(d.porcentaje_costo).toFixed(2))
                     }))
                 };
 
@@ -670,21 +929,22 @@
                     throw new Error(error.message || 'Error en ejecución RPC de base de datos.');
                 }
 
-                // 8. Reestructurar Kardex FIFO
-                btn.innerHTML = '⏳ Recalculando FIFO...';
+                // Recalcular Kardex FIFO en productos involucrados
+                btn.innerHTML = '⏳ Recalculando Kárdex FIFO...';
                 const itemsAfectados = [origenSeleccionado.producto.id, ...itemsDestino.map(d => d.producto.id)];
                 for (const itemId of itemsAfectados) {
                     await supabaseClient.rpc('fn_recalcular_kardex_fifo_item', { p_item_id: itemId });
                 }
 
-                alert(`✅ TRANSFORMACIÓN EXITOSA!\n\nSe procesó correctamente el despiece y se reestructuró el historial FIFO.\nCosto Unitario Transferido: S/ ${formatUnitCost(data.costo_unitario_aplicado)}`);
+                cerrarModalConfirmacion();
+                alert(`✅ TRANSFORMACIÓN EXITOSA!\n\nSe procesó correctamente la transformación y se actualizó el Kárdex FIFO.\nCosto Unitario Origen Transferido: S/ ${formatUnitCost(data.costo_unitario_aplicado || data.costo_unitario_origen)}`);
                 window.location.reload();
 
             } catch (err) {
                 console.error(err);
                 alert('❌ Error Crítico: ' + err.message);
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check-circle"></i> Ejecutar Transformación';
+                btn.innerHTML = '<i class="fas fa-check"></i> Confirmar y Ejecutar';
             }
         }
 

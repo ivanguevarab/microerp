@@ -147,19 +147,19 @@
             max-width: 400px;
         }
 
-        .sort-box {
+        .sort-box, .filter-box {
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .sort-box label {
+        .sort-box label, .filter-box label {
             font-size: 14px;
             font-weight: 600;
             color: #354a5f;
         }
 
-        .sort-box select {
+        .sort-box select, .filter-box select {
             padding: 10px 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
@@ -171,7 +171,12 @@
             transition: all 0.3s;
         }
 
-        .sort-box select:focus {
+        .filter-box select {
+            max-width: 240px;
+            text-overflow: ellipsis;
+        }
+
+        .sort-box select:focus, .filter-box select:focus {
             border-color: #0070f2;
         }
 
@@ -648,15 +653,15 @@
             border-color: #f59e0b !important;
         }
 
-        html.dark .sort-box label {
+        html.dark .sort-box label, html.dark .filter-box label {
             color: #e2e8f0 !important;
         }
-        html.dark .sort-box select {
+        html.dark .sort-box select, html.dark .filter-box select {
             background-color: rgba(30, 41, 59, 0.6) !important;
             border-color: rgba(255, 255, 255, 0.1) !important;
             color: #f8fafc !important;
         }
-        html.dark .sort-box select:focus {
+        html.dark .sort-box select:focus, html.dark .filter-box select:focus {
             border-color: #f59e0b !important;
         }
         
@@ -807,20 +812,28 @@
             <div class="table-header">
                 <div class="search-box">
                     <input type="text" id="searchInput" placeholder="Buscar por código o descripción..."
-                        onkeyup="aplicarFiltrosYOrden()">
+                        onkeyup="aplicarFiltrosYOrden()" oninput="aplicarFiltrosYOrden()">
                     <span class="search-icon">🔍</span>
                 </div>
-                <div class="sort-box">
-                    <label for="sortSelect"><i class="fas fa-sort-amount-down-alt"></i> Ordenar:</label>
-                    <select id="sortSelect" onchange="aplicarFiltrosYOrden()">
-                        <option value="created_at_desc">Más Recientes (Defecto)</option>
-                        <option value="descripcion_asc">Descripción (A - Z)</option>
-                        <option value="descripcion_desc">Descripción (Z - A)</option>
-                        <option value="codigo_asc">Código (Ascendente)</option>
-                        <option value="codigo_desc">Código (Descendente)</option>
-                        <option value="stock_desc">Stock Total (Mayor a Menor)</option>
-                        <option value="stock_asc">Stock Total (Menor a Mayor)</option>
-                    </select>
+                <div class="table-controls-right" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <div class="filter-box">
+                        <label for="filtroCategoria"><i class="fas fa-tags"></i> Categoría:</label>
+                        <select id="filtroCategoria" onchange="aplicarFiltrosYOrden()">
+                            <option value="">Todas las Categorías</option>
+                        </select>
+                    </div>
+                    <div class="sort-box">
+                        <label for="sortSelect"><i class="fas fa-sort-amount-down-alt"></i> Ordenar:</label>
+                        <select id="sortSelect" onchange="aplicarFiltrosYOrden()">
+                            <option value="created_at_desc">Más Recientes (Defecto)</option>
+                            <option value="descripcion_asc">Descripción (A - Z)</option>
+                            <option value="descripcion_desc">Descripción (Z - A)</option>
+                            <option value="codigo_asc">Código (Ascendente)</option>
+                            <option value="codigo_desc">Código (Descendente)</option>
+                            <option value="stock_desc">Stock Total (Mayor a Menor)</option>
+                            <option value="stock_asc">Stock Total (Menor a Mayor)</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -969,6 +982,7 @@
         // VARIABLES GLOBALES
         // ============================================
         let itemsData = [];
+        let itemsFiltrados = [];
         let categoriasData = [];
         let unidadesData = [];
         let proveedoresData = [];
@@ -994,6 +1008,22 @@
             const { data } = await supabaseApp.from('categorias').select('id, nombre').eq('activo', true).order('nombre');
             categoriasData = data || [];
             llenarSelect('categoriaId', categoriasData, 'nombre');
+
+            // Poblar selector de filtro por categoría preservando selección si existiese
+            const selectFiltro = document.getElementById('filtroCategoria');
+            if (selectFiltro) {
+                const valorPrevio = selectFiltro.value;
+                selectFiltro.innerHTML = '<option value="">Todas las Categorías</option>';
+                categoriasData.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat.id;
+                    opt.textContent = cat.nombre;
+                    selectFiltro.appendChild(opt);
+                });
+                if (valorPrevio && categoriasData.some(c => c.id === valorPrevio)) {
+                    selectFiltro.value = valorPrevio;
+                }
+            }
         }
 
         async function cargarUnidades() {
@@ -1054,39 +1084,37 @@
         }
 
         // ============================================
-        // EXPORTAR EXCEL
+        // EXPORTAR EXCEL (COPIA FIEL DE PANTALLA)
         // ============================================
         async function exportarExcel() {
             try {
-                if (!itemsData || itemsData.length === 0) {
-                    mostrarToast('No hay datos para exportar', 'warning');
+                const fuenteExportar = (itemsFiltrados && itemsFiltrados.length > 0) ? itemsFiltrados : itemsData;
+                if (!fuenteExportar || fuenteExportar.length === 0) {
+                    mostrarToast('No hay datos para exportar con el filtro actual', 'warning');
                     return;
                 }
 
-                // Filtrar items con stock mayor a cero
-                const dataAExportar = itemsData
-                    .filter(item => (item.stock_total || 0) > 0)
-                    .map(item => [
-                        item.descripcion || '',
-                        item.unidades_medida?.codigo || '-',
-                        item.stock_total || 0
-                    ]);
-
-                if (dataAExportar.length === 0) {
-                    mostrarToast('No hay items con stock mayor a cero para exportar', 'warning');
-                    return;
-                }
+                // Exportar fielmente lo que está visible en pantalla (respetando orden y filtros)
+                const dataAExportar = fuenteExportar.map(item => [
+                    item.codigo || '',
+                    item.descripcion || '',
+                    item.categorias?.nombre || 'Sin Categoría',
+                    item.unidades_medida?.codigo || '-',
+                    Number(item.stock_total || 0)
+                ]);
 
                 // Agregar encabezados
-                dataAExportar.unshift(['Descripción', 'Unidad', 'Stock Total']);
+                dataAExportar.unshift(['Código', 'Descripción', 'Categoría', 'Unidad', 'Stock Total']);
 
                 // Crear hoja de Excel
                 const ws = XLSX.utils.aoa_to_sheet(dataAExportar);
                 
                 // Ajustar ancho de columnas
                 ws['!cols'] = [
-                    { wch: 50 }, // Descripción
-                    { wch: 15 }, // Unidad
+                    { wch: 20 }, // Código
+                    { wch: 45 }, // Descripción
+                    { wch: 25 }, // Categoría
+                    { wch: 12 }, // Unidad
                     { wch: 15 }  // Stock Total
                 ];
 
@@ -1094,7 +1122,12 @@
                 XLSX.utils.book_append_sheet(wb, ws, "Inventario");
                 
                 const fecha = new Date().toISOString().split('T')[0];
-                XLSX.writeFile(wb, `Inventario_Items_${fecha}.xlsx`);
+                const selectFiltro = document.getElementById('filtroCategoria');
+                let sufijoArchivo = 'Items';
+                if (selectFiltro && selectFiltro.value && selectFiltro.selectedOptions[0]) {
+                    sufijoArchivo = selectFiltro.selectedOptions[0].textContent.trim().replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_-]/g, '_');
+                }
+                XLSX.writeFile(wb, `Inventario_${sufijoArchivo}_${fecha}.xlsx`);
                 
                 mostrarToast('Excel exportado correctamente', 'success');
             } catch (error) {
@@ -1197,11 +1230,12 @@
             const tableContent = document.getElementById('tableContent');
 
             if (datos.length === 0) {
+                const esFiltroSinResultados = itemsData && itemsData.length > 0;
                 tableContent.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">📦</div>
-            <h3>No hay items registrados</h3>
-            <p>Comienza agregando tu primer item</p>
+            <div class="empty-state-icon">${esFiltroSinResultados ? '🔍' : '📦'}</div>
+            <h3>${esFiltroSinResultados ? 'No se encontraron items' : 'No hay items registrados'}</h3>
+            <p>${esFiltroSinResultados ? 'Intenta seleccionar otra categoría o cambiar el término de búsqueda.' : 'Comienza agregando tu primer item'}</p>
           </div>
         `;
                 return;
@@ -1265,13 +1299,20 @@
         function aplicarFiltrosYOrden() {
             const rawSearchTerm = document.getElementById('searchInput').value.trim();
             const searchTerm = normalizarTexto(rawSearchTerm);
+            const categoriaSeleccionada = document.getElementById('filtroCategoria')?.value || '';
             const sortValue = document.getElementById('sortSelect').value;
 
             // 1. Filtrar
             let resultados = itemsData;
+
+            // Filtro por categoría seleccionada
+            if (categoriaSeleccionada) {
+                resultados = resultados.filter(prod => prod.categoria_id === categoriaSeleccionada);
+            }
             
+            // Filtro por término de búsqueda textual
             if (rawSearchTerm.length >= 1) {
-                resultados = itemsData.filter(prod => {
+                resultados = resultados.filter(prod => {
                     const cod = normalizarTexto(prod.codigo);
                     const desc = normalizarTexto(prod.descripcion);
                     const cat = normalizarTexto(prod.categorias?.nombre);
@@ -1304,6 +1345,9 @@
                     return 0; // Orden original del array (Que ya viene ordenado por Supabase)
                 }
             });
+
+            // Persistir copia fiel de lo visible en pantalla para exportación y renderizado
+            itemsFiltrados = resultados;
 
             // 3. Renderizar
             renderizarTabla(resultados);

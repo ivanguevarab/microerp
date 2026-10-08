@@ -195,6 +195,11 @@
                         <input type="date" id="fechaHasta" class="bg-slate-700 border-none text-white rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500 outline-none">
                     </div>
 
+                    <!-- Selector de Categoría -->
+                    <select id="filtroCategoria" class="bg-slate-700 border-none text-white rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none max-w-[210px] text-ellipsis cursor-pointer" title="Filtrar por categoría comercial">
+                        <option value="">Todas las Categorías</option>
+                    </select>
+
                     <button onclick="cargarDashboard()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold transition shadow-lg shadow-emerald-500/20 flex items-center gap-2">
                         <i class="fas fa-sync-alt"></i> Analizar
                     </button>
@@ -439,15 +444,65 @@
         
         let datosRankingGlobal = [];
         let ordenMCTipo = 'ninguno';
+        let catalogoCategoriasGlobal = [];
+        let mapaCategoriasGlobal = {};
+        let isAnalizandoDashboard = false;
+        let debounceTimerFiltro = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
             const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', window.currentUser.id).single();
             currentEmpresaId = perfil.empresa_id;
 
+            await cargarCategorias();
             initFiltrosFecha();
+            configurarEventosFiltros();
             cargarDashboard();
         });
+
+        async function cargarCategorias() {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('categorias')
+                    .select('id, nombre')
+                    .eq('activo', true)
+                    .order('nombre');
+
+                if (error) throw error;
+                catalogoCategoriasGlobal = data || [];
+                mapaCategoriasGlobal = {};
+
+                const selectCat = document.getElementById('filtroCategoria');
+                if (selectCat) {
+                    const valorPrevio = selectCat.value;
+                    selectCat.innerHTML = '<option value="">Todas las Categorías</option>';
+                    catalogoCategoriasGlobal.forEach(cat => {
+                        mapaCategoriasGlobal[cat.id] = cat.nombre;
+                        const opt = document.createElement('option');
+                        opt.value = cat.id;
+                        opt.textContent = cat.nombre;
+                        selectCat.appendChild(opt);
+                    });
+                    if (valorPrevio && catalogoCategoriasGlobal.some(c => c.id === valorPrevio)) {
+                        selectCat.value = valorPrevio;
+                    }
+                }
+            } catch (err) {
+                console.error("Error al cargar catálogo de categorías:", err);
+            }
+        }
+
+        function configurarEventosFiltros() {
+            const selectCat = document.getElementById('filtroCategoria');
+            if (selectCat) {
+                selectCat.addEventListener('change', () => {
+                    clearTimeout(debounceTimerFiltro);
+                    debounceTimerFiltro = setTimeout(() => {
+                        cargarDashboard();
+                    }, 300);
+                });
+            }
+        }
 
         function initFiltrosFecha() {
             const hoy = new Date();
@@ -506,6 +561,12 @@
                     }
                 }
 
+                // Restaurar categoría fijada
+                if (localStorage.getItem('margen_categoria')) {
+                    const selCat = document.getElementById('filtroCategoria');
+                    if (selCat) selCat.value = localStorage.getItem('margen_categoria');
+                }
+
                 // Restaurar selección de días de la semana
                 const diasGuardadosRaw = localStorage.getItem('margen_dias');
                 if (diasGuardadosRaw) {
@@ -555,6 +616,7 @@
                 localStorage.removeItem('margen_anio');
                 localStorage.removeItem('margen_fechaDesde');
                 localStorage.removeItem('margen_fechaHasta');
+                localStorage.removeItem('margen_categoria');
                 localStorage.removeItem('margen_dias');
                 actualizarUiBotonFijar(false);
             } else {
@@ -573,6 +635,9 @@
             localStorage.setItem('margen_fechaDesde', document.getElementById('fechaDesde').value);
             localStorage.setItem('margen_fechaHasta', document.getElementById('fechaHasta').value);
             
+            const selCat = document.getElementById('filtroCategoria');
+            localStorage.setItem('margen_categoria', selCat ? (selCat.value || '') : '');
+
             const diasActivos = Array.from(document.querySelectorAll('.dia-btn.btn-dia-activo')).map(b => parseInt(b.dataset.dia));
             localStorage.setItem('margen_dias', JSON.stringify(diasActivos));
         }
@@ -633,34 +698,54 @@
                 texto += ' | DÍAS ESPECÍFICOS';
             }
 
-            return { desde, hasta, paramDias, texto };
+            // Filtro de Categoría (Sanitización estricta: UUID válido o null)
+            const selCat = document.getElementById('filtroCategoria');
+            const catVal = selCat ? selCat.value.trim() : '';
+            const categoriaId = catVal !== '' ? catVal : null;
+            const catNombre = (categoriaId && mapaCategoriasGlobal[categoriaId]) 
+                ? mapaCategoriasGlobal[categoriaId] 
+                : (selCat && selCat.selectedIndex > 0 ? selCat.options[selCat.selectedIndex].text : '');
+
+            if (categoriaId && catNombre) {
+                texto += ` • CATEGORÍA: ${catNombre.toUpperCase()}`;
+            }
+
+            return { desde, hasta, paramDias, categoriaId, catNombre, texto };
         }
 
         async function cargarDashboard() {
+            if (isAnalizandoDashboard) return;
+            isAnalizandoDashboard = true;
+
             guardarConfiguracionFiltrosMargen();
             const f = getFiltrosActuales();
-            if(!f.desde || !f.hasta) return;
+            if(!f.desde || !f.hasta) {
+                isAnalizandoDashboard = false;
+                return;
+            }
             
             document.getElementById('fechaActual').textContent = f.texto;
             Swal.fire({ title: 'Analizando Margen de Contribución', text: 'Ejecutando algoritmos financieros...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
 
             try {
-                // 1. Cargar Evolución con Rangos y Días
+                // 1. Cargar Evolución con Rangos, Días y Categoría
                 const { data: dataDiaria, error: errDia } = await window.supabaseClient.rpc('fn_dashboard_margen_rango', {
                     p_empresa_id: currentEmpresaId,
                     p_fecha_desde: f.desde,
                     p_fecha_hasta: f.hasta,
-                    p_dias_semana: f.paramDias
+                    p_dias_semana: f.paramDias,
+                    p_categoria_id: f.categoriaId
                 });
                 if(errDia) throw errDia;
 
-                // 2. Cargar Ranking Top 10 con Rangos y Días
+                // 2. Cargar Ranking Top 20 con Rangos, Días y Categoría
                 const { data: dataRanking, error: errRank } = await window.supabaseClient.rpc('fn_ranking_rentabilidad_rango', {
                     p_empresa_id: currentEmpresaId,
                     p_fecha_desde: f.desde,
                     p_fecha_hasta: f.hasta,
                     p_dias_semana: f.paramDias,
-                    p_limit: 20
+                    p_limit: 20,
+                    p_categoria_id: f.categoriaId
                 });
                 if(errRank) throw errRank;
 
@@ -671,6 +756,8 @@
             } catch (error) {
                 console.error("Error al cargar dashboard:", error);
                 Swal.fire('Error', 'Hubo un problema al procesar los algoritmos de rentabilidad. Verifica que los RPCs estén actualizados en Supabase.', 'error');
+            } finally {
+                isAnalizandoDashboard = false;
             }
         }
 
@@ -851,12 +938,18 @@
                 return;
             }
 
-            // Consultar unidades de medida reales
-            const itemIds = [...new Set(datos.filter(d => d.tipo_item === 'ITEMS').map(d => d.referencia_id))];
+            // Consultar unidades de medida reales y categorías asociadas
+            const itemIds = [...new Set(datos.filter(d => ['ITEMS', 'ITEM'].includes(d.tipo_item)).map(d => d.referencia_id))];
             const unidadesMap = {};
+            const itemCatMap = {};
             if (itemIds.length > 0) {
-                const { data: itemsData } = await window.supabaseClient.from('items').select('id, unidad_medida').in('id', itemIds);
-                if (itemsData) itemsData.forEach(it => unidadesMap[it.id] = it.unidad_medida);
+                const { data: itemsData } = await window.supabaseClient.from('items').select('id, unidad_medida, categoria_id').in('id', itemIds);
+                if (itemsData) {
+                    itemsData.forEach(it => {
+                        unidadesMap[it.id] = it.unidad_medida;
+                        itemCatMap[it.id] = it.categoria_id;
+                    });
+                }
             }
 
             datos.forEach((d, idx) => {
@@ -867,13 +960,17 @@
 
                 const marg = parseFloat(d.margen_contribucion);
                 const udm = d.tipo_item === 'ITEMS' ? (unidadesMap[d.referencia_id] || 'UND') : 'UND';
+                const catNombre = (itemCatMap[d.referencia_id] && mapaCategoriasGlobal[itemCatMap[d.referencia_id]]) 
+                    ? mapaCategoriasGlobal[itemCatMap[d.referencia_id]] 
+                    : '';
+                const catTag = catNombre ? `<span class="text-emerald-400 font-semibold">${catNombre}</span> • ` : '';
 
                 tbody.innerHTML += `
                     <tr>
                         <td><span class="ranking-badge ${badgeClass}">${idx+1}</span></td>
                         <td>
                             <div class="font-bold text-white">${d.nombre_item}</div>
-                            <div class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">${d.tipo_item} • ${d.cantidad_vendida} ${udm}</div>
+                            <div class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">${catTag}${d.tipo_item} • ${d.cantidad_vendida} ${udm}</div>
                         </td>
                         <td class="text-right font-bold text-emerald-400">
                             S/ ${marg.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}
@@ -980,7 +1077,8 @@
                     p_fecha_desde: f.desde,
                     p_fecha_hasta: f.hasta,
                     p_dias_semana: f.paramDias,
-                    p_limit: null 
+                    p_limit: null,
+                    p_categoria_id: f.categoriaId
                 });
                 if(error) throw error;
                 
@@ -992,13 +1090,20 @@
                     return;
                 }
 
-                // Obtener unidades de medida (en bloques si son muchos)
-                const itemIds = [...new Set(data.filter(d => d.tipo_item === 'ITEMS').map(d => d.referencia_id))];
+                // Obtener unidades de medida y categorías (en bloques con micro-pausa de cortesía de 50ms)
+                const itemIds = [...new Set(data.filter(d => ['ITEMS', 'ITEM'].includes(d.tipo_item)).map(d => d.referencia_id))];
                 const unidadesMap = {};
+                const itemCatMap = {};
                 for (let i = 0; i < itemIds.length; i += 100) {
+                    if (i > 0) await new Promise(r => setTimeout(r, 50));
                     const chunk = itemIds.slice(i, i + 100);
-                    const { data: itemsData } = await window.supabaseClient.from('items').select('id, unidad_medida').in('id', chunk);
-                    if (itemsData) itemsData.forEach(it => unidadesMap[it.id] = it.unidad_medida);
+                    const { data: itemsData } = await window.supabaseClient.from('items').select('id, unidad_medida, categoria_id').in('id', chunk);
+                    if (itemsData) {
+                        itemsData.forEach(it => {
+                            unidadesMap[it.id] = it.unidad_medida;
+                            itemCatMap[it.id] = it.categoria_id;
+                        });
+                    }
                 }
 
                 // Preparar datos globales
@@ -1007,6 +1112,8 @@
                     const ventas = parseFloat(d.ventas_netas);
                     d.razonMC = ventas > 0 ? Math.round((marg / ventas) * 100) : 0;
                     d.udm = d.tipo_item === 'ITEMS' ? (unidadesMap[d.referencia_id] || 'UND') : 'UND';
+                    const catId = itemCatMap[d.referencia_id];
+                    d.categoria_nombre = (catId && mapaCategoriasGlobal[catId]) ? mapaCategoriasGlobal[catId] : '';
                 });
                 
                 datosRankingGlobal = data;
@@ -1041,7 +1148,10 @@
                 tbody.innerHTML += `
                     <tr>
                         <td class="font-bold text-slate-500">${idx+1}</td>
-                        <td class="font-bold text-white">${d.nombre_item}</td>
+                        <td class="font-bold text-white">
+                            <div>${d.nombre_item}</div>
+                            ${d.categoria_nombre ? `<div class="text-[10px] text-emerald-400 font-semibold tracking-wide uppercase">${d.categoria_nombre}</div>` : ''}
+                        </td>
                         <td class="text-[10px] font-bold uppercase tracking-widest text-slate-500">${d.tipo_item}</td>
                         <td class="text-right font-medium text-slate-300">${d.cantidad_vendida} <span class="text-[9px] ml-0.5">${d.udm}</span></td>
                         <td class="text-right text-blue-400">S/ ${ventas.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
