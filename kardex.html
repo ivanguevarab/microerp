@@ -1650,6 +1650,7 @@
                 const tbody = document.getElementById('tablaKardex');
                 tbody.innerHTML = '';
                 let sumatoriaCostoTotal = 0;
+                let sumatoriaCantidad = 0;
                 let sumatoriaContado = 0;
                 let sumatoriaCredito = 0;
                 
@@ -1717,6 +1718,7 @@
                     const signoNum = isIngreso ? 1 : -1;
                     const valorRowTotal = parseFloat(mov.costo_total || 0) * signoNum;
                     sumatoriaCostoTotal += valorRowTotal;
+                    sumatoriaCantidad += parseFloat(mov.cantidad || 0) * signoNum;
 
                     if (modoVista === 'AGRUPADO' && tipoMovimiento === 'TIPO_INGRESO:Compras') {
                         if (mov.forma_pago_extra === 'CONTADO') sumatoriaContado += valorRowTotal;
@@ -1891,18 +1893,77 @@
                     `;
                 }
 
-                const footerColspan = (modoVista === 'AGRUPADO' && tipoMovimiento === 'TIPO_INGRESO:Compras') ? 5 : 6;
+                // Evaluación de condiciones para mostrar sumatoria en columna 'Cantidad':
+                // 1. Tipo movimiento específico (excluyendo Todos, Ingresos Todos, Egresos Todos, Transformaciones e Inventario Final)
+                const esTipoMovEspecifico = Boolean(
+                    tipoMovimiento && 
+                    tipoMovimiento !== 'INGRESO' && 
+                    tipoMovimiento !== 'EGRESO' && 
+                    tipoMovimiento !== 'TRANSFORMACION' && 
+                    tipoMovimiento !== 'INVENTARIO_FINAL'
+                );
 
-                summaryRow.innerHTML = `
-                    <td colspan="${footerColspan}" class="p-4">
-                        <div class="flex justify-between items-center w-full">
-                            <div>${desgloseHtml}</div>
-                            <span class="uppercase text-xs tracking-wider text-right">Flujo Neto Total de la Página:</span>
+                // 2. Búsqueda de un único ítem por su código
+                const inputBusquedaVal = (document.getElementById('busquedaProducto')?.value || '').trim();
+                const esPatronCodigoItem = /^item-\d{4}-\d+$/i.test(inputBusquedaVal);
+                const codigosUnicos = new Set(data.map(m => m.items?.codigo).filter(Boolean));
+                const esUnicoItemPorCodigo = esPatronCodigoItem && codigosUnicos.size === 1;
+
+                const debeSumarCantidad = esTipoMovEspecifico && esUnicoItemPorCodigo;
+
+                let celdaCantidadHtml = '<td class="p-4"></td>';
+                if (debeSumarCantidad) {
+                    const primerMovConUnidad = data.find(m => m.items?.unidad_medida) || data[0] || {};
+                    const unidadMedida = primerMovConUnidad.items?.unidad_medida || '';
+                    const signoCant = sumatoriaCantidad < 0 ? '-' : (sumatoriaCantidad > 0 ? '+' : '');
+                    const cantFormateada = Number(Math.abs(sumatoriaCantidad)).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+                    const textoCantidad = `${signoCant}${cantFormateada} ${unidadMedida}`.trim();
+                    const valorCopiaCant = sumatoriaCantidad < 0 ? `-${Number(Math.abs(sumatoriaCantidad).toFixed(3))}` : `${Number(sumatoriaCantidad.toFixed(3))}`;
+                    celdaCantidadHtml = `
+                        <td class="p-4 text-right tabular-nums text-blue-700">
+                            <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${valorCopiaCant}', 'Cantidad Total')">
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                    <i class="fas fa-copy text-gray-400 hover:text-blue-500"></i>
+                                </span>
+                                <span>${textoCantidad}</span>
+                            </div>
+                        </td>
+                    `;
+                }
+
+                const valorCopiaTotal = sumatoriaCostoTotal.toFixed(2);
+                const celdaTotalHtml = `
+                    <td class="p-4 text-right tabular-nums text-blue-700">
+                        <div class="relative flex justify-end items-center group cursor-pointer w-full" onclick="copiarValorExacto('${valorCopiaTotal}', 'Total')">
+                            <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mr-2">
+                                <i class="fas fa-copy text-gray-400 hover:text-blue-500"></i>
+                            </span>
+                            <span>S/ ${parseFloat(sumatoriaCostoTotal).toLocaleString('es-PE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
                     </td>
-                    <td class="p-4 text-right tabular-nums text-blue-700">S/ ${parseFloat(sumatoriaCostoTotal).toLocaleString('es-PE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    <td colspan="2"></td>
                 `;
+
+                if (modoVista === 'AGRUPADO' && tipoMovimiento === 'TIPO_INGRESO:Compras') {
+                    summaryRow.innerHTML = `
+                        <td colspan="5" class="p-4">
+                            <div class="flex items-center w-full">
+                                ${desgloseHtml}
+                            </div>
+                        </td>
+                        ${celdaTotalHtml}
+                        <td colspan="2"></td>
+                    `;
+                } else {
+                    summaryRow.innerHTML = `
+                        <td colspan="4" class="p-4">
+                            ${desgloseHtml ? `<div class="flex items-center w-full">${desgloseHtml}</div>` : ''}
+                        </td>
+                        ${celdaCantidadHtml}
+                        <td class="p-4"></td>
+                        ${celdaTotalHtml}
+                        <td colspan="2"></td>
+                    `;
+                }
                 tbody.appendChild(summaryRow);
 
             }
