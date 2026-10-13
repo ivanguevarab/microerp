@@ -24,6 +24,8 @@
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- SweetAlert2 (Para toasts estandarizados idénticos a Kardex) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <!-- Supabase & Auth -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -929,15 +931,15 @@
                         <div class="form-group">
                             <label for="afectoIgvCompra">IGV en Compras (Crédito Fiscal)</label>
                             <select id="afectoIgvCompra" required>
+                                <option value="false" selected>Inafecto a IGV (0%)</option>
                                 <option value="true">Afecto a IGV (18%)</option>
-                                <option value="false">Inafecto a IGV (0%)</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="afectoIgvVenta">IGV en Ventas (Débito Fiscal)</label>
                             <select id="afectoIgvVenta" required>
+                                <option value="false" selected>Inafecto a IGV (0%)</option>
                                 <option value="true">Afecto a IGV (18%)</option>
-                                <option value="false">Inafecto a IGV (0%)</option>
                             </select>
                         </div>
 
@@ -1257,7 +1259,14 @@
           <tbody>
             ${datos.map(prod => `
               <tr>
-                <td><strong>${prod.codigo}</strong></td>
+                <td>
+                  <div class="inline-flex items-center gap-2 group cursor-pointer" onclick="copiarValorExacto('${prod.codigo}', 'Código')" title="Clic para copiar código">
+                    <strong>${prod.codigo}</strong>
+                    <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                      <i class="fas fa-copy text-xs"></i>
+                    </span>
+                  </div>
+                </td>
                 <td>${prod.descripcion}</td>
                 <td>${prod.categorias?.nombre || '-'}</td>
                 <td>${prod.unidades_medida?.codigo || '-'}</td>
@@ -1425,8 +1434,8 @@
             document.getElementById('itemForm').reset();
             document.getElementById('itemId').value = '';
             document.getElementById('stockMinimo').value = '0.000'; // Forzado a 0.000
-            document.getElementById('afectoIgvCompra').value = 'true';
-            document.getElementById('afectoIgvVenta').value = 'true';
+            document.getElementById('afectoIgvCompra').value = 'false';
+            document.getElementById('afectoIgvVenta').value = 'false';
 
             // Ocultar bloque de trazabilidad al crear nuevo
             const tBlock = document.getElementById('trazabilidadBlock');
@@ -1653,6 +1662,28 @@
         // ============================================
         // UTILIDADES
         // ============================================
+        function copiarValorExacto(valor, campo) {
+            if (!valor) return;
+            navigator.clipboard.writeText(valor).then(() => {
+                if (window.Swal) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: campo + ' exacto copiado: ' + valor,
+                        showConfirmButton: false,
+                        timer: 2000,
+                        timerProgressBar: true
+                    });
+                } else {
+                    mostrarToast(campo + ' exacto copiado: ' + valor, 'success');
+                }
+            }).catch(err => {
+                console.error('Error al copiar al portapapeles: ', err);
+                mostrarToast('Error al copiar al portapapeles', 'error');
+            });
+        }
+
         function mostrarToast(mensaje, tipo = 'success') {
             const toast = document.getElementById('toast');
             const icon = document.getElementById('toastIcon');
