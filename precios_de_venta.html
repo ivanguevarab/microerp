@@ -420,13 +420,41 @@
             }
             .print-tag.layout-horizontal .print-tag-currency {
                 position: absolute;
-                top: 0.1cm;
-                left: 0.15cm;
+                top: 0.08cm;
+                left: 0.12cm;
                 line-height: 1;
+            }
+            .print-tag.layout-horizontal .print-tag-price-cluster {
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+                line-height: 1;
+            }
+            .print-tag.layout-horizontal .print-tag-integer {
+                font-family: 'Plus Jakarta Sans', sans-serif;
+                font-weight: 900;
+                line-height: 0.88;
+                color: #000 !important;
+                letter-spacing: -0.02em;
+            }
+            .print-tag.layout-horizontal .print-tag-decimals-col {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: flex-start;
+                margin-left: 2px;
+                line-height: 1;
+            }
+            .print-tag.layout-horizontal .print-tag-cents {
+                font-family: 'Plus Jakarta Sans', sans-serif;
+                font-weight: 800;
+                line-height: 0.95;
+                color: #000 !important;
             }
             .print-tag.layout-horizontal .print-tag-unit {
                 margin-left: 0;
-                margin-top: 0.1cm;
+                margin-top: 2px;
+                line-height: 1;
             }
             .print-tag-name {
                 font-family: 'Plus Jakarta Sans', sans-serif;
@@ -489,6 +517,83 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         html.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
+        #printModal .swal2-container {
+            position: absolute !important;
+            z-index: 100 !important;
+        }
+
+        /* =========================================================
+           SweetAlert2 Theme Sync (Dark & Light Mode)
+           ========================================================= */
+        html.dark .swal2-popup {
+            background-color: #0f172a !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
+            border-radius: 1rem !important;
+        }
+        html.dark .swal2-title {
+            color: #f8fafc !important;
+            font-size: 1.25rem !important;
+            font-weight: 700 !important;
+        }
+        html.dark .swal2-html-container {
+            color: #cbd5e1 !important;
+            font-size: 0.9rem !important;
+        }
+        html.dark .swal2-input,
+        html.dark .swal2-select,
+        html.dark .swal2-textarea {
+            background-color: rgba(30, 41, 59, 0.9) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            color: #f8fafc !important;
+            border-radius: 0.75rem !important;
+            box-shadow: none !important;
+        }
+        html.dark .swal2-input:focus,
+        html.dark .swal2-select:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25) !important;
+            outline: none !important;
+        }
+        html.dark .swal2-actions button {
+            border-radius: 0.75rem !important;
+            font-weight: 600 !important;
+            font-size: 0.875rem !important;
+            padding: 10px 22px !important;
+        }
+        html.dark .swal2-confirm {
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+        }
+        html.dark .swal2-cancel {
+            background-color: #334155 !important;
+            color: #e2e8f0 !important;
+        }
+
+        /* SweetAlert2 Modo Claro */
+        html:not(.dark) .swal2-popup {
+            background-color: #ffffff !important;
+            border-radius: 1rem !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        }
+        html:not(.dark) .swal2-title {
+            color: #0f172a !important;
+        }
+        html:not(.dark) .swal2-html-container {
+            color: #475569 !important;
+        }
+        html:not(.dark) .swal2-input {
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.75rem !important;
+            color: #0f172a !important;
+        }
+        html:not(.dark) .swal2-input:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+        }
 
         /* Estilos para Toggle Rows y Multiplicador */
         .toggle-row {
@@ -705,99 +810,187 @@
             </div>
         </dialog>
 
-        <!-- Modal de Impresión -->
-        <dialog id="printModal" class="glass-modal rounded-xl shadow-2xl p-6 w-11/12 max-w-lg m-auto fixed inset-0 z-50 backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm open:flex flex-col gap-4 text-slate-800 dark:text-slate-200">
-            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
-                <h3 class="text-xl font-bold"><i class="fas fa-print text-indigo-500 mr-2"></i> Configurar Impresión</h3>
-                <button onclick="cerrarModalImpresion()" class="text-slate-400 hover:text-red-500 transition"><i class="fas fa-times text-xl"></i></button>
-            </div>
-
-            <div class="flex flex-col gap-3 mt-2">
-                <label class="font-semibold text-sm">¿Qué etiquetas deseas imprimir?</label>
-                <div class="flex flex-col gap-2">
-                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-                        <input type="radio" name="printType" value="hoy" class="w-4 h-4 text-indigo-600" checked onchange="toggleManualSelection(false)">
-                        <span>Sólo actualizados hoy</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-                        <input type="radio" name="printType" value="todos" class="w-4 h-4 text-indigo-600" onchange="toggleManualSelection(false)">
-                        <span>Todos los productos</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-                        <input type="radio" name="printType" value="manual" class="w-4 h-4 text-indigo-600" onchange="toggleManualSelection(true)">
-                        <span>Selección Manual</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Contenedor Selección Manual -->
-            <div id="manualSelectionContainer" class="hidden flex-col gap-2 mt-2">
-                <div class="relative">
-                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" id="manualSearchInput" class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:border-indigo-500 outline-none text-sm transition" placeholder="Filtrar productos..." oninput="filtrarListaManual()">
-                </div>
-                <div id="manualList" class="custom-scrollbar h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-slate-50 dark:bg-slate-900/50 flex flex-col gap-1 text-sm">
-                    <!-- Checkboxes dinámicos -->
-                </div>
-            </div>
-
-            <div class="flex flex-col gap-3 mt-2">
-                <label class="font-semibold text-sm">Dimensiones por Etiqueta</label>
-                <div class="flex gap-4">
-                    <div class="flex-1 relative">
-                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">Ancho (cm)</span>
-                        <input type="number" id="tagWidth" class="w-full p-2 pr-16 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition" value="10.5" min="2" max="15" step="0.5">
+        <!-- Modal de Impresión Panorámico y Cómodo (Cero Scroll) -->
+        <dialog id="printModal" class="glass-modal rounded-2xl shadow-2xl p-6 sm:p-7 md:p-8 w-11/12 max-w-5xl lg:max-w-6xl m-auto fixed inset-0 z-50 backdrop:bg-slate-900/60 backdrop:backdrop-blur-sm open:flex flex-col gap-5 text-slate-800 dark:text-slate-200">
+            <!-- Cabecera -->
+            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600/10 dark:bg-indigo-400/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-lg">
+                        <i class="fas fa-print"></i>
                     </div>
-                    <div class="flex-1 relative">
-                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">Alto (cm)</span>
-                        <input type="number" id="tagHeight" class="w-full p-2 pr-16 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition" value="4.9" min="1.5" max="15" step="0.1">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100">Configurar Impresión de Etiquetas</h3>
+                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Tirada continua en papel A4 con plantillas automáticas por categoría</p>
                     </div>
                 </div>
-
-                <label class="font-semibold text-sm mt-2">Ajuste de Fuentes (pt)</label>
-                <div class="flex gap-4">
-                    <div class="flex-1 relative">
-                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">Descripción</span>
-                        <input type="number" id="fontDesc" class="w-full p-2 pr-20 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition" value="30" min="8" max="72" step="1">
-                    </div>
-                    <div class="flex-1 relative">
-                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">Precio</span>
-                        <input type="number" id="fontPrice" class="w-full p-2 pr-16 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition" value="45" min="8" max="72" step="1">
-                    </div>
-                </div>
-
-                <label class="font-semibold text-sm mt-2">Distribución Interna</label>
-                <div class="flex flex-col gap-2">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="layoutMode" value="standard" class="w-4 h-4 text-indigo-600" checked>
-                        <span class="text-sm">Estándar (Arriba / Abajo)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="layoutMode" value="horizontal" class="w-4 h-4 text-indigo-600">
-                        <span class="text-sm">Izquierda (2/3) / Derecha (1/3)</span>
-                    </label>
-                </div>
-
-                <label class="font-semibold text-sm mt-2">Orientación del Papel</label>
-                <div class="flex gap-4">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="pageOrientation" value="portrait" class="w-4 h-4 text-indigo-600" checked>
-                        <span class="text-sm">Vertical</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="pageOrientation" value="landscape" class="w-4 h-4 text-indigo-600">
-                        <span class="text-sm">Horizontal</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-200 dark:border-slate-700">
-                <button onclick="abrirModalPersonalizar()" class="px-4 py-2 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-medium transition flex items-center gap-2">
-                    <i class="fas fa-sliders-h"></i> Personalizar
+                <button onclick="cerrarModalImpresion()" class="text-slate-400 hover:text-red-500 transition p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <i class="fas fa-times text-xl"></i>
                 </button>
-                <div class="flex gap-3">
-                    <button onclick="cerrarModalImpresion()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition">Cancelar</button>
-                    <button onclick="generarImpresion()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow transition flex items-center gap-2">
+            </div>
+
+            <!-- Contenido Panorámico en 2 Columnas -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 items-start">
+                
+                <!-- COLUMNA IZQUIERDA: Origen de Datos y Modo Multiformato -->
+                <div class="flex flex-col gap-4">
+                    <!-- 1. Selección de Productos -->
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex flex-col gap-3">
+                        <span class="font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                            <i class="fas fa-filter text-indigo-500"></i> ¿Qué etiquetas deseas imprimir?
+                        </span>
+                        <div class="grid grid-cols-3 gap-2.5 text-xs sm:text-sm">
+                            <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 transition font-semibold">
+                                <input type="radio" name="printType" value="hoy" class="w-4 h-4 text-indigo-600" checked onchange="toggleManualSelection(false)">
+                                <span class="truncate">Sólo hoy</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 transition font-semibold">
+                                <input type="radio" name="printType" value="todos" class="w-4 h-4 text-indigo-600" onchange="toggleManualSelection(false)">
+                                <span class="truncate">Todos</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 transition font-semibold">
+                                <input type="radio" name="printType" value="manual" class="w-4 h-4 text-indigo-600" onchange="toggleManualSelection(true)">
+                                <span class="truncate">Manual</span>
+                            </label>
+                        </div>
+
+                        <!-- Contenedor Selección Manual (Desplegable) -->
+                        <div id="manualSelectionContainer" class="hidden flex-col gap-2 mt-1 pt-2.5 border-t border-slate-200 dark:border-slate-700">
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input type="text" id="manualSearchInput" class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:border-indigo-500 outline-none text-xs sm:text-sm transition" placeholder="Buscar por código, nombre o categoría..." oninput="filtrarListaManual()">
+                            </div>
+                            <div id="manualList" class="custom-scrollbar h-32 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-2 bg-white dark:bg-slate-900/50 flex flex-col gap-1 text-xs">
+                                <!-- Checkboxes dinámicos -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Tarjeta Modo Multiformato Inteligente -->
+                    <div class="bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 rounded-2xl p-4 flex flex-col gap-2">
+                        <label class="flex items-start gap-3 cursor-pointer select-none">
+                            <input type="checkbox" id="chkModoMultiformato" class="w-5 h-5 text-indigo-600 rounded border-slate-300 dark:border-slate-600 mt-0.5" checked onchange="toggleModoMultiformato(this.checked)">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-xs sm:text-sm text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                                    <i class="fas fa-wand-magic-sparkles text-indigo-600 dark:text-indigo-400"></i> Impresión Multiformato Automática
+                                </span>
+                                <span class="text-xs text-indigo-800/90 dark:text-indigo-300/80 mt-0.5 leading-snug">
+                                    En un solo clic, cada producto se imprime con el formato y tamaño asignado a su categoría en flujo continuo A4.
+                                </span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- 3. Resumen de Reparto por Plantillas -->
+                    <div class="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex flex-col gap-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fas fa-sitemap text-indigo-500"></i> Distribución de Categorías
+                            </span>
+                            <span class="text-xs font-semibold text-slate-400" id="totalCatsAssignedLabel">Auto-asignado</span>
+                        </div>
+                        <div id="listaResumenCategoriasPresets" class="grid grid-cols-2 gap-2 text-xs">
+                            <!-- Dinámico: P1, P2, P3, P4 con sus categorías vinculadas -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: Configuración y Edición de Plantillas (Presets) -->
+                <div class="flex flex-col gap-4">
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex flex-col gap-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                <i class="fas fa-bookmark text-indigo-500"></i> Configurar Plantilla
+                            </span>
+                            <span id="presetStatusBadge" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800">P1 Activo</span>
+                        </div>
+
+                        <!-- Selector P1..P4 -->
+                        <div id="presetsButtonsContainer" class="grid grid-cols-4 gap-2">
+                            <!-- Dinámico -->
+                        </div>
+
+                        <!-- Barra de Herramientas de la Plantilla -->
+                        <div class="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm gap-2">
+                            <div class="flex items-center gap-2 min-w-0 flex-1 truncate">
+                                <span class="text-slate-400 font-mono font-bold text-xs sm:text-sm shrink-0" id="presetActiveCode">P1:</span>
+                                <span class="font-bold text-slate-800 dark:text-slate-100 truncate text-xs sm:text-sm" id="presetActiveName">Etiqueta 1</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" onclick="abrirModalCategoriasPreset()" title="Vincular categorías a este preset" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 font-semibold transition flex items-center gap-1.5 text-xs">
+                                    <i class="fas fa-tags text-xs"></i> <span id="presetCatsCountBadge">Categorías (0)</span>
+                                </button>
+                                <button type="button" onclick="renombrarPresetActivo()" title="Renombrar este preset" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium transition flex items-center gap-1.5 text-xs">
+                                    <i class="fas fa-pen text-xs"></i> Renombrar
+                                </button>
+                                <button type="button" onclick="guardarPresetActivo()" title="Guardar ajustes en este preset" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-semibold transition flex items-center gap-1.5 text-xs">
+                                    <i class="fas fa-save text-xs"></i> Guardar
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Parámetros de la Plantilla: Grid 2x2 para Dimensiones y Fuentes -->
+                        <div class="grid grid-cols-2 gap-2.5 text-xs sm:text-sm">
+                            <div class="relative">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none font-medium">Ancho (cm)</span>
+                                <input type="text" inputmode="decimal" id="tagWidth" class="w-full py-2.5 px-3 pr-20 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition text-sm font-semibold" value="10.5" placeholder="10.5" oninput="sanitizarDecimalInput(this)">
+                            </div>
+                            <div class="relative">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none font-medium">Alto (cm)</span>
+                                <input type="text" inputmode="decimal" id="tagHeight" class="w-full py-2.5 px-3 pr-18 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition text-sm font-semibold" value="4.9" placeholder="4.9" oninput="sanitizarDecimalInput(this)">
+                            </div>
+                            <div class="relative">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none font-medium">Desc (pt)</span>
+                                <input type="text" inputmode="numeric" id="fontDesc" class="w-full py-2.5 px-3 pr-18 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition text-sm font-semibold" value="30" placeholder="30" oninput="sanitizarEnteroInput(this)">
+                            </div>
+                            <div class="relative">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none font-medium">Precio (pt)</span>
+                                <input type="text" inputmode="numeric" id="fontPrice" class="w-full py-2.5 px-3 pr-18 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none focus:border-indigo-500 transition text-sm font-semibold" value="45" placeholder="45" oninput="sanitizarEnteroInput(this)">
+                            </div>
+                        </div>
+
+                        <!-- Distribución Interna y Orientación -->
+                        <div class="grid grid-cols-2 gap-3 text-xs sm:text-sm pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <div>
+                                <label class="font-bold text-xs uppercase text-slate-400 block mb-1.5">Distribución Interna</label>
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="layoutMode" value="standard" class="w-4 h-4 text-indigo-600" checked>
+                                        <span class="text-xs sm:text-sm">Estándar (Arriba/Abajo)</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="layoutMode" value="horizontal" class="w-4 h-4 text-indigo-600">
+                                        <span class="text-xs sm:text-sm">Horizontal (2/3 Retail)</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="font-bold text-xs uppercase text-slate-400 block mb-1.5">Orientación del Papel</label>
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="pageOrientation" value="portrait" class="w-4 h-4 text-indigo-600" checked>
+                                        <span class="text-xs sm:text-sm">Vertical (A4 continuo)</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="pageOrientation" value="landscape" class="w-4 h-4 text-indigo-600">
+                                        <span class="text-xs sm:text-sm">Horizontal</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pie Fijo con Botones de Acción (Siempre visible sin scroll) -->
+            <div class="flex justify-between items-center border-t border-slate-200 dark:border-slate-700 pt-4 mt-1">
+                <button onclick="abrirModalPersonalizar()" class="px-4 py-2.5 rounded-xl text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-bold text-xs sm:text-sm transition flex items-center gap-2">
+                    <i class="fas fa-sliders-h"></i> Personalizar Cantidades
+                </button>
+                <div class="flex items-center gap-3">
+                    <button onclick="cerrarModalImpresion()" class="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold text-xs sm:text-sm transition">
+                        Cancelar
+                    </button>
+                    <button onclick="generarImpresion()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md transition flex items-center gap-2">
                         <i class="fas fa-print"></i> Generar Vista
                     </button>
                 </div>
@@ -844,6 +1037,25 @@
         let activeTab = '';
         let currentData = [];
         let modifiedRecords = {}; // Forma: { id: nuevoPrecio }
+        let listaCategoriasEmpresa = [];
+        let filtrarPorCategoriasPreset = false;
+
+        async function cargarCategoriasEmpresa() {
+            if (!currentEmpresaId) return;
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('categorias')
+                    .select('id, nombre')
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('activo', true)
+                    .order('nombre', { ascending: true });
+                if (!error && data) {
+                    listaCategoriasEmpresa = data;
+                }
+            } catch (e) {
+                console.warn("Error cargando categorías de la empresa:", e);
+            }
+        }
 
         // Helper para remover tildes y diéresis
         function removeAccents(str) {
@@ -956,9 +1168,13 @@
             
             try {
                 if(activeTab === 'ITEMS') {
+                    if(listaCategoriasEmpresa.length === 0) {
+                        await cargarCategoriasEmpresa();
+                    }
+
                     const { data, error } = await window.supabaseClient
                         .from('items')
-                        .select('id, codigo, descripcion, unidad_medida, precio_venta, updated_at')
+                        .select('id, codigo, descripcion, unidad_medida, precio_venta, updated_at, precio_updated_at, categoria_id, categorias(id, nombre)')
                         .eq('empresa_id', currentEmpresaId)
                         .eq('activo', true)
                         .order('descripcion', { ascending: true });
@@ -1122,6 +1338,7 @@
                 const promesas = Object.keys(modifiedRecords).map(id => {
                     let payload = { precio_venta: modifiedRecords[id] };
                     if (tableToUpdate === 'items') {
+                        payload.precio_updated_at = new Date().toISOString();
                         payload.updated_at = new Date().toISOString();
                     }
                     return window.supabaseClient
@@ -1399,10 +1616,542 @@
         }
 
         /* =========================================================
-           LOGICA DE IMPRESION DE ETIQUETAS
+           LOGICA DE IMPRESION DE ETIQUETAS Y PRESETS
            ========================================================= */
-        function abrirModalImpresion() {
+        function sanitizarDecimalInput(input) {
+            let val = input.value.replace(/,/g, '.'); // Normativa 0070: soporte para coma de teclado numérico
+            val = val.replace(/[^0-9.]/g, ''); // Solo dígitos y punto
+            val = val.replace(/(\..*?)\..*/g, '$1'); // Un único punto decimal
+            val = val.replace(/(\.\d{2})\d+/g, '$1'); // Máximo 2 decimales
+            input.value = val;
+        }
+
+        function sanitizarEnteroInput(input) {
+            input.value = input.value.replace(/\D/g, ''); // Solo números enteros
+        }
+
+        const DEFAULT_TAG_PRESETS = [
+            {
+                id: 'p1',
+                nombre: 'Etiqueta 1',
+                tagWidth: 10.5,
+                tagHeight: 4.9,
+                fontDesc: 30,
+                fontPrice: 45,
+                layoutMode: 'standard',
+                pageOrientation: 'portrait',
+                categoriasIds: []
+            },
+            {
+                id: 'p2',
+                nombre: 'Etiqueta 2',
+                tagWidth: 7.0,
+                tagHeight: 3.5,
+                fontDesc: 20,
+                fontPrice: 32,
+                layoutMode: 'horizontal',
+                pageOrientation: 'portrait',
+                categoriasIds: []
+            },
+            {
+                id: 'p3',
+                nombre: 'Etiqueta 3',
+                tagWidth: 5.5,
+                tagHeight: 2.8,
+                fontDesc: 14,
+                fontPrice: 22,
+                layoutMode: 'horizontal',
+                pageOrientation: 'portrait',
+                categoriasIds: []
+            },
+            {
+                id: 'p4',
+                nombre: 'Etiqueta 4',
+                tagWidth: 14.0,
+                tagHeight: 7.0,
+                fontDesc: 40,
+                fontPrice: 55,
+                layoutMode: 'standard',
+                pageOrientation: 'landscape',
+                categoriasIds: []
+            }
+        ];
+
+        const LEGACY_TAG_NAMES = ['Góndola A4', 'Compacto Lateral', 'Fleje Estante', 'Exhibidor Grande'];
+
+        let tagPresets = [];
+        let activePresetIndex = 0;
+        let modoMultiformatoActivo = true;
+
+        function getPresetsStorageKey() {
+            return `microerp_tag_presets_${currentEmpresaId || 'default'}`;
+        }
+
+        function getActivePresetStorageKey() {
+            return `microerp_tag_preset_active_${currentEmpresaId || 'default'}`;
+        }
+
+        function getMultiformatStorageKey() {
+            return `microerp_tag_multiformat_${currentEmpresaId || 'default'}`;
+        }
+
+        function cargarPresetsLocalStorage() {
+            const key = getPresetsStorageKey();
+            const stored = localStorage.getItem(key);
+            let requiereActualizar = false;
+
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    if (Array.isArray(parsed) && parsed.length === 4) {
+                        // Fusión defensiva con defaults garantizando tipos y valores válidos
+                        tagPresets = parsed.map((p, idx) => {
+                            const def = DEFAULT_TAG_PRESETS[idx];
+                            let nombre = (p.nombre && typeof p.nombre === 'string' && p.nombre.trim()) ? p.nombre.trim() : def.nombre;
+
+                            // Migración automática de nombres legacy a Etiqueta 1, 2, 3, 4
+                            if (LEGACY_TAG_NAMES.includes(nombre)) {
+                                nombre = def.nombre;
+                                requiereActualizar = true;
+                            }
+
+                            return {
+                                id: p.id || def.id,
+                                nombre: nombre,
+                                tagWidth: parseFloat(String(p.tagWidth).replace(/,/g, '.')) || def.tagWidth,
+                                tagHeight: parseFloat(String(p.tagHeight).replace(/,/g, '.')) || def.tagHeight,
+                                fontDesc: parseInt(p.fontDesc, 10) || def.fontDesc,
+                                fontPrice: parseInt(p.fontPrice, 10) || def.fontPrice,
+                                layoutMode: (p.layoutMode === 'horizontal' || p.layoutMode === 'standard') ? p.layoutMode : def.layoutMode,
+                                pageOrientation: (p.pageOrientation === 'landscape' || p.pageOrientation === 'portrait') ? p.pageOrientation : def.pageOrientation,
+                                categoriasIds: Array.isArray(p.categoriasIds) ? p.categoriasIds : []
+                            };
+                        });
+                    } else {
+                        tagPresets = JSON.parse(JSON.stringify(DEFAULT_TAG_PRESETS));
+                        requiereActualizar = true;
+                    }
+                } catch (e) {
+                    console.warn('Error al parsear presets de etiquetas desde localStorage:', e);
+                    tagPresets = JSON.parse(JSON.stringify(DEFAULT_TAG_PRESETS));
+                    requiereActualizar = true;
+                }
+            } else {
+                tagPresets = JSON.parse(JSON.stringify(DEFAULT_TAG_PRESETS));
+                requiereActualizar = true;
+            }
+
+            const activeStored = localStorage.getItem(getActivePresetStorageKey());
+            const parsedIndex = parseInt(activeStored, 10);
+            if (!isNaN(parsedIndex) && parsedIndex >= 0 && parsedIndex < 4) {
+                activePresetIndex = parsedIndex;
+            } else {
+                activePresetIndex = 0;
+            }
+
+            const multiSaved = localStorage.getItem(getMultiformatStorageKey());
+            modoMultiformatoActivo = multiSaved !== null ? multiSaved === 'true' : true;
+
+            if (requiereActualizar) {
+                guardarPresetsLocalStorage();
+            }
+        }
+
+        function guardarPresetsLocalStorage() {
+            try {
+                localStorage.setItem(getPresetsStorageKey(), JSON.stringify(tagPresets));
+                localStorage.setItem(getActivePresetStorageKey(), activePresetIndex.toString());
+                localStorage.setItem(getMultiformatStorageKey(), modoMultiformatoActivo.toString());
+            } catch (e) {
+                console.error('Error al guardar presets de etiquetas en localStorage:', e);
+            }
+        }
+
+        function sincronizarInputsPresetActivo() {
+            const elWidth = document.getElementById('tagWidth');
+            const elHeight = document.getElementById('tagHeight');
+            const elFontDesc = document.getElementById('fontDesc');
+            const elFontPrice = document.getElementById('fontPrice');
+
+            if (!elWidth || !elHeight || !elFontDesc || !elFontPrice) return;
+
+            const rawWidth = String(elWidth.value).replace(/,/g, '.');
+            const rawHeight = String(elHeight.value).replace(/,/g, '.');
+            const widthCm = parseFloat(rawWidth) || 10.5;
+            const heightCm = parseFloat(rawHeight) || 4.9;
+            const fontDescPt = parseInt(elFontDesc.value, 10) || 30;
+            const fontPricePt = parseInt(elFontPrice.value, 10) || 45;
+            const layoutMode = document.querySelector('input[name="layoutMode"]:checked')?.value || 'standard';
+            const pageOrientation = document.querySelector('input[name="pageOrientation"]:checked')?.value || 'portrait';
+
+            if (tagPresets[activePresetIndex]) {
+                tagPresets[activePresetIndex].tagWidth = widthCm;
+                tagPresets[activePresetIndex].tagHeight = heightCm;
+                tagPresets[activePresetIndex].fontDesc = fontDescPt;
+                tagPresets[activePresetIndex].fontPrice = fontPricePt;
+                tagPresets[activePresetIndex].layoutMode = layoutMode;
+                tagPresets[activePresetIndex].pageOrientation = pageOrientation;
+            }
+        }
+
+        function resolverPresetParaItem(item) {
+            if (!modoMultiformatoActivo) {
+                return tagPresets[activePresetIndex] || DEFAULT_TAG_PRESETS[0];
+            }
+
+            if (item && item.categoria_id) {
+                const encontrado = tagPresets.find(p => p.categoriasIds && p.categoriasIds.includes(item.categoria_id));
+                if (encontrado) return encontrado;
+            }
+
+            // Fallback seguro: el preset activo en pantalla o P1
+            return tagPresets[activePresetIndex] || tagPresets[0] || DEFAULT_TAG_PRESETS[0];
+        }
+
+        function aplicarPresetAInputs(preset) {
+            if (!preset) return;
+            const elWidth = document.getElementById('tagWidth');
+            const elHeight = document.getElementById('tagHeight');
+            const elFontDesc = document.getElementById('fontDesc');
+            const elFontPrice = document.getElementById('fontPrice');
+
+            if (elWidth) elWidth.value = preset.tagWidth;
+            if (elHeight) elHeight.value = preset.tagHeight;
+            if (elFontDesc) elFontDesc.value = preset.fontDesc;
+            if (elFontPrice) elFontPrice.value = preset.fontPrice;
+
+            const radioLayout = document.querySelector(`input[name="layoutMode"][value="${preset.layoutMode}"]`);
+            if (radioLayout) radioLayout.checked = true;
+
+            const radioOrientation = document.querySelector(`input[name="pageOrientation"][value="${preset.pageOrientation}"]`);
+            if (radioOrientation) radioOrientation.checked = true;
+        }
+
+        function renderizarSelectorPresets() {
+            const container = document.getElementById('presetsButtonsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            tagPresets.forEach((p, idx) => {
+                const isActive = idx === activePresetIndex;
+                const numCats = (p.categoriasIds && p.categoriasIds.length) || 0;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `px-2.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border text-center transition flex flex-col items-center justify-center gap-1 relative shadow-xs ${
+                    isActive 
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' 
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60'
+                }`;
+                btn.innerHTML = `
+                    <div class="flex items-center justify-center gap-1 w-full">
+                        <span class="font-bold text-[11px] uppercase tracking-wider ${isActive ? 'text-indigo-200' : 'text-slate-400'}">P${idx + 1}</span>
+                        ${numCats > 0 ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${isActive ? 'bg-indigo-700 text-indigo-100' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'}" title="${numCats} categoría(s) vinculada(s)">🏷️${numCats}</span>` : ''}
+                    </div>
+                    <span class="truncate w-full font-semibold" title="${p.nombre}">${p.nombre}</span>
+                `;
+                btn.onclick = () => seleccionarPreset(idx);
+                container.appendChild(btn);
+            });
+
+            // Actualizar barra de estado y encabezado
+            const activePreset = tagPresets[activePresetIndex] || DEFAULT_TAG_PRESETS[0];
+            const badge = document.getElementById('presetStatusBadge');
+            const codeEl = document.getElementById('presetActiveCode');
+            const nameEl = document.getElementById('presetActiveName');
+
+            if (badge) badge.innerText = `P${activePresetIndex + 1} Activo`;
+            if (codeEl) codeEl.innerText = `P${activePresetIndex + 1}:`;
+            if (nameEl) {
+                nameEl.innerText = activePreset.nombre;
+                nameEl.title = activePreset.nombre;
+            }
+
+            actualizarResumenCategoriasPreset();
+        }
+
+        function actualizarResumenCategoriasPreset() {
+            const activePreset = tagPresets[activePresetIndex] || DEFAULT_TAG_PRESETS[0];
+            const catCountBadge = document.getElementById('presetCatsCountBadge');
+            const chkMulti = document.getElementById('chkModoMultiformato');
+            const listaResumen = document.getElementById('listaResumenCategoriasPresets');
+            const totalAssignedLabel = document.getElementById('totalCatsAssignedLabel');
+
+            const catIds = activePreset?.categoriasIds || [];
+            if (catCountBadge) {
+                catCountBadge.innerText = `Categorías (${catIds.length})`;
+            }
+
+            if (chkMulti) {
+                chkMulti.checked = !!modoMultiformatoActivo;
+            }
+
+            let totalAsignadas = 0;
+            if (listaResumen) {
+                listaResumen.innerHTML = '';
+                tagPresets.forEach((p, idx) => {
+                    const cIds = p.categoriasIds || [];
+                    totalAsignadas += cIds.length;
+                    let catText = 'Sin categorías';
+                    if (cIds.length > 0) {
+                        const nombres = cIds.map(id => {
+                            const c = listaCategoriasEmpresa.find(cat => cat.id === id);
+                            return c ? c.nombre : 'Cat';
+                        });
+                        catText = nombres.slice(0, 3).join(', ') + (nombres.length > 3 ? ` +${nombres.length - 3}` : '');
+                    }
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `p-2 sm:p-2.5 rounded-xl border text-xs flex flex-col gap-1 cursor-pointer transition select-none ${
+                        idx === activePresetIndex
+                            ? 'bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-700 shadow-xs'
+                            : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    }`;
+                    itemDiv.onclick = () => seleccionarPreset(idx);
+                    itemDiv.innerHTML = `
+                        <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-200">
+                            <span class="truncate">P${idx + 1} ${p.nombre}</span>
+                            <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono font-semibold">${p.tagWidth}x${p.tagHeight}cm</span>
+                        </div>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 truncate" title="${catText}">${catText}</span>
+                    `;
+                    listaResumen.appendChild(itemDiv);
+                });
+            }
+
+            if (totalAssignedLabel) {
+                totalAssignedLabel.innerText = `${totalAsignadas} cat. asignadas`;
+            }
+        }
+
+        function toggleModoMultiformato(checked) {
+            modoMultiformatoActivo = checked;
+            try {
+                localStorage.setItem(getMultiformatStorageKey(), checked.toString());
+            } catch (e) {}
+            actualizarResumenCategoriasPreset();
+        }
+
+        async function abrirModalCategoriasPreset() {
+            const preset = tagPresets[activePresetIndex];
+            const modal = document.getElementById('printModal');
+
+            if (listaCategoriasEmpresa.length === 0) {
+                await cargarCategoriasEmpresa();
+            }
+
+            if (listaCategoriasEmpresa.length === 0) {
+                Swal.fire({
+                    target: document.getElementById('printModal'),
+                    icon: 'info',
+                    title: 'Sin categorías',
+                    text: 'No se encontraron categorías activas en esta empresa.'
+                });
+                return;
+            }
+
+            // Cerrar temporalmente el modal nativo para que SweetAlert2 se muestre al frente
+            if (modal && modal.open) modal.close();
+
+            const categoriasActuales = preset.categoriasIds || [];
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            let htmlCategorias = `
+                <div class="text-left text-xs mb-3 text-slate-500 dark:text-slate-400">
+                    Marca las categorías que corresponden a la plantilla <strong class="text-slate-700 dark:text-slate-200">${preset.nombre} (P${activePresetIndex + 1})</strong>:
+                </div>
+                <div class="max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 p-2 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-sm bg-slate-50/70 dark:bg-slate-900/60">
+            `;
+
+            listaCategoriasEmpresa.forEach(cat => {
+                const isChecked = categoriasActuales.includes(cat.id);
+                htmlCategorias += `
+                    <label class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800/80 cursor-pointer transition select-none ${isChecked ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60' : 'border border-transparent'}">
+                        <input type="checkbox" value="${cat.id}" class="swal-cat-cb w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-indigo-500 cursor-pointer" ${isChecked ? 'checked' : ''}>
+                        <span class="text-slate-800 dark:text-slate-200 font-medium">${cat.nombre}</span>
+                    </label>
+                `;
+            });
+            htmlCategorias += '</div>';
+
+            let nuevosIds = null;
+            try {
+                const res = await Swal.fire({
+                    title: `🏷️ Categorías: P${activePresetIndex + 1}`,
+                    html: htmlCategorias,
+                    showCancelButton: true,
+                    confirmButtonColor: '#10b981',
+                    cancelButtonColor: isDark ? '#475569' : '#64748b',
+                    confirmButtonText: 'Guardar Categorías',
+                    cancelButtonText: 'Cancelar',
+                    preConfirm: () => {
+                        const checkboxes = document.querySelectorAll('.swal-cat-cb:checked');
+                        return Array.from(checkboxes).map(cb => cb.value);
+                    }
+                });
+
+                if (res.isConfirmed && res.value !== undefined) {
+                    nuevosIds = res.value;
+                }
+            } finally {
+                // Reabrir inmediatamente printModal
+                if (modal && !modal.open) modal.showModal();
+            }
+
+            if (nuevosIds !== null) {
+                tagPresets[activePresetIndex].categoriasIds = nuevosIds;
+                guardarPresetsLocalStorage();
+                renderizarSelectorPresets();
+
+                Swal.fire({
+                    target: document.getElementById('printModal'),
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: `${nuevosIds.length} categoría(s) vinculada(s) a P${activePresetIndex + 1}`,
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            }
+        }
+
+        function seleccionarPreset(index) {
+            if (index < 0 || index >= tagPresets.length) return;
+            activePresetIndex = index;
+            try {
+                localStorage.setItem(getActivePresetStorageKey(), activePresetIndex.toString());
+            } catch (e) {}
+
+            aplicarPresetAInputs(tagPresets[activePresetIndex]);
+            renderizarSelectorPresets();
+        }
+
+        async function renombrarPresetActivo() {
+            const preset = tagPresets[activePresetIndex];
+            const modal = document.getElementById('printModal');
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // Cerrar temporalmente el modal nativo para que SweetAlert2 se muestre al frente sin conflicto de Top Layer
+            if (modal && modal.open) modal.close();
+
+            let nuevoNombre = null;
+            try {
+                const res = await Swal.fire({
+                    title: `Renombrar P${activePresetIndex + 1}`,
+                    input: 'text',
+                    inputLabel: 'Nombre descriptivo del Preset:',
+                    inputValue: preset.nombre,
+                    showCancelButton: true,
+                    confirmButtonColor: '#4f46e5',
+                    cancelButtonColor: isDark ? '#475569' : '#64748b',
+                    confirmButtonText: 'Guardar',
+                    cancelButtonText: 'Cancelar',
+                    inputValidator: (value) => {
+                        if (!value || !value.trim()) {
+                            return 'El nombre no puede estar vacío';
+                        }
+                        if (value.trim().length > 30) {
+                            return 'El nombre no puede exceder 30 caracteres';
+                        }
+                    }
+                });
+                nuevoNombre = res.value;
+            } finally {
+                // Reabrir inmediatamente el diálogo de impresión
+                if (modal && !modal.open) modal.showModal();
+            }
+
+            if (nuevoNombre && nuevoNombre.trim()) {
+                tagPresets[activePresetIndex].nombre = nuevoNombre.trim();
+                guardarPresetsLocalStorage();
+                renderizarSelectorPresets();
+
+                Swal.fire({
+                    target: document.getElementById('printModal'),
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: `Preset P${activePresetIndex + 1} renombrado`,
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            }
+        }
+
+        function guardarPresetActivo() {
+            const rawWidth = String(document.getElementById('tagWidth').value).replace(/,/g, '.');
+            const rawHeight = String(document.getElementById('tagHeight').value).replace(/,/g, '.');
+            const widthCm = parseFloat(rawWidth);
+            const heightCm = parseFloat(rawHeight);
+            const fontDescPt = parseInt(document.getElementById('fontDesc').value, 10);
+            const fontPricePt = parseInt(document.getElementById('fontPrice').value, 10);
+            const layoutMode = document.querySelector('input[name="layoutMode"]:checked')?.value || 'standard';
+            const pageOrientation = document.querySelector('input[name="pageOrientation"]:checked')?.value || 'portrait';
+
+            if (isNaN(widthCm) || widthCm <= 0 || isNaN(heightCm) || heightCm <= 0) {
+                const modal = document.getElementById('printModal');
+                if (modal && modal.open) modal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Dimensiones inválidas',
+                    text: 'El ancho y el alto deben ser números mayores a cero.'
+                }).then(() => {
+                    if (modal && !modal.open) modal.showModal();
+                });
+                return;
+            }
+
+            tagPresets[activePresetIndex] = {
+                ...tagPresets[activePresetIndex],
+                tagWidth: widthCm,
+                tagHeight: heightCm,
+                fontDesc: fontDescPt || 30,
+                fontPrice: fontPricePt || 45,
+                layoutMode: layoutMode,
+                pageOrientation: pageOrientation,
+                categoriasIds: tagPresets[activePresetIndex].categoriasIds || []
+            };
+
+            guardarPresetsLocalStorage();
+            renderizarSelectorPresets();
+
+            Swal.fire({
+                target: document.getElementById('printModal'),
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `Ajustes guardados en P${activePresetIndex + 1} (${tagPresets[activePresetIndex].nombre})`,
+                showConfirmButton: false,
+                timer: 2200
+            });
+        }
+
+        async function abrirModalImpresion() {
             if(activeTab !== 'ITEMS') return;
+
+            const cambiosPendientes = Object.keys(modifiedRecords).length;
+            if (cambiosPendientes > 0) {
+                const cf = await Swal.fire({
+                    title: 'Cambios sin guardar',
+                    text: `Tienes ${cambiosPendientes} precio(s) modificado(s) en pantalla. Para que apliquen en el filtro de hoy y en el Punto de Venta, te sugerimos guardarlos primero. ¿Deseas continuar imprimiendo sin guardar?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#4f46e5',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Continuar sin guardar',
+                    cancelButtonText: 'Ir a Guardar'
+                });
+                if (!cf.isConfirmed) return;
+            }
+
+            if (listaCategoriasEmpresa.length === 0) {
+                await cargarCategoriasEmpresa();
+            }
+
+            // Inicializar y cargar presets de etiquetas
+            cargarPresetsLocalStorage();
+            renderizarSelectorPresets();
+            aplicarPresetAInputs(tagPresets[activePresetIndex]);
+
             const modal = document.getElementById('printModal');
             document.querySelector('input[name="printType"][value="hoy"]').checked = true;
             toggleManualSelection(false);
@@ -1437,7 +2186,8 @@
                     const row = currentData.find(x => x.id === cb.value);
                     if(row) {
                         const currentPrice = modifiedRecords[row.id] !== undefined ? modifiedRecords[row.id] : (row.precio_venta || 0);
-                        spanPrice.innerText = `S/ ${formatearPrecioVentaVisual(currentPrice)}`;
+                        const catBadge = row.categorias?.nombre ? ` • <span class="text-slate-400 dark:text-slate-500 font-medium">${row.categorias.nombre}</span>` : '';
+                        spanPrice.innerHTML = `S/ ${formatearPrecioVentaVisual(currentPrice)}${catBadge}`;
                     }
                 });
                 return; 
@@ -1446,13 +2196,14 @@
             listContainer.innerHTML = '';
             currentData.forEach(row => {
                 const currentPrice = modifiedRecords[row.id] !== undefined ? modifiedRecords[row.id] : (row.precio_venta || 0);
+                const catBadge = row.categorias?.nombre ? ` • <span class="text-slate-400 dark:text-slate-500 font-medium">${row.categorias.nombre}</span>` : '';
                 const label = document.createElement('label');
                 label.className = "flex items-center gap-2 p-2 rounded hover:bg-white dark:hover:bg-slate-800 cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition";
                 label.innerHTML = `
                     <input type="checkbox" value="${row.id}" class="manual-print-cb w-4 h-4 text-indigo-600 rounded border-slate-300">
                     <div class="flex flex-col w-[calc(100%-1.5rem)]">
                         <span class="font-semibold text-slate-700 dark:text-slate-300 truncate w-full block" title="${row.descripcion}">${row.descripcion}</span>
-                        <span class="text-xs text-slate-500 price-span">S/ ${formatearPrecioVentaVisual(currentPrice)}</span>
+                        <span class="text-xs text-slate-500 price-span">S/ ${formatearPrecioVentaVisual(currentPrice)}${catBadge}</span>
                     </div>
                 `;
                 listContainer.appendChild(label);
@@ -1472,44 +2223,86 @@
         }
 
         function procesarImpresionArray(itemsArray) {
-            const widthCm = parseFloat(document.getElementById('tagWidth').value) || 10.5;
-            const heightCm = parseFloat(document.getElementById('tagHeight').value) || 4.9;
-            const fontDescPt = parseInt(document.getElementById('fontDesc').value) || 30;
-            const fontPricePt = parseInt(document.getElementById('fontPrice').value) || 45;
-            const layoutMode = document.querySelector('input[name="layoutMode"]:checked').value;
-            const pageOrientation = document.querySelector('input[name="pageOrientation"]:checked').value;
+            sincronizarInputsPresetActivo();
 
-            // Inyectar orientación dinámicamente
+            // Inyectar orientación estandarizada para el lote continuo A4
             let styleNode = document.getElementById('dynamicPageOrientation');
             if (!styleNode) {
                 styleNode = document.createElement('style');
                 styleNode.id = 'dynamicPageOrientation';
                 document.head.appendChild(styleNode);
             }
-            styleNode.innerHTML = `@media print { @page { size: A4 ${pageOrientation}; margin: 0; } }`;
+            styleNode.innerHTML = `@media print { @page { size: A4 portrait; margin: 0; } }`;
             
             const container = document.getElementById('printContainer');
             container.innerHTML = '';
+
+            // En Modo Multiformato: Agrupar por el preset correspondiente (P1, P2, P3, P4, huérfanos)
+            // de modo que en el flujo continuo de la hoja A4 las etiquetas de alturas iguales queden juntas,
+            // garantizando líneas de corte uniformes en guillotina sin escalonamiento horizontal.
+            let itemsParaImprimir = [...itemsArray];
+            if (modoMultiformatoActivo) {
+                itemsParaImprimir.sort((a, b) => {
+                    const presetA = resolverPresetParaItem(a);
+                    const presetB = resolverPresetParaItem(b);
+                    const idxA = tagPresets.indexOf(presetA);
+                    const idxB = tagPresets.indexOf(presetB);
+                    if (idxA !== idxB) return idxA - idxB;
+                    return (a.descripcion || '').localeCompare(b.descripcion || '');
+                });
+            }
             
-            itemsArray.forEach(item => {
+            itemsParaImprimir.forEach(item => {
+                const preset = resolverPresetParaItem(item);
+                const widthCm = preset.tagWidth || 10.5;
+                const heightCm = preset.tagHeight || 4.9;
+                const fontDescPt = preset.fontDesc || 30;
+                const fontPricePt = preset.fontPrice || 45;
+                const layoutMode = preset.layoutMode || 'standard';
+
                 const currentPrice = modifiedRecords[item.id] !== undefined ? modifiedRecords[item.id] : (item.precio_venta || 0);
                 const unidad = item.unidad_medida || 'UND';
+                const formattedPrice = formatearPrecioVentaVisual(currentPrice);
                 
                 const div = document.createElement('div');
                 div.className = 'print-tag' + (layoutMode === 'horizontal' ? ' layout-horizontal' : '');
                 div.style.width = widthCm + 'cm';
                 div.style.height = heightCm + 'cm';
                 
-                const fontUnitPt = fontPricePt * 0.45; // La unidad será 45% del tamaño del precio
-                
-                div.innerHTML = `
-                    <div class="print-tag-name" style="font-size: ${fontDescPt}pt;">${item.descripcion}</div>
-                    <div class="print-tag-price-wrapper">
-                        <span class="print-tag-currency" style="font-size: ${fontUnitPt}pt;">S/</span>
-                        <span class="print-tag-price" style="font-size: ${fontPricePt}pt;">${formatearPrecioVentaVisual(currentPrice)}</span>
-                        <span class="print-tag-unit" style="font-size: ${fontUnitPt}pt;">${unidad}</span>
-                    </div>
-                `;
+                if (layoutMode === 'horizontal') {
+                    // Diseño Retail Jerárquico: Entero protagónico 100%, Centavos elevados al 50%
+                    const partes = formattedPrice.split('.');
+                    const parteEntera = partes[0] || '0';
+                    const parteDecimal = partes.length > 1 ? partes[1] : '00';
+                    const fontCentsPt = Math.max(8, Math.round(fontPricePt * 0.5));
+                    const fontCurrencyPt = Math.max(8, Math.round(fontPricePt * 0.38));
+                    const fontUnitPt = Math.max(7, Math.round(fontPricePt * 0.38));
+
+                    div.innerHTML = `
+                        <div class="print-tag-name" style="font-size: ${fontDescPt}pt;">${item.descripcion}</div>
+                        <div class="print-tag-price-wrapper">
+                            <span class="print-tag-currency" style="font-size: ${fontCurrencyPt}pt;">S/</span>
+                            <div class="print-tag-price-cluster">
+                                <span class="print-tag-integer" style="font-size: ${fontPricePt}pt;">${parteEntera}.</span>
+                                <div class="print-tag-decimals-col">
+                                    <span class="print-tag-cents" style="font-size: ${fontCentsPt}pt;">${parteDecimal}</span>
+                                    <span class="print-tag-unit" style="font-size: ${fontUnitPt}pt;">${unidad}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Distribución Estándar tradicional (Arriba / Abajo)
+                    const fontUnitPt = fontPricePt * 0.45;
+                    div.innerHTML = `
+                        <div class="print-tag-name" style="font-size: ${fontDescPt}pt;">${item.descripcion}</div>
+                        <div class="print-tag-price-wrapper">
+                            <span class="print-tag-currency" style="font-size: ${fontUnitPt}pt;">S/</span>
+                            <span class="print-tag-price" style="font-size: ${fontPricePt}pt;">${formattedPrice}</span>
+                            <span class="print-tag-unit" style="font-size: ${fontUnitPt}pt;">${unidad}</span>
+                        </div>
+                    `;
+                }
                 container.appendChild(div);
             });
 
@@ -1519,32 +2312,52 @@
             }, 100);
         }
 
-        function generarImpresion() {
-            const printType = document.querySelector('input[name="printType"]:checked').value;
-            let itemsToPrint = [];
-            
+        function obtenerItemsFiltradosParaImpresion(printType) {
+            let itemsBase = [];
             if (printType === 'todos') {
-                itemsToPrint = currentData;
+                itemsBase = currentData;
             } else if (printType === 'hoy') {
                 const hoyStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
-                itemsToPrint = currentData.filter(item => {
-                    if(!item.updated_at) return false;
-                    let dateStr = item.updated_at;
-                    if (!dateStr.includes('Z') && !/(?:\+|-)\d{2}:?\d{2}$/.test(dateStr)) {
-                        dateStr += 'Z';
-                    }
-                    const updatedStr = new Date(dateStr).toLocaleDateString('en-CA');
+                itemsBase = currentData.filter(item => {
+                    if (!item.precio_updated_at) return false;
+                    const updatedStr = new Date(item.precio_updated_at).toLocaleDateString('en-CA');
                     return updatedStr === hoyStr;
                 });
             } else if (printType === 'manual') {
                 const checkboxes = document.querySelectorAll('.manual-print-cb:checked');
                 const selectedIds = Array.from(checkboxes).map(cb => cb.value);
-                itemsToPrint = currentData.filter(item => selectedIds.includes(item.id));
+                itemsBase = currentData.filter(item => selectedIds.includes(item.id));
             }
+
+            // Si el usuario desactivó explícitamente el Modo Multiformato (modo manual forzado),
+            // se restringen los productos según las categorías de la plantilla activa
+            if (!modoMultiformatoActivo) {
+                const activePreset = tagPresets[activePresetIndex];
+                const catIds = activePreset?.categoriasIds || [];
+                if (catIds.length > 0) {
+                    itemsBase = itemsBase.filter(item => catIds.includes(item.categoria_id));
+                }
+            }
+
+            return itemsBase;
+        }
+
+        function generarImpresion() {
+            const printType = document.querySelector('input[name="printType"]:checked').value;
+            const itemsToPrint = obtenerItemsFiltradosParaImpresion(printType);
 
             if (itemsToPrint.length === 0) {
                 cerrarModalImpresion();
-                Swal.fire('Atención', 'No hay productos para imprimir con el filtro seleccionado.', 'warning').then(() => {
+                let msg = 'No hay productos para imprimir con la selección actual.';
+                if (printType === 'hoy') {
+                    msg = 'No se encontraron productos cuyo precio haya sido modificado hoy.<br><br>Sugerencia: Cambia a <strong>"Todos los productos"</strong> para imprimir el catálogo completo de tus categorías.';
+                }
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Atención',
+                    html: msg,
+                    confirmButtonColor: '#4f46e5'
+                }).then(() => {
                     document.getElementById('printModal').showModal();
                 });
                 return;
@@ -1557,30 +2370,20 @@
 
         function abrirModalPersonalizar() {
             const printType = document.querySelector('input[name="printType"]:checked').value;
-            let baseItems = [];
-            
-            if (printType === 'todos') {
-                baseItems = currentData;
-            } else if (printType === 'hoy') {
-                const hoyStr = new Date().toLocaleDateString('en-CA');
-                baseItems = currentData.filter(item => {
-                    if(!item.updated_at) return false;
-                    let dateStr = item.updated_at;
-                    if (!dateStr.includes('Z') && !/(?:\+|-)\d{2}:?\d{2}$/.test(dateStr)) {
-                        dateStr += 'Z';
-                    }
-                    const updatedStr = new Date(dateStr).toLocaleDateString('en-CA');
-                    return updatedStr === hoyStr;
-                });
-            } else if (printType === 'manual') {
-                const checkboxes = document.querySelectorAll('.manual-print-cb:checked');
-                const selectedIds = Array.from(checkboxes).map(cb => cb.value);
-                baseItems = currentData.filter(item => selectedIds.includes(item.id));
-            }
+            const baseItems = obtenerItemsFiltradosParaImpresion(printType);
 
             if (baseItems.length === 0) {
                 cerrarModalImpresion();
-                Swal.fire('Atención', 'No hay productos seleccionados para personalizar.', 'warning').then(() => {
+                let msg = 'No hay productos seleccionados para personalizar.';
+                if (printType === 'hoy') {
+                    msg = 'No se encontraron productos cuyo precio haya sido modificado hoy.<br><br>Sugerencia: Cambia a <strong>"Todos los productos"</strong> para personalizar el catálogo completo.';
+                }
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Atención',
+                    html: msg,
+                    confirmButtonColor: '#4f46e5'
+                }).then(() => {
                     document.getElementById('printModal').showModal();
                 });
                 return;
@@ -1618,7 +2421,9 @@
                 div.onclick = (e) => toggleRowState(index, e);
                 
                 const currentPrice = modifiedRecords[entry.item.id] !== undefined ? modifiedRecords[entry.item.id] : (entry.item.precio_venta || 0);
-                
+                const presetAsignado = resolverPresetParaItem(entry.item);
+                const badgePreset = `<span class="text-[10px] px-1.5 py-0.5 rounded font-bold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/60">${presetAsignado.nombre} (${presetAsignado.tagWidth}x${presetAsignado.tagHeight}cm)</span>`;
+
                 let qtyHtml = '';
                 if (entry.qty === 1) {
                     qtyHtml = `<div class="qty-btn-plus" onclick="cambiarCant(${index}, 1, event)"><i class="fas fa-plus"></i></div>`;
@@ -1633,8 +2438,11 @@
                 }
 
                 div.innerHTML = `
-                    <div class="flex flex-col">
-                        <span class="font-semibold text-slate-700 dark:text-slate-200 item-name transition-all">${entry.item.descripcion}</span>
+                    <div class="flex flex-col gap-0.5 max-w-[calc(100%-120px)]">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-semibold text-slate-700 dark:text-slate-200 item-name transition-all truncate">${entry.item.descripcion}</span>
+                            ${badgePreset}
+                        </div>
                         <span class="text-xs text-slate-500 font-bold transition-all">S/ ${formatearPrecioVentaVisual(currentPrice)}</span>
                     </div>
                     <div class="qty-pill-container transition-all">
