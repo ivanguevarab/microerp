@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Familias | Micro ERP</title>
+
+  <!-- Tailwind CSS & Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+      tailwind.config = {
+          darkMode: 'class',
+          theme: {
+              extend: {
+                  fontFamily: {
+                      sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                  }
+              }
+          }
+      }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="auth-guard.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="sidebar.js"></script>
+
+  <style>
+    body {
+      background-color: #020617;
+      color: #e2e8f0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+    }
+
+    .ambient-blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      z-index: -1;
+      pointer-events: none;
+    }
+    .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(37, 99, 235, 0.12); }
+    .blob-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: rgba(16, 185, 129, 0.10); }
+
+    .submodule-header {
+      background: rgba(15, 23, 42, 0.75);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .container-box {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px 20px;
+    }
+
+    .table-container {
+      background-color: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    thead th {
+      background: rgba(30, 41, 59, 0.5);
+      padding: 14px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    tbody td {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 14px;
+      color: #e2e8f0;
+      vertical-align: middle;
+    }
+
+    tbody tr:hover {
+      background-color: rgba(30, 41, 59, 0.4);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .badge-count {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-count-zero {
+      background-color: rgba(148, 163, 184, 0.12);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .badge-active {
+      background-color: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .badge-inactive {
+      background-color: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(2, 6, 23, 0.8);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-card {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ambient-blob blob-1"></div>
+  <div class="ambient-blob blob-2"></div>
+
+  <!-- Header -->
+  <header class="submodule-header">
+    <div class="flex items-center gap-4">
+      <a href="categorias.html" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition-all">
+        <i class="fa-solid fa-arrow-left"></i> Volver a Categorías
+      </a>
+      <h1 class="text-xl font-bold text-white tracking-wide flex items-center gap-2">
+        <span>🗂️</span> Gestión de Familias
+      </h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="categorias.html" class="text-xs text-emerald-400 hover:underline flex items-center gap-1 font-semibold">
+        <i class="fa-solid fa-tags"></i> Ir a Categorías
+      </a>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal -->
+  <main class="container-box">
+    <!-- Barra Superior -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div>
+        <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+          <span>Familias de Productos</span>
+        </h2>
+        <p class="text-sm text-slate-400 mt-1">
+          Agrupa categorías afines para un análisis comercial consolidado (ej: <span class="text-emerald-400 font-semibold">Carnicería</span> para Res, Aves, Cerdo).
+        </p>
+      </div>
+
+      <button onclick="abrirModalNuevo()" class="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-900/30 transition-all transform hover:-translate-y-0.5">
+        <i class="fa-solid fa-plus"></i> Nueva Familia
+      </button>
+    </div>
+
+    <!-- Tabla Contenedor -->
+    <div class="table-container">
+      <!-- Filtros de la tabla -->
+      <div class="table-header">
+        <div class="relative w-full sm:w-80">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Buscar familia por nombre..." 
+            oninput="aplicarFiltrosYOrden()" 
+            class="w-full pl-10 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+        </div>
+
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <label for="sortSelect" class="text-xs text-slate-300 font-medium whitespace-nowrap">
+            <i class="fa-solid fa-arrow-down-short-wide text-slate-400 mr-1"></i> Ordenar:
+          </label>
+          <select 
+            id="sortSelect" 
+            onchange="aplicarFiltrosYOrden()" 
+            class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="recientes">Más Recientes (Defecto)</option>
+            <option value="nombre_asc">Nombre (A - Z)</option>
+            <option value="nombre_desc">Nombre (Z - A)</option>
+            <option value="categorias_desc">Más Categorías Asociadas</option>
+            <option value="categorias_asc">Menos Categorías Asociadas</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Contenido de Tabla -->
+      <div id="tableContent">
+        <div class="text-center py-16 text-slate-400">
+          <i class="fa-solid fa-circle-notch fa-spin text-3xl text-emerald-500 mb-3"></i>
+          <p class="text-sm">Cargando familias...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Crear / Editar Familia -->
+  <div class="modal-overlay" id="modalFamilia">
+    <div class="modal-card">
+      <div class="flex justify-between items-center px-6 py-4 border-b border-slate-800">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2" id="modalTitle">
+          <i class="fa-solid fa-folder-plus text-emerald-400"></i> Nueva Familia
+        </h3>
+        <button onclick="cerrarModal()" class="text-slate-400 hover:text-white transition-colors">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="familiaForm" onsubmit="guardarFamilia(event)" class="p-6 space-y-4">
+        <input type="hidden" id="familiaId">
+
+        <div>
+          <label for="nombreFamilia" class="block text-xs font-semibold uppercase text-slate-300 mb-1.5 tracking-wider">
+            Nombre de la Familia <span class="text-rose-400">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="nombreFamilia" 
+            required 
+            placeholder="Ej: Carnicería, Abarrotes, Limpieza..." 
+            maxlength="100"
+            class="w-full px-4 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+        </div>
+
+        <div>
+          <label for="descripcionFamilia" class="block text-xs font-semibold uppercase text-slate-300 mb-1.5 tracking-wider">
+            Descripción (Opcional)
+          </label>
+          <textarea 
+            id="descripcionFamilia" 
+            rows="3" 
+            placeholder="Notas o criterio de agrupación para esta familia..." 
+            class="w-full px-4 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+          ></textarea>
+        </div>
+
+        <div class="flex items-center gap-3 pt-2">
+          <input 
+            type="checkbox" 
+            id="activoFamilia" 
+            checked 
+            class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-800 border-slate-700"
+          >
+          <label for="activoFamilia" class="text-sm font-medium text-slate-200 cursor-pointer">
+            Familia activa (disponible para categorización y BI)
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <button 
+            type="button" 
+            onclick="cerrarModal()" 
+            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-all"
+          >
+            Cancelar
+          </button>
+          <button 
+            type="submit" 
+            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-900/30 transition-all flex items-center gap-2"
+          >
+            <i class="fa-solid fa-floppy-disk"></i> Guardar Familia
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Asignar Categorías a Familia -->
+  <div class="modal-overlay" id="modalAsignarCategorias">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="flex justify-between items-center px-6 py-4 border-b border-slate-800">
+        <div>
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-tags text-emerald-400"></i> Asignar Categorías
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Familia: <span class="text-emerald-400 font-bold text-sm" id="nombreFamiliaAsignar"></span>
+          </p>
+        </div>
+        <button onclick="cerrarModalAsignar()" class="text-slate-400 hover:text-white transition-colors">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-6">
+        <!-- Buscador de categorías y botón marcar todas -->
+        <div class="flex items-center gap-2 mb-3">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input 
+              type="text" 
+              id="buscarCatModal" 
+              placeholder="Filtrar categorías..." 
+              oninput="filtrarCategoriasModal()" 
+              class="w-full pl-9 pr-3 py-2 bg-slate-800/90 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+          </div>
+          <button 
+            type="button" 
+            onclick="toggleSeleccionarTodas()" 
+            class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-all whitespace-nowrap"
+            id="btnToggleAll"
+          >
+            Marcar Todas
+          </button>
+        </div>
+
+        <div class="text-[11px] text-slate-400 mb-2 flex justify-between items-center">
+          <span>Selecciona las categorías que conformarán esta familia:</span>
+          <span id="conteoSeleccionadas" class="font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">0 seleccionadas</span>
+        </div>
+
+        <!-- Lista scrollable de categorías -->
+        <div id="listaCategoriasModal" class="space-y-1.5 max-h-72 overflow-y-auto pr-1 border border-slate-800 rounded-xl p-2 bg-slate-900/60">
+          <!-- Categorías inyectadas dinámicamente -->
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 mt-4 border-t border-slate-800">
+          <button 
+            type="button" 
+            onclick="cerrarModalAsignar()" 
+            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-all"
+          >
+            Cancelar
+          </button>
+          <button 
+            type="button" 
+            onclick="guardarAsignacionCategorias()" 
+            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-emerald-900/30 transition-all flex items-center gap-1.5"
+          >
+            <i class="fa-solid fa-check"></i> Guardar Asignaciones
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const supabaseApp = window.supabaseClient;
+
+    let familiasData = [];
+    let categoriasData = [];
+    let familiaEditando = null;
+    let familiaAsignandoId = null;
+    let categoriasSeleccionadas = new Set();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      cargarDatos();
+    });
+
+    async function cargarDatos() {
+      try {
+        const [respFamilias, respCategorias] = await Promise.all([
+          supabaseApp
+            .from('familias')
+            .select('*')
+            .order('nombre', { ascending: true }),
+          supabaseApp
+            .from('categorias')
+            .select('id, nombre, familia_id')
+        ]);
+
+        if (respFamilias.error) throw respFamilias.error;
+        if (respCategorias.error) throw respCategorias.error;
+
+        categoriasData = respCategorias.data || [];
+
+        // Conteo y detalle de categorías asociadas
+        const conteoMap = {};
+        const catNombresMap = {};
+        categoriasData.forEach(c => {
+          if (c.familia_id) {
+            conteoMap[c.familia_id] = (conteoMap[c.familia_id] || 0) + 1;
+            if (!catNombresMap[c.familia_id]) catNombresMap[c.familia_id] = [];
+            catNombresMap[c.familia_id].push(c.nombre);
+          }
+        });
+
+        familiasData = (respFamilias.data || []).map(f => ({
+          ...f,
+          total_categorias: conteoMap[f.id] || 0,
+          categorias_nombres: catNombresMap[f.id] || []
+        }));
+
+        aplicarFiltrosYOrden();
+      } catch (error) {
+        console.error('Error al cargar familias:', error);
+        document.getElementById('tableContent').innerHTML = `
+          <div class="text-center py-12 text-rose-400">
+            <i class="fa-solid fa-triangle-exclamation text-3xl mb-2"></i>
+            <p class="font-semibold">Error al cargar las familias</p>
+            <p class="text-xs text-slate-400 mt-1">${error.message || ''}</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderizarTabla(datos) {
+      const tableContent = document.getElementById('tableContent');
+
+      if (!datos || datos.length === 0) {
+        tableContent.innerHTML = `
+          <div class="text-center py-16 text-slate-400">
+            <div class="text-5xl mb-3">🗂️</div>
+            <h3 class="text-lg font-bold text-slate-200">No hay familias registradas</h3>
+            <p class="text-sm mt-1">Crea tu primera familia para agrupar categorías (ej: "Carnicería", "Abarrotes").</p>
+            <button onclick="abrirModalNuevo()" class="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg inline-flex items-center gap-1.5 transition-all">
+              <i class="fa-solid fa-plus"></i> Nueva Familia
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre de la Familia</th>
+              <th>Descripción</th>
+              <th>Fecha de Creación</th>
+              <th class="text-center">Categorías Asociadas</th>
+              <th class="text-center">Estado</th>
+              <th class="text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${datos.map(f => `
+              <tr>
+                <td>
+                  <div class="font-bold text-white text-base flex items-center gap-2">
+                    <span class="text-emerald-400">📁</span>
+                    <span>${f.nombre}</span>
+                  </div>
+                </td>
+                <td class="text-slate-400 text-xs max-w-xs truncate" title="${f.descripcion || ''}">
+                  ${f.descripcion ? f.descripcion : '<span class="text-slate-600 italic">Sin descripción</span>'}
+                </td>
+                <td class="text-slate-300 text-xs">
+                  ${formatearFecha(f.created_at)}
+                </td>
+                <td class="text-center">
+                  <button 
+                    onclick="abrirModalAsignarCategorias('${f.id}')" 
+                    class="badge ${f.total_categorias > 0 ? 'badge-count hover:ring-2 hover:ring-emerald-400' : 'badge-count-zero hover:ring-2 hover:ring-slate-500'} cursor-pointer transition-all" 
+                    title="Clic para ver o asignar categorías a esta familia"
+                  >
+                    <i class="fa-solid fa-tags text-[10px] mr-1.5"></i>
+                    ${f.total_categorias} ${f.total_categorias === 1 ? 'categoría' : 'categorías'}
+                  </button>
+                </td>
+                <td class="text-center">
+                  <span class="badge ${f.activo ? 'badge-active' : 'badge-inactive'}">
+                    ${f.activo ? 'Activo' : 'Inactivo'}
+                  </span>
+                </td>
+                <td class="text-right">
+                  <div class="inline-flex items-center gap-2">
+                    <button onclick="abrirModalAsignarCategorias('${f.id}')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 transition-colors" title="Asignar Categorías">
+                      <i class="fa-solid fa-tags"></i>
+                    </button>
+                    <button onclick="editarFamilia('${f.id}')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-colors" title="Editar Familia">
+                      <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <button onclick="confirmarEliminar('${f.id}', '${f.nombre}', ${f.total_categorias})" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-400 hover:text-rose-300 transition-colors" title="Eliminar Familia">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      tableContent.innerHTML = html;
+    }
+
+    function aplicarFiltrosYOrden() {
+      const term = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+      const sortVal = document.getElementById('sortSelect').value;
+
+      let filtrados = familiasData.filter(f => 
+        (f.nombre || '').toLowerCase().includes(term) ||
+        (f.descripcion || '').toLowerCase().includes(term)
+      );
+
+      filtrados.sort((a, b) => {
+        if (sortVal === 'nombre_asc') {
+          return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+        } else if (sortVal === 'nombre_desc') {
+          return b.nombre.localeCompare(a.nombre, 'es', { sensitivity: 'base' });
+        } else if (sortVal === 'categorias_desc') {
+          return (b.total_categorias || 0) - (a.total_categorias || 0);
+        } else if (sortVal === 'categorias_asc') {
+          return (a.total_categorias || 0) - (b.total_categorias || 0);
+        } else {
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        }
+      });
+
+      renderizarTabla(filtrados);
+    }
+
+    function abrirModalNuevo() {
+      familiaEditando = null;
+      document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-folder-plus text-emerald-400"></i> Nueva Familia';
+      document.getElementById('familiaForm').reset();
+      document.getElementById('familiaId').value = '';
+      document.getElementById('activoFamilia').checked = true;
+      document.getElementById('modalFamilia').classList.add('active');
+      document.getElementById('nombreFamilia').focus();
+    }
+
+    function cerrarModal() {
+      document.getElementById('modalFamilia').classList.remove('active');
+      familiaEditando = null;
+    }
+
+    async function guardarFamilia(event) {
+      event.preventDefault();
+      const id = document.getElementById('familiaId').value;
+      const nombre = document.getElementById('nombreFamilia').value.trim();
+      const descripcion = document.getElementById('descripcionFamilia').value.trim();
+      const activo = document.getElementById('activoFamilia').checked;
+
+      if (!nombre) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Nombre Obligatorio',
+          text: 'Por favor ingresa el nombre de la familia.',
+          background: '#0f172a', color: '#f8fafc', confirmButtonColor: '#10b981'
+        });
+        return;
+      }
+
+      // Validar duplicados locales
+      const dup = familiasData.find(f => f.nombre.toLowerCase() === nombre.toLowerCase() && f.id !== id);
+      if (dup) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Familia Existente',
+          text: `Ya existe una familia llamada "${nombre}".`,
+          background: '#0f172a', color: '#f8fafc', confirmButtonColor: '#10b981'
+        });
+        return;
+      }
+
+      try {
+        Swal.fire({
+          title: 'Guardando...',
+          text: 'Procesando registro en el servidor',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        if (id) {
+          // Editar
+          const { error } = await supabaseApp
+            .from('familias')
+            .update({ nombre, descripcion, activo })
+            .eq('id', id);
+
+          if (error) throw error;
+        } else {
+          // Crear
+          const { error } = await supabaseApp
+            .from('familias')
+            .insert([{ nombre, descripcion, activo }]);
+
+          if (error) throw error;
+        }
+
+        cerrarModal();
+        Swal.fire({
+          icon: 'success',
+          title: '¡Operación Exitosa!',
+          text: `La familia "${nombre}" ha sido guardada correctamente.`,
+          background: '#0f172a', color: '#f8fafc', confirmButtonColor: '#10b981', timer: 1800, showConfirmButton: false
+        });
+
+        await cargarDatos();
+      } catch (error) {
+        console.error('Error al guardar familia:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al Guardar',
+          text: error.message || 'No se pudo completar la operación.',
+          background: '#0f172a', color: '#f8fafc', confirmButtonColor: '#ef4444'
+        });
+      }
+    }
+
+    function editarFamilia(id) {
+      const fam = familiasData.find(f => f.id === id);
+      if (!fam) return;
+
+      familiaEditando = fam;
+      document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-400"></i> Editar Familia';
+      document.getElementById('familiaId').value = fam.id;
+      document.getElementById('nombreFamilia').value = fam.nombre;
+      document.getElementById('descripcionFamilia').value = fam.descripcion || '';
+      document.getElementById('activoFamilia').checked = fam.activo !== false;
+      document.getElementById('modalFamilia').classList.add('active');
+      document.getElementById('nombreFamilia').focus();
+    }
+
+    async function confirmarEliminar(id, nombre, totalCategorias) {
+      let advertenciaExtra = '';
+      if (totalCategorias > 0) {
+        advertenciaExtra = `<br><br><span class="text-amber-400 font-semibold">⚠️ Atención:</span> Esta familia tiene <b>${totalCategorias} categoría(s) asociada(s)</b>. Si la eliminas, esas categorías quedarán marcadas como <i>"Sin Familia"</i>.`;
+      }
+
+      const res = await Swal.fire({
+        title: '¿Eliminar Familia?',
+        html: `¿Estás seguro de que deseas eliminar la familia <b>"${nombre}"</b>?${advertenciaExtra}`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#475569',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      if (!res.isConfirmed) return;
+
+      try {
+        Swal.fire({
+          title: 'Eliminando...',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        const { error } = await supabaseApp
+          .from('familias')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Eliminada',
+          text: `La familia "${nombre}" ha sido eliminada.`,
+          background: '#0f172a', color: '#f8fafc', confirmButtonColor: '#10b981', timer: 1600, showConfirmButton: false
+        });
+
+        await cargarDatos();
+      } catch (error) {
+        console.error('Error al eliminar familia:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al Eliminar',
+          text: error.message || 'No se pudo eliminar la familia.',
+          background: '#0f172a', color: '#f8fafc', confirmButtonColor: '#ef4444'
+        });
+      }
+    }
+
+    function formatearFecha(fechaStr) {
+      if (!fechaStr) return '-';
+      const f = new Date(fechaStr);
+      if (isNaN(f.getTime())) return fechaStr;
+      const dia = String(f.getDate()).padStart(2, '0');
+      const mes = String(f.getMonth() + 1).padStart(2, '0');
+      const anio = f.getFullYear();
+      return `${dia}/${mes}/${anio}`;
+    }
+
+    // ============================================
+    // GESTIÓN DE ASIGNACIÓN DE CATEGORÍAS EN LOTE
+    // ============================================
+    function abrirModalAsignarCategorias(id) {
+      const fam = familiasData.find(f => f.id === id);
+      if (!fam) return;
+
+      familiaAsignandoId = id;
+      document.getElementById('nombreFamiliaAsignar').textContent = fam.nombre;
+      document.getElementById('buscarCatModal').value = '';
+
+      // Precargar IDs de categorías que ya pertenecen a esta familia
+      categoriasSeleccionadas = new Set(
+        categoriasData
+          .filter(c => c.familia_id === id)
+          .map(c => c.id)
+      );
+
+      renderListaCategoriasModal();
+      document.getElementById('modalAsignarCategorias').classList.add('active');
+    }
+
+    function cerrarModalAsignar() {
+      document.getElementById('modalAsignarCategorias').classList.remove('active');
+      familiaAsignandoId = null;
+      categoriasSeleccionadas.clear();
+    }
+
+    function filtrarCategoriasModal() {
+      renderListaCategoriasModal();
+    }
+
+    function renderListaCategoriasModal() {
+      const container = document.getElementById('listaCategoriasModal');
+      const term = (document.getElementById('buscarCatModal').value || '').toLowerCase().trim();
+
+      // Mapa rápido de familias para saber a cuál pertenece si no es la actual
+      const mapaFam = {};
+      familiasData.forEach(f => { mapaFam[f.id] = f.nombre; });
+
+      // Ordenar alfabéticamente
+      const catsOrdenadas = [...categoriasData].sort((a, b) => 
+        (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })
+      );
+
+      const visibles = catsOrdenadas.filter(c => 
+        (c.nombre || '').toLowerCase().includes(term)
+      );
+
+      if (visibles.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-slate-400 text-xs">
+            <i class="fa-solid fa-folder-open text-2xl text-slate-500 mb-2"></i>
+            <p>No se encontraron categorías que coincidan.</p>
+          </div>
+        `;
+        actualizarBadgeConteo();
+        return;
+      }
+
+      container.innerHTML = visibles.map(c => {
+        const checked = categoriasSeleccionadas.has(c.id);
+        
+        let estadoBadge = '';
+        if (c.familia_id === familiaAsignandoId) {
+          estadoBadge = `<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Asignada aquí</span>`;
+        } else if (c.familia_id) {
+          const famNombre = mapaFam[c.familia_id] || 'Otra familia';
+          estadoBadge = `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Actualmente en ${famNombre}">En: ${famNombre}</span>`;
+        } else {
+          estadoBadge = `<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Sin Familia</span>`;
+        }
+
+        return `
+          <label class="flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none ${checked ? 'bg-emerald-950/25 border-emerald-500/40 text-emerald-100' : 'bg-slate-800/40 hover:bg-slate-800/80 border-slate-700/50 text-slate-300'}">
+            <div class="flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                value="${c.id}" 
+                ${checked ? 'checked' : ''} 
+                onchange="toggleCategoriaModal('${c.id}')"
+                class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
+              >
+              <span class="text-xs font-medium ${checked ? 'font-semibold text-white' : ''}">
+                ${c.nombre}
+              </span>
+            </div>
+            <div>${estadoBadge}</div>
+          </label>
+        `;
+      }).join('');
+
+      actualizarBadgeConteo();
+    }
+
+    function toggleCategoriaModal(catId) {
+      if (categoriasSeleccionadas.has(catId)) {
+        categoriasSeleccionadas.delete(catId);
+      } else {
+        categoriasSeleccionadas.add(catId);
+      }
+      renderListaCategoriasModal();
+    }
+
+    function toggleSeleccionarTodas() {
+      const term = (document.getElementById('buscarCatModal').value || '').toLowerCase().trim();
+      const visibles = categoriasData.filter(c => (c.nombre || '').toLowerCase().includes(term));
+      if (visibles.length === 0) return;
+
+      const todasVisiblesMarcadas = visibles.every(c => categoriasSeleccionadas.has(c.id));
+
+      if (todasVisiblesMarcadas) {
+        visibles.forEach(c => categoriasSeleccionadas.delete(c.id));
+      } else {
+        visibles.forEach(c => categoriasSeleccionadas.add(c.id));
+      }
+
+      renderListaCategoriasModal();
+    }
+
+    function actualizarBadgeConteo() {
+      const count = categoriasSeleccionadas.size;
+      const el = document.getElementById('conteoSeleccionadas');
+      if (el) {
+        el.textContent = `${count} seleccionada${count === 1 ? '' : 's'}`;
+      }
+
+      const term = (document.getElementById('buscarCatModal').value || '').toLowerCase().trim();
+      const visibles = categoriasData.filter(c => (c.nombre || '').toLowerCase().includes(term));
+      const btnToggle = document.getElementById('btnToggleAll');
+      if (btnToggle && visibles.length > 0) {
+        const todasMarcadas = visibles.every(c => categoriasSeleccionadas.has(c.id));
+        btnToggle.textContent = todasMarcadas ? 'Desmarcar Visibles' : 'Marcar Visibles';
+      }
+    }
+
+    async function guardarAsignacionCategorias() {
+      if (!familiaAsignandoId) return;
+
+      const fam = familiasData.find(f => f.id === familiaAsignandoId);
+      const nombreFam = fam ? fam.nombre : '';
+
+      const aAgregar = [];
+      const aRemover = [];
+
+      categoriasData.forEach(c => {
+        const estaSeleccionada = categoriasSeleccionadas.has(c.id);
+        const estaEnEstaFamilia = (c.familia_id === familiaAsignandoId);
+
+        if (estaSeleccionada && !estaEnEstaFamilia) {
+          aAgregar.push(c.id);
+        } else if (!estaSeleccionada && estaEnEstaFamilia) {
+          aRemover.push(c.id);
+        }
+      });
+
+      if (aAgregar.length === 0 && aRemover.length === 0) {
+        cerrarModalAsignar();
+        return;
+      }
+
+      try {
+        Swal.fire({
+          title: 'Guardando asignaciones...',
+          text: 'Actualizando categorías en el servidor',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        if (aAgregar.length > 0) {
+          const { error: errAdd } = await supabaseApp
+            .from('categorias')
+            .update({ familia_id: familiaAsignandoId })
+            .in('id', aAgregar);
+          if (errAdd) throw errAdd;
+        }
+
+        if (aRemover.length > 0) {
+          const { error: errRem } = await supabaseApp
+            .from('categorias')
+            .update({ familia_id: null })
+            .in('id', aRemover);
+          if (errRem) throw errRem;
+        }
+
+        cerrarModalAsignar();
+        Swal.fire({
+          icon: 'success',
+          title: '¡Asignaciones Guardadas!',
+          text: `Se actualizaron las categorías para la familia "${nombreFam}".`,
+          background: '#0f172a',
+          color: '#f8fafc',
+          confirmButtonColor: '#10b981',
+          timer: 1800,
+          showConfirmButton: false
+        });
+
+        await cargarDatos();
+      } catch (error) {
+        console.error('Error al guardar asignaciones:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al Asignar',
+          text: error.message || 'No se pudieron actualizar las categorías.',
+          background: '#0f172a',
+          color: '#f8fafc',
+          confirmButtonColor: '#ef4444'
+        });
+      }
+    }
+
+    // Cerrar modales con la tecla Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cerrarModal();
+        cerrarModalAsignar();
+      }
+    });
+  </script>
+</body>
+</html>

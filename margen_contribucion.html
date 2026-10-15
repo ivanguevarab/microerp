@@ -195,8 +195,13 @@
                         <input type="date" id="fechaHasta" class="bg-slate-700 border-none text-white rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500 outline-none">
                     </div>
 
+                    <!-- Selector de Familia -->
+                    <select id="filtroFamilia" class="bg-slate-700 border-none text-white rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none max-w-[190px] text-ellipsis cursor-pointer" title="Filtrar por familia comercial">
+                        <option value="">Todas las Familias</option>
+                    </select>
+
                     <!-- Selector de Categoría -->
-                    <select id="filtroCategoria" class="bg-slate-700 border-none text-white rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none max-w-[210px] text-ellipsis cursor-pointer" title="Filtrar por categoría comercial">
+                    <select id="filtroCategoria" class="bg-slate-700 border-none text-white rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none max-w-[190px] text-ellipsis cursor-pointer" title="Filtrar por categoría comercial">
                         <option value="">Todas las Categorías</option>
                     </select>
 
@@ -444,6 +449,8 @@
         
         let datosRankingGlobal = [];
         let ordenMCTipo = 'ninguno';
+        let catalogoFamiliasGlobal = [];
+        let mapaFamiliasGlobal = {};
         let catalogoCategoriasGlobal = [];
         let mapaCategoriasGlobal = {};
         let isAnalizandoDashboard = false;
@@ -454,46 +461,106 @@
             const { data: perfil } = await window.supabaseClient.from('perfiles_usuario').select('empresa_id').eq('id', window.currentUser.id).single();
             currentEmpresaId = perfil.empresa_id;
 
-            await cargarCategorias();
+            await cargarFamiliasYCategorias();
             initFiltrosFecha();
             configurarEventosFiltros();
             cargarDashboard();
         });
 
-        async function cargarCategorias() {
+        async function cargarFamiliasYCategorias() {
             try {
-                const { data, error } = await window.supabaseClient
-                    .from('categorias')
-                    .select('id, nombre')
-                    .eq('activo', true)
-                    .order('nombre');
+                const [respFamilias, respCats] = await Promise.all([
+                    window.supabaseClient
+                        .from('familias')
+                        .select('id, nombre, activo')
+                        .order('nombre'),
+                    window.supabaseClient
+                        .from('categorias')
+                        .select('id, nombre, familia_id, activo')
+                        .eq('activo', true)
+                        .order('nombre')
+                ]);
 
-                if (error) throw error;
-                catalogoCategoriasGlobal = data || [];
+                catalogoFamiliasGlobal = (respFamilias.data || []).filter(f => f.activo !== false);
+                catalogoCategoriasGlobal = respCats.data || [];
+                
+                mapaFamiliasGlobal = {};
+                catalogoFamiliasGlobal.forEach(f => { mapaFamiliasGlobal[f.id] = f.nombre; });
+                
                 mapaCategoriasGlobal = {};
+                catalogoCategoriasGlobal.forEach(c => { mapaCategoriasGlobal[c.id] = c.nombre; });
 
-                const selectCat = document.getElementById('filtroCategoria');
-                if (selectCat) {
-                    const valorPrevio = selectCat.value;
-                    selectCat.innerHTML = '<option value="">Todas las Categorías</option>';
-                    catalogoCategoriasGlobal.forEach(cat => {
-                        mapaCategoriasGlobal[cat.id] = cat.nombre;
-                        const opt = document.createElement('option');
-                        opt.value = cat.id;
-                        opt.textContent = cat.nombre;
-                        selectCat.appendChild(opt);
-                    });
-                    if (valorPrevio && catalogoCategoriasGlobal.some(c => c.id === valorPrevio)) {
-                        selectCat.value = valorPrevio;
-                    }
-                }
+                poblarSelectoresFamiliaYCategoria();
             } catch (err) {
-                console.error("Error al cargar catálogo de categorías:", err);
+                console.error("Error al cargar familias y categorías:", err);
+            }
+        }
+
+        function poblarSelectoresFamiliaYCategoria(familiaIdFiltro = null, categoriaIdFiltro = null) {
+            const selectFam = document.getElementById('filtroFamilia');
+            const selectCat = document.getElementById('filtroCategoria');
+            if (!selectFam || !selectCat) return;
+
+            // 1. Poblar Familias
+            const valorPrevioFam = familiaIdFiltro !== null ? familiaIdFiltro : selectFam.value;
+            selectFam.innerHTML = '<option value="">Todas las Familias</option>';
+            catalogoFamiliasGlobal.forEach(fam => {
+                const opt = document.createElement('option');
+                opt.value = fam.id;
+                opt.textContent = `📁 ${fam.nombre}`;
+                selectFam.appendChild(opt);
+            });
+            if (valorPrevioFam && catalogoFamiliasGlobal.some(f => f.id === valorPrevioFam)) {
+                selectFam.value = valorPrevioFam;
+            }
+
+            // 2. Poblar Categorías (filtradas por la familia seleccionada)
+            actualizarOpcionesCategorias(selectFam.value, categoriaIdFiltro !== null ? categoriaIdFiltro : selectCat.value);
+        }
+
+        function actualizarOpcionesCategorias(familiaIdSeleccionada, categoriaSeleccionadaPrev = null) {
+            const selectCat = document.getElementById('filtroCategoria');
+            if (!selectCat) return;
+
+            const valorPrevio = categoriaSeleccionadaPrev !== null ? categoriaSeleccionadaPrev : selectCat.value;
+            let categoriasDisponibles = catalogoCategoriasGlobal;
+
+            if (familiaIdSeleccionada) {
+                categoriasDisponibles = catalogoCategoriasGlobal.filter(c => c.familia_id === familiaIdSeleccionada);
+                const nombreFam = mapaFamiliasGlobal[familiaIdSeleccionada] || 'Familia';
+                selectCat.innerHTML = `<option value="">Todas las Categorías de ${nombreFam}</option>`;
+            } else {
+                selectCat.innerHTML = '<option value="">Todas las Categorías</option>';
+            }
+
+            categoriasDisponibles.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.nombre;
+                selectCat.appendChild(opt);
+            });
+
+            if (valorPrevio && categoriasDisponibles.some(c => c.id === valorPrevio)) {
+                selectCat.value = valorPrevio;
+            } else {
+                selectCat.value = '';
             }
         }
 
         function configurarEventosFiltros() {
+            const selectFam = document.getElementById('filtroFamilia');
             const selectCat = document.getElementById('filtroCategoria');
+
+            if (selectFam) {
+                selectFam.addEventListener('change', () => {
+                    actualizarOpcionesCategorias(selectFam.value);
+                    clearTimeout(debounceTimerFiltro);
+                    debounceTimerFiltro = setTimeout(() => {
+                        cargarDashboard();
+                    }, 300);
+                });
+            }
+
             if (selectCat) {
                 selectCat.addEventListener('change', () => {
                     clearTimeout(debounceTimerFiltro);
@@ -561,10 +628,11 @@
                     }
                 }
 
-                // Restaurar categoría fijada
-                if (localStorage.getItem('margen_categoria')) {
-                    const selCat = document.getElementById('filtroCategoria');
-                    if (selCat) selCat.value = localStorage.getItem('margen_categoria');
+                // Restaurar familia y categoría fijadas
+                const familiaPersistida = localStorage.getItem('margen_familia');
+                const catPersistida = localStorage.getItem('margen_categoria');
+                if (familiaPersistida || catPersistida) {
+                    poblarSelectoresFamiliaYCategoria(familiaPersistida, catPersistida);
                 }
 
                 // Restaurar selección de días de la semana
@@ -616,6 +684,7 @@
                 localStorage.removeItem('margen_anio');
                 localStorage.removeItem('margen_fechaDesde');
                 localStorage.removeItem('margen_fechaHasta');
+                localStorage.removeItem('margen_familia');
                 localStorage.removeItem('margen_categoria');
                 localStorage.removeItem('margen_dias');
                 actualizarUiBotonFijar(false);
@@ -635,6 +704,9 @@
             localStorage.setItem('margen_fechaDesde', document.getElementById('fechaDesde').value);
             localStorage.setItem('margen_fechaHasta', document.getElementById('fechaHasta').value);
             
+            const selFam = document.getElementById('filtroFamilia');
+            localStorage.setItem('margen_familia', selFam ? (selFam.value || '') : '');
+
             const selCat = document.getElementById('filtroCategoria');
             localStorage.setItem('margen_categoria', selCat ? (selCat.value || '') : '');
 
@@ -698,6 +770,14 @@
                 texto += ' | DÍAS ESPECÍFICOS';
             }
 
+            // Filtro de Familia
+            const selFam = document.getElementById('filtroFamilia');
+            const famVal = selFam ? selFam.value.trim() : '';
+            const familiaId = famVal !== '' ? famVal : null;
+            const famNombre = (familiaId && mapaFamiliasGlobal[familiaId])
+                ? mapaFamiliasGlobal[familiaId]
+                : (selFam && selFam.selectedIndex > 0 ? selFam.options[selFam.selectedIndex].text.replace(/^📁\s*/, '') : '');
+
             // Filtro de Categoría (Sanitización estricta: UUID válido o null)
             const selCat = document.getElementById('filtroCategoria');
             const catVal = selCat ? selCat.value.trim() : '';
@@ -706,11 +786,14 @@
                 ? mapaCategoriasGlobal[categoriaId] 
                 : (selCat && selCat.selectedIndex > 0 ? selCat.options[selCat.selectedIndex].text : '');
 
+            if (familiaId && famNombre) {
+                texto += ` • FAMILIA: ${famNombre.toUpperCase()}`;
+            }
             if (categoriaId && catNombre) {
                 texto += ` • CATEGORÍA: ${catNombre.toUpperCase()}`;
             }
 
-            return { desde, hasta, paramDias, categoriaId, catNombre, texto };
+            return { desde, hasta, paramDias, familiaId, famNombre, categoriaId, catNombre, texto };
         }
 
         async function cargarDashboard() {
@@ -728,24 +811,26 @@
             Swal.fire({ title: 'Analizando Margen de Contribución', text: 'Ejecutando algoritmos financieros...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
 
             try {
-                // 1. Cargar Evolución con Rangos, Días y Categoría
+                // 1. Cargar Evolución con Rangos, Días, Categoría y Familia
                 const { data: dataDiaria, error: errDia } = await window.supabaseClient.rpc('fn_dashboard_margen_rango', {
                     p_empresa_id: currentEmpresaId,
                     p_fecha_desde: f.desde,
                     p_fecha_hasta: f.hasta,
                     p_dias_semana: f.paramDias,
-                    p_categoria_id: f.categoriaId
+                    p_categoria_id: f.categoriaId,
+                    p_familia_id: f.familiaId
                 });
                 if(errDia) throw errDia;
 
-                // 2. Cargar Ranking Top 20 con Rangos, Días y Categoría
+                // 2. Cargar Ranking Top 20 con Rangos, Días, Categoría y Familia
                 const { data: dataRanking, error: errRank } = await window.supabaseClient.rpc('fn_ranking_rentabilidad_rango', {
                     p_empresa_id: currentEmpresaId,
                     p_fecha_desde: f.desde,
                     p_fecha_hasta: f.hasta,
                     p_dias_semana: f.paramDias,
                     p_limit: 20,
-                    p_categoria_id: f.categoriaId
+                    p_categoria_id: f.categoriaId,
+                    p_familia_id: f.familiaId
                 });
                 if(errRank) throw errRank;
 
@@ -1078,7 +1163,8 @@
                     p_fecha_hasta: f.hasta,
                     p_dias_semana: f.paramDias,
                     p_limit: null,
-                    p_categoria_id: f.categoriaId
+                    p_categoria_id: f.categoriaId,
+                    p_familia_id: f.familiaId
                 });
                 if(error) throw error;
                 

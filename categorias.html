@@ -708,9 +708,14 @@
   <main class="container">
     <div class="page-header">
       <h2>🏷️ Gestión de Categorías</h2>
-      <button class="btn-primary" onclick="abrirModalNuevo()">
-        + Nueva Categoría
-      </button>
+      <div class="flex items-center gap-3">
+        <a href="familias.html" class="btn-secondary flex items-center gap-2" style="text-decoration: none; padding: 10px 18px; font-size: 14px; font-weight: 600; border-radius: 8px;">
+          <span>🗂️</span> Gestionar Familias
+        </a>
+        <button class="btn-primary" onclick="abrirModalNuevo()">
+          + Nueva Categoría
+        </button>
+      </div>
     </div>
 
     <div class="table-container">
@@ -719,15 +724,24 @@
           <input type="text" id="searchInput" placeholder="Buscar categoría..." onkeyup="aplicarFiltrosYOrden()">
           <span class="search-icon">🔍</span>
         </div>
-        <div class="sort-box">
-          <label for="sortSelect"><i class="fas fa-sort-amount-down-alt"></i> Ordenar:</label>
-          <select id="sortSelect" onchange="aplicarFiltrosYOrden()">
-            <option value="created_at_desc">Más Recientes (Defecto)</option>
-            <option value="nombre_asc">Nombre (A - Z)</option>
-            <option value="nombre_desc">Nombre (Z - A)</option>
-            <option value="items_desc">Mayor Cant. Items</option>
-            <option value="items_asc">Menor Cant. Items</option>
-          </select>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="sort-box">
+            <label for="filtroFamilia"><i class="fas fa-folder"></i> Familia:</label>
+            <select id="filtroFamilia" onchange="aplicarFiltrosYOrden()">
+              <option value="">Todas las Familias</option>
+              <option value="__SIN_FAMILIA__">⚠️ Sin Familia</option>
+            </select>
+          </div>
+          <div class="sort-box">
+            <label for="sortSelect"><i class="fas fa-sort-amount-down-alt"></i> Ordenar:</label>
+            <select id="sortSelect" onchange="aplicarFiltrosYOrden()">
+              <option value="created_at_desc">Más Recientes (Defecto)</option>
+              <option value="nombre_asc">Nombre (A - Z)</option>
+              <option value="nombre_desc">Nombre (Z - A)</option>
+              <option value="items_desc">Mayor Cant. Items</option>
+              <option value="items_asc">Menor Cant. Items</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -755,6 +769,17 @@
           <div class="form-group">
             <label for="nombre">Nombre de la Categoría *</label>
             <input type="text" id="nombre" required placeholder="Ej: Materia Prima" maxlength="100">
+          </div>
+
+          <div class="form-group" style="margin-top: 16px;">
+            <label for="categoriaFamiliaId" style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Familia Comercial (Opcional)</span>
+              <a href="familias.html" target="_blank" style="font-size: 11px; color: #10b981; text-decoration: underline;">+ Crear nueva familia</a>
+            </label>
+            <select id="categoriaFamiliaId" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; margin-top: 6px; background-color: inherit; color: inherit;">
+              <option value="">(Ninguna / Sin Familia)</option>
+            </select>
+            <small style="display: block; margin-top: 4px; color: #94a3b8; font-size: 12px;">Agrupa esta categoría dentro de una familia macro (ej: "Carnicería" para Aves, Res, Cerdo).</small>
           </div>
         </form>
       </div>
@@ -789,6 +814,8 @@
     // VARIABLES GLOBALES
     // ============================================
     let categoriasData = [];
+    let familiasDataGlobal = [];
+    let mapaFamiliasGlobal = {};
     let categoriaEditando = null;
 
     // ============================================
@@ -796,18 +823,33 @@
     // ============================================
     async function cargarCategorias() {
       try {
-        const [respCategorias, respItems] = await Promise.all([
+        const [respCategorias, respItems, respFamilias] = await Promise.all([
           supabaseApp
             .from('categorias')
             .select('*')
             .order('nombre', { ascending: true }),
           supabaseApp
             .from('items')
-            .select('categoria_id')
+            .select('categoria_id'),
+          supabaseApp
+            .from('familias')
+            .select('id, nombre, activo')
+            .order('nombre', { ascending: true })
         ]);
 
         if (respCategorias.error) throw respCategorias.error;
         if (respItems.error) throw respItems.error;
+        // Si la tabla familias aún no existe o hay error menor, no frenar el catálogo
+        familiasDataGlobal = respFamilias.data || [];
+
+        // Construir mapa de familias
+        mapaFamiliasGlobal = {};
+        familiasDataGlobal.forEach(f => {
+          mapaFamiliasGlobal[f.id] = f.nombre;
+        });
+
+        // Poblar selectores de Familias
+        poblarSelectoresFamilias();
 
         // Construir mapa de conteo de items asociados
         const conteoMap = {};
@@ -817,16 +859,50 @@
           }
         });
 
-        // Enriquecer cada categoría con su total_items asociado
+        // Enriquecer cada categoría con su total_items y familia_nombre
         categoriasData = (respCategorias.data || []).map(cat => ({
           ...cat,
-          total_items: conteoMap[cat.id] || 0
+          total_items: conteoMap[cat.id] || 0,
+          familia_nombre: cat.familia_id ? (mapaFamiliasGlobal[cat.familia_id] || 'Familia no encontrada') : null
         }));
 
         aplicarFiltrosYOrden();
       } catch (error) {
         console.error('Error al cargar categorías:', error);
         mostrarToast('Error al cargar categorías', 'error');
+      }
+    }
+
+    function poblarSelectoresFamilias() {
+      // 1. Selector en modal
+      const selectModal = document.getElementById('categoriaFamiliaId');
+      if (selectModal) {
+        const valActual = selectModal.value;
+        selectModal.innerHTML = '<option value="">(Ninguna / Sin Familia)</option>';
+        familiasDataGlobal.filter(f => f.activo !== false).forEach(fam => {
+          const opt = document.createElement('option');
+          opt.value = fam.id;
+          opt.textContent = `📁 ${fam.nombre}`;
+          selectModal.appendChild(opt);
+        });
+        if (valActual) selectModal.value = valActual;
+      }
+
+      // 2. Selector en filtro de tabla
+      const selectFiltro = document.getElementById('filtroFamilia');
+      if (selectFiltro) {
+        const valFiltro = selectFiltro.value;
+        selectFiltro.innerHTML = `
+          <option value="">Todas las Familias</option>
+          <option value="__SIN_FAMILIA__">⚠️ Sin Familia</option>
+        `;
+        familiasDataGlobal.forEach(fam => {
+          const opt = document.createElement('option');
+          opt.value = fam.id;
+          opt.textContent = `📁 ${fam.nombre}`;
+          selectFiltro.appendChild(opt);
+        });
+        if (valFiltro) selectFiltro.value = valFiltro;
       }
     }
 
@@ -852,6 +928,7 @@
           <thead>
             <tr>
               <th>Nombre</th>
+              <th>Familia Comercial</th>
               <th>Fecha de Creación</th>
               <th>Items Asociados</th>
               <th>Estado</th>
@@ -862,6 +939,16 @@
             ${datos.map(cat => `
               <tr>
                 <td><strong>${cat.nombre}</strong></td>
+                <td>
+                  ${cat.familia_nombre 
+                    ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
+                        <i class="fa-solid fa-folder text-[10px] mr-1"></i> ${cat.familia_nombre}
+                       </span>` 
+                    : `<span class="badge" style="background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px dashed rgba(148, 163, 184, 0.25);">
+                        Sin Familia
+                       </span>`
+                  }
+                </td>
                 <td>${formatearFecha(cat.created_at)}</td>
                 <td>
                   <span class="badge ${cat.total_items > 0 ? 'badge-count' : 'badge-count-zero'}">
@@ -896,13 +983,23 @@
     // BÚSQUEDA Y ORDENAMIENTO
     // ============================================
     function aplicarFiltrosYOrden() {
-      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      const searchTerm = (document.getElementById('searchInput').value || '').toLowerCase().trim();
       const sortValue = document.getElementById('sortSelect').value;
+      const filtroFam = (document.getElementById('filtroFamilia') ? document.getElementById('filtroFamilia').value : '');
 
-      // 1. Filtrar
-      let resultados = categoriasData.filter(cat =>
-        cat.nombre.toLowerCase().includes(searchTerm)
-      );
+      // 1. Filtrar por término de búsqueda y familia
+      let resultados = categoriasData.filter(cat => {
+        const coincideNombre = cat.nombre.toLowerCase().includes(searchTerm) || 
+                              (cat.familia_nombre && cat.familia_nombre.toLowerCase().includes(searchTerm));
+        if (!coincideNombre) return false;
+
+        if (filtroFam === '__SIN_FAMILIA__') {
+          return !cat.familia_id;
+        } else if (filtroFam !== '') {
+          return cat.familia_id === filtroFam;
+        }
+        return true;
+      });
 
       // 2. Ordenar en memoria
       resultados.sort((a, b) => {
@@ -935,7 +1032,9 @@
       document.getElementById('modalTitle').textContent = 'Nueva Categoría';
       document.getElementById('categoriaForm').reset();
       document.getElementById('categoriaId').value = '';
+      document.getElementById('categoriaFamiliaId').value = '';
       document.getElementById('modal').classList.add('active');
+      document.getElementById('nombre').focus();
     }
 
     function cerrarModal() {
@@ -944,13 +1043,14 @@
     }
 
     // ============================================
-    // GUARDAR (CREAR Y EDITAR) ✅ CORREGIDO
+    // GUARDAR (CREAR Y EDITAR) ✅ INTEGRADO CON FAMILIAS
     // ============================================
     async function guardarCategoria(event) {
       event.preventDefault();
 
       const nombre = document.getElementById('nombre').value.trim();
       const categoriaId = document.getElementById('categoriaId').value;
+      const familiaId = document.getElementById('categoriaFamiliaId').value || null;
 
       // Validar que no esté vacío
       if (!nombre) {
@@ -970,18 +1070,17 @@
       }
 
       try {
-        const userData = getUserData();
-
         let newItemId = null;
 
         if (categoriaId) {
-          // ✅ EDITAR - Solo actualizar nombre (sin timestamps)
-          console.log('🔄 Editando categoría:', categoriaId, 'Nuevo nombre:', nombre);
+          // ✅ EDITAR - Actualizar nombre y familia_id
+          console.log('🔄 Editando categoría:', categoriaId, 'Nuevo nombre:', nombre, 'Familia:', familiaId);
 
           const { data, error } = await supabaseApp
             .from('categorias')
             .update({
-              nombre: nombre
+              nombre: nombre,
+              familia_id: familiaId
             })
             .eq('id', categoriaId)
             .select();
@@ -994,13 +1093,14 @@
           console.log('✅ Categoría actualizada:', data);
           mostrarToast('✅ Categoría actualizada correctamente', 'success');
         } else {
-          // ✅ CREAR - Solo nombre y activo (sin timestamps)
-          console.log('➕ Creando nueva categoría:', nombre);
+          // ✅ CREAR - Nombre, familia_id y activo
+          console.log('➕ Creando nueva categoría:', nombre, 'Familia:', familiaId);
 
           const { data, error } = await supabaseApp
             .from('categorias')
             .insert([{
               nombre: nombre,
+              familia_id: familiaId,
               activo: true
             }])
             .select();
@@ -1052,7 +1152,9 @@
         document.getElementById('modalTitle').textContent = 'Editar Categoría';
         document.getElementById('categoriaId').value = data.id;
         document.getElementById('nombre').value = data.nombre;
+        document.getElementById('categoriaFamiliaId').value = data.familia_id || '';
         document.getElementById('modal').classList.add('active');
+        document.getElementById('nombre').focus();
       } catch (error) {
         console.error('Error al cargar categoría:', error);
         mostrarToast('Error al cargar la categoría', 'error');

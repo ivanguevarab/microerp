@@ -101,6 +101,7 @@
                 {
                     subtitle: 'Configuración',
                     items: [
+                        { label: 'Familias', url: 'familias.html' },
                         { label: 'Categorías', url: 'categorias.html' },
                         { label: 'Unidades de Medida', url: 'unidadesmedida.html' },
                         { label: 'Proveedores', url: 'proveedores.html' },
