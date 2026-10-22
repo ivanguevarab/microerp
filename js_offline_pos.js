@@ -780,6 +780,7 @@
             if (datosTurno.fondo_inicial !== undefined) t.fondo_inicial = Number(datosTurno.fondo_inicial || 0);
             if (datosTurno.hora_apertura) t.hora_apertura = datosTurno.hora_apertura;
             if (datosTurno.estado) t.estado = datosTurno.estado;
+            t.estado_sync = 'SINCRONIZADO';
             if (datosTurno.ventas_online_contado !== undefined) {
                 t.ventas_online_contado = Number(Number(datosTurno.ventas_online_contado || 0).toFixed(2));
             }
@@ -1099,6 +1100,7 @@
                     if (t) {
                         t.estado = 'CERRADO';
                         t.hora_cierre = payloadCierre.hora_cierre;
+                        t.estado_sync = 'PENDIENTE_SYNC';
                         store.put(t);
                     }
                 };
@@ -1143,8 +1145,14 @@
             const req = store.getAll();
             req.onsuccess = () => {
                 const turnos = req.result || [];
+                const ahoraMs = Date.now();
+                const limite24HorasMs = ahoraMs - (24 * 60 * 60 * 1000);
                 const activo = turnos
-                    .filter(t => t.empresa_id === empresaId && t.usuario_id === usuarioId && t.estado === 'ABIERTO')
+                    .filter(t => {
+                        if (t.empresa_id !== empresaId || t.usuario_id !== usuarioId || t.estado !== 'ABIERTO') return false;
+                        const ap = t.hora_apertura ? new Date(t.hora_apertura).getTime() : 0;
+                        return !isNaN(ap) && ap > 0 && ap >= limite24HorasMs;
+                    })
                     .sort((a, b) => (b.hora_apertura || '').localeCompare(a.hora_apertura || ''))[0];
                 resolve(activo || null);
             };
@@ -1269,13 +1277,43 @@
         try {
             const db = await openDatabase();
 
-            // 2. Extraer turnos pendientes
-            const turnosLocales = await new Promise(res => {
+            // 2. Extraer turnos locales y filtrar únicamente pendientes recientes (< 24 horas)
+            const ahoraMs = Date.now();
+            const limite24HorasMs = ahoraMs - (24 * 60 * 60 * 1000);
+
+            const todosTurnosLocales = await new Promise(res => {
                 const tx = db.transaction('turnos_locales', 'readonly');
                 const req = tx.objectStore('turnos_locales').getAll();
                 req.onsuccess = () => res(req.result || []);
                 req.onerror = () => res([]);
             });
+
+            // 🛡️ BLINDAJE: Solo viajan turnos explícitamente en 'PENDIENTE_SYNC' y con apertura en las últimas 24h
+            const turnosPendientes = todosTurnosLocales.filter(t => {
+                if (t.estado_sync !== 'PENDIENTE_SYNC') return false;
+                const aperturaMs = t.hora_apertura ? new Date(t.hora_apertura).getTime() : 0;
+                return !isNaN(aperturaMs) && aperturaMs > 0 && aperturaMs >= limite24HorasMs;
+            });
+
+            // 🧹 PURGA AUTOMÁTICA: Purgar de turnos_locales en IndexedDB los turnos antiguos (> 24h) o inválidos
+            const turnosAPurgar = todosTurnosLocales.filter(t => {
+                const aperturaMs = t.hora_apertura ? new Date(t.hora_apertura).getTime() : 0;
+                const esAntiguo = isNaN(aperturaMs) || aperturaMs === 0 || aperturaMs < limite24HorasMs;
+                return esAntiguo;
+            });
+
+            if (turnosAPurgar.length > 0) {
+                try {
+                    await dbTransaction('turnos_locales', 'readwrite', (store) => {
+                        turnosAPurgar.forEach(t => {
+                            if (t.id) store.delete(t.id);
+                        });
+                    });
+                    console.log(`🧹 [Sync POS] Se purgaron ${turnosAPurgar.length} turno(s) antiguo(s)/inválido(s) de IndexedDB.`);
+                } catch (ePurga) {
+                    console.warn('[Sync POS] Advertencia purgando turnos antiguos de IndexedDB:', ePurga);
+                }
+            }
 
             // 3. Extraer cierres Z pendientes
             const cierresPendientes = await new Promise(res => {
@@ -1293,7 +1331,7 @@
                 req.onerror = () => res([]);
             });
 
-            if (ventasPendientes.length === 0 && cierresPendientes.length === 0) {
+            if (ventasPendientes.length === 0 && cierresPendientes.length === 0 && turnosPendientes.length === 0) {
                 console.log('✅ [Sync POS] No hay registros pendientes de sincronización.');
                 isSyncInProgress = false;
                 marcarConectividadOnline();
@@ -1320,12 +1358,12 @@
                 paquetesVentas.push(paqueteActual);
             }
 
-            // Si no hay ventas pendientes pero sí hay cierres Z en cola, crear un paquete dedicado a los cierres
-            if (paquetesVentas.length === 0 && cierresPendientes.length > 0) {
+            // Si no hay ventas pendientes pero sí hay cierres Z o turnos en cola, crear un paquete dedicado
+            if (paquetesVentas.length === 0 && (cierresPendientes.length > 0 || turnosPendientes.length > 0)) {
                 paquetesVentas.push([]);
             }
 
-            console.log(`📦 [Sync POS] ${ventasPendientes.length} ventas y ${cierresPendientes.length} cierres en ${paquetesVentas.length} paquete(s) de subida.`);
+            console.log(`📦 [Sync POS] ${ventasPendientes.length} ventas, ${cierresPendientes.length} cierres y ${turnosPendientes.length} turnos en ${paquetesVentas.length} paquete(s) de subida.`);
 
             let paquetesCompletados = 0;
 
@@ -1335,7 +1373,7 @@
                     empresa_id: empresaId,
                     terminal_id: obtenerTerminalHardwareId(),
                     caja_identificador: cajaIdentificador,
-                    turnos: turnosLocales,
+                    turnos: (paquetesCompletados === 0) ? turnosPendientes : [],
                     ventas: pVentas,
                     cierres: (paquetesCompletados === paquetesVentas.length - 1) ? cierresPendientes : [] // Cierres viajan al final
                 };
@@ -1397,6 +1435,35 @@
                         });
                     }
 
+                    // Marcar turnos confirmados como SINCRONIZADOS y sincronizar su estado en turnos_locales
+                    if (respRpc.turnos_procesados && respRpc.turnos_procesados.length > 0) {
+                        const turnosExitosos = respRpc.turnos_procesados.filter(tp =>
+                            tp && tp.id && (tp.accion === 'INSERTADO' || tp.accion === 'ACTUALIZADO')
+                        );
+                        if (turnosExitosos.length > 0) {
+                            try {
+                                const mapaTurnos = new Map(turnosExitosos.map(t => [t.id, t]));
+                                await dbTransaction('turnos_locales', 'readwrite', (store) => {
+                                    mapaTurnos.forEach((tServidor, tId) => {
+                                        const reqT = store.get(tId);
+                                        reqT.onsuccess = () => {
+                                            if (reqT.result) {
+                                                const turnoReg = reqT.result;
+                                                turnoReg.estado_sync = 'SINCRONIZADO';
+                                                if (tServidor.estado) {
+                                                    turnoReg.estado = tServidor.estado;
+                                                }
+                                                store.put(turnoReg);
+                                            }
+                                        };
+                                    });
+                                });
+                            } catch (eT) {
+                                console.warn('[Sync POS] Error actualizando estado_sync en turnos_locales tras sync:', eT);
+                            }
+                        }
+                    }
+
                     // Re-calibrar reloj con la marca oficial del servidor retornada
                     if (respRpc.timestamp_servidor) {
                         calibrarRelojConServidor(respRpc.timestamp_servidor);
@@ -1410,7 +1477,13 @@
             marcarConectividadOnline();
             window.dispatchEvent(new CustomEvent('pos-sync-status', { detail: { estado: 'COMPLETO', mensaje: 'Todas las ventas están sincronizadas.' } }));
 
-            return { sincronizado: true, total: ventasPendientes.length + cierresPendientes.length, ventas: ventasPendientes.length, cierres: cierresPendientes.length };
+            return { 
+                sincronizado: true, 
+                total: ventasPendientes.length + cierresPendientes.length + turnosPendientes.length, 
+                ventas: ventasPendientes.length, 
+                cierres: cierresPendientes.length,
+                turnos: turnosPendientes.length
+            };
 
         } catch (err) {
             console.error('⚠️ [Sync POS] La sincronización falló, reintentará en el siguiente ciclo:', err);

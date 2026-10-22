@@ -729,7 +729,7 @@
                     try {
                         const empPromise = window.supabaseClient
                             .from('empresas')
-                            .select('id, nombre, ruc, direccion')
+                            .select('id, nombre, ruc')
                             .eq('id', currentEmpresaId)
                             .single();
                         const { data: empInfo } = await (window.fetchConTimeout ? window.fetchConTimeout(empPromise, 1200) : empPromise);
