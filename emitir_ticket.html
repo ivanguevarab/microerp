@@ -454,6 +454,10 @@
                     <span id="txtSyncStatus">En línea</span>
                     <span id="badgeColaPendiente" class="hidden px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-slate-900 font-black">0</span>
                 </div>
+                <div id="badgePulsoCatalogo" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-600/30 border border-indigo-400/40 text-indigo-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-indigo-600/40 transition flex-shrink-0" onclick="ejecutarPulsoManualCatalogo()" title="Catálogo sincronizado en tiempo real. Clic para forzar actualización de precios en caliente">
+                    <i class="fas fa-sync-alt text-[11px]" id="iconPulsoCatalogo"></i>
+                    <span class="hidden md:inline" id="txtPulsoCatalogo">Precios al día</span>
+                </div>
                 <div id="fechaActual" class="text-[0.7rem] font-bold tracking-widest uppercase text-slate-300 hidden sm:block flex-shrink-0"></div>
             </div>
 
@@ -1027,17 +1031,316 @@
             } else if (window.MicroERPOffline && window.supabaseClient && currentEmpresaId) {
                 window.MicroERPOffline.sincronizarColaOfflineConNube(window.supabaseClient, currentEmpresaId, window.cajaIdentificador);
             }
+            actualizarEstadoPulsoUI('al_dia');
+            recargarCatalogoEnCaliente(true, false);
         });
 
         window.addEventListener('offline', () => {
             console.warn("📴 Terminal desconectada. Modo Offline activo.");
             actualizarBadgeSyncUI();
+            actualizarEstadoPulsoUI('offline');
         });
 
         window.addEventListener('pos-sync-status', (e) => {
             const d = e.detail || {};
             actualizarBadgeSyncUI(d.estado, d.mensaje);
         });
+
+        // =========================================================================
+        // MOTOR DE PULSO Y SINCRONIZACIÓN AUTOMÁTICA DE CATÁLOGO EN CALIENTE
+        // =========================================================================
+        let ultimaHuellaCatalogoConocida = null;
+        let estaSincronizandoCatalogo = false;
+        let pulsoCatalogoIniciado = false;
+        window._pulsoDebounceTimer = null;
+        window._canalPulsoRealtime = null;
+
+        function actualizarEstadoPulsoUI(estado) {
+            const badge = document.getElementById('badgePulsoCatalogo');
+            const icon = document.getElementById('iconPulsoCatalogo');
+            const txt = document.getElementById('txtPulsoCatalogo');
+            if (!badge || !icon || !txt) return;
+
+            if (estado === 'sincronizando') {
+                badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-600/50 border border-indigo-400/60 text-indigo-100 text-xs font-bold shadow-sm cursor-pointer hover:bg-indigo-600/60 transition flex-shrink-0";
+                icon.className = "fas fa-sync-alt text-[11px] fa-spin";
+                txt.textContent = "Actualizando...";
+            } else if (estado === 'offline' || !navigator.onLine || window.isOfflineState) {
+                badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-700/50 border border-slate-500/40 text-slate-300 text-xs font-bold shadow-sm cursor-pointer hover:bg-slate-700/60 transition flex-shrink-0";
+                icon.className = "fas fa-database text-[11px]";
+                txt.textContent = "Catálogo local";
+                badge.title = "Terminal offline: operando con catálogo almacenado localmente.";
+            } else if (estado === 'error') {
+                badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-600/30 border border-amber-400/40 text-amber-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-amber-600/40 transition flex-shrink-0";
+                icon.className = "fas fa-exclamation-circle text-[11px]";
+                txt.textContent = "Reintentar";
+                badge.title = "Aviso de conexión al comprobar precios. Clic para reintentar sincronización.";
+            } else {
+                // Al día
+                badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-600/30 border border-indigo-400/40 text-indigo-200 text-xs font-bold shadow-sm cursor-pointer hover:bg-indigo-600/40 transition flex-shrink-0";
+                icon.className = "fas fa-sync-alt text-[11px]";
+                txt.textContent = "Precios al día";
+                badge.title = "Catálogo sincronizado en tiempo real. Clic para forzar actualización de precios en caliente.";
+            }
+        }
+
+        function mostrarNotificacionPulso(msg) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true,
+                    position: 'bottom-end',
+                    showConfirmButton: false,
+                    timer: 2800,
+                    icon: 'success',
+                    title: `<div class="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-100"><i class="fas fa-bolt text-amber-500"></i><span>${msg}</span></div>`
+                });
+            } else {
+                console.log("⚡ [Pulso Catálogo]:", msg);
+            }
+        }
+
+        async function obtenerHuellaDigitalCatalogo() {
+            if (!navigator.onLine || window.isOfflineState || !window.supabaseClient || !currentEmpresaId) {
+                return null;
+            }
+            try {
+                const qItems = window.supabaseClient
+                    .from('items')
+                    .select('updated_at, precio_updated_at', { count: 'exact' })
+                    .eq('empresa_id', currentEmpresaId)
+                    .eq('activo', true)
+                    .order('updated_at', { ascending: false, nullsFirst: false })
+                    .limit(1);
+
+                const { data, count, error } = await (window.fetchConTimeout ? window.fetchConTimeout(qItems, 2500) : qItems);
+                if (error) throw error;
+
+                const ult = (data && data.length > 0) ? data[0] : {};
+                const ultUpd = ult.updated_at || '';
+                const ultPrec = ult.precio_updated_at || '';
+                const total = (count !== null && count !== undefined) ? count : 0;
+
+                return `${total}|${ultUpd}|${ultPrec}`;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        async function descargarCatalogoCompleto(empresaId) {
+            if (!navigator.onLine || window.isOfflineState || !window.supabaseClient || !empresaId) {
+                return null;
+            }
+            const catPromise = window.supabaseClient.from('items')
+                .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector, stock_total, categoria_id')
+                .eq('empresa_id', empresaId)
+                .eq('activo', true);
+
+            const catsPromise = window.supabaseClient.from('categorias')
+                .select('id, nombre, familia_id')
+                .eq('empresa_id', empresaId)
+                .eq('activo', true);
+
+            const famsPromise = window.supabaseClient.from('familias')
+                .select('id, nombre')
+                .eq('empresa_id', empresaId)
+                .eq('activo', true);
+
+            const [resItems, resCats, resFams] = await Promise.all([
+                (window.fetchConTimeout ? window.fetchConTimeout(catPromise, 2500) : catPromise),
+                (window.fetchConTimeout ? window.fetchConTimeout(catsPromise, 2500) : catsPromise).catch(() => ({ data: [] })),
+                (window.fetchConTimeout ? window.fetchConTimeout(famsPromise, 2500) : famsPromise).catch(() => ({ data: [] }))
+            ]);
+
+            if (!resItems || !resItems.data) {
+                throw new Error("No se pudo obtener la lista de ítems de la nube.");
+            }
+
+            const catItems = resItems.data || [];
+            const catsData = resCats?.data || [];
+            const famsData = resFams?.data || [];
+
+            const mapFamilias = {};
+            famsData.forEach(f => { if (f && f.id) mapFamilias[f.id] = f.nombre; });
+
+            const mapCategorias = {};
+            catsData.forEach(c => {
+                if (c && c.id) {
+                    mapCategorias[c.id] = {
+                        nombre: c.nombre,
+                        familia_id: c.familia_id || null,
+                        familia_nombre: mapFamilias[c.familia_id] || 'Sin Familia'
+                    };
+                }
+            });
+
+            const itemsProcesados = catItems.map(it => {
+                const catInfo = it.categoria_id ? mapCategorias[it.categoria_id] : null;
+                return {
+                    ...it,
+                    categoria_nombre: catInfo ? catInfo.nombre : 'Sin Categoría',
+                    familia_id: catInfo ? catInfo.familia_id : null,
+                    familia_nombre: catInfo ? catInfo.familia_nombre : 'Sin Familia'
+                };
+            });
+
+            return {
+                items: itemsProcesados,
+                categorias: catsData,
+                familias: famsData
+            };
+        }
+
+        async function recargarCatalogoEnCaliente(silent = false, forzado = false) {
+            if (estaSincronizandoCatalogo) return;
+            if (!navigator.onLine || window.isOfflineState || !window.supabaseClient || !currentEmpresaId) {
+                actualizarEstadoPulsoUI('offline');
+                return;
+            }
+
+            estaSincronizandoCatalogo = true;
+            actualizarEstadoPulsoUI('sincronizando');
+
+            try {
+                const huellaNueva = await obtenerHuellaDigitalCatalogo();
+
+                // Si no es forzado manual y la huella coincide con la conocida, no hay cambios pendientes
+                if (!forzado && huellaNueva && ultimaHuellaCatalogoConocida && huellaNueva === ultimaHuellaCatalogoConocida) {
+                    actualizarEstadoPulsoUI('al_dia');
+                    return;
+                }
+
+                const catalogo = await descargarCatalogoCompleto(currentEmpresaId);
+                if (catalogo && catalogo.items && catalogo.items.length > 0) {
+                    // 1. Actualizar catálogo en memoria viva RAM (El array carrito permanece intacto)
+                    window.catalogoItemsCache = catalogo.items;
+                    ultimaHuellaCatalogoConocida = huellaNueva || `${catalogo.items.length}_${Date.now()}`;
+
+                    // 2. Actualizar snapshot en IndexedDB para contingencia offline
+                    if (window.MicroERPOffline && typeof window.MicroERPOffline.guardarSnapshotCatalogo === 'function') {
+                        const snapPrevio = await window.MicroERPOffline.obtenerSnapshotCatalogo(currentEmpresaId).catch(() => ({}));
+                        window.MicroERPOffline.guardarSnapshotCatalogo(currentEmpresaId, {
+                            items: catalogo.items,
+                            categorias: catalogo.categorias,
+                            familias: catalogo.familias,
+                            almacenes: almacenesDisponibles || snapPrevio?.almacenes || [],
+                            clientes: todosLosClientes || snapPrevio?.clientes || [],
+                            empresa: perfilEmpresa || snapPrevio?.empresa || null,
+                            seguridad: snapPrevio?.seguridad || null
+                        });
+                    }
+
+                    // 3. Si el buscador tiene texto y los resultados están visibles, refrescar precios visibles al instante
+                    const inputBuscador = document.getElementById('buscadorGeneral');
+                    const resDiv = document.getElementById('resultadosBusqueda');
+                    if (inputBuscador && inputBuscador.value.trim().length >= 2 && resDiv && resDiv.style.display !== 'none') {
+                        if (typeof buscarElemento === 'function') {
+                            buscarElemento();
+                        }
+                    }
+
+                    actualizarEstadoPulsoUI('al_dia');
+
+                    if (!silent) {
+                        mostrarNotificacionPulso(`Precios y catálogo actualizados (${catalogo.items.length} productos)`);
+                    }
+                } else if (forzado) {
+                    actualizarEstadoPulsoUI('al_dia');
+                    mostrarToast("Catálogo al día. Sin cambios pendientes.", "info");
+                }
+            } catch (err) {
+                console.warn("⚠️ Pulso de catálogo advirtió una incidencia:", err);
+                actualizarEstadoPulsoUI('error');
+            } finally {
+                estaSincronizandoCatalogo = false;
+                if (navigator.onLine && !window.isOfflineState) {
+                    actualizarEstadoPulsoUI('al_dia');
+                }
+            }
+        }
+
+        window.ejecutarPulsoManualCatalogo = async function() {
+            if (!navigator.onLine || window.isOfflineState) {
+                mostrarToast("Terminal en modo Offline. Los precios locales están vigentes.", "warning");
+                return;
+            }
+            mostrarToast("Verificando precios y productos en la nube...", "info");
+            await recargarCatalogoEnCaliente(false, true);
+        };
+
+        function iniciarPulsoSincronizacionCatalogo() {
+            if (pulsoCatalogoIniciado) return;
+            pulsoCatalogoIniciado = true;
+
+            // 1. Obtener huella digital inicial al arrancar
+            obtenerHuellaDigitalCatalogo().then(h => {
+                if (h) ultimaHuellaCatalogoConocida = h;
+                actualizarEstadoPulsoUI('al_dia');
+            });
+
+            // 2. Heartbeat cíclico en segundo plano cada 25 segundos
+            setInterval(async () => {
+                if (!navigator.onLine || window.isOfflineState || estaSincronizandoCatalogo) return;
+                try {
+                    const huella = await obtenerHuellaDigitalCatalogo();
+                    if (huella && ultimaHuellaCatalogoConocida && huella !== ultimaHuellaCatalogoConocida) {
+                        console.log("🔄 [Pulso Catálogo] Cambio detectado por heartbeat cíclico (25s). Actualizando en caliente...");
+                        await recargarCatalogoEnCaliente(false, false);
+                    }
+                } catch (_) {}
+            }, 25000);
+
+            // 3. Listener al recuperar foco de la ventana (cajero vuelve a la pestaña POS)
+            window.addEventListener('focus', async () => {
+                if (!navigator.onLine || window.isOfflineState || estaSincronizandoCatalogo) return;
+                try {
+                    const huella = await obtenerHuellaDigitalCatalogo();
+                    if (huella && ultimaHuellaCatalogoConocida && huella !== ultimaHuellaCatalogoConocida) {
+                        console.log("🔄 [Pulso Catálogo] Cambio detectado al reactivar la ventana POS. Sincronizando precios...");
+                        await recargarCatalogoEnCaliente(false, false);
+                    }
+                } catch (_) {}
+            });
+
+            // 4. Conexión Realtime vía Supabase WebSockets (sub-segundo < 500ms)
+            try {
+                if (window.supabaseClient && typeof window.supabaseClient.channel === 'function' && currentEmpresaId) {
+                    const canalRealtime = window.supabaseClient.channel('pos-catalogo-hot-sync')
+                        .on('postgres_changes', {
+                            event: '*',
+                            schema: 'public',
+                            table: 'items',
+                            filter: `empresa_id=eq.${currentEmpresaId}`
+                        }, () => {
+                            clearTimeout(window._pulsoDebounceTimer);
+                            window._pulsoDebounceTimer = setTimeout(() => {
+                                console.log("⚡ [Realtime Catálogo] Evento en items -> actualizando en caliente...");
+                                recargarCatalogoEnCaliente(false, false);
+                            }, 500);
+                        })
+                        .on('postgres_changes', {
+                            event: '*',
+                            schema: 'public',
+                            table: 'categorias',
+                            filter: `empresa_id=eq.${currentEmpresaId}`
+                        }, () => {
+                            clearTimeout(window._pulsoDebounceTimer);
+                            window._pulsoDebounceTimer = setTimeout(() => {
+                                console.log("⚡ [Realtime Catálogo] Evento en categorias -> actualizando en caliente...");
+                                recargarCatalogoEnCaliente(false, false);
+                            }, 500);
+                        })
+                        .subscribe((status) => {
+                            if (status === 'SUBSCRIBED') {
+                                console.log("⚡ [Realtime Catálogo] Canal suscrito con éxito a cambios de ítems y categorías.");
+                            }
+                        });
+
+                    window._canalPulsoRealtime = canalRealtime;
+                }
+            } catch (eCh) {
+                console.warn("Realtime no disponible en este entorno, operando en modo Heartbeat (25s):", eCh);
+            }
+        }
 
         // Helper para ignorar tildes
         function removeAccents(str) {
@@ -1367,6 +1670,7 @@
             configurarEventos();
 
             await cargarContextoInicial();
+            iniciarPulsoSincronizacionCatalogo();
             
             // Lógica de Edición Magistral
             const urlParams = new URLSearchParams(window.location.search);
@@ -1598,61 +1902,17 @@
             almacenesDisponibles = [];
             window.almacenesDisponibles = almacenesDisponibles;
             let clientesDisponibles = [];
+            let catsData = [];
+            let famsData = [];
 
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId) {
                 try {
-                    const catPromise = window.supabaseClient.from('items')
-                        .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector, stock_total, categoria_id')
-                        .eq('empresa_id', currentEmpresaId)
-                        .eq('activo', true);
-
-                    const catsPromise = window.supabaseClient.from('categorias')
-                        .select('id, nombre, familia_id')
-                        .eq('empresa_id', currentEmpresaId)
-                        .eq('activo', true);
-
-                    const famsPromise = window.supabaseClient.from('familias')
-                        .select('id, nombre')
-                        .eq('empresa_id', currentEmpresaId)
-                        .eq('activo', true);
-
-                    const [
-                        resItems,
-                        resCats,
-                        resFams
-                    ] = await Promise.all([
-                        (window.fetchConTimeout ? window.fetchConTimeout(catPromise, 1400) : catPromise),
-                        (window.fetchConTimeout ? window.fetchConTimeout(catsPromise, 1400) : catsPromise).catch(() => ({ data: [] })),
-                        (window.fetchConTimeout ? window.fetchConTimeout(famsPromise, 1400) : famsPromise).catch(() => ({ data: [] }))
-                    ]);
-
-                    const catItems = resItems?.data || [];
-                    const catsData = resCats?.data || [];
-                    const famsData = resFams?.data || [];
-
-                    const mapFamilias = {};
-                    famsData.forEach(f => { if (f && f.id) mapFamilias[f.id] = f.nombre; });
-
-                    const mapCategorias = {};
-                    catsData.forEach(c => {
-                        if (c && c.id) {
-                            mapCategorias[c.id] = {
-                                nombre: c.nombre,
-                                familia_id: c.familia_id || null,
-                                familia_nombre: mapFamilias[c.familia_id] || 'Sin Familia'
-                            };
-                        }
-                    });
-
-                    itemsParaMemoria = (catItems || []).map(it => {
-                        const catInfo = it.categoria_id ? mapCategorias[it.categoria_id] : null;
-                        return {
-                            ...it,
-                            categoria_nombre: catInfo ? catInfo.nombre : 'Sin Categoría',
-                            familia_id: catInfo ? catInfo.familia_id : null,
-                            familia_nombre: catInfo ? catInfo.familia_nombre : 'Sin Familia'
-                        };
-                    });
+                    const catalogoDescargado = await descargarCatalogoCompleto(currentEmpresaId);
+                    if (catalogoDescargado) {
+                        itemsParaMemoria = catalogoDescargado.items || [];
+                        catsData = catalogoDescargado.categorias || [];
+                        famsData = catalogoDescargado.familias || [];
+                    }
 
                     // Cargar almacenes
                     if (emp.es_comercializadora) {
@@ -1714,6 +1974,11 @@
 
             window.catalogoItemsCache = itemsParaMemoria;
             todosLosClientes = clientesDisponibles;
+            if (navigator.onLine && !window.isOfflineState) {
+                obtenerHuellaDigitalCatalogo().then(h => {
+                    if (h) ultimaHuellaCatalogoConocida = h;
+                });
+            }
 
             // Mostrar tabs habilitados
             let primerFiltro = null;
