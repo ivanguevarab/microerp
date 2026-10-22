@@ -185,31 +185,38 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <!-- Panel de Filtros -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Buscar Ticket o Cliente</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+                <div class="sm:col-span-2 lg:col-span-7 transition-all duration-200" id="colBuscador">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Buscar Ticket, Cliente o Producto</label>
                     <div class="relative">
                         <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                        <input type="text" id="filtroBuscador" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="N° Ticket, Nombre...">
+                        <input type="text" id="filtroBuscador" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="N° Ticket, Cliente, Producto...">
                     </div>
                 </div>
-                <div>
+                <div class="sm:col-span-1 lg:col-span-2 hidden" id="contenedorFiltroCaja">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Filtrar por Caja</label>
+                    <div class="relative">
+                        <select id="filtroCaja" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium">
+                            <option value="">Todas las Cajas</option>
+                            <option value="caja 1">Caja 1</option>
+                            <option value="caja 2">Caja 2</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="sm:col-span-1 lg:col-span-2">
                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Desde</label>
-                    <input type="date" id="filtroFechaInc" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    <input type="date" id="filtroFechaInc" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                 </div>
-                <div>
+                <div class="sm:col-span-1 lg:col-span-2">
                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Hasta</label>
-                    <input type="date" id="filtroFechaFin" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    <input type="date" id="filtroFechaFin" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                 </div>
-            </div>
-            <div class="flex justify-between items-end gap-4 mt-6">
-                <div class="flex-1"></div>
-                <button onclick="promptReimprimir()" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow flex items-center gap-2 mr-2">
-                    <i class="fas fa-print"></i> Reimprimir por N°
-                </button>
-                <button onclick="cargarVentashistoricas()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow flex items-center gap-2">
-                    <i class="fas fa-filter"></i> Aplicar Filtros
-                </button>
+                <div class="sm:col-span-1 lg:col-span-1 flex justify-end">
+                    <button onclick="cargarVentashistoricas()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition-colors shadow flex items-center justify-center gap-1.5 text-sm" title="Aplicar Filtros">
+                        <i class="fas fa-filter"></i> <span class="hidden xl:inline text-xs">Filtrar</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -249,7 +256,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
             
-            // Fechas por defecto en zona horaria oficial America/Lima (UTC-5)
+            // Fechas por defecto en zona horaria oficial America/Lima (UTC-5): Siempre día de hoy
             const horaLima = window.MicroERPOffline?.obtenerHoraOficialLima 
                 ? window.MicroERPOffline.obtenerHoraOficialLima() 
                 : null;
@@ -258,9 +265,6 @@
                 ? horaLima.fecha 
                 : new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-            const [yearLima, monthLima] = fechaLimaHoy.split('-');
-            const primerDiaMes = `${yearLima}-${monthLima}-01`;
-
             document.getElementById('fechaActual').textContent = new Intl.DateTimeFormat('es-PE', { 
                 timeZone: 'America/Lima',
                 day: '2-digit',
@@ -268,10 +272,13 @@
                 year: 'numeric'
             }).format(new Date());
 
-            document.getElementById('filtroFechaInc').value = primerDiaMes;
+            document.getElementById('filtroFechaInc').value = fechaLimaHoy;
             document.getElementById('filtroFechaFin').value = fechaLimaHoy;
 
             await cargarContextoInicial();
+
+            // Configurar reactividad automática (Filtros sin necesidad de botón)
+            configurarFiltrosReactivos();
 
             // Leer parámetros URL para auto-filtros (Ej. desde cuentas por cobrar)
             const urlParams = new URLSearchParams(window.location.search);
@@ -312,6 +319,69 @@
             }).format(d);
         }
 
+        // Helper de Debounce para entradas reactivas fluidas
+        function debounce(func, wait = 350) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Configuración de escuchadores reactivos automáticos
+        function configurarFiltrosReactivos() {
+            const fInc = document.getElementById('filtroFechaInc');
+            const fFin = document.getElementById('filtroFechaFin');
+            const fCaja = document.getElementById('filtroCaja');
+            const fBusc = document.getElementById('filtroBuscador');
+
+            if (fInc) fInc.addEventListener('change', () => cargarVentashistoricas());
+            if (fFin) fFin.addEventListener('change', () => cargarVentashistoricas());
+            if (fCaja) fCaja.addEventListener('change', () => cargarVentashistoricas());
+
+            if (fBusc) {
+                fBusc.addEventListener('input', debounce(() => cargarVentashistoricas(), 350));
+                fBusc.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        cargarVentashistoricas();
+                    }
+                });
+            }
+        }
+
+        // Verificador de pertenencia de ticket por Caja física o administrativa
+        function cumpleFiltroCaja(v, cajaFiltro) {
+            if (!cajaFiltro) return true; // Todas las cajas
+            const cLower = cajaFiltro.toLowerCase().trim();
+            const createdBy = (v.created_by || '').toLowerCase();
+            const ticket = (v.numero_ticket || '').toUpperCase();
+
+            if (cLower === 'caja 1' || cLower === 'caja1') {
+                if (createdBy.includes('caja 1') || createdBy.includes('caja1')) return true;
+                if (ticket.includes('-01-')) return true;
+                // Ticket legado previo a multicaja emitido en Caja 1 (ej. TCK-2026-000184)
+                if (/^TCK-\d{4}-\d{6}$/.test(ticket)) return true;
+                return false;
+            }
+            if (cLower === 'caja 2' || cLower === 'caja2') {
+                if (createdBy.includes('caja 2') || createdBy.includes('caja2')) return true;
+                if (ticket.includes('-02-')) return true;
+                return false;
+            }
+            if (cLower === 'admin') {
+                if (createdBy.includes('admin')) return true;
+                return false;
+            }
+            // Para cualquier otra caja configurada (Caja 3, Caja 4, etc.)
+            const matches = cLower.match(/\d+/);
+            if (matches) {
+                const numPad = String(matches[0]).padStart(2, '0');
+                if (ticket.includes(`-${numPad}-`)) return true;
+            }
+            return createdBy.includes(cLower);
+        }
+
         async function cargarContextoInicial() {
             const sessionBackup = JSON.parse(localStorage.getItem('microerp_pos_session_backup') || '{}');
             currentUserId = window.currentUser?.id || sessionBackup.user?.id || sessionBackup.usuario_id || null;
@@ -341,6 +411,51 @@
             currentUserRol = (perfil?.rol || window.currentUserProfile?.rol || sessionBackup.rol || 'CAJERO').toUpperCase();
             isCajero = (currentUserRol === 'CAJERO');
 
+            // Control de Visibilidad Exclusiva del Filtro de Caja para ADMIN
+            const contenedorCaja = document.getElementById('contenedorFiltroCaja');
+            const colBuscador = document.getElementById('colBuscador');
+            if (currentUserRol === 'ADMIN') {
+                if (contenedorCaja) contenedorCaja.classList.remove('hidden');
+                if (colBuscador) {
+                    colBuscador.classList.remove('lg:col-span-7');
+                    colBuscador.classList.add('lg:col-span-5');
+                }
+                // Si hay conexión, descubrir cajas adicionales activas en pos_turnos
+                if (window.supabaseClient && navigator.onLine && !window.isOfflineState && currentEmpresaId) {
+                    try {
+                        const { data: turnosCajas } = await window.supabaseClient
+                            .from('pos_turnos')
+                            .select('caja_identificador')
+                            .eq('empresa_id', currentEmpresaId)
+                            .limit(50);
+                        if (turnosCajas && turnosCajas.length > 0) {
+                            const selectCaja = document.getElementById('filtroCaja');
+                            if (selectCaja) {
+                                const optsExistentes = new Set(Array.from(selectCaja.options).map(o => o.value.toLowerCase().trim()));
+                                turnosCajas.forEach(t => {
+                                    if (t.caja_identificador) {
+                                        const cNorm = t.caja_identificador.toLowerCase().trim();
+                                        if (!optsExistentes.has(cNorm)) {
+                                            optsExistentes.add(cNorm);
+                                            const opt = document.createElement('option');
+                                            opt.value = cNorm;
+                                            opt.textContent = t.caja_identificador;
+                                            selectCaja.appendChild(opt);
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    } catch (_) {}
+                }
+            } else {
+                if (contenedorCaja) contenedorCaja.classList.add('hidden');
+                if (colBuscador) {
+                    colBuscador.classList.remove('lg:col-span-5');
+                    colBuscador.classList.add('lg:col-span-7');
+                }
+            }
+
             const turnoBackup = JSON.parse(localStorage.getItem(`pos_turno_activo_${currentEmpresaId}`) || '{}');
             currentUserName = (
                 perfil?.nombre_completo || 
@@ -361,12 +476,58 @@
             const term = document.getElementById('filtroBuscador').value.trim();
             const fecInc = document.getElementById('filtroFechaInc').value;
             const fecFin = document.getElementById('filtroFechaFin').value;
+            const cajaFiltro = document.getElementById('filtroCaja')?.value || '';
             
             const tbody = document.getElementById('tablaVentas');
             tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500"><i class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></i><br>Consultando datos...</td></tr>';
 
             let ventasNube = [];
             let ventasLocales = [];
+            let itemMatchingVentaIds = new Set();
+            let localItemMatchingIds = new Set();
+
+            // Iniciar búsqueda profunda de ítems en paralelo si hay término de búsqueda
+            let promesaBusquedaItems = null;
+            if (term && navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId) {
+                promesaBusquedaItems = (async () => {
+                    try {
+                        const safeTerm = term.replace(/[%_\\]/g, '').trim();
+                        if (!safeTerm) return;
+
+                        const pItems = window.supabaseClient.from('items')
+                            .select('id')
+                            .eq('empresa_id', currentEmpresaId)
+                            .ilike('descripcion', `%${safeTerm}%`)
+                            .limit(100);
+
+                        const pCus = window.supabaseClient.from('codigos_unicos')
+                            .select('id')
+                            .eq('empresa_id', currentEmpresaId)
+                            .ilike('descripcion', `%${safeTerm}%`)
+                            .limit(100);
+
+                        const [{ data: itms }, { data: cus }] = await Promise.all([
+                            (window.fetchConTimeout ? window.fetchConTimeout(pItems, 2000) : pItems),
+                            (window.fetchConTimeout ? window.fetchConTimeout(pCus, 2000) : pCus)
+                        ]);
+
+                        const refIds = [...(itms || []).map(x => x.id), ...(cus || []).map(x => x.id)];
+                        if (refIds.length > 0) {
+                            const pVDet = window.supabaseClient.from('ventas_detalle')
+                                .select('venta_id')
+                                .in('referencia_id', refIds)
+                                .limit(1000);
+
+                            const { data: vDets } = await (window.fetchConTimeout ? window.fetchConTimeout(pVDet, 2500) : pVDet);
+                            if (vDets) {
+                                vDets.forEach(d => { if (d.venta_id) itemMatchingVentaIds.add(d.venta_id); });
+                            }
+                        }
+                    } catch (eItmSearch) {
+                        console.warn("⚠️ Aviso al buscar productos por descripción en ventas_detalle:", eItmSearch);
+                    }
+                })();
+            }
 
             // 1. Consultar ventas locales offline en IndexedDB
             if (window.MicroERPOffline) {
@@ -375,6 +536,15 @@
                     const snap = await window.MicroERPOffline.obtenerSnapshotCatalogo(currentEmpresaId);
                     const clientesMap = {};
                     (snap?.clientes || []).forEach(c => { clientesMap[c.id] = c; });
+
+                    if (term && snap?.items) {
+                        const tSearch = term.toLowerCase();
+                        snap.items.forEach(it => {
+                            if ((it.descripcion || '').toLowerCase().includes(tSearch) || (it.codigo || '').toLowerCase().includes(tSearch)) {
+                                localItemMatchingIds.add(it.id);
+                            }
+                        });
+                    }
 
                     console.log(`📦 [Offline Ventas] Recuperadas de IndexedDB: ${rawLocales.length}`);
 
@@ -469,6 +639,18 @@
                         ventasNube = vData;
                         consultaNubeExitosa = true;
 
+                        // Reconciliar IndexedDB purgando comprobantes eliminados en la nube para el rango consultado
+                        if (window.MicroERPOffline && typeof window.MicroERPOffline.reconciliarHistoricoVentasLocal === 'function' && Array.isArray(ventasNube)) {
+                            try {
+                                const minFechaLote = (ventasNube.length > 0) ? ventasNube[ventasNube.length - 1].created_at : fecInc;
+                                await window.MicroERPOffline.reconciliarHistoricoVentasLocal(
+                                    currentEmpresaId, 
+                                    ventasNube.map(v => v.id),
+                                    { desdeFecha: fecInc || minFechaLote, hastaFecha: fecFin }
+                                );
+                            } catch (_) {}
+                        }
+
                         // Auto-Caché Transaccional Seguro en IndexedDB para contingencia offline
                         if (window.MicroERPOffline && Array.isArray(ventasNube) && ventasNube.length > 0) {
                             try {
@@ -543,24 +725,56 @@
 
             const todasLasVentas = [...localesAInyectar, ...ventasNube];
 
-            // Ordenamiento cronológico descendente unificado
+            // Ordenamiento cronológico descendente unificado (más reciente a más antiguo)
             todasLasVentas.sort((a, b) => {
                 const fechaA = a.created_at || a.hora_emision || (a.fecha_venta ? a.fecha_venta + 'T00:00:00' : '');
                 const fechaB = b.created_at || b.hora_emision || (b.fecha_venta ? b.fecha_venta + 'T00:00:00' : '');
                 return fechaB.localeCompare(fechaA);
             });
 
-            // 4. Filtrar si hay término de búsqueda (incluyendo Autor / Cajero / Terminal)
+            // Esperar que la búsqueda paralela de productos culmine
+            if (promesaBusquedaItems) {
+                await promesaBusquedaItems;
+            }
+
+            // 4. Filtrar si hay término de búsqueda (cabecera + ítems internos) y por Caja seleccionada
             let filtrados = todasLasVentas;
             let alcanzadoTope = false;
-            if (term) {
+
+            if (term || cajaFiltro) {
                 const t = term.toLowerCase();
                 filtrados = filtrados.filter(v => {
-                    const c1 = (v.numero_ticket||'').toLowerCase().includes(t) ||
-                        (v.clientes?.razon_social||'').toLowerCase().includes(t) ||
-                        (v.clientes?.numero_documento||'').includes(t) ||
-                        (v.created_by||'').toLowerCase().includes(t);
-                    return c1;
+                    // 4.1 Filtro por Caja (Exclusivo ADMIN o general si está seleccionado)
+                    if (cajaFiltro && !cumpleFiltroCaja(v, cajaFiltro)) {
+                        return false;
+                    }
+
+                    // Si no hay término de texto en el buscador, ya superó el filtro de caja
+                    if (!term) return true;
+
+                    // 4.2 Coincidencia en cabecera (N° Ticket, Razón Social, Documento o Autor/Cajero)
+                    const coincideCabecera = (v.numero_ticket || '').toLowerCase().includes(t) ||
+                        (v.clientes?.razon_social || '').toLowerCase().includes(t) ||
+                        (v.clientes?.numero_documento || '').includes(t) ||
+                        (v.created_by || '').toLowerCase().includes(t);
+                    
+                    if (coincideCabecera) return true;
+
+                    // 4.3 Coincidencia profunda en ítems de ventas_detalle (Nube)
+                    if (itemMatchingVentaIds.has(v.id)) return true;
+
+                    // 4.4 Coincidencia profunda en detalles de comprobante local (IndexedDB)
+                    if (Array.isArray(v.detalles) && v.detalles.some(d => {
+                        const desc = (d.descripcion || '').toLowerCase();
+                        if (desc.includes(t)) return true;
+                        const refId = d.referencia_id || d.item_id || d.id;
+                        if (refId && (localItemMatchingIds.has(refId) || itemMatchingVentaIds.has(v.id))) return true;
+                        return false;
+                    })) {
+                        return true;
+                    }
+
+                    return false;
                 });
             } else if (ventasNube.length >= 500) {
                 alcanzadoTope = true;
@@ -994,6 +1208,7 @@
                 if (v.estado !== 'ANULADO') {
                     let btnEliminarFisico = '';
                     let btnEditarVenta = '';
+                    let btnAnularVenta = '';
                     if (isCajero) {
                         btnEliminarFisico = `
                             <button class="bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed text-xs flex items-center shadow-sm" title="Bloqueado: El rol Cajero no tiene autorización para eliminar ventas.">
@@ -1003,6 +1218,11 @@
                         btnEditarVenta = `
                             <button class="bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed text-xs flex items-center shadow-sm" title="Bloqueado: El rol Cajero no tiene autorización para editar ventas.">
                                 <i class="fas fa-edit mr-2"></i> Editar Venta
+                            </button>
+                        `;
+                        btnAnularVenta = `
+                            <button class="bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed text-xs flex items-center shadow-sm" title="Bloqueado: El rol Cajero no tiene autorización para anular ventas.">
+                                <i class="fas fa-ban mr-2"></i> Anular Ticket
                             </button>
                         `;
                     } else if (scopeLocked) {
@@ -1016,15 +1236,25 @@
                                 <i class="fas fa-edit mr-2"></i> Editar Venta
                             </button>
                         `;
+                        btnAnularVenta = `
+                            <button onclick="anularVenta('${v.id}')" class="bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-bold py-2 px-4 rounded-lg transition-colors text-xs flex items-center shadow-sm" title="Invalida financieramente la venta y restaura inventario (Preserva correlatividad)">
+                                <i class="fas fa-ban mr-2"></i> Anular Ticket
+                            </button>
+                        `;
                     } else {
                         btnEliminarFisico = `
-                            <button onclick="eliminarVentaFisicamente('${v.id}')" class="bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold py-2 px-4 rounded-lg transition-colors text-xs flex items-center shadow-sm" title="Eliminar definitivamente (Hard Delete)">
+                            <button onclick="eliminarVentaFisicamente('${v.id}')" class="bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold py-2 px-4 rounded-lg transition-colors text-xs flex items-center shadow-sm" title="Eliminar definitivamente (Hard Delete - Destructivo)">
                                 <i class="fas fa-trash-alt mr-2"></i> Eliminar Físicamente
                             </button>
                         `;
                         btnEditarVenta = `
                             <button onclick="window.location.href='emitir_ticket.html?modo=edicion&ventaId=${v.id}'" class="bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-bold py-2 px-4 rounded-lg transition-colors text-xs flex items-center shadow-sm" title="Editar Magistralmente (Hard Edit)">
                                 <i class="fas fa-edit mr-2"></i> Editar Venta
+                            </button>
+                        `;
+                        btnAnularVenta = `
+                            <button onclick="anularVenta('${v.id}')" class="bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-bold py-2 px-4 rounded-lg transition-colors text-xs flex items-center shadow-sm" title="Recomendado: Anula la venta sin destruir la secuencia correlativa">
+                                <i class="fas fa-ban mr-2"></i> Anular Ticket
                             </button>
                         `;
                     }
@@ -1034,6 +1264,7 @@
                             <span class="text-[10px] text-gray-500 dark:text-slate-400 font-bold uppercase"><i class="fas fa-shield-alt text-gray-400 dark:text-slate-500 mr-1"></i> Controles Avanzados</span>
                             <div class="flex gap-2">
                                 ${btnEditarVenta}
+                                ${btnAnularVenta}
                                 ${btnEliminarFisico}
                             </div>
                         </div>
@@ -1308,6 +1539,42 @@
 
                 if (error) throw error;
 
+                // Purgar inmediatamente el ticket de IndexedDB local si existe en esta terminal
+                if (window.MicroERPOffline && typeof window.MicroERPOffline.purgarVentaLocalPorId === 'function') {
+                    try {
+                        await window.MicroERPOffline.purgarVentaLocalPorId(ventaId);
+                    } catch (eOffline) {
+                        console.warn("Aviso: no se pudo purgar venta localmente:", eOffline);
+                    }
+                }
+
+                // Opción A: Recalibrar puntero correlativo local si se eliminó el último ticket de la serie
+                const ticketNumEliminado = (data && data.numero_ticket) ? data.numero_ticket : null;
+                if (window.MicroERPOffline && ticketNumEliminado) {
+                    try {
+                        const parts = ticketNumEliminado.split('-');
+                        if (parts.length >= 2) {
+                            const serieEliminada = parts.slice(0, parts.length - 1).join('-');
+                            // Consultar el último número restante en la nube para esta serie
+                            const { data: ultVta } = await window.supabaseClient.from('ventas')
+                                .select('numero_ticket')
+                                .eq('empresa_id', currentEmpresaId)
+                                .ilike('numero_ticket', `${serieEliminada}-%`)
+                                .order('numero_ticket', { ascending: false })
+                                .limit(1);
+                            
+                            let nuevoUltNum = 0;
+                            if (ultVta && ultVta.length > 0) {
+                                const p = ultVta[0].numero_ticket.split('-');
+                                nuevoUltNum = parseInt(p[p.length - 1], 10) || 0;
+                            }
+                            await window.MicroERPOffline.sincronizarPunteroCorrelativoCanonico(serieEliminada, nuevoUltNum, true);
+                        }
+                    } catch (eCorr) {
+                        console.warn("Aviso recalibrando puntero correlativo:", eCorr);
+                    }
+                }
+
                 const itemsAfectados = (data && data.items_afectados) ? data.items_afectados : [];
                 const totalItems = itemsAfectados.length;
                 const ticketNum = (data && data.numero_ticket) ? data.numero_ticket : 'Ticket';
@@ -1521,6 +1788,32 @@
                 }).eq('venta_id', ventaId);
                 
                 if(errCredito) throw errCredito;
+
+                // Sincronizar estado local en IndexedDB si existe en esta terminal
+                if (window.MicroERPOffline) {
+                    try {
+                        const db = await window.MicroERPOffline.openDatabase();
+                        if (db.objectStoreNames.contains('historico_ventas_local')) {
+                            await new Promise((resolve) => {
+                                const tx = db.transaction('historico_ventas_local', 'readwrite');
+                                const store = tx.objectStore('historico_ventas_local');
+                                const req = store.get(ventaId);
+                                req.onsuccess = () => {
+                                    const vLoc = req.result;
+                                    if (vLoc) {
+                                        vLoc.estado = 'ANULADO';
+                                        vLoc.anulado_by = window.currentUser?.email || 'Admin';
+                                        store.put(vLoc);
+                                    }
+                                    resolve();
+                                };
+                                req.onerror = () => resolve();
+                            });
+                        }
+                    } catch (eAnularLocal) {
+                        console.warn("Aviso actualizando estado local de ticket anulado:", eAnularLocal);
+                    }
+                }
 
                 // 5. TRANSACCION DB (B. Revertir Kardex Físico vía RPC existente, si existe egreso asociado)
                 if(egresoBD_id) {

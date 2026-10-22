@@ -1521,6 +1521,8 @@
                                 await window.MicroERPOffline.forzarPunteroCorrelativoSiMayor(serie, ultNum);
                             }
                         }
+                    } else if (data && data.length === 0 && window.MicroERPOffline) {
+                        await window.MicroERPOffline.forzarPunteroCorrelativoSiMayor(serie, 0);
                     }
                 } catch (_) {}
             }
@@ -1600,11 +1602,57 @@
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId) {
                 try {
                     const catPromise = window.supabaseClient.from('items')
-                        .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector, stock_total')
+                        .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector, stock_total, categoria_id')
                         .eq('empresa_id', currentEmpresaId)
                         .eq('activo', true);
-                    const { data: catItems } = await (window.fetchConTimeout ? window.fetchConTimeout(catPromise, 1200) : catPromise);
-                    itemsParaMemoria = catItems || [];
+
+                    const catsPromise = window.supabaseClient.from('categorias')
+                        .select('id, nombre, familia_id')
+                        .eq('empresa_id', currentEmpresaId)
+                        .eq('activo', true);
+
+                    const famsPromise = window.supabaseClient.from('familias')
+                        .select('id, nombre')
+                        .eq('empresa_id', currentEmpresaId)
+                        .eq('activo', true);
+
+                    const [
+                        resItems,
+                        resCats,
+                        resFams
+                    ] = await Promise.all([
+                        (window.fetchConTimeout ? window.fetchConTimeout(catPromise, 1400) : catPromise),
+                        (window.fetchConTimeout ? window.fetchConTimeout(catsPromise, 1400) : catsPromise).catch(() => ({ data: [] })),
+                        (window.fetchConTimeout ? window.fetchConTimeout(famsPromise, 1400) : famsPromise).catch(() => ({ data: [] }))
+                    ]);
+
+                    const catItems = resItems?.data || [];
+                    const catsData = resCats?.data || [];
+                    const famsData = resFams?.data || [];
+
+                    const mapFamilias = {};
+                    famsData.forEach(f => { if (f && f.id) mapFamilias[f.id] = f.nombre; });
+
+                    const mapCategorias = {};
+                    catsData.forEach(c => {
+                        if (c && c.id) {
+                            mapCategorias[c.id] = {
+                                nombre: c.nombre,
+                                familia_id: c.familia_id || null,
+                                familia_nombre: mapFamilias[c.familia_id] || 'Sin Familia'
+                            };
+                        }
+                    });
+
+                    itemsParaMemoria = (catItems || []).map(it => {
+                        const catInfo = it.categoria_id ? mapCategorias[it.categoria_id] : null;
+                        return {
+                            ...it,
+                            categoria_nombre: catInfo ? catInfo.nombre : 'Sin Categoría',
+                            familia_id: catInfo ? catInfo.familia_id : null,
+                            familia_nombre: catInfo ? catInfo.familia_nombre : 'Sin Familia'
+                        };
+                    });
 
                     // Cargar almacenes
                     if (emp.es_comercializadora) {
@@ -1630,10 +1678,12 @@
                         supervisoresList = sups || [];
                     } catch (_) {}
 
-                    // Persistir snapshot completo a IndexedDB en segundo plano
+                    // Persistir snapshot completo a IndexedDB en segundo plano (incluyendo familias y categorías)
                     if (window.MicroERPOffline && itemsParaMemoria.length > 0) {
                         window.MicroERPOffline.guardarSnapshotCatalogo(currentEmpresaId, {
                             items: itemsParaMemoria,
+                            categorias: catsData,
+                            familias: famsData,
                             almacenes: almacenesDisponibles,
                             clientes: clientesDisponibles,
                             empresa: emp,
@@ -1810,7 +1860,9 @@
                     if (!errTurno && turnosAbiertos && turnosAbiertos.length > 0) {
                         currentTurnoActivo = turnosAbiertos[0];
                         currentTurnoActivo.turno_id = currentTurnoActivo.id;
-                        window.cajeroName = currentTurnoActivo.cajero_nombre;
+                        window.cajeroName = (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(currentTurnoActivo.cajero_nombre))
+                            ? currentTurnoActivo.cajero_nombre
+                            : (window.currentUserProfile?.nombre_completo || 'Cajero');
                         window.cajaIdentificador = currentTurnoActivo.caja_identificador;
 
                         const existingLocal = JSON.parse(localStorage.getItem('pos_turno_activo_' + currentEmpresaId) || '{}');
@@ -1843,7 +1895,9 @@
                     const tLocal = JSON.parse(turnoLocalStr);
                     if (tLocal && tLocal.cajero_nombre && tLocal.hora_apertura) {
                         currentTurnoActivo = tLocal;
-                        window.cajeroName = tLocal.cajero_nombre;
+                        window.cajeroName = (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(tLocal.cajero_nombre))
+                            ? tLocal.cajero_nombre
+                            : (window.currentUserProfile?.nombre_completo || 'Cajero');
                         window.cajaIdentificador = tLocal.caja_identificador || 'Caja 1';
                         actualizarBadgeOperadorUI();
                         habilitarOperatividadPOS(true);
@@ -1918,16 +1972,99 @@
             modal.classList.add('flex');
         }
 
+        function esNombreCajeroValido(nombre) {
+            if (!nombre || typeof nombre !== 'string') return false;
+            const str = nombre.trim();
+            // Longitud mínima 3 y máxima 40
+            if (str.length < 3 || str.length > 40) return false;
+            // Solo letras (con acentos/diéresis/ñ) y espacios
+            if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(str)) return false;
+            // Al menos 3 letras alfabéticas reales (evita que sean solo espacios)
+            const soloLetras = str.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]/g, '');
+            if (soloLetras.length < 3) return false;
+            // Rechazar 3 o más caracteres idénticos consecutivos (ej: PPP, OOO, etc.)
+            if (/([a-zA-ZáéíóúÁÉÍÓÚñÑüÜ])\1{2,}/i.test(str)) return false;
+            return true;
+        }
+
+        function resolverCreatedByAuditoria() {
+            const caja = window.cajaIdentificador || 'Caja 1';
+            let cajero = (window.cajeroName || '').trim();
+            if (!esNombreCajeroValido(cajero)) {
+                cajero = (window.currentUserProfile?.nombre_completo || '').trim();
+                if (!esNombreCajeroValido(cajero)) {
+                    cajero = 'Cajero';
+                }
+            }
+            return (windowUserRole === 'ADMIN') ? `${cajero} (Admin)` : `${cajero} (${caja})`;
+        }
+
+        function registrarAuditoriaPreciosPinEnTurno(items, numTicket) {
+            if (!items || items.length === 0 || !currentEmpresaId) return;
+            try {
+                const keyAuditoria = 'pos_auditoria_pin_precios_' + currentEmpresaId;
+                let regTurno = JSON.parse(localStorage.getItem(keyAuditoria) || '[]');
+                const ahoraStr = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+
+                items.forEach(it => {
+                    const pLista = Number(it.precioListaOriginal !== undefined ? it.precioListaOriginal : 0);
+                    const pCobrado = Number(it.precioFinalIngresado !== undefined ? it.precioFinalIngresado : 0);
+                    const cant = Number(it.cantidad || 0);
+                    const difUnit = Number((pCobrado - pLista).toFixed(2));
+                    const difTot = Number((difUnit * cant).toFixed(2));
+
+                    regTurno.push({
+                        hora: it.horaModificacionPin || ahoraStr,
+                        ticket: numTicket || 'S/N',
+                        descripcion: it.descripcion || 'Producto',
+                        unidad_medida: it.unidad_medida || 'NIU',
+                        cantidad: cant,
+                        precio_lista: pLista,
+                        precio_cobrado: pCobrado,
+                        diferencia_unitaria: difUnit,
+                        diferencia_total: difTot,
+                        cajero: window.cajeroName || 'Cajero',
+                        caja: window.cajaIdentificador || 'Caja 1',
+                        turno_id: currentTurnoActivo ? (currentTurnoActivo.id || currentTurnoActivo.turno_id) : null,
+                        timestamp: new Date().toISOString()
+                    });
+                });
+
+                localStorage.setItem(keyAuditoria, JSON.stringify(regTurno));
+
+                if (currentTurnoActivo) {
+                    currentTurnoActivo.auditoria_precios_pin = regTurno;
+                    localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
+                    if (window.MicroERPOffline && typeof window.MicroERPOffline.registrarSnapshotTurnoOnline === 'function') {
+                        window.MicroERPOffline.registrarSnapshotTurnoOnline(currentEmpresaId, currentTurnoActivo);
+                    }
+                }
+            } catch (errAud) {
+                console.warn("No se pudo registrar auditoría de precio por PIN:", errAud);
+            }
+        }
+
         async function cargarDatalistCajerosFrecuentes() {
             const dl = document.getElementById('dlCajerosFrecuentes');
             if (!dl) return;
             dl.innerHTML = '';
             const setNombres = new Set();
 
-            // A. Desde historial local
+            // A. Desde historial local (saneando y purgando anomalías históricas)
             try {
-                const hist = JSON.parse(localStorage.getItem('pos_cajeros_frecuentes_' + currentEmpresaId) || '[]');
-                hist.forEach(n => { if (n && n.trim()) setNombres.add(n.trim()); });
+                const keyFrec = 'pos_cajeros_frecuentes_' + currentEmpresaId;
+                const hist = JSON.parse(localStorage.getItem(keyFrec) || '[]');
+                const histLimpio = [];
+                hist.forEach(n => {
+                    if (n && typeof n === 'string' && esNombreCajeroValido(n)) {
+                        const nTrim = n.trim();
+                        setNombres.add(nTrim);
+                        if (!histLimpio.includes(nTrim)) histLimpio.push(nTrim);
+                    }
+                });
+                if (hist.length !== histLimpio.length) {
+                    localStorage.setItem(keyFrec, JSON.stringify(histLimpio));
+                }
             } catch (_) {}
 
             // B. Desde perfiles_usuario y turnos de Supabase (solo online con timeout)
@@ -1941,7 +2078,7 @@
                     const { data: perfilesCajeros } = await (window.fetchConTimeout ? window.fetchConTimeout(qPerfiles, 1000) : qPerfiles);
 
                     (perfilesCajeros || []).forEach(p => {
-                        if (p.nombre_completo && p.nombre_completo.trim()) {
+                        if (p.nombre_completo && esNombreCajeroValido(p.nombre_completo)) {
                             setNombres.add(p.nombre_completo.trim());
                         }
                     });
@@ -1957,7 +2094,7 @@
                     const { data: turnosRecientes } = await (window.fetchConTimeout ? window.fetchConTimeout(qTurnosRec, 1000) : qTurnosRec);
 
                     (turnosRecientes || []).forEach(t => {
-                        if (t.cajero_nombre && t.cajero_nombre.trim()) {
+                        if (t.cajero_nombre && esNombreCajeroValido(t.cajero_nombre)) {
                             setNombres.add(t.cajero_nombre.trim());
                         }
                     });
@@ -1977,8 +2114,17 @@
             const cajaInp = document.getElementById('inputCajaSeleccionada').value.trim() || 'Caja 1';
             const fondoInp = parseFloat(document.getElementById('inputFondoInicialTurno').value) || 0;
 
-            if (!nomInp) {
-                Swal.fire({ icon: 'warning', title: 'Nombre requerido', text: 'Por favor, ingresa o selecciona el nombre del cajero(a).' });
+            if (!nomInp || !esNombreCajeroValido(nomInp)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Nombre de cajero inválido',
+                    text: 'Por favor, ingresa un nombre y apellido válido para el cajero(a). Debe contener entre 3 y 40 letras sin números, signos matemáticos ni repeticiones involuntarias de teclas.'
+                });
+                const inp = document.getElementById('inputNombreCajeroTurno');
+                if (inp) {
+                    inp.focus();
+                    inp.select();
+                }
                 return;
             }
 
@@ -2045,6 +2191,8 @@
                 currentTurnoActivo.cantidad_tickets_online = 0;
                 currentTurnoActivo.primer_ticket_online = null;
                 currentTurnoActivo.ultimo_ticket_online = null;
+                currentTurnoActivo.auditoria_precios_pin = [];
+                localStorage.removeItem('pos_auditoria_pin_precios_' + currentEmpresaId);
                 window.cajeroName = nomInp;
                 window.cajaIdentificador = cajaInp;
 
@@ -2060,6 +2208,7 @@
                 try {
                     const keyFrec = 'pos_cajeros_frecuentes_' + currentEmpresaId;
                     let frecs = JSON.parse(localStorage.getItem(keyFrec) || '[]');
+                    frecs = frecs.filter(n => esNombreCajeroValido(n));
                     if (!frecs.includes(nomInp)) {
                         frecs.unshift(nomInp);
                         localStorage.setItem(keyFrec, JSON.stringify(frecs.slice(0, 15)));
@@ -2135,10 +2284,13 @@
         function actualizarBadgeOperadorUI() {
             const badgeTxt = document.getElementById('txtBadgeOperador');
             if (!badgeTxt) return;
+            const nomMostrado = (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(window.cajeroName))
+                ? window.cajeroName
+                : (window.currentUserProfile?.nombre_completo || 'Cajero');
             if (windowUserRole === 'ADMIN') {
-                badgeTxt.innerHTML = `<span>${window.cajeroName}</span><span class="hidden xl:inline"> - Administrador</span><span class="xl:hidden"> (Admin)</span>`;
+                badgeTxt.innerHTML = `<span>${nomMostrado}</span><span class="hidden xl:inline"> - Administrador</span><span class="xl:hidden"> (Admin)</span>`;
             } else {
-                badgeTxt.innerHTML = `<span>${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})</span><span class="hidden xl:inline"> - En Turno</span>`;
+                badgeTxt.innerHTML = `<span>${nomMostrado} (${window.cajaIdentificador || 'Caja 1'})</span><span class="hidden xl:inline"> - En Turno</span>`;
             }
         }
 
@@ -2827,8 +2979,15 @@
                 unidad_medida: obj.paramTipo === 'ITEMS' ? (obj.unidad_medida || 'NIU') : 'NIU',
                 cantidad: cantidadReq,
                 precioFinalIngresado: parseFloat(obj.precio_venta||0) || 0, // Por defecto el precio listado
+                precioListaOriginal: parseFloat(obj.precio_venta||0) || 0, // Precio de catálogo oficial
+                precioModificadoPorPin: false,
+                horaModificacionPin: null,
                 lotesAsignados: lotesSeleccionados, // Obligatorio para items, array vacio para cus/cup
-                afectoIgvVenta: obj.afecto_igv_venta !== false // Default true for CUS/CUP and historic items
+                afectoIgvVenta: obj.afecto_igv_venta !== false, // Default true for CUS/CUP and historic items
+                categoria_id: obj.categoria_id || null,
+                categoria_nombre: obj.categoria_nombre || null,
+                familia_id: obj.familia_id || null,
+                familia_nombre: obj.familia_nombre || null
             });
 
             renderizarCarrito();
@@ -2877,6 +3036,21 @@
             }
 
             item[campo] = val;
+
+            if (campo === 'precioFinalIngresado') {
+                const isAdmin = (windowUserRole === 'ADMIN' || window.currentUserProfile?.rol === 'ADMIN');
+                const fueConPin = window.preciosDesbloqueadosPorSupervisor === true && !isAdmin;
+                const precioBase = Number(item.precioListaOriginal !== undefined ? item.precioListaOriginal : 0);
+                const precioNuevo = Number(val || 0);
+
+                if (fueConPin && Math.abs(precioNuevo - precioBase) >= 0.01) {
+                    item.precioModificadoPorPin = true;
+                    item.horaModificacionPin = window.horaDesbloqueoPinSupervisor || new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                } else if (Math.abs(precioNuevo - precioBase) < 0.01) {
+                    item.precioModificadoPorPin = false;
+                    item.horaModificacionPin = null;
+                }
+            }
 
             // Actualización reactiva instantánea del subtotal de fila
             const filaSubtotalEl = document.getElementById(`subtotal_fila_${idFront}`);
@@ -3295,7 +3469,11 @@
                         precio_unitario: Number(Number(pu).toFixed(6)),
                         precio_total: Number(precioLinTotal.toFixed(2)),
                         costo_unitario: Number(Number(costo_uni).toFixed(6)),
-                        costo_total: Number((costo_uni * item.cantidad).toFixed(2))
+                        costo_total: Number((costo_uni * item.cantidad).toFixed(2)),
+                        categoria_id: item.categoria_id || null,
+                        categoria_nombre: item.categoria_nombre || null,
+                        familia_id: item.familia_id || null,
+                        familia_nombre: item.familia_nombre || null
                     });
                 }
 
@@ -3320,7 +3498,7 @@
                     condicion_pago: condicionPago,
                     saldo_pendiente: Number(saldoPendiente.toFixed(2)),
                     fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
-                    created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
+                    created_by: resolverCreatedByAuditoria(),
                     usuario_id: window.currentUser.id,
                     almacen_origen_id: document.getElementById('almacenOrigen').value,
                     pago_inicial: Number(pagoInicial_input.toFixed(2)),
@@ -3441,7 +3619,7 @@
                             saldo_pendiente: Number(saldoPendiente.toFixed(2)),
                             fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
                             usuario_id: window.currentUser.id,
-                            created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
+                            created_by: resolverCreatedByAuditoria(),
                             almacen_origen_id: almIdActual,
                             almacen_nombre: almacenNombreActual,
                             detalles: (detallesVentaInserts || []).map(d => ({
@@ -3510,7 +3688,7 @@
                         hora_emision: window.MicroERPOffline ? window.MicroERPOffline.obtenerHoraOficialLima().iso : new Date().toISOString(),
                         fecha_recepcion_pago: condicionPago === 'CREDITO' ? null : fechaRecepcionPagoStr,
                         created_at: new Date().toISOString(),
-                        created_by: (windowUserRole === 'ADMIN' ? `${window.cajeroName} (Admin)` : `${window.cajeroName} (${window.cajaIdentificador || 'Caja 1'})`),
+                        created_by: resolverCreatedByAuditoria(),
                         condicion_pago: condicionPago,
                         genera_igv: generaIgv,
                         valor_venta_total: subtotal.toFixed(2),
@@ -3546,11 +3724,25 @@
                                 precio_unitario: d.precio_unitario,
                                 subtotal: d.subtotal,
                                 precio_total: (d.precio_total !== undefined && d.precio_total !== null) ? d.precio_total : (d.subtotal !== undefined ? d.subtotal : (Number(d.cantidad || 0) * Number(d.precio_unitario || 0))),
-                                tipo_item_vendido: d.tipo_item_vendido || 'ITEMS'
+                                tipo_item_vendido: d.tipo_item_vendido || 'ITEMS',
+                                categoria_id: d.categoria_id || null,
+                                categoria_nombre: d.categoria_nombre || null,
+                                familia_id: d.familia_id || null,
+                                familia_nombre: d.familia_nombre || null
                             }))
                         });
                         window.MicroERPOffline.registrarVentaEnHistoricoLocal(vHistorica);
                     } catch (_) {}
+                }
+
+                // Captura de Auditoría de Precios por PIN para el Cierre Z
+                try {
+                    const itemsModificadosPin = carrito.filter(it => it.precioModificadoPorPin === true && Math.abs(Number(it.precioFinalIngresado) - Number(it.precioListaOriginal)) >= 0.01);
+                    if (itemsModificadosPin.length > 0 && typeof registrarAuditoriaPreciosPinEnTurno === 'function') {
+                        registrarAuditoriaPreciosPinEnTurno(itemsModificadosPin, ticketFinal);
+                    }
+                } catch (eAud) {
+                    console.warn("Auditoría precios PIN:", eAud);
                 }
 
                 // 4. ÉXITO Y NOTIFICACIÓN
@@ -3769,7 +3961,9 @@
                 const payload = {
                     empresa_id: currentEmpresaId,
                     usuario_id: window.currentUser.id,
-                    cajero_nombre: window.cajeroName,
+                    cajero_nombre: (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(window.cajeroName))
+                        ? window.cajeroName
+                        : (window.currentUserProfile?.nombre_completo || 'Cajero'),
                     caja_identificador: window.cajaIdentificador || 'Caja 1',
                     identificador_pedido: identificador,
                     cliente_id: document.getElementById('clienteSelect').value === 'NN' ? null : document.getElementById('clienteSelect').value,
@@ -4552,7 +4746,11 @@
                     cantidad: item.cantidad,
                     precioFinalIngresado: item.precioFinalIngresado,
                     lotesAsignados: item.lotesAsignados,
-                    afectoIgvVenta: item.afectoIgvVenta
+                    afectoIgvVenta: item.afectoIgvVenta,
+                    categoria_id: item.categoria_id || null,
+                    categoria_nombre: item.categoria_nombre || null,
+                    familia_id: item.familia_id || null,
+                    familia_nombre: item.familia_nombre || null
                 });
                 
                 if(item._clienteSugerido && !clienteSugerido) {
@@ -4708,6 +4906,7 @@
 
             if (esValido) {
                 window.preciosDesbloqueadosPorSupervisor = true;
+                window.horaDesbloqueoPinSupervisor = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
                 renderizarCarrito();
                 Swal.fire({
                     icon: 'success',

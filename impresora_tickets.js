@@ -508,6 +508,84 @@ async function imprimirTicketCierreCaja(cierre) {
         const subtituloCierre = esCorteX ? '*** CORTE X (TURNO ACTIVO) ***' : '*** CORTE Z (CIERRE DEFINITIVO) ***';
         const labelFechaFinal = esCorteX ? 'LECTURA:' : 'CIERRE:';
 
+        // AUDITORÍA DE PRECIOS POR PIN (EXCLUSIVAMENTE EN CIERRE Z)
+        let auditoriaPinHTML = '';
+        if (!esCorteX) {
+            const arrPin = Array.isArray(cierre.auditoria_precios_pin) ? cierre.auditoria_precios_pin : [];
+            if (arrPin.length > 0) {
+                let sumaDif = 0;
+                const itemsPinHTML = arrPin.map(a => {
+                    const difTot = Number(a.diferencia_total !== undefined ? a.diferencia_total : ((a.diferencia_unitaria || 0) * (a.cantidad || 1)));
+                    sumaDif += difTot;
+                    const difSigno = difTot >= 0 ? `+S/ ${formatMoney(difTot)}` : `-S/ ${formatMoney(Math.abs(difTot))}`;
+                    const um = a.unidad_medida ? ` ${a.unidad_medida}` : '';
+                    return `
+                        <div style="margin-bottom: 3px; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">
+                            <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                                <span>[${a.hora || '--:--'}] ${a.ticket || ''}</span>
+                                <span>${difSigno}</span>
+                            </div>
+                            <div>${a.descripcion || 'Producto'}${a.cantidad ? ` (${a.cantidad}${um})` : ''}</div>
+                            <div style="font-size: 10px; color: #333;">
+                                Lista: S/ ${formatMoney(a.precio_lista)} &rarr; Cobrado: S/ ${formatMoney(a.precio_cobrado)}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const difTotalSigno = sumaDif >= 0 ? `+S/ ${formatMoney(sumaDif)}` : `-S/ ${formatMoney(Math.abs(sumaDif))}`;
+
+                auditoriaPinHTML = `
+                    <div class="ticket-divisor"></div>
+                    <p style="text-align:center; font-size:11px; font-weight:bold; margin:2px 0;">AUDITORÍA DE PRECIOS POR PIN</p>
+                    <div style="font-size:10.5px; text-align:left; margin-top:3px;">
+                        ${itemsPinHTML}
+                        <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-top:4px;">
+                            <span>Total prod. con PIN:</span>
+                            <span>${arrPin.length}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px;">
+                            <span>Diferencia acumulada:</span>
+                            <span>${difTotalSigno}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                auditoriaPinHTML = `
+                    <div class="ticket-divisor"></div>
+                    <p style="text-align:center; font-size:11px; font-weight:bold; margin:2px 0;">AUDITORÍA DE PRECIOS POR PIN</p>
+                    <p style="text-align:center; font-size:10px; margin:2px 0; font-style:italic;">(0 modificaciones en el turno)</p>
+                `;
+            }
+        }
+
+        // DESGLOSE DE VENTAS POR FAMILIA COMERCIAL (APLICA TANTO A CORTE X COMO A CIERRE Z)
+        let ventasFamiliasHTML = '';
+        const arrFamilias = Array.isArray(cierre.desglose_familias) ? cierre.desglose_familias : [];
+        if (arrFamilias.length > 0) {
+            const filasFamilias = arrFamilias.map(f => {
+                const totalFam = Number(f.total_ventas || 0);
+                const pctFam = Number(f.porcentaje || 0);
+                const pctTxt = pctFam > 0 ? ` (${pctFam.toFixed(1)}%)` : '';
+                return `
+                    <tr>
+                        <td style="padding: 1.5px 0; text-align: left;">${f.nombre || 'Sin Familia'}</td>
+                        <td style="padding: 1.5px 0; text-align: right; font-weight: bold; white-space: nowrap;">
+                            S/ ${formatMoney(totalFam)}<span style="font-size: 9.5px; font-weight: normal; color: #444;">${pctTxt}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            ventasFamiliasHTML = `
+                <div class="ticket-divisor"></div>
+                <p style="text-align:center; font-size:11px; font-weight:bold; margin:2px 0;">VENTAS POR FAMILIA</p>
+                <table style="width:100%; font-size:11px; border-collapse:collapse; margin-top:2px;">
+                    ${filasFamilias}
+                </table>
+            `;
+        }
+
         container.innerHTML = `
             <div class="ticket-header">${empNombre}</div>
             ${empRuc ? `<p class="ticket-text">RUC: ${empRuc}</p>` : ''}
@@ -567,6 +645,10 @@ async function imprimirTicketCierreCaja(cierre) {
             ` : ''}
 
             ${desgloseHTML}
+
+            ${ventasFamiliasHTML}
+
+            ${auditoriaPinHTML}
 
             ${cierre.observaciones ? `
             <div class="ticket-divisor"></div>

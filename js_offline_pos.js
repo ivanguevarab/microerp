@@ -382,18 +382,68 @@
         return consumirSiguienteCorrelativoSoberano(arg1, arg2);
     }
 
+    async function sincronizarPunteroCorrelativoCanonico(serie, numeroNube, permitirRetroceso = true) {
+        if (!serie || numeroNube === undefined || numeroNube === null) return;
+        const numNube = parseInt(numeroNube, 10);
+        if (isNaN(numNube)) return;
+
+        try {
+            const db = await openDatabase();
+            await new Promise((resolve) => {
+                const tx = db.transaction(['correlativos_terminal', 'cola_ventas_sync'], 'readwrite');
+                const storeCorr = tx.objectStore('correlativos_terminal');
+                const storeCola = tx.objectStore('cola_ventas_sync');
+
+                const reqCorr = storeCorr.get(serie);
+                const reqCola = storeCola.getAll();
+
+                let corrReg = null;
+                let ventasCola = [];
+
+                reqCorr.onsuccess = () => { corrReg = reqCorr.result; };
+                reqCola.onsuccess = () => { ventasCola = reqCola.result || []; };
+
+                tx.oncomplete = () => {
+                    const actual = corrReg ? (corrReg.ultimo_numero || 0) : 0;
+
+                    // Caso 1: La nube tiene un número estrictamente mayor -> avanzar siempre
+                    if (numNube > actual) {
+                        dbTransaction('correlativos_terminal', 'readwrite', (s) => {
+                            s.put({ serie: serie, ultimo_numero: numNube, updated_at: new Date().toISOString() });
+                        }).then(resolve).catch(resolve);
+                        return;
+                    }
+
+                    // Caso 2: Opción A - Retroceso seguro del último ticket
+                    // Si la nube tiene un número menor (ej. se eliminó el ticket 50 y la nube reporta 49),
+                    // retroceder el puntero local si y solo si NO hay ventas en cola local pendientes > numNube
+                    if (permitirRetroceso && numNube < actual) {
+                        const tienePendienteMayor = ventasCola.some(v => {
+                            if (!v || !v.numero_ticket || !v.numero_ticket.startsWith(serie)) return false;
+                            const p = v.numero_ticket.split('-');
+                            const n = parseInt(p[p.length - 1], 10);
+                            return !isNaN(n) && n > numNube;
+                        });
+
+                        if (!tienePendienteMayor) {
+                            console.log(`🔄 [Correlativo POS] Opción A: Retroceso seguro de puntero para ${serie}: ${actual} -> ${numNube}`);
+                            dbTransaction('correlativos_terminal', 'readwrite', (s) => {
+                                s.put({ serie: serie, ultimo_numero: numNube, updated_at: new Date().toISOString() });
+                            }).then(resolve).catch(resolve);
+                            return;
+                        }
+                    }
+                    resolve();
+                };
+                tx.onerror = () => resolve();
+            });
+        } catch (errPuntero) {
+            console.warn('[Correlativo POS] Error al sincronizar puntero canónico:', errPuntero);
+        }
+    }
+
     async function forzarPunteroCorrelativoSiMayor(serie, numero) {
-        if (!serie || !numero) return;
-        await dbTransaction('correlativos_terminal', 'readwrite', (store) => {
-            const req = store.get(serie);
-            req.onsuccess = () => {
-                const reg = req.result;
-                const actual = reg ? reg.ultimo_numero : 0;
-                if (numero > actual) {
-                    store.put({ serie: serie, ultimo_numero: numero, updated_at: new Date().toISOString() });
-                }
-            };
-        });
+        return sincronizarPunteroCorrelativoCanonico(serie, numero, true);
     }
 
 
@@ -462,8 +512,8 @@
             dataCatalogo.clientes.forEach(c => store.put(c));
         }
 
-        // 4. Guardar seguridad de empresa (Hash PIN y perfil empresa)
-        if (dataCatalogo.seguridad || dataCatalogo.empresa) {
+        // 4. Guardar seguridad de empresa (Hash PIN, perfil empresa, familias y categorias)
+        if (dataCatalogo.seguridad || dataCatalogo.empresa || dataCatalogo.familias || dataCatalogo.categorias) {
             const tx = db.transaction('seguridad_empresa', 'readwrite');
             const regSeg = dataCatalogo.seguridad || { empresa_id: empresaId };
             if (dataCatalogo.empresa) {
@@ -473,6 +523,8 @@
                 }
             }
             if (dataCatalogo.almacenes) regSeg.almacenes = dataCatalogo.almacenes;
+            if (dataCatalogo.familias) regSeg.familias = dataCatalogo.familias;
+            if (dataCatalogo.categorias) regSeg.categorias = dataCatalogo.categorias;
             tx.objectStore('seguridad_empresa').put(regSeg);
         }
 
@@ -482,7 +534,7 @@
     async function obtenerSnapshotCatalogo(empresaId) {
         const db = await openDatabase();
         return new Promise((resolve) => {
-            const resultado = { items: [], almacenes: [], clientes: [], empresa: null };
+            const resultado = { items: [], almacenes: [], clientes: [], empresa: null, familias: [], categorias: [] };
             try {
                 const tx = db.transaction(['catalogo_items', 'clientes', 'seguridad_empresa'], 'readonly');
                 const itemsReq = tx.objectStore('catalogo_items').getAll();
@@ -498,6 +550,8 @@
                         if (segReq.result) {
                             resultado.empresa = segReq.result.empresa || null;
                             resultado.almacenes = segReq.result.almacenes || [];
+                            resultado.familias = segReq.result.familias || [];
+                            resultado.categorias = segReq.result.categorias || [];
                         }
                     };
                 } else {
@@ -507,6 +561,8 @@
                             const first = segAll.result[0];
                             resultado.empresa = first.empresa || null;
                             resultado.almacenes = first.almacenes || [];
+                            resultado.familias = first.familias || [];
+                            resultado.categorias = first.categorias || [];
                         }
                     };
                 }
@@ -559,6 +615,78 @@
             });
         } catch (e) {
             console.warn('[Histórico Local] Error al guardar en histórico persistente:', e);
+        }
+    }
+
+    async function purgarVentaLocalPorId(ventaId) {
+        if (!ventaId) return;
+        try {
+            await dbTransaction('historico_ventas_local', 'readwrite', (store) => {
+                store.delete(ventaId);
+            });
+            console.log(`🗑️ [Histórico Local] Comprobante ${ventaId} purgado físicamente de IndexedDB.`);
+        } catch (e) {
+            console.warn('[Histórico Local] Error al purgar comprobante por ID:', e);
+        }
+    }
+
+    async function reconciliarHistoricoVentasLocal(empresaId, idsVigentesServidor, opciones = {}) {
+        if (!empresaId || !Array.isArray(idsVigentesServidor)) return 0;
+        const setVigentes = new Set(idsVigentesServidor.map(id => String(id)));
+        const desdeFecha = opciones?.desdeFecha || null;
+        const hastaFecha = opciones?.hastaFecha || null;
+
+        try {
+            const db = await openDatabase();
+            if (!db.objectStoreNames.contains('historico_ventas_local')) return 0;
+
+            return new Promise((resolve) => {
+                const tx = db.transaction('historico_ventas_local', 'readwrite');
+                const store = tx.objectStore('historico_ventas_local');
+                const req = store.getAll();
+                let eliminados = 0;
+
+                req.onsuccess = () => {
+                    const todos = req.result || [];
+                    for (const v of todos) {
+                        if (!v || !v.id) continue;
+                        if (v.empresa_id && v.empresa_id !== empresaId) continue;
+
+                        // SALVAGUARDA VITAL: NUNCA purgar ventas locales pendientes de sincronizar
+                        if (v.estado_sync === 'PENDIENTE_SYNC') continue;
+
+                        // Si se especificó un límite temporal inferior (ej. inicio de turno o filtro desde)
+                        if (desdeFecha) {
+                            const fVenta = v.created_at || v.fecha_venta || '';
+                            if (fVenta && fVenta < desdeFecha) continue;
+                        }
+
+                        // Si se especificó un límite temporal superior (ej. filtro hasta)
+                        if (hastaFecha) {
+                            const fVenta = v.created_at || v.fecha_venta || '';
+                            const hastaComp = hastaFecha.length === 10 ? `${hastaFecha}T23:59:59` : hastaFecha;
+                            if (fVenta && fVenta > hastaComp) continue;
+                        }
+
+                        // Si figuraba como sincronizado o cacheado pero ya no existe en el servidor, purgarlo
+                        if (!setVigentes.has(String(v.id))) {
+                            store.delete(v.id);
+                            eliminados++;
+                        }
+                    }
+                };
+
+                tx.oncomplete = () => {
+                    if (eliminados > 0) {
+                        console.log(`🧹 [Reconciliación POS] Purgados ${eliminados} comprobante(s) eliminados de historico_ventas_local.`);
+                    }
+                    resolve(eliminados);
+                };
+                tx.onerror = () => resolve(0);
+            });
+        } catch (e) {
+            console.warn('[Reconciliación POS] Error durante reconciliación de histórico local:', e);
+            return 0;
         }
     }
 
@@ -663,6 +791,7 @@
             }
             if (datosTurno.primer_ticket_online) t.primer_ticket_online = datosTurno.primer_ticket_online;
             if (datosTurno.ultimo_ticket_online) t.ultimo_ticket_online = datosTurno.ultimo_ticket_online;
+            if (datosTurno.desglose_familias) t.desglose_familias = datosTurno.desglose_familias;
 
             localStorage.setItem(keyTurno, JSON.stringify(t));
             if (t.caja_identificador) localStorage.setItem('microerp_pos_caja_id', t.caja_identificador);
@@ -737,7 +866,8 @@
                         cajero_nombre: cajeroNombreSnapshot,
                         caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
                         ventas_offline_contado: 0,
-                        cantidad_tickets_offline: 0
+                        cantidad_tickets_offline: 0,
+                        desglose_familias: Array.isArray(turnoSnapshot?.desglose_familias) ? turnoSnapshot.desglose_familias : []
                     });
                 }
 
@@ -769,7 +899,25 @@
                     let offlineCantidadTickets = 0;
                     let offlinePrimerTicket = null;
                     let offlineUltimoTicket = null;
+                    let pendientesSyncContado = 0;
+                    let pendientesSyncCredito = 0;
                     let pendientesSyncCount = 0;
+
+                    // Estructura para acumular desglose por familias
+                    const mapaFamiliasOffline = new Map();
+                    if (Array.isArray(turnoSnapshot?.desglose_familias)) {
+                        turnoSnapshot.desglose_familias.forEach(f => {
+                            if (f && f.nombre) {
+                                mapaFamiliasOffline.set(f.nombre, {
+                                    familia_id: f.familia_id || null,
+                                    nombre: f.nombre,
+                                    total_ventas: Number(f.total_ventas || 0),
+                                    cantidad_items: Number(f.cantidad_items || 0),
+                                    porcentaje: 0
+                                });
+                            }
+                        });
+                    }
 
                     for (const v of todasLasVentas) {
                         // Excluir ventas cacheadas desde la nube (evitar contaminar el cómputo offline con ventas históricas remotas)
@@ -800,15 +948,75 @@
                             }
                             if (v.estado_sync === 'PENDIENTE_SYNC') {
                                 pendientesSyncCount++;
+                                if (v.condicion_pago === 'CONTADO' || !v.condicion_pago) {
+                                    pendientesSyncContado += total;
+                                } else {
+                                    pendientesSyncCredito += total;
+                                }
+                            }
+
+                            // Acumular desglose por familia comercial
+                            // Si ya hubo ventas online previas, acumular sólo tickets pendientes offline para no duplicar
+                            const debeAcumularFam = (onlineContado === 0 && onlineCantTickets === 0) || (v.estado_sync === 'PENDIENTE_SYNC');
+                            if (debeAcumularFam && Array.isArray(v.detalles) && v.detalles.length > 0) {
+                                v.detalles.forEach(d => {
+                                    let famNombre = d.familia_nombre;
+                                    if (!famNombre && window.catalogoItemsCache && Array.isArray(window.catalogoItemsCache)) {
+                                        const itEncontrado = window.catalogoItemsCache.find(x => x.id === d.referencia_id);
+                                        if (itEncontrado && itEncontrado.familia_nombre) {
+                                            famNombre = itEncontrado.familia_nombre;
+                                        }
+                                    }
+                                    famNombre = (famNombre && famNombre.trim()) ? famNombre.trim() : 'Sin Familia';
+
+                                    const mnt = Number(d.precio_total !== undefined && d.precio_total !== null ? d.precio_total : (d.subtotal !== undefined ? d.subtotal : (Number(d.cantidad || 1) * Number(d.precio_unitario || 0))));
+                                    const cant = Number(d.cantidad || 1);
+
+                                    if (!mapaFamiliasOffline.has(famNombre)) {
+                                        mapaFamiliasOffline.set(famNombre, {
+                                            familia_id: d.familia_id || null,
+                                            nombre: famNombre,
+                                            total_ventas: 0,
+                                            cantidad_items: 0,
+                                            porcentaje: 0
+                                        });
+                                    }
+                                    const entry = mapaFamiliasOffline.get(famNombre);
+                                    entry.total_ventas += mnt;
+                                    entry.cantidad_items += cant;
+                                    if (!entry.familia_id && d.familia_id) entry.familia_id = d.familia_id;
+                                });
                             }
                         }
                     }
 
-                    const totalContado = Number(Math.max(onlineContado, offlineContado).toFixed(2));
-                    const totalCredito = Number(Math.max(onlineCredito, offlineCredito).toFixed(2));
-                    const totalCantidad = Math.max(onlineCantTickets, offlineCantidadTickets);
-                    const primerTicket = offlinePrimerTicket || onlinePrimerTicket || '---';
+                    // Saneamiento de fórmula: Si la nube ya reportó un saldo oficial (onlineContado > 0 o onlineCantTickets > 0),
+                    // el total esperado es la verdad canónica de la nube + comprobantes locales aún pendientes de subir.
+                    // Si el turno operó 100% offline sin sincronización remota previa, se utiliza offlineContado.
+                    let totalContado = 0;
+                    let totalCredito = 0;
+                    let totalCantidad = 0;
+
+                    if (onlineContado > 0 || onlineCantTickets > 0) {
+                        totalContado = Number((onlineContado + pendientesSyncContado).toFixed(2));
+                        totalCredito = Number((onlineCredito + pendientesSyncCredito).toFixed(2));
+                        totalCantidad = onlineCantTickets + pendientesSyncCount;
+                    } else {
+                        totalContado = Number(offlineContado.toFixed(2));
+                        totalCredito = Number(offlineCredito.toFixed(2));
+                        totalCantidad = offlineCantidadTickets;
+                    }
+
+                    const primerTicket = onlinePrimerTicket || offlinePrimerTicket || '---';
                     const ultimoTicket = offlineUltimoTicket || onlineUltimoTicket || '---';
+
+                    const totalVentasGlobal = totalContado + totalCredito;
+                    const desgloseFamiliasOffline = Array.from(mapaFamiliasOffline.values()).map(f => ({
+                        ...f,
+                        total_ventas: Number(f.total_ventas.toFixed(2)),
+                        cantidad_items: Number(f.cantidad_items.toFixed(2)),
+                        porcentaje: totalVentasGlobal > 0 ? Number(((f.total_ventas / totalVentasGlobal) * 100).toFixed(1)) : 0.0
+                    })).sort((a, b) => b.total_ventas - a.total_ventas || a.nombre.localeCompare(b.nombre));
 
                     resolve({
                         total_ventas_contado: totalContado,
@@ -823,7 +1031,8 @@
                         cajero_nombre: cajeroNombreSnapshot,
                         caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
                         ventas_offline_contado: Number(offlineContado.toFixed(2)),
-                        cantidad_tickets_offline: pendientesSyncCount
+                        cantidad_tickets_offline: pendientesSyncCount,
+                        desglose_familias: desgloseFamiliasOffline
                     });
                 };
 
@@ -840,7 +1049,8 @@
                     cajero_nombre: cajeroNombreSnapshot,
                     caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
                     ventas_offline_contado: 0,
-                    cantidad_tickets_offline: 0
+                    cantidad_tickets_offline: 0,
+                    desglose_familias: Array.isArray(turnoSnapshot?.desglose_familias) ? turnoSnapshot.desglose_familias : []
                 });
             } catch (_) {
                 resolve({
@@ -856,7 +1066,8 @@
                     cajero_nombre: cajeroNombreSnapshot,
                     caja_identificador: turnoSnapshot?.caja_identificador || cajaIdentificador || 'Caja 1',
                     ventas_offline_contado: 0,
-                    cantidad_tickets_offline: 0
+                    cantidad_tickets_offline: 0,
+                    desglose_familias: Array.isArray(turnoSnapshot?.desglose_familias) ? turnoSnapshot.desglose_familias : []
                 });
             }
         });
@@ -1393,6 +1604,7 @@
         previsualizarSiguienteCorrelativoSoberano,
         consumirSiguienteCorrelativoSoberano,
         obtenerSiguienteCorrelativoSoberano,
+        sincronizarPunteroCorrelativoCanonico,
         forzarPunteroCorrelativoSiMayor,
         respaldarCanastaProgreso,
         recuperarCanastaProgreso,
@@ -1402,6 +1614,8 @@
         buscarItemsLocal,
         emitirTicketOffline,
         registrarVentaEnHistoricoLocal,
+        purgarVentaLocalPorId,
+        reconciliarHistoricoVentasLocal,
         abrirTurnoOffline,
         obtenerTurnoActivoOffline,
         actualizarSnapshotVentaOnlineEnTurno,
