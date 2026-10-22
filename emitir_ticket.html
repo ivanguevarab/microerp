@@ -2381,9 +2381,11 @@
 
             if (!nomInp || !esNombreCajeroValido(nomInp)) {
                 Swal.fire({
+                    target: document.getElementById('modalAperturaTurno'),
                     icon: 'warning',
                     title: 'Nombre de cajero inválido',
-                    text: 'Por favor, ingresa un nombre y apellido válido para el cajero(a). Debe contener entre 3 y 40 letras sin números, signos matemáticos ni repeticiones involuntarias de teclas.'
+                    text: 'Por favor, ingresa un nombre y apellido válido para el cajero(a). Debe contener entre 3 y 40 letras sin números, signos matemáticos ni repeticiones involuntarias de teclas.',
+                    confirmButtonColor: '#2563eb'
                 });
                 const inp = document.getElementById('inputNombreCajeroTurno');
                 if (inp) {
@@ -2500,9 +2502,11 @@
             } catch (err) {
                 console.error("Error al aperturar turno:", err);
                 Swal.fire({
+                    target: document.getElementById('modalAperturaTurno'),
                     icon: 'error',
                     title: 'Error de Apertura',
-                    text: err.message || 'No se pudo aperturar el turno en el servidor.'
+                    text: err.message || 'No se pudo aperturar el turno en el servidor.',
+                    confirmButtonColor: '#ef4444'
                 });
             } finally {
                 btnSubmit.disabled = false;
