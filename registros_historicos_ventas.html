@@ -200,7 +200,7 @@
                             <option value="">Todas las Cajas</option>
                             <option value="caja 1">Caja 1</option>
                             <option value="caja 2">Caja 2</option>
-                            <option value="admin">Admin</option>
+                            <option value="admin">Serie ADM (Admin / Oficina)</option>
                         </select>
                     </div>
                 </div>
@@ -357,6 +357,17 @@
             const createdBy = (v.created_by || '').toLowerCase();
             const ticket = (v.numero_ticket || '').toUpperCase();
 
+            // Serie ADM (Admin / Oficina)
+            if (cLower === 'admin' || cLower === 'adm' || cLower.includes('serie adm')) {
+                if (ticket.includes('-ADM-') || createdBy.includes('admin') || createdBy.includes('oficina')) return true;
+                return false;
+            }
+
+            // Exclusión tajante: Ningún ticket administrativo pertenece a cajas físicas de mostrador
+            if (ticket.includes('-ADM-') || createdBy.includes('admin')) {
+                return false;
+            }
+
             if (cLower === 'caja 1' || cLower === 'caja1') {
                 if (createdBy.includes('caja 1') || createdBy.includes('caja1')) return true;
                 if (ticket.includes('-01-')) return true;
@@ -367,10 +378,6 @@
             if (cLower === 'caja 2' || cLower === 'caja2') {
                 if (createdBy.includes('caja 2') || createdBy.includes('caja2')) return true;
                 if (ticket.includes('-02-')) return true;
-                return false;
-            }
-            if (cLower === 'admin') {
-                if (createdBy.includes('admin')) return true;
                 return false;
             }
             // Para cualquier otra caja configurada (Caja 3, Caja 4, etc.)

@@ -1802,8 +1802,14 @@
         }
 
         async function generarNuevoTicket() {
+            // Salvaguarda Serie ADM: Si el usuario es Administrador y no tiene turno físico de mostrador abierto, opera bajo Serie ADM
+            if (windowUserRole === 'ADMIN' && (!currentTurnoActivo || !window.cajaIdentificador || !window.cajaIdentificador.match(/\d+/))) {
+                window.cajaIdentificador = 'Serie ADM (Oficina / Admin)';
+            }
             const cajaId = window.cajaIdentificador || localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
-            const serie = window.MicroERPOffline ? window.MicroERPOffline.calcularSeriePorCaja(cajaId) : `TCK-${new Date().getFullYear()}-01`;
+            const serie = window.MicroERPOffline 
+                ? window.MicroERPOffline.calcularSeriePorCaja(cajaId) 
+                : (String(cajaId).toUpperCase().includes('ADM') ? `TCK-${new Date().getFullYear()}-ADM` : `TCK-${new Date().getFullYear()}-01`);
 
             // Si hay red y no estamos en offline forzado, sincronizar el puntero hacia adelante si la nube tiene un número mayor
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId) {
@@ -2097,10 +2103,10 @@
         async function verificarGestionTurnoPOS() {
             const badgeTxt = document.getElementById('txtBadgeOperador');
 
-            // CASO A: Administrador (Exención total)
+            // CASO A: Administrador (Exención total y canalización soberana a Serie ADM)
             if (windowUserRole === 'ADMIN') {
                 window.cajeroName = window.currentUserProfile?.nombre_completo || 'Administrador';
-                window.cajaIdentificador = 'Admin';
+                window.cajaIdentificador = 'Serie ADM (Oficina / Admin)';
                 actualizarBadgeOperadorUI();
                 const btnPin = document.getElementById('btnConfigurarPinPOS');
                 if (btnPin) btnPin.classList.remove('hidden');
@@ -2489,6 +2495,7 @@
                 modal.classList.remove('flex');
 
                 actualizarBadgeOperadorUI();
+                await generarNuevoTicket();
                 habilitarOperatividadPOS(true);
 
                 Swal.fire({
@@ -2515,12 +2522,34 @@
         }
 
         async function solicitarCambioTurno() {
-            if (windowUserRole === 'ADMIN') {
-                Swal.fire({
+            if (windowUserRole === 'ADMIN' && (!currentTurnoActivo || !window.cajaIdentificador || !window.cajaIdentificador.match(/\d+/))) {
+                const serieActual = window.MicroERPOffline 
+                    ? window.MicroERPOffline.calcularSeriePorCaja(window.cajaIdentificador) 
+                    : 'TCK-YYYY-ADM';
+                const modalOpciones = await Swal.fire({
                     icon: 'info',
-                    title: 'Sesión de Administrador',
-                    text: 'Como Administrador operas de forma libre sin turnos de cajero asignados.'
+                    title: 'Modalidad Administrador (Oficina / Backoffice)',
+                    html: `
+                        <div class="text-left text-sm space-y-3">
+                            <p>Actualmente operas bajo la <b>Serie Administrativa Soberana (ADM)</b>.</p>
+                            <p class="text-slate-600 dark:text-slate-400">Tus ventas se registran de forma independiente sin requerir apertura de turnos ni afectar los arqueos de efectivo de las cajas físicas de mostrador.</p>
+                            <div class="p-3 bg-blue-50 dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-slate-700 text-xs space-y-1">
+                                <div>📌 <b>Serie Canónica:</b> <span class="font-mono font-bold text-blue-600 dark:text-blue-400">${serieActual}</span></div>
+                                <div>👤 <b>Operador:</b> <span class="font-semibold text-slate-800 dark:text-slate-200">${window.cajeroName}</span></div>
+                                <div>🛡️ <b>Aislamiento:</b> No contamina gavetas de mostrador (Caja 1 / Caja 2)</div>
+                            </div>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Continuar en Serie ADM',
+                    cancelButtonText: 'Abrir Turno en Caja Física',
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#10b981'
                 });
+
+                if (modalOpciones.dismiss === Swal.DismissReason.cancel) {
+                    abrirModalAperturaTurno();
+                }
                 return;
             }
 
@@ -2556,8 +2585,8 @@
             const nomMostrado = (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(window.cajeroName))
                 ? window.cajeroName
                 : (window.currentUserProfile?.nombre_completo || 'Cajero');
-            if (windowUserRole === 'ADMIN') {
-                badgeTxt.innerHTML = `<span>${nomMostrado}</span><span class="hidden xl:inline"> - Administrador</span><span class="xl:hidden"> (Admin)</span>`;
+            if (windowUserRole === 'ADMIN' && (!window.cajaIdentificador || !window.cajaIdentificador.match(/\d+/))) {
+                badgeTxt.innerHTML = `<span>${nomMostrado}</span><span class="hidden xl:inline"> - Admin (Serie ADM)</span><span class="xl:hidden"> (ADM)</span>`;
             } else {
                 badgeTxt.innerHTML = `<span>${nomMostrado} (${window.cajaIdentificador || 'Caja 1'})</span><span class="hidden xl:inline"> - En Turno</span>`;
             }
@@ -2693,7 +2722,9 @@
                             const montoStr = activeElement.value.trim();
                             if(montoStr === '') {
                                 // Caso A (Vacío): Monto exacto, venta directa
-                                procesarVenta();
+                                if (!window.isProcessingVenta && carrito && carrito.length > 0) {
+                                    procesarVenta();
+                                }
                             } else {
                                 // Caso B (LLenado): Transfiere FOCO al Boton Pagar
                                 document.getElementById('btnPagar').focus();
@@ -2701,7 +2732,9 @@
                         } else if (activeId === 'btnPagar') {
                             // Enter sobre botón -> Venta final
                             e.preventDefault();
-                            procesarVenta();
+                            if (!window.isProcessingVenta && carrito && carrito.length > 0) {
+                                procesarVenta();
+                            }
                         } else if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && activeTag !== 'SELECT' && activeTag !== 'BUTTON') {
                             // Enter en Zona Neutral -> FOCO a Dinero Recibido
                             e.preventDefault();
@@ -3558,14 +3591,23 @@
 
         // EL MOTOR DE TRANSACCIONES VENTA + KARDEX (CON BLINDAJE IDEMPOTENTE ANTI-MICROCORTES)
         async function procesarVenta() {
-            // Candado síncrono en línea 1 contra doble clic / rapid Enter
-            if (window.isProcessingVenta) {
-                console.warn("Venta en proceso. Petición concurrente bloqueada.");
+            // Candado síncrono ultra-estricto y Hardware Throttle contra doble clic / rapid Enter
+            const ahoraMs = Date.now();
+            if (window.isProcessingVenta || (window.ultimoClickVentaMs && (ahoraMs - window.ultimoClickVentaMs < 1500))) {
+                console.warn("Venta en proceso o clic concurrente bloqueado por candado anti-duplicado.");
                 return;
             }
-            if(carrito.length === 0) return;
+            if (!carrito || carrito.length === 0) return;
 
+            window.ultimoClickVentaMs = ahoraMs;
+            window.isProcessingVenta = true;
             const btnPagar = document.getElementById('btnPagar');
+            if (btnPagar) {
+                btnPagar.disabled = true;
+                btnPagar.classList.add('pointer-events-none', 'opacity-60');
+                btnPagar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando...';
+            }
+
             const clienteIdStr = document.getElementById('clienteSelect').value;
             const clienteId = clienteIdStr === 'NN' ? null : clienteIdStr;
             const tipoComp = document.getElementById('tipoComprobante').value;
@@ -3575,11 +3617,6 @@
             const fechaHoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
             const fechaRecepcionPagoStr = document.getElementById('fechaRecepcionPago').value || fechaHoy;
             const fechaEmisionStr = document.getElementById('fechaEmision').value || fechaHoy;
-
-            if (condicionPago === 'CREDITO' && !clienteId) {
-                Swal.fire('Cliente Obligatorio', 'Para emitir ventas al crédito debes seleccionar o registrar un cliente formal y no emitirlo a "NN".', 'warning');
-                return;
-            }
 
             let total = 0, subtotal = 0, igv = 0;
             
@@ -3596,12 +3633,18 @@
                 }
             });
 
-            if (isEditMode) {
-                window.isProcessingVenta = true;
+            if (condicionPago === 'CREDITO' && !clienteId) {
+                window.isProcessingVenta = false;
                 if (btnPagar) {
-                    btnPagar.disabled = true;
-                    btnPagar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando...';
+                    btnPagar.disabled = false;
+                    btnPagar.classList.remove('pointer-events-none', 'opacity-60');
+                    btnPagar.innerHTML = `REGISTRAR CRÉDITO (S/ ${formatMoney(total)})`;
                 }
+                Swal.fire('Cliente Obligatorio', 'Para emitir ventas al crédito debes seleccionar o registrar un cliente formal y no emitirlo a "NN".', 'warning');
+                return;
+            }
+
+            if (isEditMode) {
                 let detallesRpc = [];
                 carrito.forEach(c => {
                     const precioLineaTotal = c.cantidad * c.precioFinalIngresado;
@@ -3672,6 +3715,7 @@
                     window.isProcessingVenta = false;
                     if (btnPagar) {
                         btnPagar.disabled = false;
+                        btnPagar.classList.remove('pointer-events-none', 'opacity-60');
                         btnPagar.innerHTML = '<span>Pagar</span><i class="fas fa-arrow-right"></i>';
                     }
                 }
@@ -3684,16 +3728,18 @@
             if (condicionPago === 'CREDITO') {
                 pagoInicial_input = parseFloat(document.getElementById('inputPagoInicial').value) || 0;
                 saldoPendiente = total - pagoInicial_input;
-                if (saldoPendiente < 0) { Swal.fire('Error', 'El pago inicial supera el total.', 'error'); return; }
+                if (saldoPendiente < 0) {
+                    window.isProcessingVenta = false;
+                    if (btnPagar) {
+                        btnPagar.disabled = false;
+                        btnPagar.classList.remove('pointer-events-none', 'opacity-60');
+                        btnPagar.innerHTML = `REGISTRAR CRÉDITO (S/ ${formatMoney(total)})`;
+                    }
+                    Swal.fire('Error', 'El pago inicial supera el total.', 'error');
+                    return;
+                }
             } else {
                 saldoPendiente = 0;
-            }
-
-            // Activar candado síncrono y deshabilitar botón
-            window.isProcessingVenta = true;
-            if (btnPagar) {
-                btnPagar.disabled = true;
-                btnPagar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando...';
             }
 
             try {
@@ -4015,6 +4061,10 @@
                     console.warn("Auditoría precios PIN:", eAud);
                 }
 
+                // Desconexión inmediata y atómica del carrito para evitar duplicados en caso de eventos residuales
+                carrito = [];
+                renderizarCarrito();
+
                 // 4. ÉXITO Y NOTIFICACIÓN
                 let tituloSwal = '¡Venta Procesada!';
                 let textoExito = `El ticket ${ticketFinal} ha ingresado en finanzas y sus salidas descontaron el Kardex logístico.`;
@@ -4027,43 +4077,48 @@
                     textoExito = `El ticket ${ticketFinal} fue recuperado y validado con éxito tras el microcorte de red.`;
                 }
 
-                Swal.fire({
+                const result = await Swal.fire({
                     title: tituloSwal,
                     text: textoExito,
                     icon: respVenta.offline ? 'info' : 'success',
                     showDenyButton: true,
                     confirmButtonText: '<i class="fas fa-print"></i> Imprimir Ticket',
                     denyButtonText: (activeLoteIndex !== null && lotesTickets.length > 1) ? '<i class="fas fa-layer-group"></i> Siguiente Lote' : '<i class="fas fa-plus"></i> Nueva Venta',
-                    denyButtonColor: '#374151'
-                }).then((result) => {
-                    const accionPostVenta = async () => {
-                        if (activeLoteIndex !== null) {
-                            lotesTickets.splice(activeLoteIndex, 1);
-                            activeLoteIndex = null;
-                            if (lotesTickets.length > 0) {
-                                await limpiarPOSMantenido();
-                                renderizarModalLotes();
-                                document.getElementById('modalImportExcelPaso2').showModal();
-                                document.getElementById('modalImportExcelPaso2').classList.remove('hidden');
-                                document.getElementById('modalImportExcelPaso2').classList.add('flex');
-                                return;
-                            }
-                        }
-                        await reiniciarVentaPOS();
-                    };
-
-                    if (result.isConfirmed) {
-                        const reciInput = condicionPago === 'CREDITO' ? pagoInicial_input : (parseFloat(document.getElementById('inputMontoRecibido').value) || 0);
-                        const vtaTot = parseFloat(respVenta.precio_venta_total || total);
-                        const vueltCalculado = condicionPago === 'CREDITO' ? 0 : Math.max(0, reciInput - vtaTot);
-
-                        imprimirTicketCerrado(respVenta.venta_id, reciInput, vueltCalculado, datosEnMemoria).then(()=>{
-                             accionPostVenta();
-                        }).catch(()=>{ accionPostVenta(); });
-                    } else {
-                        accionPostVenta();
-                    }
+                    denyButtonColor: '#374151',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
                 });
+
+                const accionPostVenta = async () => {
+                    if (activeLoteIndex !== null) {
+                        lotesTickets.splice(activeLoteIndex, 1);
+                        activeLoteIndex = null;
+                        if (lotesTickets.length > 0) {
+                            await limpiarPOSMantenido();
+                            renderizarModalLotes();
+                            document.getElementById('modalImportExcelPaso2').showModal();
+                            document.getElementById('modalImportExcelPaso2').classList.remove('hidden');
+                            document.getElementById('modalImportExcelPaso2').classList.add('flex');
+                            return;
+                        }
+                    }
+                    await reiniciarVentaPOS();
+                };
+
+                if (result.isConfirmed) {
+                    const reciInput = condicionPago === 'CREDITO' ? pagoInicial_input : (parseFloat(document.getElementById('inputMontoRecibido').value) || 0);
+                    const vtaTot = parseFloat(respVenta.precio_venta_total || total);
+                    const vueltCalculado = condicionPago === 'CREDITO' ? 0 : Math.max(0, reciInput - vtaTot);
+
+                    try {
+                        await imprimirTicketCerrado(respVenta.venta_id, reciInput, vueltCalculado, datosEnMemoria);
+                    } catch (eImp) {
+                        console.warn("Fallo al imprimir ticket cerrado:", eImp);
+                    }
+                    await accionPostVenta();
+                } else {
+                    await accionPostVenta();
+                }
 
             } catch (fatal) {
                 console.error("Transacción fallida:", fatal);
@@ -4072,8 +4127,9 @@
             } finally {
                 window.isProcessingVenta = false;
                 if (btnPagar) {
-                    btnPagar.disabled = false;
-                    btnPagar.innerHTML = '<span>Pagar</span><i class="fas fa-arrow-right"></i>';
+                    btnPagar.classList.remove('pointer-events-none', 'opacity-60');
+                    btnPagar.disabled = (!carrito || carrito.length === 0);
+                    btnPagar.innerHTML = '<span>REGISTRAR VENTA</span>';
                 }
             }
         }
@@ -4091,7 +4147,8 @@
             
             const btnPagar = document.getElementById('btnPagar');
             if(btnPagar) {
-                btnPagar.disabled = false;
+                btnPagar.classList.remove('pointer-events-none', 'opacity-60');
+                btnPagar.disabled = true;
                 btnPagar.innerHTML = '<span>REGISTRAR VENTA</span>';
             }
 

@@ -304,10 +304,19 @@
         if (typeof cajaIdentificador === 'string' && cajaIdentificador.startsWith('TCK-')) {
             return cajaIdentificador;
         }
+        const strCaja = String(cajaIdentificador || '').trim().toUpperCase();
+        const year = (typeof obtenerHoraOficialLima === 'function')
+            ? obtenerHoraOficialLima().fecha.substring(0, 4)
+            : String(new Date().getFullYear());
+
+        // Aislamiento Soberano Serie Administrativa (Oficina / Backoffice / Admin)
+        if (strCaja.includes('ADM') || strCaja.includes('OFICINA')) {
+            return `TCK-${year}-ADM`;
+        }
+
         // 'Caja 1' -> 'TCK-2026-01', 'Caja 2' -> 'TCK-2026-02', etc.
-        const matches = (cajaIdentificador || 'Caja 1').match(/\d+/);
+        const matches = strCaja.match(/\d+/);
         const numCaja = matches ? parseInt(matches[0], 10) : 1;
-        const year = obtenerHoraOficialLima().fecha.substring(0, 4);
         const prefixCaja = String(numCaja).padStart(2, '0');
         return `TCK-${year}-${prefixCaja}`;
     }
@@ -741,6 +750,8 @@
     // =========================================================================
     function actualizarSnapshotVentaOnlineEnTurno(empresaId, venta) {
         if (!empresaId || !venta) return;
+        // Blindaje Serie ADM: Jamás acumular comprobantes administrativos en gavetas físicas
+        if (venta.numero_ticket && String(venta.numero_ticket).toUpperCase().includes('-ADM-')) return;
         try {
             const keyTurno = 'pos_turno_activo_' + empresaId;
             const strTurno = localStorage.getItem(keyTurno);
@@ -1261,10 +1272,14 @@
         isSyncInProgress = true;
         console.log('🔄 [Sync POS] Iniciando proceso de sincronización con la nube...');
 
-        // 1. Escalonamiento Anti-Estampida (10s entre cajas)
-        const matches = (cajaIdentificador || 'Caja 1').match(/\d+/);
-        const numCaja = matches ? parseInt(matches[0], 10) : 1;
-        const delayMs = ((numCaja - 1) * 10000) + Math.floor(Math.random() * 2500);
+        // 1. Escalonamiento Anti-Estampida (10s entre cajas físicas de mostrador)
+        const strCajaSync = String(cajaIdentificador || '').trim().toUpperCase();
+        let delayMs = 0;
+        if (!strCajaSync.includes('ADM') && !strCajaSync.includes('OFICINA')) {
+            const matches = (cajaIdentificador || 'Caja 1').match(/\d+/);
+            const numCaja = matches ? parseInt(matches[0], 10) : 1;
+            delayMs = ((numCaja - 1) * 10000) + Math.floor(Math.random() * 2500);
+        }
 
         if (delayMs > 0) {
             console.log(`⏳ [Sync POS] Aplicando retardo Jitter para ${cajaIdentificador}: ${delayMs} ms...`);
