@@ -3894,7 +3894,8 @@
                             })),
                             lotes_a_descontar: lotesADescontar,
                             caja_identificador: window.cajaIdentificador || 'Caja 1',
-                            estado: 'PENDIENTE_SYNC'
+                            estado: 'PENDIENTE_SYNC',
+                            estado_sync: 'PENDIENTE_SYNC'
                         };
 
                         await window.MicroERPOffline.emitirTicketOffline(payloadOffline);

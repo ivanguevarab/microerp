@@ -931,9 +931,16 @@
                         const cajaTicket = (v.caja_identificador || '').toLowerCase().trim();
                         const matchCaja = !cajaObjetivo || !cajaTicket || cajaTicket === cajaObjetivo || cajaObjetivo.includes(cajaTicket) || cajaTicket.includes(cajaObjetivo);
 
-                        // 3. Coincidencia por marca temporal de apertura (estricto en UTC-5)
+                        // 3. Coincidencia por marca temporal de apertura (evaluación matemática exacta por epoch)
                         const horaVenta = v.hora_emision || v.created_at || (v.fecha_venta ? v.fecha_venta + 'T00:00:00-05:00' : '');
-                        const matchHora = !horaAperturaSnapshot || (horaVenta && horaVenta >= horaAperturaSnapshot);
+                        let matchHora = true;
+                        if (horaAperturaSnapshot && horaVenta) {
+                            const tVenta = new Date(horaVenta).getTime();
+                            const tApertura = new Date(horaAperturaSnapshot).getTime();
+                            if (!isNaN(tVenta) && !isNaN(tApertura)) {
+                                matchHora = (tVenta >= tApertura);
+                            }
+                        }
 
                         if (matchEmpresa && matchCaja && matchHora) {
                             offlineCantidadTickets++;
@@ -946,7 +953,8 @@
                             } else {
                                 offlineCredito += total;
                             }
-                            if (v.estado_sync === 'PENDIENTE_SYNC') {
+                            const esPendiente = v.estado_sync === 'PENDIENTE_SYNC' || v.estado === 'PENDIENTE_SYNC';
+                            if (esPendiente) {
                                 pendientesSyncCount++;
                                 if (v.condicion_pago === 'CONTADO' || !v.condicion_pago) {
                                     pendientesSyncContado += total;
@@ -957,7 +965,7 @@
 
                             // Acumular desglose por familia comercial
                             // Si ya hubo ventas online previas, acumular sólo tickets pendientes offline para no duplicar
-                            const debeAcumularFam = (onlineContado === 0 && onlineCantTickets === 0) || (v.estado_sync === 'PENDIENTE_SYNC');
+                            const debeAcumularFam = (onlineContado === 0 && onlineCantTickets === 0) || esPendiente;
                             if (debeAcumularFam && Array.isArray(v.detalles) && v.detalles.length > 0) {
                                 v.detalles.forEach(d => {
                                     let famNombre = d.familia_nombre;

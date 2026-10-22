@@ -715,9 +715,9 @@
             if (perfil) {
                 currentEmpresaId = perfil.empresa_id || localStorage.getItem('empresa_id');
                 windowUserRole = (perfil.rol || 'CAJERO').toUpperCase();
-                windowCajeroName = perfil.nombre_completo || (window.currentUser?.email ? window.currentUser.email.split('@')[0] : 'Cajero');
+                windowCajeroName = perfil.nombre_completo || localStorage.getItem('usuario_nombre') || (window.currentUser?.email ? window.currentUser.email.split('@')[0] : 'Cajero');
             } else {
-                windowCajeroName = window.currentUser?.email ? window.currentUser.email.split('@')[0] : 'Cajero';
+                windowCajeroName = localStorage.getItem('usuario_nombre') || (window.currentUser?.email ? window.currentUser.email.split('@')[0] : 'Cajero');
             }
 
             if (!currentEmpresaId) {
@@ -1697,15 +1697,24 @@
 
                 if (navigator.onLine && window.supabaseClient) {
                     try {
-                        const { data, error } = await window.supabaseClient
-                            .from('pos_cierres_caja')
-                            .insert([payloadCierre])
-                            .select()
-                            .single();
-                        if (!error && data) {
-                            dataCierre = data;
-                        } else if (error) {
-                            console.warn("Fallo de red al insertar cierre en Supabase:", error);
+                        const { data: rpcRes, error: rpcErr } = await window.supabaseClient.rpc('rpc_guardar_cierre_pos', {
+                            p_payload: payloadCierre
+                        });
+                        if (!rpcErr && rpcRes && rpcRes.success) {
+                            dataCierre = rpcRes;
+                            console.log("✅ [Cierre POS] Cierre Z registrado atómicamente vía rpc_guardar_cierre_pos:", rpcRes);
+                        } else {
+                            if (rpcErr) console.warn("Fallo rpc_guardar_cierre_pos, intentando fallback directo:", rpcErr);
+                            const { data, error } = await window.supabaseClient
+                                .from('pos_cierres_caja')
+                                .insert([payloadCierre])
+                                .select()
+                                .single();
+                            if (!error && data) {
+                                dataCierre = data;
+                            } else if (error) {
+                                console.warn("Fallo de red al insertar cierre en Supabase:", error);
+                            }
                         }
                     } catch (eCierreNet) {
                         console.warn("Error de red al guardar Cierre Z en Supabase:", eCierreNet);
