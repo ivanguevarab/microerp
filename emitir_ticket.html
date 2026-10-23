@@ -493,7 +493,7 @@
                 <div class="panel-header">
                     <div class="flex items-center gap-4 flex-wrap">
                         <div class="font-bold text-slate-800 dark:text-slate-200">Búsqueda de Productos u Órdenes</div>
-                        <div class="flex items-center gap-2" title="Permite vender productos sin inventario. No se descontará del almacén.">
+                        <div id="contenedorModoVerde" class="flex items-center gap-2" style="display: none;" title="Permite vender productos sin inventario (A pedido / Fabricación). No se descontará del almacén.">
                             <span class="text-xs font-semibold text-slate-500">Búsqueda Sin Stock:</span>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="toggleModoVerde" class="sr-only peer">
@@ -1986,12 +1986,18 @@
                 });
             }
 
-            // Mostrar tabs habilitados
+            // Mostrar tabs habilitados y visibilidad de Búsqueda Sin Stock (exclusivo para empresas Industriales o de Servicios)
             let primerFiltro = null;
             if (emp.es_comercializadora) { document.getElementById('tabItems').style.display = 'block'; document.getElementById('almacenesContainer').style.display = 'flex'; primerFiltro = 'ITEMS'; }
             if (emp.es_servicios) { document.getElementById('tabCUS').style.display = 'block'; primerFiltro = primerFiltro || 'CUS'; }
             if (emp.es_industrial) { document.getElementById('tabCUP').style.display = 'block'; primerFiltro = primerFiltro || 'CUP'; }
             
+            const esGiroProduccionOServicios = Boolean(emp.es_industrial || emp.es_servicios);
+            const cntModoVerde = document.getElementById('contenedorModoVerde');
+            if (cntModoVerde) {
+                cntModoVerde.style.display = esGiroProduccionOServicios ? 'flex' : 'none';
+            }
+
             if (primerFiltro) setFiltroGiro(primerFiltro);
 
             // 3. Renderizar Selector de Almacenes
@@ -2841,27 +2847,78 @@
 
                     // Blindaje del query contra comas y pipes: reemplazar comillas dobles y normalizar
                     const safeTerm = term.replace(/"/g, ''); 
-                    const normalizedTerm = removeAccents(safeTerm).toLowerCase();
+                    const normalizedTerm = removeAccents(safeTerm).toLowerCase().trim();
+                    const tokens = normalizedTerm.split(/\s+/).filter(t => t.length > 0);
+                    if (tokens.length === 0) { resDiv.style.display = 'none'; return; }
                     
-                    // 1. BÚSQUEDA LOCAL PRIORITARIA (RAM / IndexedDB) - Instantánea (< 3 ms)
+                    // 1. BÚSQUEDA LOCAL PRIORITARIA (RAM / IndexedDB) - Instantánea (< 3 ms) Tipo Google (Multi-token Cross)
                     let items = [];
                     if (window.catalogoItemsCache && window.catalogoItemsCache.length > 0) {
-                        items = window.catalogoItemsCache.filter(it => {
-                            const v = (it.busqueda_vector || removeAccents((it.descripcion || '') + ' ' + (it.codigo || ''))).toLowerCase();
-                            return v.includes(normalizedTerm);
-                        }).slice(0, 10);
+                        const itemsConScore = [];
+                        for (let it of window.catalogoItemsCache) {
+                            const descNorm = removeAccents(it.descripcion || '').toLowerCase();
+                            const codNorm = (it.codigo || '').toLowerCase();
+                            const catNorm = removeAccents(it.categoria_nombre || '').toLowerCase();
+                            const famNorm = removeAccents(it.familia_nombre || '').toLowerCase();
+                            const udmNorm = (it.unidad_medida || '').toLowerCase();
+                            const vecNorm = (it.busqueda_vector || '').toLowerCase();
+
+                            // Vector completo de búsqueda cross (código, descripción, categoría, familia, unidad)
+                            const haystack = `${vecNorm} ${descNorm} ${codNorm} ${catNorm} ${famNorm} ${udmNorm}`;
+
+                            // Condición Google-style: CADA token debe estar presente en el vector
+                            if (tokens.every(tok => haystack.includes(tok))) {
+                                let score = 0;
+
+                                // 1. Coincidencia de la frase completa
+                                if (descNorm === normalizedTerm || codNorm === normalizedTerm) {
+                                    score += 3000;
+                                } else if (descNorm.startsWith(normalizedTerm)) {
+                                    score += 1500;
+                                } else if (descNorm.includes(normalizedTerm)) {
+                                    score += 800;
+                                }
+
+                                // 2. Coincidencia al inicio con el primer token
+                                if (tokens.length > 0 && descNorm.startsWith(tokens[0])) {
+                                    score += 400;
+                                }
+
+                                // 3. Coincidencia de tokens con palabras completas exactas
+                                const palabrasDesc = descNorm.split(/\s+/);
+                                tokens.forEach(tok => {
+                                    if (palabrasDesc.includes(tok)) score += 150;
+                                    else if (palabrasDesc.some(p => p.startsWith(tok))) score += 75;
+                                });
+
+                                // 4. Prioridad para ítems con stock físico disponible o venta ilimitada
+                                if (Number(it.stock_total || 0) > 0) score += 50;
+                                if (it.permitir_venta_ilimitada !== false) score += 20;
+
+                                itemsConScore.push({ item: it, score });
+                            }
+                        }
+
+                        itemsConScore.sort((a, b) => b.score - a.score);
+                        items = itemsConScore.slice(0, 15).map(x => x.item);
                     } else if (window.MicroERPOffline) {
-                        items = await window.MicroERPOffline.buscarItemsLocal(normalizedTerm, 10);
+                        items = await window.MicroERPOffline.buscarItemsLocal(normalizedTerm, 15);
                     }
 
                     // 2. Si no hay items en local y no estamos en offline forzado, consultar Supabase con timeout de 1.2s
                     if ((!items || items.length === 0) && navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                         try {
-                            const qPromise = window.supabaseClient.from('items')
+                            let qBuilder = window.supabaseClient.from('items')
                                 .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, stock_total, permitir_venta_ilimitada')
                                 .eq('empresa_id', currentEmpresaId)
-                                .eq('activo', true)
-                                .ilike('busqueda_vector', `%${normalizedTerm}%`).limit(10);
+                                .eq('activo', true);
+
+                            // Búsqueda multi-token encadenada aprovechando índice GIN Trigram
+                            tokens.forEach(tok => {
+                                qBuilder = qBuilder.ilike('busqueda_vector', `%${tok}%`);
+                            });
+
+                            const qPromise = qBuilder.limit(15);
                             const { data, error: errItems } = await (window.fetchConTimeout ? window.fetchConTimeout(qPromise, 1200) : qPromise);
                             if (!errItems && data) items = data;
                         } catch (errBusq) {
@@ -2963,18 +3020,25 @@
                     }
 
                 } else {
-                    // Buscar CUS o CUP
+                    // Buscar CUS o CUP con soporte multi-token
                     const safeTerm = term.replace(/"/g, '');
+                    const normalizedTerm = removeAccents(safeTerm).toLowerCase().trim();
+                    const tokens = normalizedTerm.split(/\s+/).filter(Boolean);
                     let cods = [];
-                    if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                    if (navigator.onLine && !window.isOfflineState && window.supabaseClient && tokens.length > 0) {
                         try {
-                            const cusPromise = window.supabaseClient.from('codigos_unicos')
+                            let cusQuery = window.supabaseClient.from('codigos_unicos')
                                 .select('id, codigo, descripcion, precio_venta, tipo, cliente_id')
                                 .eq('empresa_id', currentEmpresaId)
                                 .eq('tipo', filtroActivo)
-                                .neq('estado', 'ANULADO')
-                                .or(`descripcion.ilike."%${safeTerm}%",codigo.ilike."%${safeTerm}%"`).limit(10);
-                            const { data: cData } = await (window.fetchConTimeout ? window.fetchConTimeout(cusPromise, 1000) : cusPromise);
+                                .neq('estado', 'ANULADO');
+
+                            tokens.forEach(tok => {
+                                cusQuery = cusQuery.or(`descripcion.ilike.%${tok}%,codigo.ilike.%${tok}%`);
+                            });
+
+                            const qPromise = cusQuery.limit(15);
+                            const { data: cData } = await (window.fetchConTimeout ? window.fetchConTimeout(qPromise, 1000) : qPromise);
                             cods = cData || [];
                         } catch (_) {}
                     }

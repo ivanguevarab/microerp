@@ -584,29 +584,42 @@
         });
     }
 
-    // Búsqueda local de productos en IndexedDB (< 3 ms)
-    async function buscarItemsLocal(terminoNormalizado, limite = 10) {
+    // Búsqueda local de productos en IndexedDB (< 3 ms) con coincidencia multi-token tipo Google
+    async function buscarItemsLocal(terminoNormalizado, limite = 15) {
         const db = await openDatabase();
+        const tokens = String(terminoNormalizado || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+        if (tokens.length === 0) return [];
+
         return new Promise((resolve) => {
             const tx = db.transaction('catalogo_items', 'readonly');
             const store = tx.objectStore('catalogo_items');
-            const resultados = [];
+            const coincidencias = [];
             const cursorReq = store.openCursor();
 
             cursorReq.onsuccess = (e) => {
                 const cursor = e.target.result;
                 if (cursor) {
                     const item = cursor.value;
-                    const vector = (item.busqueda_vector || (item.descripcion + ' ' + (item.codigo || ''))).toLowerCase();
-                    if (vector.includes(terminoNormalizado)) {
-                        resultados.push(item);
-                        if (resultados.length >= limite) {
-                            return resolve(resultados);
-                        }
+                    const vector = (
+                        (item.busqueda_vector || '') + ' ' + 
+                        (item.descripcion || '') + ' ' + 
+                        (item.codigo || '') + ' ' + 
+                        (item.categoria_nombre || '')
+                    ).toLowerCase();
+
+                    // Condición Google-style: CADA token debe estar presente en el vector
+                    if (tokens.every(t => vector.includes(t))) {
+                        let score = 0;
+                        const d = (item.descripcion || '').toLowerCase();
+                        if (tokens.length > 0 && d.startsWith(tokens[0])) score += 200;
+                        if (d.includes(terminoNormalizado)) score += 300;
+                        if (Number(item.stock_total || 0) > 0) score += 50;
+                        coincidencias.push({ item, score });
                     }
                     cursor.continue();
                 } else {
-                    resolve(resultados);
+                    coincidencias.sort((a, b) => b.score - a.score);
+                    resolve(coincidencias.slice(0, limite).map(x => x.item));
                 }
             };
 
