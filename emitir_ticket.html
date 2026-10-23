@@ -1131,7 +1131,7 @@
                 return null;
             }
             const catPromise = window.supabaseClient.from('items')
-                .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector, stock_total, categoria_id')
+                .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, busqueda_vector, stock_total, categoria_id, permitir_venta_ilimitada')
                 .eq('empresa_id', empresaId)
                 .eq('activo', true);
 
@@ -2858,7 +2858,7 @@
                     if ((!items || items.length === 0) && navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                         try {
                             const qPromise = window.supabaseClient.from('items')
-                                .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, stock_total')
+                                .select('id, codigo, descripcion, precio_venta, unidad_medida, afecto_igv_venta, stock_total, permitir_venta_ilimitada')
                                 .eq('empresa_id', currentEmpresaId)
                                 .eq('activo', true)
                                 .ilike('busqueda_vector', `%${normalizedTerm}%`).limit(10);
@@ -2917,7 +2917,8 @@
                             if (isEditMode && window.stockRescatadoVirtual && window.stockRescatadoVirtual[prod.id]) {
                                 stockActual += window.stockRescatadoVirtual[prod.id];
                             }
-                            if(stockActual > 0) {
+                            const esIlimitado = (prod.permitir_venta_ilimitada !== false);
+                            if(stockActual > 0 || esIlimitado) {
                                 resultadosDOM += renderizarFilaBusqueda(prod, 'ITEMS', stockActual);
                             }
                         }
@@ -3015,8 +3016,14 @@
             
             let badgeExtra = '';
             if (tipo === 'ITEMS') {
-                if (stock > 0) badgeExtra = `<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-bold">Stock: ${stock} ${obj.unidad_medida}</span>`;
-                else badgeExtra = `<span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full font-bold">Stock: 0 ${obj.unidad_medida} (A Pedido)</span>`;
+                const esIlimitado = (obj.permitir_venta_ilimitada !== false);
+                if (stock > 0) {
+                    badgeExtra = `<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-bold">Stock: ${stock} ${obj.unidad_medida || 'NIU'}</span>`;
+                } else if (esIlimitado) {
+                    badgeExtra = `<span class="text-xs bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-1 rounded-full font-bold shadow-xs">Stock: ∞</span>`;
+                } else {
+                    badgeExtra = `<span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full font-bold">Stock: 0 ${obj.unidad_medida || 'NIU'} (Agotado)</span>`;
+                }
             } else {
                 badgeExtra = `<span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-bold">${tipo}</span>`;
             }
@@ -3175,6 +3182,7 @@
             // Validación dura de Stock Logístico para ITEMS
             let lotesSeleccionados = [];
             const modoVerdeActivo = document.getElementById('toggleModoVerde')?.checked;
+            const esVentaIlimitada = (obj.permitir_venta_ilimitada !== false);
 
             if(obj.paramTipo === 'ITEMS') {
                 // Salvaguarda: Calcular stock disponible neto descontando lo ya reservado en el carrito
@@ -3185,10 +3193,10 @@
                     }
                 });
 
-                const stockNetoDisponible = Math.max(0, obj.paramStock - yaEnCarrito);
+                const stockNetoDisponible = Math.max(0, (obj.paramStock || 0) - yaEnCarrito);
 
                 if(cantidadReq > stockNetoDisponible) {
-                    if (!modoVerdeActivo) {
+                    if (!modoVerdeActivo && !esVentaIlimitada) {
                         Swal.fire({
                             title: 'Stock Insuficiente',
                             text: `Solo tienes ${stockNetoDisponible} unidades disponibles en almacén (ya tienes ${yaEnCarrito} en el ticket). Activa "Búsqueda Sin Stock" si deseas vender a pedido.`,
@@ -3196,7 +3204,7 @@
                             confirmButtonColor: '#2563eb'
                         }).then(() => document.getElementById('buscadorGeneral').focus());
                         return;
-                    } else {
+                    } else if (modoVerdeActivo && !esVentaIlimitada) {
                         // Advertencia visual suave pero permitiendo continuar
                         await Swal.fire({
                             title: 'Venta A Pedido',
@@ -3236,7 +3244,9 @@
                         carrito.forEach(c => {
                             if (c.lotesAsignados) {
                                 c.lotesAsignados.forEach(p => {
-                                    consumidoPorLote[p.lotId] = (consumidoPorLote[p.lotId] || 0) + Number(p.qty);
+                                    if (p.lotId) {
+                                        consumidoPorLote[p.lotId] = (consumidoPorLote[p.lotId] || 0) + Number(p.qty);
+                                    }
                                 });
                             }
                         });
@@ -3256,12 +3266,12 @@
                             pendiente -= aTomar;
                         }
                         
-                        // Si estamos offline o no se cubrió el lote físico contable, permitir venta con asignación diferida en servidor
+                        // Si estamos offline, con venta ilimitada o no se cubrió el lote físico contable, permitir venta con asignación diferida en servidor
                         if (pendiente > 0) {
-                            if (!modoVerdeActivo && navigator.onLine && !window.isOfflineState && lotesBD.length > 0) {
+                            if (!modoVerdeActivo && !esVentaIlimitada && navigator.onLine && !window.isOfflineState && lotesBD.length > 0) {
                                 throw new Error("Descuadre transaccional FIFO durante la selección.");
                             } else {
-                                // Modo Offline o Modo Verde: Lote diferido
+                                // Modo Offline o Venta Ilimitada o Modo Verde: Lote diferido para regularización en Kardex
                                 lotesSeleccionados.push({
                                     lotId: null,
                                     qty: pendiente,
@@ -3271,8 +3281,8 @@
                         }
                     } catch(e) {
                         console.error("Error resolviendo lotes:", e);
-                        // En offline o ante cualquier fallo transaccional jamás bloqueamos al mostrador
-                        if (!navigator.onLine || window.isOfflineState) {
+                        // En offline, venta ilimitada o ante cualquier fallo transaccional jamás bloqueamos al mostrador
+                        if (!navigator.onLine || window.isOfflineState || esVentaIlimitada) {
                             lotesSeleccionados = [{ lotId: null, qty: cantidadReq, costo_unit_usado: Number(obj.costo_unitario || 0) }];
                         } else {
                             Swal.fire('Control de Inventario', 'No se pudo resolver el FIFO contable del producto.', 'warning');
@@ -3417,6 +3427,7 @@
                         <td class="text-sm font-medium">
                             <span class="text-[10px] bg-slate-200 text-slate-600 px-1 rounded mr-1">${c.tipo}</span> 
                             ${c.descripcion}
+                            ${(c.tipo === 'ITEMS' && c.lotesAsignados && c.lotesAsignados.some(l => !l.lotId)) ? '<span class="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 rounded font-semibold ml-1" title="Esta venta quedará en espera de asignación de compra en Kardex">⏳ En espera</span>' : ''}
                         </td>
                         <td class="text-center">
                             <input type="text" inputmode="decimal" class="qty-input" value="${c.cantidad}" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*?)\\..*/g, '$1');" onchange="actualizarFila('${c.idFront}', 'cantidad', this)" ${c.tipo==='ITEMS'?'disabled title="Eliminar y volver a añadir para recalcular FIFO"':''}>
@@ -3757,6 +3768,7 @@
                 // 1. Preparar detalles comerciales y lotes logísticos en memoria
                 let detallesVentaInserts = [];
                 let lotesADescontar = [];
+                let ventasPendientesLote = [];
 
                 for(let item of carrito) {
                     let vu = 0, igv_uni = 0, pu = item.precioFinalIngresado;
@@ -3771,25 +3783,37 @@
                     const precioLinTotal = item.cantidad * pu;
 
                     let costo_uni = 0;
+                    let cantEnEspera = 0;
                     if (item.tipo === 'ITEMS' && item.lotesAsignados && item.lotesAsignados.length > 0) {
                         let costoAcumulado = 0;
+                        let cantConLote = 0;
                         for (let porcion of item.lotesAsignados) {
-                            costoAcumulado += (porcion.qty * porcion.costo_unit_usado);
-                            lotesADescontar.push({
-                                item_id: item.dbId,
-                                ingreso_detalle_id: porcion.lotId,
-                                cantidad: Number(Number(porcion.qty).toFixed(3)),
-                                costo_unitario: Number(Number(porcion.costo_unit_usado).toFixed(6)),
-                                costo_total: Number((porcion.qty * porcion.costo_unit_usado).toFixed(2))
-                            });
+                            if (porcion.lotId) {
+                                costoAcumulado += (porcion.qty * porcion.costo_unit_usado);
+                                cantConLote += porcion.qty;
+                                lotesADescontar.push({
+                                    item_id: item.dbId,
+                                    ingreso_detalle_id: porcion.lotId,
+                                    cantidad: Number(Number(porcion.qty).toFixed(3)),
+                                    costo_unitario: Number(Number(porcion.costo_unit_usado).toFixed(6)),
+                                    costo_total: Number((porcion.qty * porcion.costo_unit_usado).toFixed(2))
+                                });
+                            } else {
+                                cantEnEspera += porcion.qty;
+                                ventasPendientesLote.push({
+                                    item_id: item.dbId,
+                                    cantidad: Number(Number(porcion.qty).toFixed(3))
+                                });
+                            }
                         }
-                        costo_uni = item.cantidad > 0 ? costoAcumulado / item.cantidad : 0;
+                        costo_uni = cantConLote > 0 ? costoAcumulado / item.cantidad : 0;
                     }
 
                     detallesVentaInserts.push({
                         tipo_item_vendido: item.tipo,
                         referencia_id: item.dbId,
                         cantidad: Number(Number(item.cantidad).toFixed(3)),
+                        cantidad_en_espera: Number(Number(cantEnEspera).toFixed(3)),
                         valor_unitario: Number(vu.toFixed(6)),
                         igv_unitario: Number(igv_uni.toFixed(6)),
                         precio_unitario: Number(Number(pu).toFixed(6)),
@@ -3829,7 +3853,8 @@
                     almacen_origen_id: document.getElementById('almacenOrigen').value,
                     pago_inicial: Number(pagoInicial_input.toFixed(2)),
                     detalles_venta: detallesVentaInserts,
-                    lotes_a_descontar: lotesADescontar
+                    lotes_a_descontar: lotesADescontar,
+                    ventas_pendientes_lote: ventasPendientesLote
                 };
 
                 let respVenta = null;
@@ -3958,6 +3983,7 @@
                                 precio_total: (d.precio_total !== undefined && d.precio_total !== null) ? d.precio_total : (d.subtotal !== undefined ? d.subtotal : (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)))
                             })),
                             lotes_a_descontar: lotesADescontar,
+                            ventas_pendientes_lote: ventasPendientesLote,
                             caja_identificador: window.cajaIdentificador || 'Caja 1',
                             estado: 'PENDIENTE_SYNC',
                             estado_sync: 'PENDIENTE_SYNC'
@@ -4813,7 +4839,7 @@
 
                     // 1. Obtener Items
                     const { data: qItems, error: e1 } = await window.supabaseClient.from('items')
-                        .select('id, descripcion, precio_venta, unidad_medida, afecto_igv_venta, codigo')
+                        .select('id, descripcion, precio_venta, unidad_medida, afecto_igv_venta, codigo, permitir_venta_ilimitada')
                         .eq('empresa_id', currentEmpresaId)
                         .eq('activo', true);
                     if(!e1) dbItems = qItems || [];

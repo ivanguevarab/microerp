@@ -361,132 +361,223 @@
             </button>
         </div>
 
-        <!-- Filters -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 relative">
-            <!-- Botón Fijar Configuración (Absoluto) -->
-            <button onclick="toggleFijarConfig()" id="btnFijarConfig" title="Recordar esta configuración" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-base bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shadow-sm z-10 cursor-pointer">
-                <span class="opacity-60 transition-opacity" id="iconFijarConfig">📌</span>
+        <!-- Main Tabs Navigation -->
+        <div class="flex border-b border-gray-200 dark:border-slate-700 mb-6 gap-2">
+            <button id="mainTabMovimientos" onclick="cambiarVistaPrincipalKardex('movimientos')"
+                class="px-5 py-3 text-sm font-bold border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 transition-colors flex items-center gap-2">
+                <i class="fas fa-boxes"></i> Movimientos de Kardex
             </button>
-            
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <!-- Rango Fechas -->
-                <div class="relative">
-                    <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
-                        Desde
-                        <button onclick="fijarDiaEspecifico()" title="Fijar la búsqueda únicamente en este día" class="ml-2 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 px-2.5 py-0.5 rounded border transition-colors">
-                            Solo este día
-                        </button>
-                    </label>
-                    <input type="date" id="fechaDesde" onchange="currentPage=1; cargarKardex()"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                </div>
-                <div class="relative">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Hasta
-                    </label>
-                    <input type="date" id="fechaHasta" onchange="currentPage=1; cargarKardex()"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                </div>
+            <button id="mainTabEnEspera" onclick="cambiarVistaPrincipalKardex('en_espera')"
+                title="Ventas en POS pendientes de asignación de lote de compra"
+                class="px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors flex items-center gap-2">
+                <i class="fas fa-clock text-amber-500"></i> En espera
+                <span id="badgeContadorEspera" class="text-xs bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold ml-1">0</span>
+            </button>
+        </div>
 
-                <!-- Tipo Movimiento -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Movimiento</label>
-                    <select id="tipoMovimiento" onchange="manejarCambioTipoMovimiento()"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="">Todos</option>
-                        <option value="INGRESO">Ingresos (Todos)</option>
-                        <option value="EGRESO">Egresos (Todos)</option>
-                        <option value="TRANSFORMACION">Transformaciones</option>
-                        <optgroup id="optgroupSaldos" label="Saldos Actuales">
-                            <option value="INVENTARIO_FINAL">Inventario Final (Stock Disponible)</option>
-                        </optgroup>
-                    </select>
-                </div>
-
-                <!-- Modo de Vista -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Modo de Vista</label>
-                    <select id="modoVista" onchange="cambioModoVista()" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="DETALLADO">Detallado (Por Item)</option>
-                        <option value="AGRUPADO">Agrupado (Por Documento)</option>
-                    </select>
-                </div>
+        <!-- CONTENEDOR 1: MOVIMIENTOS TRADICIONALES DE KARDEX -->
+        <div id="contenedorKardexMovimientos" class="space-y-6">
+            <!-- Filters -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative">
+                <!-- Botón Fijar Configuración (Absoluto) -->
+                <button onclick="toggleFijarConfig()" id="btnFijarConfig" title="Recordar esta configuración" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-base bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shadow-sm z-10 cursor-pointer">
+                    <span class="opacity-60 transition-opacity" id="iconFijarConfig">📌</span>
+                </button>
                 
-                <!-- Mostrar por página -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Mostrar</label>
-                    <select id="registrosPorPagina" onchange="currentPage=1; cargarKardex()"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="10">10 registros</option>
-                        <option value="50">50 registros</option>
-                        <option value="100">100 registros</option>
-                        <option value="1000000">Todos</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="mt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
-                <!-- Producto / Buscador Ampliado -->
-                <div class="md:col-span-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Búsqueda Inteligente</label>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <!-- Rango Fechas -->
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fas fa-search text-gray-400"></i>
-                        </div>
-                        <input type="text" id="busquedaProducto" placeholder="Buscar item, documento, cliente, proveedor... o ingresa =Monto (ej. =150.50)" 
-                            class="w-full pl-10 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                            Desde
+                            <button onclick="fijarDiaEspecifico()" title="Fijar la búsqueda únicamente en este día" class="ml-2 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 px-2.5 py-0.5 rounded border transition-colors">
+                                Solo este día
+                            </button>
+                        </label>
+                        <input type="date" id="fechaDesde" onchange="currentPage=1; cargarKardex()"
+                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Hasta
+                        </label>
+                        <input type="date" id="fechaHasta" onchange="currentPage=1; cargarKardex()"
+                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+
+                    <!-- Tipo Movimiento -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Movimiento</label>
+                        <select id="tipoMovimiento" onchange="manejarCambioTipoMovimiento()"
+                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todos</option>
+                            <option value="INGRESO">Ingresos (Todos)</option>
+                            <option value="EGRESO">Egresos (Todos)</option>
+                            <option value="TRANSFORMACION">Transformaciones</option>
+                            <optgroup id="optgroupSaldos" label="Saldos Actuales">
+                                <option value="INVENTARIO_FINAL">Inventario Final (Stock Disponible)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <!-- Modo de Vista -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Modo de Vista</label>
+                        <select id="modoVista" onchange="cambioModoVista()" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="DETALLADO">Detallado (Por Item)</option>
+                            <option value="AGRUPADO">Agrupado (Por Documento)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Mostrar por página -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Mostrar</label>
+                        <select id="registrosPorPagina" onchange="currentPage=1; cargarKardex()"
+                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="10">10 registros</option>
+                            <option value="50">50 registros</option>
+                            <option value="100">100 registros</option>
+                            <option value="1000000">Todos</option>
+                        </select>
                     </div>
                 </div>
+                
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <!-- Producto / Buscador Ampliado -->
+                    <div class="md:col-span-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Búsqueda Inteligente</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-search text-gray-400"></i>
+                            </div>
+                            <input type="text" id="busquedaProducto" placeholder="Buscar item, documento, cliente, proveedor... o ingresa =Monto (ej. =150.50)" 
+                                class="w-full pl-10 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                    </div>
 
-                <!-- Filtro por Categoría -->
-                <div class="md:col-span-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                    <select id="filtroCategoria" onchange="currentPage=1; cargarKardex()"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="">Todas</option>
-                    </select>
+                    <!-- Filtro por Categoría -->
+                    <div class="md:col-span-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                        <select id="filtroCategoria" onchange="currentPage=1; cargarKardex()"
+                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Table -->
+            <div class="table-container">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr>
+                                <th class="p-4 border-b border-gray-200">Fecha</th>
+                                <th class="p-4 border-b border-gray-200">CÓDIGO</th>
+                                <th class="p-4 border-b border-gray-200">Item</th>
+                                <th class="p-4 border-b border-gray-200">Movimiento</th>
+                                <th id="thCantidad" class="p-4 border-b border-gray-200 text-right">Cantidad</th>
+                                <th id="thCostoUnitario" class="p-4 border-b border-gray-200 text-right">COSTO ADQ. UNIT.</th>
+                                <th class="p-4 border-b border-gray-200 text-right">TOTAL</th>
+                                <th id="thSaldo" class="p-4 border-b border-gray-200 text-right">SALDO</th>
+                                <th class="p-4 border-b border-gray-200 text-right">ACCIONES</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaKardex" class="text-sm text-gray-700">
+                            <!-- Rows will be populated by JS -->
+                            <tr>
+                                <td colspan="8" class="p-8 text-center text-gray-500">Cargando movimientos...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination -->
+                <div class="p-4 border-t border-gray-200 flex justify-between items-center">
+                    <span class="text-sm text-gray-500" id="infoPaginacion">Mostrando 0 de 0 registros</span>
+                    <div class="flex gap-2">
+                        <button id="btnPrev"
+                            class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                            disabled>Anterior</button>
+                        <button id="btnNext"
+                            class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                            disabled>Siguiente</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Results Table -->
-        <div class="table-container">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr>
-                            <th class="p-4 border-b border-gray-200">Fecha</th>
-                            <th class="p-4 border-b border-gray-200">CÓDIGO</th>
-                            <th class="p-4 border-b border-gray-200">Item</th>
-                            <th class="p-4 border-b border-gray-200">Movimiento</th>
-                            <th id="thCantidad" class="p-4 border-b border-gray-200 text-right">Cantidad</th>
-                            <th id="thCostoUnitario" class="p-4 border-b border-gray-200 text-right">COSTO ADQ. UNIT.</th>
-                            <th class="p-4 border-b border-gray-200 text-right">TOTAL</th>
-                            <th id="thSaldo" class="p-4 border-b border-gray-200 text-right">SALDO</th>
-                            <th class="p-4 border-b border-gray-200 text-right">ACCIONES</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tablaKardex" class="text-sm text-gray-700">
-                        <!-- Rows will be populated by JS -->
-                        <tr>
-                            <td colspan="8" class="p-8 text-center text-gray-500">Cargando movimientos...</td>
-                        </tr>
-                    </tbody>
-                </table>
+        <!-- CONTENEDOR 2: PESTAÑA VENTAS EN ESPERA DE LOTE -->
+        <div id="contenedorKardexEnEspera" class="hidden space-y-6">
+            <!-- Banner Informativo -->
+            <div class="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-300 flex items-center justify-center text-xl shrink-0 mt-0.5">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm text-amber-950 dark:text-amber-100 mb-0.5">Ventas en POS pendientes de asignación de lote de compra</h4>
+                        <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Estas ventas fueron emitidas en mostrador cuando el producto no contaba con compra registrada en el sistema. Al registrar la compra en el módulo de <a href="ingresos.html" class="underline font-bold text-amber-700 dark:text-amber-300 hover:text-amber-800">Ingresos</a>, el sistema regularizará automáticamente estas líneas en estricto orden cronológico (FIFO), les asignará el costo real y recalculará los saldos de Kardex.
+                        </p>
+                    </div>
+                </div>
+                <button onclick="cargarVentasPendientes()" class="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow transition shrink-0">
+                    <i class="fas fa-sync-alt"></i> Actualizar Cola
+                </button>
             </div>
-            <!-- Pagination -->
-            <div class="p-4 border-t border-gray-200 flex justify-between items-center">
-                <span class="text-sm text-gray-500" id="infoPaginacion">Mostrando 0 de 0 registros</span>
-                <div class="flex gap-2">
-                    <button id="btnPrev"
-                        class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
-                        disabled>Anterior</button>
-                    <button id="btnNext"
-                        class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
-                        disabled>Siguiente</button>
+
+            <!-- Filtros de la Cola de Espera -->
+            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                            Buscar en cola
+                        </label>
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                            <input type="text" id="busquedaEspera" oninput="renderizarTablaVentasEnEspera()" placeholder="Buscar por ticket, código o descripción de producto..." 
+                                class="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                            Filtrar por Estado
+                        </label>
+                        <select id="filtroEstadoEspera" onchange="renderizarTablaVentasEnEspera()" 
+                            class="w-full py-2 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <option value="">Todos los Estados</option>
+                            <option value="PENDIENTE" selected>⏳ Pendientes</option>
+                            <option value="PARCIAL">⚡ Parciales</option>
+                            <option value="REGULARIZADO">✅ Regularizados</option>
+                            <option value="ANULADO">Anulados</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
+            <!-- Tabla de la Cola de Espera -->
+            <div class="table-container bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 dark:bg-slate-800/80 border-b border-gray-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                                <th class="p-3.5">Fecha Venta</th>
+                                <th class="p-3.5">N° Ticket</th>
+                                <th class="p-3.5">Producto / Ítem</th>
+                                <th class="p-3.5">Almacén</th>
+                                <th class="p-3.5 text-right">Cant. Solicitada</th>
+                                <th class="p-3.5 text-right">Cant. Regularizada</th>
+                                <th class="p-3.5 text-right font-bold text-amber-600 dark:text-amber-400">Cant. Pendiente</th>
+                                <th class="p-3.5 text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaVentasEnEspera" class="text-sm text-gray-700 dark:text-slate-200 divide-y divide-gray-100 dark:divide-slate-800">
+                            <tr>
+                                <td colspan="8" class="p-8 text-center text-gray-500">Cargando ventas en espera...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <!-- Modal Centro de Exportación Kardex -->
@@ -882,6 +973,152 @@
             let currentPage = 1;
             let sidebarWasOpenBeforeModal = false; // Estado previo de la sidebar
 
+            // =========================================================================
+            // PESTAÑA: VENTAS EN ESPERA DE LOTE (KARDEX ASÍNCRONO)
+            // =========================================================================
+            let listaVentasEnEspera = [];
+
+            function cambiarVistaPrincipalKardex(vista) {
+                const tabMov = document.getElementById('mainTabMovimientos');
+                const tabEsp = document.getElementById('mainTabEnEspera');
+                const cntMov = document.getElementById('contenedorKardexMovimientos');
+                const cntEsp = document.getElementById('contenedorKardexEnEspera');
+
+                if (vista === 'en_espera') {
+                    tabMov.className = 'px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors flex items-center gap-2';
+                    tabEsp.className = 'px-5 py-3 text-sm font-bold border-b-2 border-amber-600 text-amber-600 dark:text-amber-400 transition-colors flex items-center gap-2';
+                    cntMov.classList.add('hidden');
+                    cntEsp.classList.remove('hidden');
+                    cargarVentasPendientes();
+                } else {
+                    tabMov.className = 'px-5 py-3 text-sm font-bold border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 transition-colors flex items-center gap-2';
+                    tabEsp.className = 'px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors flex items-center gap-2';
+                    cntMov.classList.remove('hidden');
+                    cntEsp.classList.add('hidden');
+                }
+            }
+
+            async function actualizarContadorVentasEnEspera() {
+                try {
+                    const { count, error } = await supabaseClient
+                        .from('ventas_kardex_pendientes')
+                        .select('id', { count: 'exact', head: true })
+                        .in('estado', ['PENDIENTE', 'PARCIAL']);
+                    
+                    if (!error && count !== null) {
+                        const badge = document.getElementById('badgeContadorEspera');
+                        if (badge) {
+                            badge.textContent = count;
+                            if (count > 0) {
+                                badge.className = 'text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold ml-1 animate-pulse';
+                            } else {
+                                badge.className = 'text-xs bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold ml-1';
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Error al consultar contador de ventas en espera:', err);
+                }
+            }
+
+            async function cargarVentasPendientes() {
+                const tbody = document.getElementById('tablaVentasEnEspera');
+                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando ventas en espera de lote...</td></tr>';
+
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('ventas_kardex_pendientes')
+                        .select(`
+                            id,
+                            numero_ticket,
+                            fecha_venta,
+                            cantidad_solicitada,
+                            cantidad_regularizada,
+                            cantidad_pendiente,
+                            estado,
+                            item_id,
+                            items (codigo, descripcion),
+                            almacen_id,
+                            almacenes (nombre)
+                        `)
+                        .order('fecha_venta', { ascending: false });
+
+                    if (error) throw error;
+                    listaVentasEnEspera = data || [];
+                    renderizarTablaVentasEnEspera();
+                    actualizarContadorVentasEnEspera();
+                } catch (err) {
+                    console.error('Error al cargar ventas en espera:', err);
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-rose-500">Error al cargar la lista: ${err.message}</td></tr>`;
+                }
+            }
+
+            function renderizarTablaVentasEnEspera() {
+                const tbody = document.getElementById('tablaVentasEnEspera');
+                const filtroEstado = document.getElementById('filtroEstadoEspera')?.value || '';
+                const busq = (document.getElementById('busquedaEspera')?.value || '').toLowerCase().trim();
+
+                let filtrados = listaVentasEnEspera;
+                if (filtroEstado) {
+                    filtrados = filtrados.filter(v => v.estado === filtroEstado);
+                }
+                if (busq) {
+                    filtrados = filtrados.filter(v => {
+                        const tck = (v.numero_ticket || '').toLowerCase();
+                        const desc = (v.items?.descripcion || '').toLowerCase();
+                        const cod = (v.items?.codigo || '').toLowerCase();
+                        return tck.includes(busq) || desc.includes(busq) || cod.includes(busq);
+                    });
+                }
+
+                if (!filtrados || filtrados.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-slate-400">
+                                <i class="fas fa-check-circle text-emerald-500 text-2xl mb-2"></i>
+                                <p class="font-semibold text-slate-600 dark:text-slate-300">No hay ventas pendientes con este criterio.</p>
+                                <p class="text-xs text-slate-400">Todas las órdenes cuentan con compras registradas o no coinciden con el filtro.</p>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = filtrados.map(v => {
+                    let badgeEstado = '';
+                    if (v.estado === 'PENDIENTE') {
+                        badgeEstado = '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300">⏳ PENDIENTE</span>';
+                    } else if (v.estado === 'PARCIAL') {
+                        badgeEstado = '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-300">⚡ PARCIAL</span>';
+                    } else if (v.estado === 'REGULARIZADO') {
+                        badgeEstado = '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border border-emerald-300">✅ REGULARIZADO</span>';
+                    } else {
+                        badgeEstado = '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">ANULADO</span>';
+                    }
+
+                    const fechaStr = v.fecha_venta ? new Date(v.fecha_venta).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }) : '-';
+                    const cantSol = Number(v.cantidad_solicitada || 0).toFixed(3);
+                    const cantReg = Number(v.cantidad_regularizada || 0).toFixed(3);
+                    const cantPend = Number(v.cantidad_pendiente || (Number(v.cantidad_solicitada || 0) - Number(v.cantidad_regularizada || 0))).toFixed(3);
+
+                    return `
+                        <tr class="border-b border-gray-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                            <td class="p-3 text-xs whitespace-nowrap">${fechaStr}</td>
+                            <td class="p-3 text-xs font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">${v.numero_ticket || '-'}</td>
+                            <td class="p-3 text-xs">
+                                <div class="font-bold text-slate-800 dark:text-slate-100">${v.items?.descripcion || 'Producto no especificado'}</div>
+                                <div class="text-[11px] text-slate-400 font-mono">${v.items?.codigo || '-'}</div>
+                            </td>
+                            <td class="p-3 text-xs text-slate-600 dark:text-slate-400">${v.almacenes?.nombre || 'Almacén Principal'}</td>
+                            <td class="p-3 text-xs text-right font-mono font-semibold">${cantSol}</td>
+                            <td class="p-3 text-xs text-right font-mono text-emerald-600 dark:text-emerald-400">${cantReg}</td>
+                            <td class="p-3 text-xs text-right font-mono font-bold ${Number(cantPend) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}">${cantPend}</td>
+                            <td class="p-3 text-center whitespace-nowrap">${badgeEstado}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
             // ==========================================
             // CARGA INICIAL Y FILTROS
             // ==========================================
@@ -923,9 +1160,13 @@
 
                 actualizarUiFechasPorTipoMovimiento();
                 cargarKardex();
+                actualizarContadorVentasEnEspera();
 
-                // Interceptar parámetro de auto-apertura desde Flujo de Caja
+                // Interceptar parámetro de auto-apertura desde Flujo de Caja o pestaña En Espera
                 const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('tab') === 'en_espera') {
+                    cambiarVistaPrincipalKardex('en_espera');
+                }
                 const autoOpenRef = urlParams.get('autoOpen');
                 if (autoOpenRef) {
                     const isIngreso = autoOpenRef.includes('INGRESO');

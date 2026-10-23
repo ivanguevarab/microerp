@@ -943,6 +943,20 @@
                             </select>
                         </div>
 
+                        <!-- Venta Ilimitada POS -->
+                        <div class="form-group full-width" style="margin-top: 6px; padding: 10px 14px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
+                            <label for="permitirVentaIlimitada" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 16px;">⚡</span>
+                                    <div>
+                                        <strong style="color: #059669; font-size: 13px;">Permitir venta ilimitada en POS</strong>
+                                        <p style="margin: 0; font-size: 11px; color: #047857;">Permite que el cajero venda este ítem en POS aunque el stock figure en 0 o negativo, regularizando el Kardex automáticamente al registrar la compra.</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox" id="permitirVentaIlimitada" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: #10b981;">
+                            </label>
+                        </div>
+
                         <!-- Trazabilidad -->
                         <div id="trazabilidadBlock" class="form-group full-width hidden mt-2 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
                             <div class="flex flex-col gap-1 text-[11px] text-slate-500 dark:text-slate-400">
@@ -1150,6 +1164,7 @@
                 categoriaId: document.getElementById('categoriaId').value,
                 unidadMedidaId: document.getElementById('unidadMedidaId').value,
                 proveedorId: document.getElementById('proveedorId').value,
+                permitirVentaIlimitada: document.getElementById('permitirVentaIlimitada').checked,
                 itemEditando: itemEditando // Preservar si estamos editando
             };
             sessionStorage.setItem('tempItemState', JSON.stringify(estado));
@@ -1179,6 +1194,9 @@
                     document.getElementById('codigo').value = estado.codigo || '';
                     document.getElementById('descripcion').value = estado.descripcion || '';
                     document.getElementById('stockMinimo').value = estado.stockMinimo ? Number(parseFloat(estado.stockMinimo) || 0).toFixed(3) : '0.000';
+                    if (estado.permitirVentaIlimitada !== undefined) {
+                        document.getElementById('permitirVentaIlimitada').checked = estado.permitirVentaIlimitada !== false;
+                    }
 
                     // Restaurar selects (excepto el nuevo)
                     if (estado.categoriaId) document.getElementById('categoriaId').value = estado.categoriaId;
@@ -1270,7 +1288,10 @@
                 <td>${prod.descripcion}</td>
                 <td>${prod.categorias?.nombre || '-'}</td>
                 <td>${prod.unidades_medida?.codigo || '-'}</td>
-                <td>${prod.stock_total || 0}</td>
+                <td>
+                  <span>${prod.stock_total || 0}</span>
+                  ${(prod.permitir_venta_ilimitada !== false) ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #059669; font-weight: bold; margin-left: 5px; padding: 2px 6px; border-radius: 4px; font-size: 11px;" title="Venta Ilimitada habilitada en POS (Permite vender sin stock y asignar compra después)">∞</span>` : ''}
+                </td>
                 <td>
                   <span class="badge ${prod.activo ? 'badge-active' : 'badge-inactive'}">
                     ${prod.activo ? 'Activo' : 'Inactivo'}
@@ -1436,6 +1457,7 @@
             document.getElementById('stockMinimo').value = '0.000'; // Forzado a 0.000
             document.getElementById('afectoIgvCompra').value = 'false';
             document.getElementById('afectoIgvVenta').value = 'false';
+            document.getElementById('permitirVentaIlimitada').checked = true; // Por defecto siempre habilitado
 
             // Ocultar bloque de trazabilidad al crear nuevo
             const tBlock = document.getElementById('trazabilidadBlock');
@@ -1467,6 +1489,7 @@
             const proveedorId = document.getElementById('proveedorId').value || null;
             const afectoIgvCompra = document.getElementById('afectoIgvCompra').value === 'true';
             const afectoIgvVenta = document.getElementById('afectoIgvVenta').value === 'true';
+            const permitirVentaIlimitada = document.getElementById('permitirVentaIlimitada').checked;
 
             // Validaciones de campos requeridos
             if (!descripcion || !categoriaId || !unidadMedidaId) {
@@ -1498,6 +1521,7 @@
                         proveedor_id: proveedorId,
                         afecto_igv_compra: afectoIgvCompra,
                         afecto_igv_venta: afectoIgvVenta,
+                        permitir_venta_ilimitada: permitirVentaIlimitada,
                         updated_by: autor
                     };
 
@@ -1527,6 +1551,7 @@
                         stock_minimo: 0, // Inmutable al crear: siempre 0
                         afecto_igv_compra: afectoIgvCompra,
                         afecto_igv_venta: afectoIgvVenta,
+                        permitir_venta_ilimitada: permitirVentaIlimitada,
                         activo: true,
                         created_by: autor
                     };
@@ -1578,6 +1603,7 @@
                 // Si la BD retorna nulo (en históricos), asumimos true por compatibilidad
                 document.getElementById('afectoIgvCompra').value = data.afecto_igv_compra !== false ? 'true' : 'false';
                 document.getElementById('afectoIgvVenta').value = data.afecto_igv_venta !== false ? 'true' : 'false';
+                document.getElementById('permitirVentaIlimitada').checked = data.permitir_venta_ilimitada !== false;
 
                 // Cargar Trazabilidad
                 const tBlock = document.getElementById('trazabilidadBlock');

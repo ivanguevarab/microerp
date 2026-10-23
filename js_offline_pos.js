@@ -729,7 +729,11 @@
                     getReq.onsuccess = () => {
                         const item = getReq.result;
                         if (item) {
-                            item.stock_total = Math.max(0, (Number(item.stock_total || 0) - cant));
+                            if (item.permitir_venta_ilimitada !== false) {
+                                item.stock_total = Number(item.stock_total || 0) - cant;
+                            } else {
+                                item.stock_total = Math.max(0, (Number(item.stock_total || 0) - cant));
+                            }
                             store.put(item);
                         }
                     };

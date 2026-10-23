@@ -3677,14 +3677,36 @@
                     throw new Error(resultRegistro ? resultRegistro.message : 'Error desconocido en el registro atómico');
                 }
 
+                // Notificación de Reconciliación FIFO Automática de Ventas en Espera
+                if (resultRegistro.ventas_regularizadas && resultRegistro.ventas_regularizadas.length > 0) {
+                    const cantTickets = resultRegistro.ventas_regularizadas.length;
+                    const itemsRegularizadosHTML = resultRegistro.ventas_regularizadas.map(vr => `
+                        <div class="flex items-center justify-between py-1.5 border-b border-emerald-100 dark:border-emerald-900/50 text-xs">
+                            <span class="font-bold text-slate-800 dark:text-slate-100">${vr.ticket}</span>
+                            <span class="text-emerald-700 dark:text-emerald-300 font-semibold">${Number(vr.cantidad_regularizada).toFixed(3)} unid.</span>
+                            <span class="text-slate-600 dark:text-slate-400 font-mono">Costo: S/ ${Number(vr.costo_adquisicion_asignado).toFixed(2)}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${vr.estado_final === 'REGULARIZADO' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">${vr.estado_final}</span>
+                        </div>
+                    `).join('');
 
-                // 4. Actualizar Stock y Kardex
-                // SE ELIMINÓ LA LÓGICA MANUAL DE FRONTEND.
-                // Ahora el trigger 'tr_ingreso_kardex' en la base de datos se encarga de:
-                // a) Crear el registro en la tabla 'kardex'
-                // b) Actualizar el 'stock_total' en la tabla 'items'
-                // Esto evita la duplicidad de stock que ocurría al hacerlo en ambos lados.
-
+                    await Swal.fire({
+                        title: '⚡ Reconciliación FIFO Automática',
+                        html: `
+                            <div class="text-left">
+                                <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 mb-3 text-xs text-emerald-900 dark:text-emerald-200 leading-relaxed">
+                                    <p class="font-bold text-sm text-emerald-800 dark:text-emerald-300 mb-1">¡Ventas en espera costeadas y regularizadas!</p>
+                                    Este ingreso cubrió automáticamente <strong>${cantTickets}</strong> venta(s) que se encontraban en espera de compra en mostrador. El Kardex y los márgenes de venta fueron actualizados con el costo real del lote.
+                                </div>
+                                <div class="max-h-48 overflow-y-auto px-1">
+                                    ${itemsRegularizadosHTML}
+                                </div>
+                            </div>
+                        `,
+                        icon: 'success',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#059669'
+                    });
+                }
 
                 mostrarToast('✅ Ingreso registrado correctamente', 'success');
 

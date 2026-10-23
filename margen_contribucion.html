@@ -1044,6 +1044,9 @@
                 else if(idx === 2) badgeClass = 'rank-3';
 
                 const marg = parseFloat(d.margen_contribucion);
+                const costo = parseFloat(d.costo_ventas || 0);
+                const ventas = parseFloat(d.ventas_netas || 0);
+                const esSinCosteo = (['ITEMS', 'ITEM'].includes(d.tipo_item)) && costo === 0 && ventas > 0;
                 const udm = d.tipo_item === 'ITEMS' ? (unidadesMap[d.referencia_id] || 'UND') : 'UND';
                 const catNombre = (itemCatMap[d.referencia_id] && mapaCategoriasGlobal[itemCatMap[d.referencia_id]]) 
                     ? mapaCategoriasGlobal[itemCatMap[d.referencia_id]] 
@@ -1056,6 +1059,7 @@
                         <td>
                             <div class="font-bold text-white">${d.nombre_item}</div>
                             <div class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">${catTag}${d.tipo_item} • ${d.cantidad_vendida} ${udm}</div>
+                            ${esSinCosteo ? `<div class="mt-1"><span class="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-block" title="Venta sin lote de compra asignado en Kardex">⏳ Pendiente de costeo</span></div>` : ''}
                         </td>
                         <td class="text-right font-bold text-emerald-400">
                             S/ ${marg.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}
@@ -1229,6 +1233,8 @@
             dataArray.forEach((d, idx) => {
                 const marg = parseFloat(d.margen_contribucion);
                 const ventas = parseFloat(d.ventas_netas);
+                const costo = parseFloat(d.costo_ventas || 0);
+                const esSinCosteo = (['ITEMS', 'ITEM'].includes(d.tipo_item)) && costo === 0 && ventas > 0;
                 totalMargenAcumulado += marg;
                 
                 tbody.innerHTML += `
@@ -1241,7 +1247,10 @@
                         <td class="text-[10px] font-bold uppercase tracking-widest text-slate-500">${d.tipo_item}</td>
                         <td class="text-right font-medium text-slate-300">${d.cantidad_vendida} <span class="text-[9px] ml-0.5">${d.udm}</span></td>
                         <td class="text-right text-blue-400">S/ ${ventas.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                        <td class="text-right text-rose-400">S/ ${parseFloat(d.costo_ventas).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td class="text-right text-rose-400">
+                            S/ ${costo.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                            ${esSinCosteo ? `<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-block" title="Venta sin lote de compra asignado en Kardex">⏳ Pendiente de costeo</span></div>` : ''}
+                        </td>
                         <td class="text-right font-bold text-emerald-400">S/ ${marg.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                         <td class="text-right font-bold text-purple-400">${d.razonMC}%</td>
                     </tr>
