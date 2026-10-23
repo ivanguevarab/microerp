@@ -3928,13 +3928,17 @@
                         const resConsumo = await window.MicroERPOffline.consumirSiguienteCorrelativoSoberano(serieTicketActual, cajaIdActual);
                         const numTkDefinitivo = (resConsumo && resConsumo.numero_ticket) ? resConsumo.numero_ticket : numTk;
 
+                        const horaOficialLima = window.MicroERPOffline.obtenerHoraOficialLima();
+                        const isoLimaOficial = (horaOficialLima && horaOficialLima.iso) ? horaOficialLima.iso : new Date().toISOString();
+
                         const payloadOffline = {
                             id: clientVentaId,
                             empresa_id: currentEmpresaId,
                             numero_ticket: numTkDefinitivo,
                             tipo_comprobante: tipoComp,
                             fecha_venta: fechaEmisionStr,
-                            hora_emision: window.MicroERPOffline.obtenerHoraOficialLima().iso,
+                            hora_emision: isoLimaOficial,
+                            created_at: isoLimaOficial,
                             cliente_id: clienteId,
                             condicion_pago: condicionPago,
                             genera_igv: generaIgv,

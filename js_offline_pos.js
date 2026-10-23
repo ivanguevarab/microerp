@@ -707,6 +707,7 @@
         payloadVenta.caja_identificador = payloadVenta.caja_identificador || window.cajaIdentificador || 'Caja 1';
         payloadVenta.estado_sync = 'PENDIENTE_SYNC';
         payloadVenta.hora_emision = payloadVenta.hora_emision || obtenerHoraOficialLima().iso;
+        payloadVenta.created_at = payloadVenta.created_at || payloadVenta.hora_emision;
 
         // 1. Guardar comprobante en cola_ventas_sync y en historico_ventas_local
         await dbTransaction('cola_ventas_sync', 'readwrite', (store) => {
@@ -916,8 +917,12 @@
                     ventasC.forEach(v => { if (v && v.id) mapaVentas.set(v.id, v); });
                     const todasLasVentas = Array.from(mapaVentas.values());
 
-                    // Ordenar cronológicamente ascendente para determinar primer y último ticket
-                    todasLasVentas.sort((a, b) => (a.hora_emision || a.fecha_venta || '').localeCompare(b.hora_emision || b.fecha_venta || ''));
+                    // Ordenar cronológicamente ascendente para determinar primer y último ticket por Epoch ms
+                    todasLasVentas.sort((a, b) => {
+                        const tA = new Date(a.hora_emision || a.created_at || (a.fecha_venta ? a.fecha_venta + 'T00:00:00-05:00' : 0)).getTime() || 0;
+                        const tB = new Date(b.hora_emision || b.created_at || (b.fecha_venta ? b.fecha_venta + 'T00:00:00-05:00' : 0)).getTime() || 0;
+                        return tA - tB;
+                    });
 
                     let offlineContado = 0;
                     let offlineCredito = 0;
@@ -1177,7 +1182,7 @@
                         const ap = t.hora_apertura ? new Date(t.hora_apertura).getTime() : 0;
                         return !isNaN(ap) && ap > 0 && ap >= limite24HorasMs;
                     })
-                    .sort((a, b) => (b.hora_apertura || '').localeCompare(a.hora_apertura || ''))[0];
+                    .sort((a, b) => (new Date(b.hora_apertura || 0).getTime() || 0) - (new Date(a.hora_apertura || 0).getTime() || 0))[0];
                 resolve(activo || null);
             };
             req.onerror = () => resolve(null);
@@ -1213,7 +1218,11 @@
                     ventasH.forEach(v => { if (v && (!empresaId || v.empresa_id === empresaId)) mapaVentas.set(v.id, v); });
                     ventasC.forEach(v => { if (v && (!empresaId || v.empresa_id === empresaId)) mapaVentas.set(v.id, v); });
                     const ventas = Array.from(mapaVentas.values());
-                    ventas.sort((a, b) => (b.hora_emision || b.fecha_venta || '').localeCompare(a.hora_emision || a.fecha_venta || ''));
+                    ventas.sort((a, b) => {
+                        const tA = new Date(a.created_at || a.hora_emision || (a.fecha_venta ? a.fecha_venta + 'T00:00:00-05:00' : 0)).getTime() || 0;
+                        const tB = new Date(b.created_at || b.hora_emision || (b.fecha_venta ? b.fecha_venta + 'T00:00:00-05:00' : 0)).getTime() || 0;
+                        return tB - tA;
+                    });
                     resolve(ventas);
                 };
                 tx.onerror = () => resolve([]);

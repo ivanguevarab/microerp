@@ -345,6 +345,28 @@
             }).format(d);
         }
 
+        // Helper canónico para obtener timestamp Epoch en milisegundos reales (evita trampas léxicas de timezones UTC vs UTC-5)
+        function obtenerMilisegundosEpoch(fechaStr) {
+            if (!fechaStr) return 0;
+            const str = String(fechaStr).trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                const ms = new Date(`${str}T00:00:00-05:00`).getTime();
+                return isNaN(ms) ? 0 : ms;
+            }
+            const ms = new Date(str).getTime();
+            return isNaN(ms) ? 0 : ms;
+        }
+
+        // Helper de comparación temporal robusto para filtros de turnos y fechas
+        function esFechaMayorOIgual(fechaStr, fechaRefStr) {
+            if (!fechaRefStr) return true;
+            if (!fechaStr) return false;
+            const msFecha = obtenerMilisegundosEpoch(fechaStr);
+            const msRef = obtenerMilisegundosEpoch(fechaRefStr);
+            if (msFecha > 0 && msRef > 0) return msFecha >= msRef;
+            return String(fechaStr) >= String(fechaRefStr);
+        }
+
         // Helper de Debounce para entradas reactivas fluidas
         function debounce(func, wait = 350) {
             let timeout;
@@ -760,7 +782,7 @@
                     if (modoVistaVentas === 'TURNO_ACTIVO' && currentTurnoActivo?.hora_apertura) {
                         rawLocales = rawLocales.filter(v => {
                             const fCreacion = v.created_at || v.hora_emision || v.fecha_venta;
-                            return fCreacion >= currentTurnoActivo.hora_apertura;
+                            return esFechaMayorOIgual(fCreacion, currentTurnoActivo.hora_apertura);
                         });
                         console.log(`⏱️ [Offline Ventas] Tras filtro Turno Activo (>= ${currentTurnoActivo.hora_apertura}): ${rawLocales.length}`);
                     } else if (fecInc || fecFin) {
@@ -919,11 +941,11 @@
 
             const todasLasVentas = [...localesAInyectar, ...ventasNube];
 
-            // Ordenamiento cronológico descendente unificado (más reciente a más antiguo)
+            // Ordenamiento cronológico descendente unificado por milisegundos Epoch reales
             todasLasVentas.sort((a, b) => {
-                const fechaA = a.created_at || a.hora_emision || (a.fecha_venta ? a.fecha_venta + 'T00:00:00' : '');
-                const fechaB = b.created_at || b.hora_emision || (b.fecha_venta ? b.fecha_venta + 'T00:00:00' : '');
-                return fechaB.localeCompare(fechaA);
+                const msA = obtenerMilisegundosEpoch(a.created_at || a.hora_emision || (a.fecha_venta ? a.fecha_venta + 'T00:00:00-05:00' : ''));
+                const msB = obtenerMilisegundosEpoch(b.created_at || b.hora_emision || (b.fecha_venta ? b.fecha_venta + 'T00:00:00-05:00' : ''));
+                return msB - msA;
             });
 
             // Esperar que la búsqueda paralela de productos culmine
@@ -939,7 +961,7 @@
             if (modoVistaVentas === 'TURNO_ACTIVO' && currentTurnoActivo?.hora_apertura) {
                 filtrados = filtrados.filter(v => {
                     const fCreacion = v.created_at || v.hora_emision || v.fecha_venta;
-                    return fCreacion >= currentTurnoActivo.hora_apertura;
+                    return esFechaMayorOIgual(fCreacion, currentTurnoActivo.hora_apertura);
                 });
             }
 
