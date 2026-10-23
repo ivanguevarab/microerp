@@ -1099,6 +1099,13 @@
             }
         }
 
+        function timeoutFondoSeguro(promesa, ms = 6000) {
+            return Promise.race([
+                promesa,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_PULSO_FONDO')), ms))
+            ]);
+        }
+
         async function obtenerHuellaDigitalCatalogo() {
             if (!navigator.onLine || window.isOfflineState || !window.supabaseClient || !currentEmpresaId) {
                 return null;
@@ -1106,21 +1113,21 @@
             try {
                 const qItems = window.supabaseClient
                     .from('items')
-                    .select('updated_at, precio_updated_at', { count: 'exact' })
+                    .select('id, updated_at, precio_updated_at')
                     .eq('empresa_id', currentEmpresaId)
                     .eq('activo', true)
                     .order('updated_at', { ascending: false, nullsFirst: false })
                     .limit(1);
 
-                const { data, count, error } = await (window.fetchConTimeout ? window.fetchConTimeout(qItems, 2500) : qItems);
+                const { data, error } = await timeoutFondoSeguro(qItems, 5000);
                 if (error) throw error;
 
                 const ult = (data && data.length > 0) ? data[0] : {};
+                const ultId = ult.id || '';
                 const ultUpd = ult.updated_at || '';
                 const ultPrec = ult.precio_updated_at || '';
-                const total = (count !== null && count !== undefined) ? count : 0;
 
-                return `${total}|${ultUpd}|${ultPrec}`;
+                return `${ultId}|${ultUpd}|${ultPrec}`;
             } catch (err) {
                 return null;
             }
@@ -1146,9 +1153,9 @@
                 .eq('activo', true);
 
             const [resItems, resCats, resFams] = await Promise.all([
-                (window.fetchConTimeout ? window.fetchConTimeout(catPromise, 2500) : catPromise),
-                (window.fetchConTimeout ? window.fetchConTimeout(catsPromise, 2500) : catsPromise).catch(() => ({ data: [] })),
-                (window.fetchConTimeout ? window.fetchConTimeout(famsPromise, 2500) : famsPromise).catch(() => ({ data: [] }))
+                timeoutFondoSeguro(catPromise, 8000),
+                timeoutFondoSeguro(catsPromise, 8000).catch(() => ({ data: [] })),
+                timeoutFondoSeguro(famsPromise, 8000).catch(() => ({ data: [] }))
             ]);
 
             if (!resItems || !resItems.data) {
@@ -1314,8 +1321,8 @@
                             clearTimeout(window._pulsoDebounceTimer);
                             window._pulsoDebounceTimer = setTimeout(() => {
                                 console.log("⚡ [Realtime Catálogo] Evento en items -> actualizando en caliente...");
-                                recargarCatalogoEnCaliente(false, false);
-                            }, 500);
+                                recargarCatalogoEnCaliente(false, true);
+                            }, 400);
                         })
                         .on('postgres_changes', {
                             event: '*',
@@ -1326,12 +1333,24 @@
                             clearTimeout(window._pulsoDebounceTimer);
                             window._pulsoDebounceTimer = setTimeout(() => {
                                 console.log("⚡ [Realtime Catálogo] Evento en categorias -> actualizando en caliente...");
-                                recargarCatalogoEnCaliente(false, false);
-                            }, 500);
+                                recargarCatalogoEnCaliente(false, true);
+                            }, 400);
+                        })
+                        .on('postgres_changes', {
+                            event: '*',
+                            schema: 'public',
+                            table: 'familias',
+                            filter: `empresa_id=eq.${currentEmpresaId}`
+                        }, () => {
+                            clearTimeout(window._pulsoDebounceTimer);
+                            window._pulsoDebounceTimer = setTimeout(() => {
+                                console.log("⚡ [Realtime Catálogo] Evento en familias -> actualizando en caliente...");
+                                recargarCatalogoEnCaliente(false, true);
+                            }, 400);
                         })
                         .subscribe((status) => {
                             if (status === 'SUBSCRIBED') {
-                                console.log("⚡ [Realtime Catálogo] Canal suscrito con éxito a cambios de ítems y categorías.");
+                                console.log("⚡ [Realtime Catálogo] Canal suscrito con éxito a cambios de ítems, categorías y familias.");
                             }
                         });
 
