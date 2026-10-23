@@ -1825,10 +1825,24 @@
                 });
                 recalcularTodo();
 
-                const cierreGuardado = dataCierre || payloadCierre;
-                cierreGuardado.tipo_cierre = 'CORTE_Z';
-                cierreGuardado.auditoria_precios_pin = auditoriaPinTurno;
-                cierreGuardado.desglose_familias = currentResumenTurno ? (currentResumenTurno.desglose_familias || []) : [];
+                const cierreGuardado = {
+                    ...payloadCierre,
+                    ...(dataCierre || {}),
+                    id: dataCierre?.cierre_id || dataCierre?.id || payloadCierre.id,
+                    cierre_id: dataCierre?.cierre_id || dataCierre?.id || payloadCierre.id,
+                    total_ventas_contado: payloadCierre.total_ventas_contado,
+                    saldo_inicial: payloadCierre.saldo_inicial,
+                    total_esperado_gaveta: payloadCierre.total_esperado_gaveta,
+                    total_real_conteo: payloadCierre.total_real_conteo,
+                    diferencia: payloadCierre.diferencia,
+                    primer_ticket: payloadCierre.primer_ticket,
+                    ultimo_ticket: payloadCierre.ultimo_ticket,
+                    hora_apertura: payloadCierre.hora_apertura,
+                    total_tickets: payloadCierre.total_tickets,
+                    tipo_cierre: 'CORTE_Z',
+                    auditoria_precios_pin: auditoriaPinTurno,
+                    desglose_familias: currentResumenTurno ? (currentResumenTurno.desglose_familias || []) : []
+                };
 
                 const tituloExito = esOffline ? '¡Cierre de Turno Registrado (Modo Offline)!' : '¡Cierre de Turno Guardado con Éxito!';
                 const detalleExito = esOffline 
