@@ -763,7 +763,8 @@
             } else {
                 const adminContainer = document.getElementById('admin-selector-container');
                 if (adminContainer) adminContainer.classList.add('hidden');
-                await inicializarModoCajeroArqueo();
+                const tieneTurno = await inicializarModoCajeroArqueo();
+                if (!tieneTurno) return;
             }
 
             const spanFecha = document.getElementById('print-fecha-hora');
@@ -923,12 +924,112 @@
             const btnX = document.getElementById('btn-corte-x');
             const subtitulo = document.getElementById('txtSubtituloTurno');
             const badgeEstadoCard = document.getElementById('badgeEstadoTurnoCard');
+            const badgeOperador = document.getElementById('txtBadgeOperadorArqueo');
 
+            currentTurnoActivo = null;
+            windowCajaIdentificador = localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
+            let respondioSupabase = false;
+
+            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
+                try {
+                    if (currentEmpresaId && window.currentUser && window.currentUser.id) {
+                        const tPromise = window.supabaseClient
+                            .from('pos_turnos_activos')
+                            .select('*')
+                            .eq('empresa_id', currentEmpresaId)
+                            .eq('usuario_id', window.currentUser.id)
+                            .eq('estado', 'ABIERTO')
+                            .order('hora_apertura', { ascending: false })
+                            .limit(1);
+                        const { data: turnosAbiertos, error: errT } = await (window.fetchConTimeout ? window.fetchConTimeout(tPromise, 1500) : tPromise);
+
+                        if (!errT) {
+                            respondioSupabase = true;
+                            if (turnosAbiertos && turnosAbiertos.length > 0) {
+                                currentTurnoActivo = turnosAbiertos[0];
+                                if (esNombreCajeroValidoArqueo(currentTurnoActivo.cajero_nombre)) {
+                                    windowCajeroName = currentTurnoActivo.cajero_nombre.trim();
+                                }
+                                windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                            } else {
+                                currentTurnoActivo = null;
+                                localStorage.removeItem('pos_turno_activo_' + currentEmpresaId);
+                            }
+                        }
+                    }
+                } catch (errT) {
+                    console.warn("Consulta turno activo cajero arqueo:", errT);
+                }
+            }
+
+            // Si no respondió Supabase (contingencia offline genuina), consultar respaldo local legítimo
+            if (!respondioSupabase && !currentTurnoActivo) {
+                try {
+                    const str = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
+                    if (str) {
+                        const parsed = JSON.parse(str);
+                        if (parsed && parsed.estado === 'ABIERTO' && (parsed.id || parsed.turno_id) && parsed.hora_apertura) {
+                            currentTurnoActivo = parsed;
+                            if (esNombreCajeroValidoArqueo(currentTurnoActivo.cajero_nombre)) {
+                                windowCajeroName = currentTurnoActivo.cajero_nombre.trim();
+                            }
+                            if (currentTurnoActivo.caja_identificador) {
+                                windowCajaIdentificador = currentTurnoActivo.caja_identificador;
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            // GUARDIA DE SEGURIDAD ESTRICTA: Si no hay turno abierto para el cajero
+            if (!currentTurnoActivo || currentTurnoActivo.estado !== 'ABIERTO') {
+                currentTurnoActivo = null;
+                localStorage.removeItem('pos_turno_activo_' + currentEmpresaId);
+
+                if (badgeEstadoCard) {
+                    badgeEstadoCard.textContent = 'CAJA CERRADA';
+                    badgeEstadoCard.className = 'px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full';
+                }
+                if (subtitulo) {
+                    subtitulo.textContent = 'No hay ningún turno abierto en esta terminal. Inicia turno en el Punto de Venta para operar.';
+                }
+                if (badgeOperador) {
+                    badgeOperador.innerHTML = `<span>${windowCajeroName} (${windowCajaIdentificador}) - Sin Turno Activo</span>`;
+                }
+                if (btnZ) {
+                    btnZ.classList.add('hidden');
+                    btnZ.disabled = true;
+                }
+                if (btnX) {
+                    btnX.classList.add('hidden');
+                    btnX.disabled = true;
+                }
+                document.getElementById('global-spinner')?.classList.add('hidden');
+
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Caja Cerrada',
+                    html: `
+                        <p class="text-sm text-slate-600 dark:text-slate-300 mb-2">No tienes ningún turno de venta abierto en este momento.</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Para realizar ventas o consultar el balance de caja, debes iniciar un nuevo turno en el Punto de Venta.</p>
+                    `,
+                    confirmButtonText: 'Ir al Punto de Venta',
+                    confirmButtonColor: '#2563eb',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                });
+
+                window.location.href = 'emitir_ticket.html';
+                return false;
+            }
+
+            // Si hay turno abierto legítimo, habilitar UI
             if (subtitulo) {
                 subtitulo.textContent = 'Conciliación económica del turno activo para esta terminal de cobro.';
             }
             if (badgeEstadoCard) {
                 badgeEstadoCard.textContent = 'TURNO ACTIVO';
+                badgeEstadoCard.className = 'px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full';
             }
             if (btnZ) {
                 btnZ.classList.remove('hidden');
@@ -941,50 +1042,6 @@
                 btnX.disabled = false;
                 btnX.className = 'bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition text-sm tracking-wide';
             }
-
-            windowCajaIdentificador = localStorage.getItem('microerp_pos_caja_id') || 'Caja 1';
-            if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
-                try {
-                    if (currentEmpresaId && window.currentUser && window.currentUser.id) {
-                        const tPromise = window.supabaseClient
-                            .from('pos_turnos_activos')
-                            .select('*')
-                            .eq('empresa_id', currentEmpresaId)
-                            .eq('usuario_id', window.currentUser.id)
-                            .eq('estado', 'ABIERTO')
-                            .order('hora_apertura', { ascending: false })
-                            .limit(1);
-                        const { data: turnosAbiertos } = await (window.fetchConTimeout ? window.fetchConTimeout(tPromise, 1200) : tPromise);
-
-                        if (turnosAbiertos && turnosAbiertos.length > 0) {
-                            currentTurnoActivo = turnosAbiertos[0];
-                            if (esNombreCajeroValidoArqueo(currentTurnoActivo.cajero_nombre)) {
-                                windowCajeroName = currentTurnoActivo.cajero_nombre.trim();
-                            }
-                            windowCajaIdentificador = currentTurnoActivo.caja_identificador;
-                        }
-                    }
-                } catch (errT) {
-                    console.warn("Consulta turno activo cajero arqueo:", errT);
-                }
-            }
-
-            if (!currentTurnoActivo) {
-                try {
-                    const str = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
-                    if (str) {
-                        currentTurnoActivo = JSON.parse(str);
-                        if (esNombreCajeroValidoArqueo(currentTurnoActivo.cajero_nombre)) {
-                            windowCajeroName = currentTurnoActivo.cajero_nombre.trim();
-                        }
-                        if (currentTurnoActivo.caja_identificador) {
-                            windowCajaIdentificador = currentTurnoActivo.caja_identificador;
-                        }
-                    }
-                } catch (_) {}
-            }
-
-            const badgeOperador = document.getElementById('txtBadgeOperadorArqueo');
             if (badgeOperador) {
                 badgeOperador.innerHTML = `<span>${windowCajeroName} (${windowCajaIdentificador}) - Operador en Turno</span>`;
             }
@@ -995,6 +1052,7 @@
                     inpFondo.value = parseFloat(currentTurnoActivo.fondo_inicial).toFixed(2);
                 }
             }
+            return true;
         }
 
         function asFechaStr() {
@@ -1052,6 +1110,11 @@
         }
 
         async function extraerVentasBD() {
+            // Guardia de seguridad estricta: Si no es Admin y no hay turno activo con ID, abortar inmediatamente
+            if (windowUserRole !== 'ADMIN' && (!currentTurnoActivo || !currentTurnoActivo.id)) {
+                return;
+            }
+
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient) {
                 try {
                     // 1. Intentar balance atómico del turno vía RPC unificada
@@ -1089,8 +1152,11 @@
                         renderizarDesgloseFamilias(resumen.desglose_familias);
 
                         // Sincronizar snapshot local con los datos reales del turno calculados por Supabase
-                        if (window.MicroERPOffline && currentEmpresaId) {
+                        const idTurnoSnapshot = currentTurnoActivo?.id || resumen.turno_id;
+                        if (window.MicroERPOffline && currentEmpresaId && idTurnoSnapshot) {
                             window.MicroERPOffline.registrarSnapshotTurnoOnline(currentEmpresaId, {
+                                id: idTurnoSnapshot,
+                                turno_id: idTurnoSnapshot,
                                 ventas_online_contado: Number(resumen.total_ventas_contado || resumen.total_sistema || 0),
                                 ventas_online_credito: Number(resumen.total_ventas_credito || 0),
                                 cantidad_tickets_online: Number(resumen.cantidad_tickets || 0),

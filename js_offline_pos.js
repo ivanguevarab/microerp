@@ -776,12 +776,25 @@
         if (!empresaId || !datosTurno) return;
         try {
             const keyTurno = 'pos_turno_activo_' + empresaId;
+
+            // Blindaje 1: Si el turno viene cerrado o finalizado, purgar inmediatamente y abortar
+            if (datosTurno.estado === 'CERRADO' || datosTurno.estado === 'FINALIZADO') {
+                localStorage.removeItem(keyTurno);
+                return;
+            }
+
+            // Blindaje 2: Exigir ID legítimo de turno. NUNCA sintetizar turnos zombi con crypto.randomUUID()
+            const idNormalizado = datosTurno.id || datosTurno.turno_id;
+            if (!idNormalizado) {
+                // Sin ID de turno legítimo provisto por el servidor o apertura formal, abortar
+                return;
+            }
+
             let t = {};
             const str = localStorage.getItem(keyTurno);
             if (str) {
                 try { t = JSON.parse(str); } catch (_) {}
             }
-            const idNormalizado = datosTurno.id || datosTurno.turno_id || t.id || crypto.randomUUID();
             t.id = idNormalizado;
             t.turno_id = idNormalizado;
             t.empresa_id = empresaId;
@@ -790,7 +803,7 @@
             if (datosTurno.caja_identificador) t.caja_identificador = datosTurno.caja_identificador;
             if (datosTurno.fondo_inicial !== undefined) t.fondo_inicial = Number(datosTurno.fondo_inicial || 0);
             if (datosTurno.hora_apertura) t.hora_apertura = datosTurno.hora_apertura;
-            if (datosTurno.estado) t.estado = datosTurno.estado;
+            t.estado = datosTurno.estado || 'ABIERTO';
             t.estado_sync = 'SINCRONIZADO';
             if (datosTurno.ventas_online_contado !== undefined) {
                 t.ventas_online_contado = Number(Number(datosTurno.ventas_online_contado || 0).toFixed(2));

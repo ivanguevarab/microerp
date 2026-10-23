@@ -2116,6 +2116,7 @@
 
             // CASO B: Cajero
             // 1. Intentar restaurar turno activo desde Supabase para esta terminal
+            let supabaseRespondio = false;
             if (navigator.onLine && !window.isOfflineState && window.supabaseClient && currentEmpresaId && window.currentUser) {
                 try {
                     const qTurno = window.supabaseClient
@@ -2126,58 +2127,68 @@
                         .eq('estado', 'ABIERTO')
                         .order('hora_apertura', { ascending: false })
                         .limit(1);
-                    const { data: turnosAbiertos, error: errTurno } = await (window.fetchConTimeout ? window.fetchConTimeout(qTurno, 1200) : qTurno);
+                    const { data: turnosAbiertos, error: errTurno } = await (window.fetchConTimeout ? window.fetchConTimeout(qTurno, 1500) : qTurno);
 
-                    if (!errTurno && turnosAbiertos && turnosAbiertos.length > 0) {
-                        currentTurnoActivo = turnosAbiertos[0];
-                        currentTurnoActivo.turno_id = currentTurnoActivo.id;
-                        window.cajeroName = (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(currentTurnoActivo.cajero_nombre))
-                            ? currentTurnoActivo.cajero_nombre
-                            : (window.currentUserProfile?.nombre_completo || 'Cajero');
-                        window.cajaIdentificador = currentTurnoActivo.caja_identificador;
+                    if (!errTurno) {
+                        supabaseRespondio = true;
+                        if (turnosAbiertos && turnosAbiertos.length > 0) {
+                            currentTurnoActivo = turnosAbiertos[0];
+                            currentTurnoActivo.turno_id = currentTurnoActivo.id;
+                            window.cajeroName = (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(currentTurnoActivo.cajero_nombre))
+                                ? currentTurnoActivo.cajero_nombre
+                                : (window.currentUserProfile?.nombre_completo || 'Cajero');
+                            window.cajaIdentificador = currentTurnoActivo.caja_identificador;
 
-                        const existingLocal = JSON.parse(localStorage.getItem('pos_turno_activo_' + currentEmpresaId) || '{}');
-                        currentTurnoActivo.ventas_online_contado = existingLocal.ventas_online_contado || 0;
-                        currentTurnoActivo.ventas_online_credito = existingLocal.ventas_online_credito || 0;
-                        currentTurnoActivo.cantidad_tickets_online = existingLocal.cantidad_tickets_online || 0;
-                        currentTurnoActivo.primer_ticket_online = existingLocal.primer_ticket_online || null;
-                        currentTurnoActivo.ultimo_ticket_online = existingLocal.ultimo_ticket_online || null;
+                            const existingLocal = JSON.parse(localStorage.getItem('pos_turno_activo_' + currentEmpresaId) || '{}');
+                            currentTurnoActivo.ventas_online_contado = existingLocal.ventas_online_contado || 0;
+                            currentTurnoActivo.ventas_online_credito = existingLocal.ventas_online_credito || 0;
+                            currentTurnoActivo.cantidad_tickets_online = existingLocal.cantidad_tickets_online || 0;
+                            currentTurnoActivo.primer_ticket_online = existingLocal.primer_ticket_online || null;
+                            currentTurnoActivo.ultimo_ticket_online = existingLocal.ultimo_ticket_online || null;
 
-                        if (window.MicroERPOffline && typeof window.MicroERPOffline.registrarSnapshotTurnoOnline === 'function') {
-                            window.MicroERPOffline.registrarSnapshotTurnoOnline(currentEmpresaId, currentTurnoActivo);
+                            if (window.MicroERPOffline && typeof window.MicroERPOffline.registrarSnapshotTurnoOnline === 'function') {
+                                window.MicroERPOffline.registrarSnapshotTurnoOnline(currentEmpresaId, currentTurnoActivo);
+                            } else {
+                                localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
+                                localStorage.setItem('microerp_pos_caja_id', window.cajaIdentificador);
+                            }
+
+                            actualizarBadgeOperadorUI();
+                            habilitarOperatividadPOS(true);
+                            return;
                         } else {
-                            localStorage.setItem('pos_turno_activo_' + currentEmpresaId, JSON.stringify(currentTurnoActivo));
-                            localStorage.setItem('microerp_pos_caja_id', window.cajaIdentificador);
+                            // Supabase confirmó con soberanía total: NO hay turnos abiertos en la base de datos
+                            localStorage.removeItem('pos_turno_activo_' + currentEmpresaId);
+                            currentTurnoActivo = null;
                         }
-
-                        actualizarBadgeOperadorUI();
-                        habilitarOperatividadPOS(true);
-                        return;
                     }
                 } catch (errQ) {
                     console.warn("Verificación de turno en Supabase:", errQ);
                 }
             }
 
-            // 2. Si no hay turno abierto en Supabase, verificar si hay un respaldo local activo
-            const turnoLocalStr = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
-            if (turnoLocalStr) {
-                try {
-                    const tLocal = JSON.parse(turnoLocalStr);
-                    if (tLocal && tLocal.cajero_nombre && tLocal.hora_apertura) {
-                        currentTurnoActivo = tLocal;
-                        window.cajeroName = (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(tLocal.cajero_nombre))
-                            ? tLocal.cajero_nombre
-                            : (window.currentUserProfile?.nombre_completo || 'Cajero');
-                        window.cajaIdentificador = tLocal.caja_identificador || 'Caja 1';
-                        actualizarBadgeOperadorUI();
-                        habilitarOperatividadPOS(true);
-                        return;
-                    }
-                } catch (_) {}
+            // 2. Si NO hubo respuesta de Supabase (modo offline o contingencia de red), verificar respaldo local legítimo
+            if (!supabaseRespondio) {
+                const turnoLocalStr = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
+                if (turnoLocalStr) {
+                    try {
+                        const tLocal = JSON.parse(turnoLocalStr);
+                        if (tLocal && tLocal.estado === 'ABIERTO' && tLocal.cajero_nombre && tLocal.hora_apertura && (tLocal.id || tLocal.turno_id)) {
+                            currentTurnoActivo = tLocal;
+                            window.cajeroName = (typeof esNombreCajeroValido === 'function' && esNombreCajeroValido(tLocal.cajero_nombre))
+                                ? tLocal.cajero_nombre
+                                : (window.currentUserProfile?.nombre_completo || 'Cajero');
+                            window.cajaIdentificador = tLocal.caja_identificador || 'Caja 1';
+                            actualizarBadgeOperadorUI();
+                            habilitarOperatividadPOS(true);
+                            return;
+                        }
+                    } catch (_) {}
+                }
             }
 
             // 3. No hay turno abierto -> Desplegar modal bloqueante
+            currentTurnoActivo = null;
             habilitarOperatividadPOS(false);
             abrirModalAperturaTurno();
         }

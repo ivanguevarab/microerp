@@ -185,6 +185,30 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <!-- Panel de Filtros -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+            <!-- Barra de Segmentación por Turno / Jornada -->
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-100 dark:border-slate-800" id="contenedorSegmentoTurno">
+                <div class="inline-flex p-1 bg-gray-100 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-semibold">
+                    <button id="btnVistaTurnoActivo" type="button" onclick="cambiarModoVistaVentas('TURNO_ACTIVO')" class="px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 shadow-sm bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 font-bold">
+                        <i class="fas fa-user-clock text-amber-500"></i>
+                        <span>Mi Turno Activo</span>
+                        <span id="badgePillTurnoHora" class="ml-1 px-1.5 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded font-mono hidden">--:--</span>
+                    </button>
+                    <button id="btnVistaTodoElDia" type="button" onclick="cambiarModoVistaVentas('TODO_EL_DIA')" class="px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                        <i class="fas fa-calendar-day"></i>
+                        <span>Todo el Día</span>
+                    </button>
+                    <button id="btnVistaHistorialCompleto" type="button" onclick="cambiarModoVistaVentas('HISTORIAL')" class="px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                        <i class="fas fa-history"></i>
+                        <span>Historial (Rango Fechas)</span>
+                    </button>
+                </div>
+                <!-- Banner Informativo del Turno Activo -->
+                <div id="bannerInfoTurnoActivo" class="hidden text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/40 px-3 py-1.5 rounded-lg">
+                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="txtInfoTurnoActivo">Turno en curso</span>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
                 <div class="sm:col-span-2 lg:col-span-7 transition-all duration-200" id="colBuscador">
                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Buscar Ticket, Cliente o Producto</label>
@@ -297,6 +321,8 @@
         let currentUserName = null;
         let currentUserRol = null;
         let isCajero = false;
+        let currentTurnoActivo = null;
+        let modoVistaVentas = 'TODO_EL_DIA'; // 'TURNO_ACTIVO' | 'TODO_EL_DIA' | 'HISTORIAL'
 
         // Session Map Cache Volátil (En memoria RAM del navegador) con Aislamiento Multi-Tenant
         const cacheProductosCatalogo = new Map();     // key: `${currentEmpresaId}_${id}` -> { id, descripcion, codigo }
@@ -335,8 +361,16 @@
             const fCaja = document.getElementById('filtroCaja');
             const fBusc = document.getElementById('filtroBuscador');
 
-            if (fInc) fInc.addEventListener('change', () => cargarVentashistoricas());
-            if (fFin) fFin.addEventListener('change', () => cargarVentashistoricas());
+            if (fInc) fInc.addEventListener('change', () => {
+                modoVistaVentas = 'HISTORIAL';
+                actualizarEstilosBotonesSegmento();
+                cargarVentashistoricas();
+            });
+            if (fFin) fFin.addEventListener('change', () => {
+                modoVistaVentas = 'HISTORIAL';
+                actualizarEstilosBotonesSegmento();
+                cargarVentashistoricas();
+            });
             if (fCaja) fCaja.addEventListener('change', () => cargarVentashistoricas());
 
             if (fBusc) {
@@ -477,6 +511,149 @@
             if (currentEmpresaId) {
                 window.currentEmpresaId = currentEmpresaId;
             }
+
+            // Descubrir si el usuario tiene un turno activo legítimo (Supabase o respaldo local legítimo)
+            currentTurnoActivo = null;
+            if (!esModoOfflineDeclarado && window.supabaseClient && currentUserId && currentEmpresaId) {
+                try {
+                    const qTurno = window.supabaseClient
+                        .from('pos_turnos_activos')
+                        .select('*')
+                        .eq('empresa_id', currentEmpresaId)
+                        .eq('usuario_id', currentUserId)
+                        .eq('estado', 'ABIERTO')
+                        .order('hora_apertura', { ascending: false })
+                        .limit(1);
+                    const { data: tAbiertos } = await (window.fetchConTimeout ? window.fetchConTimeout(qTurno, 1500) : qTurno);
+                    if (tAbiertos && tAbiertos.length > 0) {
+                        currentTurnoActivo = tAbiertos[0];
+                    }
+                } catch (eT) {
+                    console.warn("Consulta turno activo en registros_historicos_ventas:", eT);
+                }
+            }
+
+            if (!currentTurnoActivo) {
+                try {
+                    const str = localStorage.getItem('pos_turno_activo_' + currentEmpresaId);
+                    if (str) {
+                        const parsed = JSON.parse(str);
+                        if (parsed && parsed.estado === 'ABIERTO' && parsed.hora_apertura && (parsed.id || parsed.turno_id)) {
+                            currentTurnoActivo = parsed;
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            configurarControlesTurnoUI();
+        }
+
+        function configurarControlesTurnoUI() {
+            const btnTurno = document.getElementById('btnVistaTurnoActivo');
+            const pillHora = document.getElementById('badgePillTurnoHora');
+            const banner = document.getElementById('bannerInfoTurnoActivo');
+            const txtBanner = document.getElementById('txtInfoTurnoActivo');
+
+            if (currentTurnoActivo && currentTurnoActivo.hora_apertura) {
+                let horaStr = '--:--';
+                try {
+                    horaStr = new Intl.DateTimeFormat('es-PE', { 
+                        timeZone: 'America/Lima', 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        hour12: true 
+                    }).format(new Date(currentTurnoActivo.hora_apertura));
+                } catch (_) {}
+
+                if (pillHora) {
+                    pillHora.textContent = horaStr;
+                    pillHora.classList.remove('hidden');
+                }
+                if (btnTurno) {
+                    btnTurno.disabled = false;
+                    btnTurno.title = `Turno activo iniciado a las ${horaStr}`;
+                    btnTurno.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+                if (banner && txtBanner) {
+                    banner.classList.remove('hidden');
+                    const nomOp = currentTurnoActivo.cajero_nombre || currentUserName || 'Cajero';
+                    const cajaNom = currentTurnoActivo.caja_identificador || 'Caja 1';
+                    txtBanner.innerHTML = `Mostrando ventas de tu <b>Turno Activo</b> en <b>${cajaNom}</b> (Apertura: <b>${horaStr}</b> - Operador: <b>${nomOp}</b>).`;
+                }
+
+                // Si es rol Cajero y tiene turno activo, por defecto enfocar estrictamente en su turno
+                if (isCajero) {
+                    modoVistaVentas = 'TURNO_ACTIVO';
+                } else {
+                    modoVistaVentas = 'TODO_EL_DIA';
+                }
+            } else {
+                if (pillHora) pillHora.classList.add('hidden');
+                if (banner) banner.classList.add('hidden');
+                if (btnTurno) {
+                    btnTurno.disabled = true;
+                    btnTurno.title = 'No hay turno abierto actualmente en esta terminal';
+                    btnTurno.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                modoVistaVentas = 'TODO_EL_DIA';
+            }
+            actualizarEstilosBotonesSegmento();
+        }
+
+        function cambiarModoVistaVentas(nuevoModo) {
+            if (nuevoModo === 'TURNO_ACTIVO' && (!currentTurnoActivo || !currentTurnoActivo.hora_apertura)) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin Turno Activo',
+                        text: 'Actualmente no hay ningún turno de venta abierto en esta terminal. Mostrando todas las ventas de la jornada.',
+                        confirmButtonColor: '#2563eb'
+                    });
+                }
+                return;
+            }
+
+            modoVistaVentas = nuevoModo;
+            
+            const horaLima = window.MicroERPOffline?.obtenerHoraOficialLima 
+                ? window.MicroERPOffline.obtenerHoraOficialLima() 
+                : null;
+            const fechaLimaHoy = horaLima 
+                ? horaLima.fecha 
+                : new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+            const inpInc = document.getElementById('filtroFechaInc');
+            const inpFin = document.getElementById('filtroFechaFin');
+
+            if (modoVistaVentas === 'TURNO_ACTIVO' || modoVistaVentas === 'TODO_EL_DIA') {
+                if (inpInc) inpInc.value = fechaLimaHoy;
+                if (inpFin) inpFin.value = fechaLimaHoy;
+            }
+
+            actualizarEstilosBotonesSegmento();
+            cargarVentashistoricas();
+        }
+
+        function actualizarEstilosBotonesSegmento() {
+            const btnTurno = document.getElementById('btnVistaTurnoActivo');
+            const btnDia = document.getElementById('btnVistaTodoElDia');
+            const btnHist = document.getElementById('btnVistaHistorialCompleto');
+            const banner = document.getElementById('bannerInfoTurnoActivo');
+
+            const claseActivo = 'px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 shadow-sm bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 font-bold';
+            const claseInactivo = 'px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200';
+
+            if (btnTurno) btnTurno.className = (modoVistaVentas === 'TURNO_ACTIVO') ? claseActivo : claseInactivo;
+            if (btnDia) btnDia.className = (modoVistaVentas === 'TODO_EL_DIA') ? claseActivo : claseInactivo;
+            if (btnHist) btnHist.className = (modoVistaVentas === 'HISTORIAL') ? claseActivo : claseInactivo;
+
+            if (banner) {
+                if (modoVistaVentas === 'TURNO_ACTIVO' && currentTurnoActivo) {
+                    banner.classList.remove('hidden');
+                } else {
+                    banner.classList.add('hidden');
+                }
+            }
         }
 
         async function cargarVentashistoricas() {
@@ -579,8 +756,14 @@
                         console.log(`🎯 [Offline Ventas] Tras filtro Cajero (${currentUserName || 'Caja'}): ${rawLocales.length}`);
                     }
 
-                    // 1.2 Filtro temporal estricto en local contra fecInc y fecFin (Zona Horaria UTC-5)
-                    if (fecInc || fecFin) {
+                    // 1.2 Filtro temporal estricto en local (Modo Turno Activo vs Rango Fechas UTC-5)
+                    if (modoVistaVentas === 'TURNO_ACTIVO' && currentTurnoActivo?.hora_apertura) {
+                        rawLocales = rawLocales.filter(v => {
+                            const fCreacion = v.created_at || v.hora_emision || v.fecha_venta;
+                            return fCreacion >= currentTurnoActivo.hora_apertura;
+                        });
+                        console.log(`⏱️ [Offline Ventas] Tras filtro Turno Activo (>= ${currentTurnoActivo.hora_apertura}): ${rawLocales.length}`);
+                    } else if (fecInc || fecFin) {
                         rawLocales = rawLocales.filter(v => {
                             const fStr = normalizarFechaUTC5(v.fecha_venta || v.hora_emision || v.created_at);
                             if (!fStr) return true;
@@ -630,8 +813,12 @@
 
                     query = query.order('created_at', { ascending: false });
 
-                    if (fecInc) query = query.gte('fecha_venta', fecInc);
-                    if (fecFin) query = query.lte('fecha_venta', fecFin);
+                    if (modoVistaVentas === 'TURNO_ACTIVO' && currentTurnoActivo?.hora_apertura) {
+                        query = query.gte('created_at', currentTurnoActivo.hora_apertura);
+                    } else {
+                        if (fecInc) query = query.gte('fecha_venta', fecInc);
+                        if (fecFin) query = query.lte('fecha_venta', fecFin);
+                    }
 
                     const limiteMaximo = 500;
                     if (!term) {
@@ -748,6 +935,14 @@
             let filtrados = todasLasVentas;
             let alcanzadoTope = false;
 
+            // Blindaje Modo Turno Activo: Asegurar que todo comprobante provenga de la hora de apertura
+            if (modoVistaVentas === 'TURNO_ACTIVO' && currentTurnoActivo?.hora_apertura) {
+                filtrados = filtrados.filter(v => {
+                    const fCreacion = v.created_at || v.hora_emision || v.fecha_venta;
+                    return fCreacion >= currentTurnoActivo.hora_apertura;
+                });
+            }
+
             if (term || cajaFiltro) {
                 const t = term.toLowerCase();
                 filtrados = filtrados.filter(v => {
@@ -810,7 +1005,14 @@
                 return;
             }
 
-            pagInfo.innerHTML = `Mostrando <b>${ventas.length}</b> resultados` + 
+            let detalleTextoPaginacion = `Mostrando <b>${ventas.length}</b> resultados`;
+            if (modoVistaVentas === 'TURNO_ACTIVO' && currentTurnoActivo) {
+                detalleTextoPaginacion = `Mostrando <b>${ventas.length}</b> venta(s) de tu <b>Turno Activo</b>`;
+            } else if (modoVistaVentas === 'TODO_EL_DIA') {
+                detalleTextoPaginacion = `Mostrando <b>${ventas.length}</b> venta(s) de <b>Toda la Jornada de Hoy</b>`;
+            }
+
+            pagInfo.innerHTML = detalleTextoPaginacion + 
                 (alcanzadoTope ? ` <span class="ml-2 text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded font-semibold border border-amber-300 dark:border-amber-700/50"><i class="fas fa-info-circle mr-1"></i>Tope de 500 ventas alcanzado. Acota el rango de fechas para ver el consolidado total.</span>` : '');
 
             ventas.forEach(v => {
@@ -877,7 +1079,14 @@
             
             if(tfoot) {
                 tfoot.classList.remove('hidden');
-                const etiquetaTotal = isCajero ? 'Total Mis Ventas:' : 'Total Ventas:';
+                let etiquetaTotal = isCajero ? 'Total Mis Ventas:' : 'Total Ventas:';
+                if (modoVistaVentas === 'TURNO_ACTIVO' && currentTurnoActivo) {
+                    const cantVigentes = ventas.filter(v => v.estado !== 'ANULADO').length;
+                    etiquetaTotal = `Total Ventas en Mi Turno (${cantVigentes} comprobantes):`;
+                } else if (modoVistaVentas === 'TODO_EL_DIA') {
+                    const cantVigentes = ventas.filter(v => v.estado !== 'ANULADO').length;
+                    etiquetaTotal = `Total Ventas de la Jornada (${cantVigentes} comprobantes):`;
+                }
                 tfoot.innerHTML = `
                     <tr>
                         <td colspan="4" class="text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider pr-4">
