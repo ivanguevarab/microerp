@@ -520,9 +520,14 @@
                         </p>
                     </div>
                 </div>
-                <button onclick="cargarVentasPendientes()" class="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow transition shrink-0">
-                    <i class="fas fa-sync-alt"></i> Actualizar Cola
-                </button>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="sincronizarKardexPendientes()" id="btnSincronizarKardex" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition hover:scale-105 active:scale-95 cursor-pointer">
+                        <i class="fas fa-bolt"></i> Sincronizar con Stock Disponible
+                    </button>
+                    <button onclick="cargarVentasPendientes()" class="px-3.5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow transition cursor-pointer" title="Actualizar lista">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Filtros de la Cola de Espera -->
@@ -1050,6 +1055,107 @@
                 } catch (err) {
                     console.error('Error al cargar ventas en espera:', err);
                     tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-rose-500">Error al cargar la lista: ${err.message}</td></tr>`;
+                }
+            }
+
+            async function sincronizarKardexPendientes() {
+                const btn = document.getElementById('btnSincronizarKardex');
+                const oldHtml = btn ? btn.innerHTML : '';
+
+                let totalRegAcumulado = 0;
+                let totalParcAcumulado = 0;
+                let itemsSet = new Set();
+                let productoNum = 1;
+                let continuar = true;
+
+                try {
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Iniciando...';
+                    }
+
+                    while (continuar) {
+                        const { data, error } = await supabaseClient.rpc('rpc_sincronizar_kardex_pendientes', {});
+
+                        if (error) throw error;
+
+                        if (!data || !data.success) {
+                            throw new Error(data?.message || 'Error desconocido al reconciliar kardex.');
+                        }
+
+                        if (!data.item_id && (!data.quedan_pendientes_con_stock || data.total_tickets_regularizados === 0)) {
+                            continuar = false;
+                            break;
+                        }
+
+                        const regEnLote = data.total_tickets_regularizados || 0;
+                        const parcEnLote = data.total_tickets_parciales || 0;
+                        const nombreItem = data.item_nombre || 'Producto';
+
+                        totalRegAcumulado += regEnLote;
+                        totalParcAcumulado += parcEnLote;
+                        if (data.item_id) itemsSet.add(data.item_id);
+
+                        if (btn) {
+                            const descCorta = nombreItem.length > 15 ? nombreItem.substring(0, 15) + '..' : nombreItem;
+                            btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> [${productoNum}] ${descCorta} (${totalRegAcumulado} reg)...`;
+                        }
+
+                        if (!data.quedan_pendientes_con_stock) {
+                            continuar = false;
+                        } else {
+                            productoNum++;
+                            await new Promise(r => setTimeout(r, 80));
+                        }
+                    }
+
+                    const itemsCountTotal = itemsSet.size || (totalRegAcumulado > 0 ? 1 : 0);
+
+                    if (totalRegAcumulado > 0 || totalParcAcumulado > 0) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Sincronización Exitosa!',
+                            html: `
+                                <div class="text-left text-xs space-y-2">
+                                    <p class="text-slate-600 dark:text-slate-300">Se reconciliaron ventas en espera asignando lotes de compra disponibles producto a producto:</p>
+                                    <div class="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5 font-mono">
+                                        <div class="text-emerald-600 dark:text-emerald-400 font-bold">✅ <b>${totalRegAcumulado}</b> ticket(s) regularizados completamente.</div>
+                                        ${totalParcAcumulado > 0 ? `<div class="text-blue-600 dark:text-blue-400 font-bold">⚡ <b>${totalParcAcumulado}</b> ticket(s) con cobertura parcial.</div>` : ''}
+                                        <div class="text-slate-700 dark:text-slate-200 font-semibold">📦 <b>${itemsCountTotal}</b> producto(s) recalculados en Kardex.</div>
+                                    </div>
+                                </div>
+                            `,
+                            confirmButtonText: 'Aceptar',
+                            confirmButtonColor: '#059669'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Sin cambios pendientes',
+                            text: 'No se encontraron ventas en espera que tengan lotes de compra con stock disponible.',
+                            confirmButtonText: 'Entendido',
+                            confirmButtonColor: '#d97706'
+                        });
+                    }
+
+                    await cargarVentasPendientes();
+                    if (typeof cargarKardex === 'function') {
+                        cargarKardex();
+                    }
+                } catch (err) {
+                    console.error('Error al sincronizar kardex pendiente:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de sincronización',
+                        text: err.message || 'No se pudo completar la reconciliación.',
+                        confirmButtonText: 'Cerrar',
+                        confirmButtonColor: '#e11d48'
+                    });
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = oldHtml;
+                    }
                 }
             }
 
