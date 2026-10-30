@@ -255,6 +255,24 @@
             color: #c62828;
         }
 
+        .badge-matriz {
+            background: #eef2ff;
+            color: #4338ca;
+            border: 1px solid #c7d2fe;
+            font-weight: 600;
+            padding: 2px 8px;
+            font-size: 11px;
+        }
+
+        .badge-vinculado {
+            background: #f0f9ff;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            font-weight: 600;
+            padding: 2px 8px;
+            font-size: 11px;
+        }
+
         .actions {
             display: flex;
             gap: 8px;
@@ -688,6 +706,8 @@
         html.dark .codigo-tag { background: rgba(30, 41, 59, 0.8) !important; color: #94a3b8 !important; border: 1px solid rgba(255,255,255,0.1) !important; }
         html.dark .badge-active { background-color: rgba(16, 185, 129, 0.1) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
         html.dark .badge-inactive { background-color: rgba(225, 29, 72, 0.1) !important; color: #fb7185 !important; border: 1px solid rgba(225, 29, 72, 0.3) !important; }
+        html.dark .badge-matriz { background-color: rgba(99, 102, 241, 0.15) !important; color: #a5b4fc !important; border: 1px solid rgba(165, 180, 252, 0.3) !important; }
+        html.dark .badge-vinculado { background-color: rgba(14, 165, 233, 0.15) !important; color: #7dd3fc !important; border: 1px solid rgba(125, 211, 252, 0.3) !important; }
 
         /* Botones de Acción (Iconos) */
         html.dark .btn-edit { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; }
@@ -818,6 +838,12 @@
                     <span class="search-icon">🔍</span>
                 </div>
                 <div class="table-controls-right" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <div class="filter-box">
+                        <label for="filtroFamilia"><i class="fas fa-layer-group"></i> Familia:</label>
+                        <select id="filtroFamilia" onchange="alCambiarFiltroFamilia()">
+                            <option value="">Todas las Familias</option>
+                        </select>
+                    </div>
                     <div class="filter-box">
                         <label for="filtroCategoria"><i class="fas fa-tags"></i> Categoría:</label>
                         <select id="filtroCategoria" onchange="aplicarFiltrosYOrden()">
@@ -957,6 +983,28 @@
                             </label>
                         </div>
 
+                        <!-- Ítem Matriz de Distribución Dinámica -->
+                        <div class="form-group full-width" style="margin-top: 6px; padding: 12px 14px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(129, 140, 248, 0.28); border-radius: 8px;">
+                            <label for="esMatrizDespiece" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 18px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(99, 102, 241, 0.15); border-radius: 6px; color: #818cf8;">🔗</span>
+                                    <div>
+                                        <strong class="text-indigo-700 dark:text-indigo-300" style="font-size: 13px; font-weight: 700;">Ítem Matriz (Items Vinculados)</strong>
+                                        <p class="text-slate-600 dark:text-slate-300" style="margin: 2px 0 0 0; font-size: 11px; line-height: 1.4;">Permite relacionar ítems derivados que compartirán stock y costo por distribución proporcional al registrar compras del producto principal.</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox" id="esMatrizDespiece" onchange="toggleBotonCortesVinculados()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #6366f1;">
+                            </label>
+                            <div id="contenedorBotonCortes" class="hidden mt-3 pt-2.5 border-t border-indigo-200/60 dark:border-indigo-800/60 flex items-center justify-between">
+                                <span id="badgeCortesConteo" class="text-xs text-indigo-700 dark:text-indigo-300 font-semibold flex items-center gap-1.5">
+                                    <i class="fas fa-layer-group text-indigo-500 dark:text-indigo-400"></i> <span id="txtConteoCortes">0 items vinculados</span>
+                                </span>
+                                <button type="button" class="btn-primary" onclick="abrirModalCortesVinculados()" style="background: #4f46e5; font-size: 12px; padding: 6px 14px; border-radius: 6px; border: none; color: white; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="fas fa-cog"></i> Configurar Items Vinculados
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Trazabilidad -->
                         <div id="trazabilidadBlock" class="form-group full-width hidden mt-2 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
                             <div class="flex flex-col gap-1 text-[11px] text-slate-500 dark:text-slate-400">
@@ -971,6 +1019,105 @@
                 <button class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn-primary" onclick="document.getElementById('itemForm').requestSubmit()">
                     Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Items Vinculados (Distribución Dinámica) -->
+    <div class="modal" id="modalCortesVinculados" style="z-index: 1050;">
+        <div class="modal-content" style="max-width: 720px; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2);">
+            <div class="modal-header" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 20px; background: rgba(255, 255, 255, 0.12); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">🔗</span>
+                    <div>
+                        <h3 id="modalCortesTitulo" style="color: #f8fafc; margin: 0; font-size: 17px; font-weight: 700;">Items Vinculados - Producto Principal</h3>
+                        <p id="modalCortesSubtitulo" style="margin: 3px 0 0 0; font-size: 12px; color: #c7d2fe;">Unidad de Medida Matriz: <strong id="lblUnidadMatriz" style="background: rgba(0, 0, 0, 0.35); padding: 2px 8px; border-radius: 4px; font-family: monospace; color: #a5b4fc;">KG</strong></p>
+                    </div>
+                </div>
+                <button class="btn-close" onclick="cerrarModalCortesVinculados()" style="color: #cbd5e1; font-size: 26px; background: transparent; border: none; cursor: pointer; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">×</button>
+            </div>
+            <div class="modal-body p-5">
+                <!-- Panel de Búsqueda y Selección Múltiple con Checkboxes -->
+                <div class="bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3.5 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                            <i class="fas fa-search text-indigo-500 dark:text-indigo-400"></i> Buscar y Vincular Ítems Derivados del Catálogo
+                        </label>
+                        <span id="badgeCandidatosConteo" class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                            0 disponibles
+                        </span>
+                    </div>
+
+                    <!-- Input de Búsqueda en Vivo -->
+                    <div class="relative mb-2">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fas fa-search text-xs"></i>
+                        </span>
+                        <input type="text" id="inputBuscarCandidatos" oninput="filtrarCandidatosVinculacion()" placeholder="Escribe para buscar por código o descripción (ej: pechuga, pierna, ala)..." class="w-full pl-8 pr-8 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                        <button type="button" id="btnLimpiarBuscarCandidatos" onclick="limpiarBusquedaCandidatos()" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm">
+                            &times;
+                        </button>
+                    </div>
+
+                    <!-- Barra de Acciones de Selección (Marcar todos / Contador) -->
+                    <div class="flex items-center justify-between py-1 mb-1.5 px-1 text-[11px]">
+                        <label class="inline-flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                            <input type="checkbox" id="chkMarcarTodosCandidatos" onchange="toggleMarcarTodosCandidatos(this.checked)" class="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer">
+                            <span id="lblMarcarTodos">Seleccionar todos los visibles</span>
+                        </label>
+                        <span id="txtSeleccionadosCount" class="font-semibold text-indigo-600 dark:text-indigo-300">
+                            0 seleccionados
+                        </span>
+                    </div>
+
+                    <!-- Lista con Checkboxes de Candidatos (Scrollable) -->
+                    <div id="contenedorListaCandidatos" class="max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800/80 p-0.5">
+                        <div class="p-4 text-center text-slate-400 text-xs">
+                            <i class="fas fa-spinner fa-spin mr-1"></i> Cargando catálogo disponible...
+                        </div>
+                    </div>
+
+                    <!-- Botón de Acción y Nota -->
+                    <div class="mt-2.5 flex items-center justify-between gap-2">
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 m-0">
+                            🔒 Unidad <strong class="text-indigo-600 dark:text-indigo-300 lblUnidadTexto">KG</strong> y precio &gt; S/ 0.00.
+                        </p>
+                        <button type="button" id="btnVincularSeleccionados" onclick="agregarCandidatosSeleccionadosLote()" disabled class="bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 px-4 py-2 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 cursor-not-allowed">
+                            <i class="fas fa-plus"></i> Vincular Seleccionados (0)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla de Ítems Vinculados -->
+                <div class="max-h-[280px] overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg bg-white dark:bg-slate-900/60">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 sticky top-0">
+                                <th class="p-2.5 font-bold">Código</th>
+                                <th class="p-2.5 font-bold">Descripción del Ítem</th>
+                                <th class="p-2.5 font-bold text-right">Precio Venta</th>
+                                <th class="p-2.5 font-bold text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyCortesVinculados" class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
+                            <tr>
+                                <td colspan="4" class="text-center p-6 text-slate-400 dark:text-slate-500">
+                                    <i class="fas fa-spinner fa-spin mr-1"></i> Cargando ítems vinculados...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Nota informativa con colores suaves de lectura agradable -->
+                <div class="mt-3.5 p-3 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/70 rounded-lg text-xs text-indigo-950 dark:text-indigo-200 leading-relaxed">
+                    <i class="fas fa-info-circle text-indigo-600 dark:text-indigo-400 mr-1"></i> <strong>Distribución Dinámica Proporcional:</strong> Cero porcentajes fijos. Al registrar compras del producto matriz, el sistema calculará el costo unitario de cada ítem derivado con base en el <strong>Valor Relativo de Mercado</strong> generado en mostrador.
+                </div>
+            </div>
+            <div class="modal-footer px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-900/60">
+                <button type="button" onclick="cerrarModalCortesVinculados()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg font-semibold text-xs transition-colors">
+                    Listo / Cerrar
                 </button>
             </div>
         </div>
@@ -999,16 +1146,22 @@
         // ============================================
         let itemsData = [];
         let itemsFiltrados = [];
+        let familiasData = [];
         let categoriasData = [];
         let unidadesData = [];
         let proveedoresData = [];
         let itemEditando = null;
+        let mapaCortesGlobal = new Map(); // item_corte_id -> matriz_descripcion
+        let cortesVinculadosMatrizActual = [];
+        let candidatosDisponiblesList = [];
+        let candidatosSeleccionadosParaVincular = new Set();
 
         // ============================================
         // INICIALIZACIÓN
         // ============================================
         document.addEventListener('DOMContentLoaded', async () => {
             await Promise.all([
+                cargarFamilias(),
                 cargarCategorias(),
                 cargarUnidades(),
                 cargarProveedores()
@@ -1020,26 +1173,67 @@
         // ============================================
         // CARGAR CATÁLOGOS
         // ============================================
+        async function cargarFamilias() {
+            try {
+                const { data } = await supabaseApp.from('familias').select('id, nombre, activo').order('nombre');
+                familiasData = (data || []).filter(f => f.activo !== false);
+
+                const selectFamilia = document.getElementById('filtroFamilia');
+                if (selectFamilia) {
+                    const valorPrevio = selectFamilia.value;
+                    selectFamilia.innerHTML = '<option value="">Todas las Familias</option>';
+                    familiasData.forEach(fam => {
+                        const opt = document.createElement('option');
+                        opt.value = fam.id;
+                        opt.textContent = fam.nombre;
+                        selectFamilia.appendChild(opt);
+                    });
+                    if (valorPrevio && familiasData.some(f => f.id === valorPrevio)) {
+                        selectFamilia.value = valorPrevio;
+                    }
+                }
+            } catch (err) {
+                console.warn('Error al cargar familias:', err);
+            }
+        }
+
         async function cargarCategorias() {
-            const { data } = await supabaseApp.from('categorias').select('id, nombre').eq('activo', true).order('nombre');
+            const { data } = await supabaseApp.from('categorias').select('id, nombre, familia_id, activo').eq('activo', true).order('nombre');
             categoriasData = data || [];
             llenarSelect('categoriaId', categoriasData, 'nombre');
 
-            // Poblar selector de filtro por categoría preservando selección si existiese
+            poblarSelectCategoriasFiltro();
+        }
+
+        function poblarSelectCategoriasFiltro(familiaIdFiltro = '') {
             const selectFiltro = document.getElementById('filtroCategoria');
-            if (selectFiltro) {
-                const valorPrevio = selectFiltro.value;
-                selectFiltro.innerHTML = '<option value="">Todas las Categorías</option>';
-                categoriasData.forEach(cat => {
-                    const opt = document.createElement('option');
-                    opt.value = cat.id;
-                    opt.textContent = cat.nombre;
-                    selectFiltro.appendChild(opt);
-                });
-                if (valorPrevio && categoriasData.some(c => c.id === valorPrevio)) {
-                    selectFiltro.value = valorPrevio;
-                }
+            if (!selectFiltro) return;
+
+            const valorPrevio = selectFiltro.value;
+            selectFiltro.innerHTML = '<option value="">Todas las Categorías</option>';
+
+            const categoriasFiltradas = familiaIdFiltro
+                ? categoriasData.filter(cat => cat.familia_id === familiaIdFiltro)
+                : categoriasData;
+
+            categoriasFiltradas.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.nombre;
+                selectFiltro.appendChild(opt);
+            });
+
+            if (valorPrevio && categoriasFiltradas.some(c => c.id === valorPrevio)) {
+                selectFiltro.value = valorPrevio;
+            } else {
+                selectFiltro.value = '';
             }
+        }
+
+        function alCambiarFiltroFamilia() {
+            const familiaSeleccionada = document.getElementById('filtroFamilia')?.value || '';
+            poblarSelectCategoriasFiltro(familiaSeleccionada);
+            aplicarFiltrosYOrden();
         }
 
         async function cargarUnidades() {
@@ -1083,7 +1277,7 @@
                     .from('items')
                     .select(`
             *,
-            categorias (nombre),
+            categorias (id, nombre, familia_id),
             unidades_medida (codigo),
             proveedores (razon_social)
           `)
@@ -1091,7 +1285,25 @@
 
                 if (error) throw error;
 
-                itemsData = data;
+                itemsData = data || [];
+
+                // Cargar mapa de relaciones de despiece activas para identificar cortes en la tabla
+                try {
+                    const { data: relCortes } = await supabaseApp
+                        .from('items_despiece_cortes')
+                        .select('item_matriz_id, item_corte_id')
+                        .eq('activo', true);
+                    mapaCortesGlobal.clear();
+                    if (relCortes && Array.isArray(relCortes)) {
+                        relCortes.forEach(r => {
+                            const matriz = itemsData.find(m => m.id === r.item_matriz_id);
+                            mapaCortesGlobal.set(r.item_corte_id, matriz ? matriz.descripcion : 'Matriz');
+                        });
+                    }
+                } catch (eRel) {
+                    console.warn('Advertencia al cargar mapa de cortes:', eRel);
+                }
+
                 aplicarFiltrosYOrden();
             } catch (error) {
                 console.error('Error al cargar items:', error);
@@ -1111,16 +1323,23 @@
                 }
 
                 // Exportar fielmente lo que está visible en pantalla (respetando orden y filtros)
-                const dataAExportar = fuenteExportar.map(item => [
-                    item.codigo || '',
-                    item.descripcion || '',
-                    item.categorias?.nombre || 'Sin Categoría',
-                    item.unidades_medida?.codigo || '-',
-                    Number(item.stock_total || 0)
-                ]);
+                const dataAExportar = fuenteExportar.map(item => {
+                    const catObj = categoriasData.find(c => c.id === item.categoria_id);
+                    const famId = item.categorias?.familia_id || catObj?.familia_id;
+                    const famObj = familiasData.find(f => f.id === famId);
+                    const famNombre = item.categorias?.familias?.nombre || famObj?.nombre || 'Sin Familia';
+                    return [
+                        item.codigo || '',
+                        item.descripcion || '',
+                        famNombre,
+                        item.categorias?.nombre || catObj?.nombre || 'Sin Categoría',
+                        item.unidades_medida?.codigo || '-',
+                        Number(item.stock_total || 0)
+                    ];
+                });
 
                 // Agregar encabezados
-                dataAExportar.unshift(['Código', 'Descripción', 'Categoría', 'Unidad', 'Stock Total']);
+                dataAExportar.unshift(['Código', 'Descripción', 'Familia', 'Categoría', 'Unidad', 'Stock Total']);
 
                 // Crear hoja de Excel
                 const ws = XLSX.utils.aoa_to_sheet(dataAExportar);
@@ -1129,6 +1348,7 @@
                 ws['!cols'] = [
                     { wch: 20 }, // Código
                     { wch: 45 }, // Descripción
+                    { wch: 25 }, // Familia
                     { wch: 25 }, // Categoría
                     { wch: 12 }, // Unidad
                     { wch: 15 }  // Stock Total
@@ -1275,7 +1495,12 @@
             </tr>
           </thead>
           <tbody>
-            ${datos.map(prod => `
+            ${datos.map(prod => {
+                const catObj = categoriasData.find(c => c.id === prod.categoria_id);
+                const famId = prod.categorias?.familia_id || catObj?.familia_id;
+                const famObj = familiasData.find(f => f.id === famId);
+                const famNombre = famObj?.nombre || '';
+                return `
               <tr>
                 <td>
                   <div class="inline-flex items-center gap-2 group cursor-pointer" onclick="copiarValorExacto('${prod.codigo}', 'Código')" title="Clic para copiar código">
@@ -1285,11 +1510,20 @@
                     </span>
                   </div>
                 </td>
-                <td>${prod.descripcion}</td>
-                <td>${prod.categorias?.nombre || '-'}</td>
+                <td>
+                  <div class="inline-flex items-center gap-1.5 flex-wrap">
+                    <span>${prod.descripcion}</span>
+                    ${(prod.es_matriz_despiece === true) ? `<span class="badge badge-matriz" title="Ítem Matriz de Distribución Dinámica">🔗 Matriz</span>` : ''}
+                    ${mapaCortesGlobal.has(prod.id) ? `<span class="badge badge-vinculado" title="Ítem derivado de: ${mapaCortesGlobal.get(prod.id)}">🧩 Vinculado</span>` : ''}
+                  </div>
+                </td>
+                <td>
+                  <div style="font-weight: 600;">${prod.categorias?.nombre || catObj?.nombre || '-'}</div>
+                  ${famNombre ? `<div style="font-size: 11px; color: #64748b; font-weight: 500; margin-top: 2px;"><i class="fas fa-layer-group" style="font-size: 10px; opacity: 0.7;"></i> ${famNombre}</div>` : ''}
+                </td>
                 <td>${prod.unidades_medida?.codigo || '-'}</td>
                 <td>
-                  <span>${prod.stock_total || 0}</span>
+                  <span>${(prod.unidades_medida?.codigo === 'KG') ? Number(prod.stock_total || 0).toFixed(3) : (prod.stock_total || 0)}</span>
                   ${(prod.permitir_venta_ilimitada !== false) ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #059669; font-weight: bold; margin-left: 5px; padding: 2px 6px; border-radius: 4px; font-size: 11px;" title="Venta Ilimitada habilitada en POS (Permite vender sin stock y asignar compra después)">∞</span>` : ''}
                 </td>
                 <td>
@@ -1310,7 +1544,8 @@
                   </div>
                 </td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       `;
@@ -1329,11 +1564,21 @@
         function aplicarFiltrosYOrden() {
             const rawSearchTerm = document.getElementById('searchInput').value.trim();
             const searchTerm = normalizarTexto(rawSearchTerm);
+            const familiaSeleccionada = document.getElementById('filtroFamilia')?.value || '';
             const categoriaSeleccionada = document.getElementById('filtroCategoria')?.value || '';
             const sortValue = document.getElementById('sortSelect').value;
 
             // 1. Filtrar
             let resultados = itemsData;
+
+            // Filtro por familia seleccionada
+            if (familiaSeleccionada) {
+                resultados = resultados.filter(prod => {
+                    const catObj = categoriasData.find(c => c.id === prod.categoria_id);
+                    const famId = prod.categorias?.familia_id || catObj?.familia_id;
+                    return famId === familiaSeleccionada;
+                });
+            }
 
             // Filtro por categoría seleccionada
             if (categoriaSeleccionada) {
@@ -1345,9 +1590,16 @@
                 resultados = resultados.filter(prod => {
                     const cod = normalizarTexto(prod.codigo);
                     const desc = normalizarTexto(prod.descripcion);
-                    const cat = normalizarTexto(prod.categorias?.nombre);
+                    const catObj = categoriasData.find(c => c.id === prod.categoria_id);
+                    const catNombre = prod.categorias?.nombre || catObj?.nombre || '';
+                    const cat = normalizarTexto(catNombre);
+
+                    const famId = prod.categorias?.familia_id || catObj?.familia_id;
+                    const famObj = familiasData.find(f => f.id === famId);
+                    const famNombre = famObj?.nombre || '';
+                    const fam = normalizarTexto(famNombre);
                     
-                    return cod.includes(searchTerm) || desc.includes(searchTerm) || cat.includes(searchTerm);
+                    return cod.includes(searchTerm) || desc.includes(searchTerm) || cat.includes(searchTerm) || fam.includes(searchTerm);
                 });
             }
 
@@ -1458,6 +1710,8 @@
             document.getElementById('afectoIgvCompra').value = 'false';
             document.getElementById('afectoIgvVenta').value = 'false';
             document.getElementById('permitirVentaIlimitada').checked = true; // Por defecto siempre habilitado
+            document.getElementById('esMatrizDespiece').checked = false;
+            toggleBotonCortesVinculados();
 
             // Ocultar bloque de trazabilidad al crear nuevo
             const tBlock = document.getElementById('trazabilidadBlock');
@@ -1490,6 +1744,7 @@
             const afectoIgvCompra = document.getElementById('afectoIgvCompra').value === 'true';
             const afectoIgvVenta = document.getElementById('afectoIgvVenta').value === 'true';
             const permitirVentaIlimitada = document.getElementById('permitirVentaIlimitada').checked;
+            const esMatrizDespiece = document.getElementById('esMatrizDespiece').checked;
 
             // Validaciones de campos requeridos
             if (!descripcion || !categoriaId || !unidadMedidaId) {
@@ -1522,6 +1777,7 @@
                         afecto_igv_compra: afectoIgvCompra,
                         afecto_igv_venta: afectoIgvVenta,
                         permitir_venta_ilimitada: permitirVentaIlimitada,
+                        es_matriz_despiece: esMatrizDespiece,
                         updated_by: autor
                     };
 
@@ -1552,6 +1808,7 @@
                         afecto_igv_compra: afectoIgvCompra,
                         afecto_igv_venta: afectoIgvVenta,
                         permitir_venta_ilimitada: permitirVentaIlimitada,
+                        es_matriz_despiece: esMatrizDespiece,
                         activo: true,
                         created_by: autor
                     };
@@ -1604,6 +1861,9 @@
                 document.getElementById('afectoIgvCompra').value = data.afecto_igv_compra !== false ? 'true' : 'false';
                 document.getElementById('afectoIgvVenta').value = data.afecto_igv_venta !== false ? 'true' : 'false';
                 document.getElementById('permitirVentaIlimitada').checked = data.permitir_venta_ilimitada !== false;
+                document.getElementById('esMatrizDespiece').checked = data.es_matriz_despiece === true;
+                toggleBotonCortesVinculados();
+                actualizarContadorCortesBoton(data.id);
 
                 // Cargar Trazabilidad
                 const tBlock = document.getElementById('trazabilidadBlock');
@@ -1722,6 +1982,436 @@
             setTimeout(() => {
                 toast.classList.remove('active');
             }, 3000);
+        }
+
+        // ============================================
+        // DESPIECE DINÁMICO: GESTIÓN DE ITEMS VINCULADOS
+        // ============================================
+        function toggleBotonCortesVinculados() {
+            const chk = document.getElementById('esMatrizDespiece');
+            const cont = document.getElementById('contenedorBotonCortes');
+            if (!chk || !cont) return;
+            if (chk.checked) {
+                cont.classList.remove('hidden');
+                if (itemEditando && itemEditando.id) {
+                    actualizarContadorCortesBoton(itemEditando.id);
+                } else {
+                    document.getElementById('txtConteoCortes').textContent = 'Guarda el ítem para vincular productos';
+                }
+            } else {
+                cont.classList.add('hidden');
+            }
+        }
+
+        async function actualizarContadorCortesBoton(matrizId) {
+            const txt = document.getElementById('txtConteoCortes');
+            if (!txt || !matrizId) return;
+            try {
+                const { count, error } = await supabaseApp
+                    .from('items_despiece_cortes')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('item_matriz_id', matrizId)
+                    .eq('activo', true);
+                if (!error) {
+                    txt.textContent = `${count || 0} item(s) vinculado(s)`;
+                }
+            } catch (err) {
+                console.warn('Error al contar items vinculados:', err);
+            }
+        }
+
+        async function abrirModalCortesVinculados() {
+            if (!itemEditando || !itemEditando.id) {
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Guarda primero el ítem',
+                        text: 'Debes guardar primero este producto para que se le asigne un identificador oficial antes de configurar sus ítems vinculados.',
+                        confirmButtonColor: '#4f46e5'
+                    });
+                } else {
+                    alert('Debes guardar primero este producto antes de configurar sus ítems vinculados.');
+                }
+                return;
+            }
+
+            const modal = document.getElementById('modalCortesVinculados');
+            document.getElementById('modalCortesTitulo').textContent = `Items Vinculados - ${itemEditando.descripcion || ''}`;
+            
+            // Determinar unidad de medida de la matriz
+            const unidadCodigo = itemEditando.unidades_medida?.codigo || itemEditando.unidad_medida || 'KG';
+            document.getElementById('lblUnidadMatriz').textContent = unidadCodigo;
+            const lbls = document.querySelectorAll('.lblUnidadTexto, #lblUnidadTexto');
+            lbls.forEach(el => el.textContent = unidadCodigo);
+
+            // Limpiar buscador y selección previa al abrir
+            const inputBusq = document.getElementById('inputBuscarCandidatos');
+            if (inputBusq) inputBusq.value = '';
+            const btnLimp = document.getElementById('btnLimpiarBuscarCandidatos');
+            if (btnLimp) btnLimp.classList.add('hidden');
+            const chkTodos = document.getElementById('chkMarcarTodosCandidatos');
+            if (chkTodos) chkTodos.checked = false;
+            candidatosSeleccionadosParaVincular.clear();
+
+            modal.classList.add('active');
+            await cargarTablaCortesVinculados();
+        }
+
+        function cerrarModalCortesVinculados() {
+            const modal = document.getElementById('modalCortesVinculados');
+            modal.classList.remove('active');
+            candidatosSeleccionadosParaVincular.clear();
+            if (itemEditando && itemEditando.id) {
+                actualizarContadorCortesBoton(itemEditando.id);
+            }
+        }
+
+        async function cargarTablaCortesVinculados() {
+            const tbody = document.getElementById('tbodyCortesVinculados');
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center p-6 text-slate-400 dark:text-slate-500"><i class="fas fa-spinner fa-spin mr-1"></i> Cargando ítems vinculados...</td></tr>';
+
+            try {
+                const { data, error } = await supabaseApp
+                    .from('items_despiece_cortes')
+                    .select('id, item_corte_id, activo')
+                    .eq('item_matriz_id', itemEditando.id)
+                    .eq('activo', true);
+
+                if (error) throw error;
+                cortesVinculadosMatrizActual = data || [];
+
+                // Cruzar con itemsData en memoria
+                const idsCortes = new Set(cortesVinculadosMatrizActual.map(c => c.item_corte_id));
+
+                if (cortesVinculadosMatrizActual.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center p-7 text-slate-500 dark:text-slate-400">
+                                <div class="text-2xl mb-2">🔗</div>
+                                <div class="font-semibold text-slate-700 dark:text-slate-200 text-xs">No hay ítems vinculados a este producto matriz</div>
+                                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Usa el buscador superior para seleccionar y vincular productos derivados mediante casillas.</div>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    tbody.innerHTML = cortesVinculadosMatrizActual.map(rel => {
+                        const prodCorte = itemsData.find(i => i.id === rel.item_corte_id);
+                        const codigo = prodCorte?.codigo || '---';
+                        const desc = prodCorte?.descripcion || 'Ítem no identificado';
+                        const precio = Number(prodCorte?.precio_venta || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                        return `
+                            <tr class="border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                                <td class="p-2.5 font-semibold text-slate-800 dark:text-slate-100">${codigo}</td>
+                                <td class="p-2.5 text-slate-700 dark:text-slate-200">${desc}</td>
+                                <td class="p-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400 font-mono">S/ ${precio}</td>
+                                <td class="p-2.5 text-center">
+                                    <button type="button" onclick="eliminarCorteVinculado('${rel.id}', '${desc}')" class="bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-800/40 px-2 py-1 rounded-lg cursor-pointer transition-colors text-xs inline-flex items-center gap-1" title="Desvincular ítem derivado">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                // Actualizar y renderizar la lista de candidatos con checkboxes
+                poblarListaCandidatosDisponibles(idsCortes);
+
+            } catch (err) {
+                console.error('Error al cargar ítems vinculados:', err);
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center p-5 text-red-500 text-xs">Error al cargar ítems: ${err.message}</td></tr>`;
+            }
+        }
+
+        // ============================================
+        // BÚSQUEDA Y MULTI-SELECCIÓN DE CANDIDATOS
+        // ============================================
+        function poblarListaCandidatosDisponibles(idsCortesYaVinculados) {
+            const unidadMatrizId = itemEditando.unidad_medida_id;
+            const unidadMatrizCodigo = itemEditando.unidades_medida?.codigo || itemEditando.unidad_medida;
+
+            // Filtrar candidatos del catálogo:
+            // 1. Activo
+            // 2. No es la misma matriz
+            // 3. Misma unidad de medida
+            // 4. No está ya vinculado a esta matriz
+            // 5. Tiene precio de venta mayor a 0
+            candidatosDisponiblesList = itemsData.filter(i => {
+                if (i.id === itemEditando.id) return false;
+                if (!i.activo) return false;
+                if (idsCortesYaVinculados.has(i.id)) return false;
+
+                const coincideUnidad = (unidadMatrizId && i.unidad_medida_id === unidadMatrizId) || 
+                                       (unidadMatrizCodigo && (i.unidades_medida?.codigo === unidadMatrizCodigo || i.unidad_medida === unidadMatrizCodigo));
+                if (!coincideUnidad) return false;
+
+                const precio = Number(i.precio_venta || 0);
+                if (precio <= 0) return false;
+
+                return true;
+            }).sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+
+            // Actualizar conteo de disponibles
+            const badgeDisponibles = document.getElementById('badgeCandidatosConteo');
+            if (badgeDisponibles) {
+                badgeDisponibles.textContent = `${candidatosDisponiblesList.length} disponibles`;
+            }
+
+            // Limpiar de la selección IDs que ya no estén entre los candidatos disponibles
+            for (const id of candidatosSeleccionadosParaVincular) {
+                if (!candidatosDisponiblesList.some(c => c.id === id)) {
+                    candidatosSeleccionadosParaVincular.delete(id);
+                }
+            }
+
+            renderizarListaCandidatos();
+        }
+
+        function renderizarListaCandidatos() {
+            const contenedor = document.getElementById('contenedorListaCandidatos');
+            if (!contenedor) return;
+
+            const input = document.getElementById('inputBuscarCandidatos');
+            const rawSearch = input ? input.value.trim() : '';
+            const searchTerm = normalizarTexto(rawSearch);
+            const btnLimpiar = document.getElementById('btnLimpiarBuscarCandidatos');
+            if (btnLimpiar) {
+                if (rawSearch.length > 0) btnLimpiar.classList.remove('hidden');
+                else btnLimpiar.classList.add('hidden');
+            }
+
+            if (candidatosDisponiblesList.length === 0) {
+                contenedor.innerHTML = `
+                    <div class="p-4 text-center text-slate-400 dark:text-slate-500 text-xs">
+                        <i class="fas fa-check-circle text-emerald-500 mr-1"></i> Todos los productos compatibles de la misma unidad ya están vinculados o no hay disponibles con precio &gt; 0.
+                    </div>
+                `;
+                actualizarBotonVincularSeleccionados(0);
+                return;
+            }
+
+            const filtrados = (searchTerm.length === 0)
+                ? candidatosDisponiblesList
+                : candidatosDisponiblesList.filter(c => {
+                    const cod = normalizarTexto(c.codigo);
+                    const desc = normalizarTexto(c.descripcion);
+                    return cod.includes(searchTerm) || desc.includes(searchTerm);
+                });
+
+            if (filtrados.length === 0) {
+                contenedor.innerHTML = `
+                    <div class="p-4 text-center text-slate-400 dark:text-slate-500 text-xs">
+                        <i class="fas fa-search mr-1"></i> No se encontraron coincidencias para "<strong>${rawSearch}</strong>".
+                    </div>
+                `;
+                actualizarBotonVincularSeleccionados(0);
+                return;
+            }
+
+            contenedor.innerHTML = filtrados.map(c => {
+                const isChecked = candidatosSeleccionadosParaVincular.has(c.id);
+                const precio = Number(c.precio_venta || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                return `
+                    <div class="candidato-item flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${isChecked ? 'bg-indigo-50/90 dark:bg-indigo-950/60 border-l-4 border-indigo-600' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'}" onclick="toggleSeleccionCandidato('${c.id}', event)">
+                        <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                            <input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleSeleccionCandidatoDirecto('${c.id}', this.checked)" class="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer">
+                            <span class="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0 font-semibold">${c.codigo}</span>
+                            <span class="text-xs text-slate-800 dark:text-slate-100 font-medium truncate" title="${c.descripcion}">${c.descripcion}</span>
+                        </div>
+                        <span class="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap shrink-0">S/ ${precio}</span>
+                    </div>
+                `;
+            }).join('');
+
+            actualizarBotonVincularSeleccionados(filtrados.length);
+        }
+
+        function toggleSeleccionCandidato(id, event) {
+            if (candidatosSeleccionadosParaVincular.has(id)) {
+                candidatosSeleccionadosParaVincular.delete(id);
+            } else {
+                candidatosSeleccionadosParaVincular.add(id);
+            }
+            renderizarListaCandidatos();
+        }
+
+        function toggleSeleccionCandidatoDirecto(id, isChecked) {
+            if (isChecked) {
+                candidatosSeleccionadosParaVincular.add(id);
+            } else {
+                candidatosSeleccionadosParaVincular.delete(id);
+            }
+            renderizarListaCandidatos();
+        }
+
+        function filtrarCandidatosVinculacion() {
+            renderizarListaCandidatos();
+        }
+
+        function limpiarBusquedaCandidatos() {
+            const input = document.getElementById('inputBuscarCandidatos');
+            if (input) input.value = '';
+            renderizarListaCandidatos();
+        }
+
+        function toggleMarcarTodosCandidatos(marcarTodos) {
+            const input = document.getElementById('inputBuscarCandidatos');
+            const rawSearch = input ? input.value.trim() : '';
+            const searchTerm = normalizarTexto(rawSearch);
+
+            const filtrados = (searchTerm.length === 0)
+                ? candidatosDisponiblesList
+                : candidatosDisponiblesList.filter(c => {
+                    const cod = normalizarTexto(c.codigo);
+                    const desc = normalizarTexto(c.descripcion);
+                    return cod.includes(searchTerm) || desc.includes(searchTerm);
+                });
+
+            filtrados.forEach(c => {
+                if (marcarTodos) {
+                    candidatosSeleccionadosParaVincular.add(c.id);
+                } else {
+                    candidatosSeleccionadosParaVincular.delete(c.id);
+                }
+            });
+
+            renderizarListaCandidatos();
+        }
+
+        function actualizarBotonVincularSeleccionados(totalFiltradosVisibles) {
+            const count = candidatosSeleccionadosParaVincular.size;
+            const btn = document.getElementById('btnVincularSeleccionados');
+            const txtCount = document.getElementById('txtSeleccionadosCount');
+            const chkTodos = document.getElementById('chkMarcarTodosCandidatos');
+
+            if (txtCount) {
+                txtCount.textContent = `${count} seleccionado(s)`;
+            }
+
+            if (btn) {
+                if (count > 0) {
+                    btn.disabled = false;
+                    btn.className = "bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer";
+                    btn.innerHTML = `<i class="fas fa-plus"></i> Vincular Seleccionados (${count})`;
+                } else {
+                    btn.disabled = true;
+                    btn.className = "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 px-4 py-2 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 cursor-not-allowed";
+                    btn.innerHTML = `<i class="fas fa-plus"></i> Vincular Seleccionados (0)`;
+                }
+            }
+
+            if (chkTodos) {
+                const input = document.getElementById('inputBuscarCandidatos');
+                const rawSearch = input ? input.value.trim() : '';
+                const searchTerm = normalizarTexto(rawSearch);
+                const filtrados = (searchTerm.length === 0)
+                    ? candidatosDisponiblesList
+                    : candidatosDisponiblesList.filter(c => {
+                        const cod = normalizarTexto(c.codigo);
+                        const desc = normalizarTexto(c.descripcion);
+                        return cod.includes(searchTerm) || desc.includes(searchTerm);
+                    });
+                chkTodos.checked = filtrados.length > 0 && filtrados.every(c => candidatosSeleccionadosParaVincular.has(c.id));
+            }
+        }
+
+        async function agregarCandidatosSeleccionadosLote() {
+            if (candidatosSeleccionadosParaVincular.size === 0) {
+                mostrarToast('Selecciona al menos un ítem mediante su casilla para vincularlo', 'warning');
+                return;
+            }
+
+            const autor = (window.currentUserProfile && window.currentUserProfile.nombre_completo) 
+                ? window.currentUserProfile.nombre_completo 
+                : 'Sistema';
+
+            const empresaId = itemEditando.empresa_id || 
+                (window.currentUserProfile && window.currentUserProfile.empresa_id) || 
+                (window.empresaActivaId);
+
+            const btn = document.getElementById('btnVincularSeleccionados');
+            const oldHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Vinculando...';
+            }
+
+            try {
+                const seleccionados = Array.from(candidatosSeleccionadosParaVincular);
+                const payloads = seleccionados.map(corteId => ({
+                    empresa_id: empresaId,
+                    item_matriz_id: itemEditando.id,
+                    item_corte_id: corteId,
+                    activo: true,
+                    created_by: autor
+                }));
+
+                const { error } = await supabaseApp
+                    .from('items_despiece_cortes')
+                    .insert(payloads);
+
+                if (error) {
+                    if (error.code === '23505') {
+                        mostrarToast('Algunos ítems ya estaban vinculados; los restantes fueron procesados.', 'info');
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    mostrarToast(`✅ ${payloads.length} ítem(s) vinculado(s) exitosamente`, 'success');
+                }
+
+                candidatosSeleccionadosParaVincular.clear();
+                await cargarTablaCortesVinculados(); // Refresca tabla vinculados y lista de candidatos
+                await cargarItems(); // Refresca tabla principal con sus badges
+
+            } catch (err) {
+                console.error('Error al vincular lote de ítems:', err);
+                mostrarToast(`❌ Error al vincular: ${err.message}`, 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = oldHtml;
+                }
+            }
+        }
+
+        async function eliminarCorteVinculado(relacionId, corteNombre) {
+            let proceder = true;
+            if (window.Swal) {
+                const res = await Swal.fire({
+                    title: '¿Desvincular este ítem?',
+                    html: `<p class="text-xs text-slate-600 dark:text-slate-300">¿Estás seguro de desvincular <strong>${corteNombre}</strong> de este producto matriz?</p><p class="text-[11px] text-amber-500 mt-2">Si este ítem tiene ventas pendientes en mostrador, al desvincularlo esperará compras directas con su propio código.</p>`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Sí, desvincular',
+                    cancelButtonText: 'Cancelar'
+                });
+                proceder = res.isConfirmed;
+            } else {
+                proceder = confirm(`¿Estás seguro de desvincular ${corteNombre} de este producto matriz?`);
+            }
+
+            if (!proceder) return;
+
+            try {
+                const { error } = await supabaseApp
+                    .from('items_despiece_cortes')
+                    .delete()
+                    .eq('id', relacionId);
+
+                if (error) throw error;
+
+                mostrarToast('Ítem desvinculado correctamente', 'info');
+                await cargarTablaCortesVinculados();
+                await cargarItems(); // Refrescar badges
+
+            } catch (err) {
+                console.error('Error al desvincular ítem:', err);
+                mostrarToast(`❌ Error al desvincular: ${err.message}`, 'error');
+            }
         }
 
         // Script de Tema (Dualidad Light/Dark)

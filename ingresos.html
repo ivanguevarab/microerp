@@ -9,6 +9,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 (Para modales de confirmación y reconciliación FIFO) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -847,6 +849,80 @@
         }
         html.dark .item-stock {
             color: #4ade80 !important; /* green-400 */
+        }
+
+        /* =========================================================
+           SweetAlert2 Premium Enterprise Theme Sync (Dark & Light)
+           ========================================================= */
+        html.dark .swal2-popup {
+            background-color: #0f172a !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85) !important;
+            border-radius: 1.25rem !important;
+        }
+        html.dark .swal2-title {
+            color: #f8fafc !important;
+        }
+        html.dark .swal2-html-container {
+            color: #cbd5e1 !important;
+            margin: 1rem 0 0 0 !important;
+            padding: 0 !important;
+        }
+        html.dark .swal2-icon.swal2-success {
+            border-color: #10b981 !important;
+        }
+        html.dark .swal2-icon.swal2-success [class^='swal2-success-line'] {
+            background-color: #10b981 !important;
+        }
+        html.dark .swal2-icon.swal2-success .swal2-success-ring {
+            border-color: rgba(16, 185, 129, 0.3) !important;
+        }
+        html.dark .swal2-icon.swal2-success .swal2-success-circular-line-left,
+        html.dark .swal2-icon.swal2-success .swal2-success-circular-line-right,
+        html.dark .swal2-icon.swal2-success .swal2-success-fix {
+            background-color: transparent !important;
+        }
+        html:not(.dark) .swal2-popup {
+            background-color: #ffffff !important;
+            border-radius: 1.25rem !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        }
+        html:not(.dark) .swal2-title {
+            color: #0f172a !important;
+        }
+        html:not(.dark) .swal2-html-container {
+            color: #334155 !important;
+            margin: 1rem 0 0 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Custom Scrollbar for FIFO modal */
+        .fifo-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .fifo-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 8px;
+        }
+        .fifo-scroll::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 8px;
+        }
+        .fifo-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.8);
+        }
+        html:not(.dark) .fifo-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        html:not(.dark) .fifo-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+        }
+        html:not(.dark) .fifo-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
 
 </style>
@@ -2856,15 +2932,22 @@
                             switchAuto.checked = false; // reset por defecto
                         }
 
-                        // Agrupar en Lotes
+                        // Agrupar en Lotes (particionados en microlotes de máximo 15 items para erradicar timeouts de PostgREST)
+                        const CHUNK_SIZE_EXCEL = 15;
                         let lotesMap = {};
+                        let itemCounters = {};
+
                         validRows.forEach((r, idx) => {
-                            let key = `${r.proveedor.id}___${r.condicionPago}`;
-                            
-                            // Si es singular, forzamos que la llave sea única por cada fila usando su índice
+                            let baseKey = `${r.proveedor.id}___${r.condicionPago}`;
                             if (isSingular) {
-                                key = `${key}___Fila${idx}`;
+                                baseKey = `${baseKey}___Fila${idx}`;
                             }
+
+                            if (!itemCounters[baseKey]) itemCounters[baseKey] = 0;
+                            const chunkIdx = Math.floor(itemCounters[baseKey] / CHUNK_SIZE_EXCEL);
+                            itemCounters[baseKey]++;
+
+                            const key = isSingular ? baseKey : `${baseKey}___Chunk${chunkIdx}`;
 
                             if(!lotesMap[key]) {
                                 lotesMap[key] = {
@@ -3606,106 +3689,114 @@
                 if (errorNum) throw new Error("Error generando número de ingreso: " + errorNum.message);
 
 
-                // 1. Empaquetamiento Atómico: Cabecera, Detalles y Gastos
-                const payload = {
-                    tipo_ingreso_id: tipoIngreso,
-                    proveedor_id: proveedor,
-                    almacen_destino_id: almacen,
-                    fecha_ingreso: fecha,
-                    numero_ingreso: numeroIngresoGenerado,
-                    estado: 'REGISTRADO',
-                    con_factura: conFactura,
-                    tipo_documento: tipoDocumento,
-                    serie_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : serie,
-                    numero_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : numero,
-                    fecha_documento: tipoDocumento === 'SIN_COMPROBANTE' ? null : fechaDocumento,
-                    subtotal: subtotalGlobal,
-                    igv_credito_fiscal_total: igvGlobal,
-                    costo_adquisicion_total: costoTotal,
-                    otros_egresos_total: totalGastos,
-                    monto_segun_documentos: totalItems,
-                    forma_pago: formaPago,
-                    medio_pago: formaPago === 'CONTADO' ? medioPago : null,
-                    referencia_pago: (formaPago === 'CONTADO' && ['TRANSFERENCIA', 'BILLETERA_DIGITAL', 'NOTA_CREDITO'].includes(medioPago)) ? referenciaPago : null,
-                    pago_inicial: montoInicial,
-                    saldo_credito: saldoCredito,
-                    egreso_real_pagado: egresoReal,
-                    fecha_pago: fechaPago,
-                    fecha_vencimiento: formaPago === 'CREDITO' ? fechaVencimiento : null,
-                    es_inventario_inicial: esInventarioInicial,
-                    created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema',
+                // 1. Preparación de Detalles mapeados
+                const todosLosDetalles = detalleIngreso.map(item => ({
+                    item_id: item.productoId,
+                    cantidad: item.cantidad,
+                    cantidad_disponible: item.cantidad,
+                    precio_compra_unitario: item.precioUnitario,
+                    precio_compra_total: item.total,
+                    valor_compra_unitario: item.valorUnitario,
+                    valor_compra_total: item.subtotal,
+                    igv_credito_fiscal_unitario: item.igvUnitario,
+                    igv_credito_fiscal_producto: item.igvTotal,
+                    con_factura_producto: conFactura,
+                    costo_adquisicion_unitario: item.costoAdquisicionUnitario,
+                    costo_adquisicion_total: item.costoAdquisicionTotal,
+                    fecha_vencimiento: item.esPerecible ? item.fechaVencimiento : null,
+                    otros_egresos_unitario: item.gastoAsignado / item.cantidad,
+                    otros_egresos_total: item.gastoAsignado
+                }));
+
+                const gastosPayload = gastosIngreso.length > 0 ? gastosIngreso.map(gasto => ({
+                    tipo_gasto: 'OTROS',
+                    descripcion: gasto.descripcion,
+                    precio_gasto: gasto.monto,
+                    con_factura_gasto: gasto.conFactura,
+                    valor_gasto: gasto.valor,
+                    igv_credito_fiscal_gasto: gasto.igv,
+                    fecha_pago: gasto.fechaPagoOEA,
+                    proveedor_id: gasto.proveedorId || null,
+                    serie_factura: gasto.serie || null,
+                    numero_factura: gasto.numero || null,
+                    fecha_emision: gasto.fecha || null
+                })) : [];
+
+                // 2. Procesamiento Atómico por Microlotes (Máximo 15 items por petición para prevenir timeouts de PostgREST)
+                const CHUNK_SIZE = 15;
+                const totalChunks = Math.ceil(todosLosDetalles.length / CHUNK_SIZE);
+                let ingresoIdCreado = null;
+                let todasVentasRegularizadas = [];
+
+                for (let c = 0; c < totalChunks; c++) {
+                    const chunkDetalles = todosLosDetalles.slice(c * CHUNK_SIZE, (c + 1) * CHUNK_SIZE);
                     
-                    detalles: detalleIngreso.map(item => ({
-                        item_id: item.productoId,
-                        cantidad: item.cantidad,
-                        cantidad_disponible: item.cantidad,
-                        precio_compra_unitario: item.precioUnitario,
-                        precio_compra_total: item.total,
-                        valor_compra_unitario: item.valorUnitario,
-                        valor_compra_total: item.subtotal,
-                        igv_credito_fiscal_unitario: item.igvUnitario,
-                        igv_credito_fiscal_producto: item.igvTotal,
-                        con_factura_producto: conFactura,
-                        costo_adquisicion_unitario: item.costoAdquisicionUnitario,
-                        costo_adquisicion_total: item.costoAdquisicionTotal,
-                        fecha_vencimiento: item.esPerecible ? item.fechaVencimiento : null,
-                        otros_egresos_unitario: item.gastoAsignado / item.cantidad,
-                        otros_egresos_total: item.gastoAsignado
-                    })),
+                    if (totalChunks > 1) {
+                        mostrarToast(`Guardando microlote ${c + 1} de ${totalChunks} (${(c * CHUNK_SIZE) + 1} al ${Math.min((c + 1) * CHUNK_SIZE, todosLosDetalles.length)} items)...`, 'info');
+                    }
 
-                    gastos: gastosIngreso.length > 0 ? gastosIngreso.map(gasto => ({
-                        tipo_gasto: 'OTROS',
-                        descripcion: gasto.descripcion,
-                        precio_gasto: gasto.monto,
-                        con_factura_gasto: gasto.conFactura,
-                        valor_gasto: gasto.valor,
-                        igv_credito_fiscal_gasto: gasto.igv,
-                        fecha_pago: gasto.fechaPagoOEA,
-                        proveedor_id: gasto.proveedorId || null,
-                        serie_factura: gasto.serie || null,
-                        numero_factura: gasto.numero || null,
-                        fecha_emision: gasto.fecha || null
-                    })) : []
-                };
+                    const chunkSubtotal = chunkDetalles.reduce((sum, i) => sum + i.valor_compra_total, 0);
+                    const chunkIgv = chunkDetalles.reduce((sum, i) => sum + i.igv_credito_fiscal_producto, 0);
+                    const chunkTotal = chunkDetalles.reduce((sum, i) => sum + i.precio_compra_total, 0);
 
-                // 2. Ejecución Atómica de BD mediante RPC
-                const { data: resultRegistro, error: errorRegistro } = await supabaseApp
-                    .rpc('fn_registrar_ingreso', { p_payload: payload });
+                    const payload = {
+                        ingreso_id: ingresoIdCreado, // null en el primer chunk, UUID en los subsecuentes
+                        tipo_ingreso_id: tipoIngreso,
+                        proveedor_id: proveedor,
+                        almacen_destino_id: almacen,
+                        fecha_ingreso: fecha,
+                        numero_ingreso: numeroIngresoGenerado,
+                        estado: 'REGISTRADO',
+                        con_factura: conFactura,
+                        tipo_documento: tipoDocumento,
+                        serie_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : serie,
+                        numero_factura: tipoDocumento === 'SIN_COMPROBANTE' ? null : numero,
+                        fecha_documento: tipoDocumento === 'SIN_COMPROBANTE' ? null : fechaDocumento,
+                        subtotal: chunkSubtotal,
+                        igv_credito_fiscal_total: chunkIgv,
+                        costo_adquisicion_total: chunkTotal + (c === 0 ? totalGastos : 0),
+                        otros_egresos_total: c === 0 ? totalGastos : 0,
+                        monto_segun_documentos: chunkTotal + (c === 0 ? totalGastos : 0),
+                        forma_pago: formaPago,
+                        medio_pago: formaPago === 'CONTADO' ? medioPago : null,
+                        referencia_pago: (formaPago === 'CONTADO' && ['TRANSFERENCIA', 'BILLETERA_DIGITAL', 'NOTA_CREDITO'].includes(medioPago)) ? referenciaPago : null,
+                        pago_inicial: c === 0 ? montoInicial : 0,
+                        saldo_credito: c === 0 ? saldoCredito : 0,
+                        egreso_real_pagado: c === 0 ? egresoReal : 0,
+                        fecha_pago: fechaPago,
+                        fecha_vencimiento: formaPago === 'CREDITO' ? fechaVencimiento : null,
+                        es_inventario_inicial: esInventarioInicial,
+                        created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema',
+                        detalles: chunkDetalles,
+                        gastos: c === 0 ? gastosPayload : []
+                    };
 
-                if (errorRegistro) throw errorRegistro;
-                if (!resultRegistro || !resultRegistro.success) {
-                    throw new Error(resultRegistro ? resultRegistro.message : 'Error desconocido en el registro atómico');
+                    const { data: rawResult, error: errorRegistro } = await supabaseApp
+                        .rpc('fn_registrar_ingreso', { p_payload: payload });
+
+                    if (errorRegistro) throw errorRegistro;
+                    
+                    const resultRegistro = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
+                    if (!resultRegistro || !resultRegistro.success) {
+                        throw new Error(resultRegistro ? resultRegistro.message : 'Error desconocido en el registro atómico');
+                    }
+
+                    if (!ingresoIdCreado && resultRegistro.ingreso_id) {
+                        ingresoIdCreado = resultRegistro.ingreso_id;
+                    }
+
+                    if (resultRegistro.ventas_regularizadas && Array.isArray(resultRegistro.ventas_regularizadas)) {
+                        todasVentasRegularizadas = todasVentasRegularizadas.concat(resultRegistro.ventas_regularizadas);
+                    }
+
+                    if (totalChunks > 1) {
+                        await new Promise(r => setTimeout(r, 150)); // Pausa breve de estabilidad
+                    }
                 }
 
                 // Notificación de Reconciliación FIFO Automática de Ventas en Espera
-                if (resultRegistro.ventas_regularizadas && resultRegistro.ventas_regularizadas.length > 0) {
-                    const cantTickets = resultRegistro.ventas_regularizadas.length;
-                    const itemsRegularizadosHTML = resultRegistro.ventas_regularizadas.map(vr => `
-                        <div class="flex items-center justify-between py-1.5 border-b border-emerald-100 dark:border-emerald-900/50 text-xs">
-                            <span class="font-bold text-slate-800 dark:text-slate-100">${vr.ticket}</span>
-                            <span class="text-emerald-700 dark:text-emerald-300 font-semibold">${Number(vr.cantidad_regularizada).toFixed(3)} unid.</span>
-                            <span class="text-slate-600 dark:text-slate-400 font-mono">Costo: S/ ${Number(vr.costo_adquisicion_asignado).toFixed(2)}</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${vr.estado_final === 'REGULARIZADO' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">${vr.estado_final}</span>
-                        </div>
-                    `).join('');
-
-                    await Swal.fire({
-                        title: '⚡ Reconciliación FIFO Automática',
-                        html: `
-                            <div class="text-left">
-                                <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 mb-3 text-xs text-emerald-900 dark:text-emerald-200 leading-relaxed">
-                                    <p class="font-bold text-sm text-emerald-800 dark:text-emerald-300 mb-1">¡Ventas en espera costeadas y regularizadas!</p>
-                                    Este ingreso cubrió automáticamente <strong>${cantTickets}</strong> venta(s) que se encontraban en espera de compra en mostrador. El Kardex y los márgenes de venta fueron actualizados con el costo real del lote.
-                                </div>
-                                <div class="max-h-48 overflow-y-auto px-1">
-                                    ${itemsRegularizadosHTML}
-                                </div>
-                            </div>
-                        `,
-                        icon: 'success',
-                        confirmButtonText: 'Entendido',
-                        confirmButtonColor: '#059669'
-                    });
+                if (todasVentasRegularizadas.length > 0) {
+                    await renderizarModalReconciliacionFIFO(todasVentasRegularizadas);
                 }
 
                 mostrarToast('✅ Ingreso registrado correctamente', 'success');
@@ -3749,6 +3840,172 @@
                 mostrarToast(`❌ Error: ${error.message}`, 'error');
             }
         }
+
+        // ============================================
+        // MODAL PREMIUM: RECONCILIACIÓN FIFO AUTOMÁTICA
+        // ============================================
+        async function renderizarModalReconciliacionFIFO(todasVentasRegularizadas) {
+            if (!todasVentasRegularizadas || todasVentasRegularizadas.length === 0) return;
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const cantTotalTickets = todasVentasRegularizadas.length;
+            const ticketsMatriz = todasVentasRegularizadas.filter(v => !v.es_despiece);
+            const ticketsCortes = todasVentasRegularizadas.filter(v => v.es_despiece);
+            
+            const totalKgMatriz = ticketsMatriz.reduce((acc, v) => acc + Number(v.cantidad_regularizada || 0), 0);
+            const totalKgCortes = ticketsCortes.reduce((acc, v) => acc + Number(v.cantidad_regularizada || 0), 0);
+            const totalKgGeneral = totalKgMatriz + totalKgCortes;
+
+            const totalCostoRegularizado = todasVentasRegularizadas.reduce((acc, v) => {
+                return acc + (Number(v.cantidad_regularizada || 0) * Number(v.costo_adquisicion_asignado || 0));
+            }, 0);
+
+            // Colores adaptables al tema
+            const cBgCard = isDark ? '#1e293b' : '#f8fafc';
+            const cBorderCard = isDark ? 'rgba(51, 65, 85, 0.7)' : '#e2e8f0';
+            const cTextMain = isDark ? '#f8fafc' : '#0f172a';
+            const cTextMuted = isDark ? '#94a3b8' : '#64748b';
+            const cRowBg = isDark ? 'rgba(30, 41, 59, 0.5)' : '#ffffff';
+            const cRowBorder = isDark ? 'rgba(51, 65, 85, 0.5)' : '#f1f5f9';
+
+            const itemsRowsHTML = todasVentasRegularizadas.map(vr => {
+                const isDespiece = vr.es_despiece || false;
+                const prod = (typeof productosCache !== 'undefined' && productosCache) 
+                    ? productosCache.find(p => p.id === vr.item_id) 
+                    : null;
+                const prodNombre = prod ? prod.descripcion : (isDespiece ? 'Corte de Pollo' : 'Pollo Entero');
+                const prodUnidad = prod && prod.unidad_medida ? prod.unidad_medida.codigo : 'KG';
+
+                const despieceBadge = isDespiece
+                    ? `<span style="padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: ${isDark ? 'rgba(139, 92, 246, 0.2)' : '#ede9fe'}; color: ${isDark ? '#c084fc' : '#7c3aed'}; border: 1px solid ${isDark ? 'rgba(139, 92, 246, 0.35)' : '#c084fc'}; flex-shrink: 0;"><i class="fas fa-cut" style="margin-right: 3px;"></i>Corte</span>`
+                    : `<span style="padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: ${isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7'}; color: ${isDark ? '#34d399' : '#15803d'}; border: 1px solid ${isDark ? 'rgba(16, 185, 129, 0.3)' : '#86efac'}; flex-shrink: 0;"><i class="fas fa-layer-group" style="margin-right: 3px;"></i>Matriz</span>`;
+
+                const badgeEstado = vr.estado_final === 'REGULARIZADO'
+                    ? `<span style="padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; ${isDark ? 'background: rgba(6, 78, 59, 0.6); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4);' : 'background: #dcfce7; color: #15803d; border: 1px solid #86efac;'}">REGULARIZADO</span>`
+                    : `<span style="padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; ${isDark ? 'background: rgba(120, 53, 15, 0.6); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.4);' : 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a;'}">PARCIAL</span>`;
+
+                return `
+                    <div style="display: grid; grid-template-columns: 140px 1fr 100px 110px 110px; align-items: center; padding: 8px 12px; border-radius: 8px; background: ${cRowBg}; border: 1px solid ${cRowBorder}; font-size: 12px; transition: background 0.15s ease;">
+                        <div style="display: flex; align-items: center;">
+                            <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; color: ${cTextMain}; font-size: 11.5px;">${vr.ticket}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 8px;">
+                            <span style="font-weight: 600; color: ${isDark ? '#e2e8f0' : '#334155'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${prodNombre}">${prodNombre}</span>
+                            ${despieceBadge}
+                        </div>
+                        <div style="text-align: right; font-weight: 700; color: ${isDark ? '#34d399' : '#059669'};">
+                            ${Number(vr.cantidad_regularizada).toFixed(3)} <span style="font-size: 10px; font-weight: 500; color: ${cTextMuted};">${prodUnidad}</span>
+                        </div>
+                        <div style="text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: ${cTextMuted};">
+                            S/ ${Number(vr.costo_adquisicion_asignado).toFixed(2)}<span style="font-size: 10px;">/${prodUnidad}</span>
+                        </div>
+                        <div style="text-align: center;">
+                            ${badgeEstado}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const modalHTML = `
+                <div style="text-align: left; font-family: 'Inter', system-ui, -apple-system, sans-serif; line-height: 1.4;">
+                    <!-- Cabecera Premium -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid ${cBorderCard};">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #059669 0%, #10b981 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); flex-shrink: 0;">
+                                <i class="fas fa-bolt" style="color: white; font-size: 20px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: ${cTextMain}; letter-spacing: -0.02em;">Reconciliación FIFO Automática</h3>
+                                <p style="margin: 2px 0 0 0; font-size: 12px; color: ${cTextMuted};">Sincronización cronológica de ventas en espera con Kardex valorizado</p>
+                            </div>
+                        </div>
+                        <span style="padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; background: ${isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5'}; color: ${isDark ? '#34d399' : '#059669'}; border: 1px solid ${isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0'}; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fas fa-shield-alt"></i> AUDITADO
+                        </span>
+                    </div>
+
+                    <!-- Banner de Confirmación -->
+                    <div style="padding: 12px 14px; border-radius: 12px; margin-bottom: 14px; background: ${isDark ? 'rgba(6, 78, 59, 0.35)' : '#ecfdf5'}; border: 1px solid ${isDark ? 'rgba(16, 185, 129, 0.35)' : '#a7f3d0'}; color: ${isDark ? '#ecfdf5' : '#064e3b'}; font-size: 12.5px; line-height: 1.5;">
+                        <span style="font-weight: 700; color: ${isDark ? '#6ee7b7' : '#047857'};"><i class="fas fa-check-circle" style="margin-right: 6px;"></i>¡Ventas costeadas y regularizadas con éxito!</span>
+                        <div style="margin-top: 3px; color: ${isDark ? '#a7f3d0' : '#065f46'}; font-size: 11.5px;">
+                            Este ingreso cubrió <strong style="font-weight: 800; color: ${isDark ? '#ffffff' : '#047857'};">${cantTotalTickets}</strong> tickets en espera de compra. El Kardex y los márgenes de contribución fueron recalculados con el costo real del lote.
+                        </div>
+                    </div>
+
+                    <!-- Tarjetas de Métricas KPI -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;">
+                        <div style="padding: 10px 12px; border-radius: 10px; background: ${cBgCard}; border: 1px solid ${cBorderCard};">
+                            <div style="font-size: 10px; font-weight: 700; color: ${cTextMuted}; text-transform: uppercase; letter-spacing: 0.05em;">Tickets Atendidos</div>
+                            <div style="font-size: 18px; font-weight: 800; color: ${cTextMain}; margin-top: 2px;">${cantTotalTickets} <span style="font-size: 11px; font-weight: 600; color: ${cTextMuted};">tickets</span></div>
+                            <div style="font-size: 10.5px; color: ${isDark ? '#38bdf8' : '#0284c7'}; margin-top: 2px; font-weight: 600;">${ticketsMatriz.length} Matriz · ${ticketsCortes.length} Cortes</div>
+                        </div>
+                        <div style="padding: 10px 12px; border-radius: 10px; background: ${cBgCard}; border: 1px solid ${cBorderCard};">
+                            <div style="font-size: 10px; font-weight: 700; color: ${cTextMuted}; text-transform: uppercase; letter-spacing: 0.05em;">Volumen Regularizado</div>
+                            <div style="font-size: 18px; font-weight: 800; color: ${isDark ? '#34d399' : '#059669'}; margin-top: 2px;">${totalKgGeneral.toFixed(3)} <span style="font-size: 11px; font-weight: 600; color: ${cTextMuted};">KG</span></div>
+                            <div style="font-size: 10.5px; color: ${cTextMuted}; margin-top: 2px;">${totalKgMatriz.toFixed(2)} M. + ${totalKgCortes.toFixed(2)} C.</div>
+                        </div>
+                        <div style="padding: 10px 12px; border-radius: 10px; background: ${cBgCard}; border: 1px solid ${cBorderCard};">
+                            <div style="font-size: 10px; font-weight: 700; color: ${cTextMuted}; text-transform: uppercase; letter-spacing: 0.05em;">Costo Total Asignado</div>
+                            <div style="font-size: 18px; font-weight: 800; color: ${isDark ? '#fbbf24' : '#d97706'}; margin-top: 2px;">S/ ${totalCostoRegularizado.toFixed(2)}</div>
+                            <div style="font-size: 10.5px; color: ${cTextMuted}; margin-top: 2px;">FIFO & Factor K</div>
+                        </div>
+                    </div>
+
+                    <!-- Cabecera de la Tabla -->
+                    <div style="display: grid; grid-template-columns: 140px 1fr 100px 110px 110px; padding: 7px 12px; font-size: 10.5px; font-weight: 700; color: ${cTextMuted}; text-transform: uppercase; letter-spacing: 0.05em; background: ${isDark ? 'rgba(30, 41, 59, 0.6)' : '#f1f5f9'}; border-radius: 8px; margin-bottom: 6px;">
+                        <div>N° Ticket</div>
+                        <div>Producto</div>
+                        <div style="text-align: right;">Cantidad</div>
+                        <div style="text-align: right;">Costo Asig.</div>
+                        <div style="text-align: center;">Estado</div>
+                    </div>
+
+                    <!-- Lista Scrollable de Filas -->
+                    <div class="fifo-scroll" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px;">
+                        ${itemsRowsHTML}
+                    </div>
+
+                    <!-- Nota Footer -->
+                    <div style="margin-top: 14px; padding: 8px 12px; border-radius: 8px; font-size: 11px; display: flex; align-items: center; gap: 8px; background: ${isDark ? 'rgba(15, 23, 42, 0.6)' : '#f8fafc'}; border: 1px solid ${cBorderCard}; color: ${cTextMuted};">
+                        <i class="fas fa-info-circle" style="color: #38bdf8; font-size: 13px; flex-shrink: 0;"></i>
+                        <span>Los egresos de despiece y ventas se integraron automáticamente al Kardex y están listos para consulta en tiempo real.</span>
+                    </div>
+                </div>
+            `;
+
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire({
+                    html: modalHTML,
+                    width: '740px',
+                    padding: '1.5rem',
+                    background: isDark ? '#0f172a' : '#ffffff',
+                    color: isDark ? '#f8fafc' : '#0f172a',
+                    showConfirmButton: true,
+                    confirmButtonText: '<i class="fas fa-check-circle" style="margin-right: 6px;"></i>Entendido, Kardex Actualizado',
+                    confirmButtonColor: '#059669',
+                    customClass: {
+                        popup: isDark ? 'rounded-2xl border border-slate-700/80 shadow-2xl' : 'rounded-2xl border border-slate-200 shadow-2xl',
+                        confirmButton: 'font-bold px-6 py-2.5 rounded-xl shadow-lg transition-all hover:scale-[1.02]'
+                    }
+                });
+            }
+        }
+
+        // Función de prueba accesible desde consola o interfaz
+        window.probarModalReconciliacion = function() {
+            const demoData = [
+                { ticket: 'TCK-2026-01-000139', item_id: 'd2bc2d44-ddfe-4429-8fec-ee60f74d2ae7', cantidad_regularizada: 2.857, costo_adquisicion_asignado: 6.50, estado_final: 'REGULARIZADO', es_despiece: false },
+                { ticket: 'TCK-2026-01-000141', item_id: 'd2bc2d44-ddfe-4429-8fec-ee60f74d2ae7', cantidad_regularizada: 2.520, costo_adquisicion_asignado: 6.50, estado_final: 'REGULARIZADO', es_despiece: false },
+                { ticket: 'TCK-2026-01-000142', item_id: 'd2bc2d44-ddfe-4429-8fec-ee60f74d2ae7', cantidad_regularizada: 5.035, costo_adquisicion_asignado: 6.50, estado_final: 'REGULARIZADO', es_despiece: false },
+                { ticket: 'TCK-2026-01-000147', item_id: 'd2bc2d44-ddfe-4429-8fec-ee60f74d2ae7', cantidad_regularizada: 0.860, costo_adquisicion_asignado: 6.50, estado_final: 'REGULARIZADO', es_despiece: false },
+                { ticket: 'TCK-2026-01-000148', item_id: 'd2bc2d44-ddfe-4429-8fec-ee60f74d2ae7', cantidad_regularizada: 2.900, costo_adquisicion_asignado: 6.50, estado_final: 'REGULARIZADO', es_despiece: false },
+                { ticket: 'TCK-2026-01-000154', item_id: 'd2bc2d44-ddfe-4429-8fec-ee60f74d2ae7', cantidad_regularizada: 2.500, costo_adquisicion_asignado: 6.50, estado_final: 'REGULARIZADO', es_despiece: false },
+                { ticket: 'TCK-2026-01-000160', item_id: 'corte-pechuga-id', cantidad_regularizada: 1.450, costo_adquisicion_asignado: 7.80, estado_final: 'REGULARIZADO', es_despiece: true },
+                { ticket: 'TCK-2026-01-000165', item_id: 'corte-pierna-id', cantidad_regularizada: 2.100, costo_adquisicion_asignado: 7.20, estado_final: 'REGULARIZADO', es_despiece: true },
+                { ticket: 'TCK-2026-01-000170', item_id: 'corte-alitas-id', cantidad_regularizada: 1.800, costo_adquisicion_asignado: 6.90, estado_final: 'REGULARIZADO', es_despiece: true }
+            ];
+            return renderizarModalReconciliacionFIFO(demoData);
+        };
 
         // ============================================
         // UTILIDADES

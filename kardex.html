@@ -443,7 +443,7 @@
                 
                 <div class="mt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
                     <!-- Producto / Buscador Ampliado -->
-                    <div class="md:col-span-4">
+                    <div class="md:col-span-3">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Búsqueda Inteligente</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -454,11 +454,20 @@
                         </div>
                     </div>
 
+                    <!-- Filtro por Familia -->
+                    <div class="md:col-span-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Familia</label>
+                        <select id="filtroFamilia" onchange="manejarCambioFamilia()"
+                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" title="Filtrar por familia de productos">
+                            <option value="">Todas las Familias</option>
+                        </select>
+                    </div>
+
                     <!-- Filtro por Categoría -->
                     <div class="md:col-span-1">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                        <select id="filtroCategoria" onchange="currentPage=1; cargarKardex()"
-                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <select id="filtroCategoria" onchange="manejarCambioCategoria()"
+                            class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" title="Filtrar por categoría comercial">
                             <option value="">Todas</option>
                         </select>
                     </div>
@@ -532,22 +541,46 @@
 
             <!-- Filtros de la Cola de Espera -->
             <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-5">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="md:col-span-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Desde con botón "Solo este día" -->
+                    <div class="relative">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center justify-between">
+                            <span>Desde</span>
+                            <button type="button" onclick="fijarDiaEspecificoEspera()" title="Fijar la búsqueda únicamente en este día" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 px-2 py-0.5 rounded border transition-colors cursor-pointer font-semibold">
+                                Solo este día
+                            </button>
+                        </label>
+                        <input type="date" id="fechaDesdeEspera" onchange="cargarVentasPendientes()" 
+                            class="w-full py-2 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+
+                    <!-- Hasta -->
+                    <div class="relative">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                            Hasta
+                        </label>
+                        <input type="date" id="fechaHastaEspera" onchange="cargarVentasPendientes()" 
+                            class="w-full py-2 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+
+                    <!-- Buscar en cola -->
+                    <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                             Buscar en cola
                         </label>
                         <div class="relative">
                             <i class="fas fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-                            <input type="text" id="busquedaEspera" oninput="renderizarTablaVentasEnEspera()" placeholder="Buscar por ticket, código o descripción de producto..." 
+                            <input type="text" id="busquedaEspera" oninput="renderizarTablaVentasEnEspera()" placeholder="Buscar por ticket, código o producto..." 
                                 class="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none">
                         </div>
                     </div>
+
+                    <!-- Filtrar por Estado -->
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                             Filtrar por Estado
                         </label>
-                        <select id="filtroEstadoEspera" onchange="renderizarTablaVentasEnEspera()" 
+                        <select id="filtroEstadoEspera" onchange="cambiarFiltroEstadoEspera()" 
                             class="w-full py-2 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none">
                             <option value="">Todos los Estados</option>
                             <option value="PENDIENTE" selected>⏳ Pendientes</option>
@@ -978,10 +1011,29 @@
             let currentPage = 1;
             let sidebarWasOpenBeforeModal = false; // Estado previo de la sidebar
 
+            // Catálogos globales de Familias y Categorías
+            let catalogoFamiliasGlobal = [];
+            let catalogoCategoriasGlobal = [];
+            let mapaFamiliasGlobal = {};
+            let mapaCategoriasGlobal = {};
+
+            // Parser universal para fechas de Kardex (compatibilidad segura 'timestamp without time zone' en America/Lima)
+            function parseFechaMovimiento(val) {
+                if (!val) return null;
+                let s = String(val).trim();
+                // Si no contiene Z, ni + (offset), ni - después del día (ej: -05:00)
+                // significa que es un timestamp local puro de Perú almacenado como 'timestamp without time zone'
+                if (!s.includes('Z') && !s.includes('+') && !s.slice(10).includes('-')) {
+                    s = s.replace(' ', 'T') + '-05:00';
+                }
+                return new Date(s);
+            }
+
             // =========================================================================
             // PESTAÑA: VENTAS EN ESPERA DE LOTE (KARDEX ASÍNCRONO)
             // =========================================================================
             let listaVentasEnEspera = [];
+            let mapaCortesVentasEspera = new Map();
 
             function cambiarVistaPrincipalKardex(vista) {
                 const tabMov = document.getElementById('mainTabMovimientos');
@@ -1005,10 +1057,17 @@
 
             async function actualizarContadorVentasEnEspera() {
                 try {
-                    const { count, error } = await supabaseClient
+                    let query = supabaseClient
                         .from('ventas_kardex_pendientes')
                         .select('id', { count: 'exact', head: true })
                         .in('estado', ['PENDIENTE', 'PARCIAL']);
+
+                    const empresaId = localStorage.getItem('empresa_id') || window.currentUser?.empresa_id;
+                    if (empresaId) {
+                        query = query.eq('empresa_id', empresaId);
+                    }
+
+                    const { count, error } = await query;
                     
                     if (!error && count !== null) {
                         const badge = document.getElementById('badgeContadorEspera');
@@ -1026,30 +1085,173 @@
                 }
             }
 
+            // Inicialización de rango por defecto en cola de espera (del más antiguo al más reciente según estado y tenant)
+            async function inicializarFechasEsperaSiVacio(forzar = false) {
+                const elDesde = document.getElementById('fechaDesdeEspera');
+                const elHasta = document.getElementById('fechaHastaEspera');
+                if (!elDesde || !elHasta) return;
+                if (!forzar && elDesde.value && elHasta.value) return;
+
+                const filtroEstado = document.getElementById('filtroEstadoEspera')?.value || '';
+                const empresaId = localStorage.getItem('empresa_id') || window.currentUser?.empresa_id;
+
+                try {
+                    let qMin = supabaseClient
+                        .from('ventas_kardex_pendientes')
+                        .select('fecha_venta');
+
+                    let qMax = supabaseClient
+                        .from('ventas_kardex_pendientes')
+                        .select('fecha_venta');
+
+                    if (empresaId) {
+                        qMin = qMin.eq('empresa_id', empresaId);
+                        qMax = qMax.eq('empresa_id', empresaId);
+                    }
+
+                    if (filtroEstado) {
+                        qMin = qMin.eq('estado', filtroEstado);
+                        qMax = qMax.eq('estado', filtroEstado);
+                    }
+
+                    const { data: minData } = await qMin.order('fecha_venta', { ascending: true }).limit(1);
+                    const { data: maxData } = await qMax.order('fecha_venta', { ascending: false }).limit(1);
+
+                    if (minData && minData.length > 0 && minData[0].fecha_venta) {
+                        elDesde.value = obtenerFechaLocal(minData[0].fecha_venta);
+                    } else {
+                        elDesde.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+                    }
+
+                    if (maxData && maxData.length > 0 && maxData[0].fecha_venta) {
+                        elHasta.value = obtenerFechaLocal(maxData[0].fecha_venta);
+                    } else {
+                        elHasta.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+                    }
+                } catch (e) {
+                    console.warn('Advertencia al calcular rango de fechas por defecto en espera:', e);
+                }
+            }
+
+            // Recalcular rango de fechas dinámicamente si el usuario cambia el selector de estado
+            async function cambiarFiltroEstadoEspera() {
+                await inicializarFechasEsperaSiVacio(true);
+                cargarVentasPendientes();
+            }
+
+            // Fijar la búsqueda en un solo día para la cola de espera
+            function fijarDiaEspecificoEspera() {
+                const elDesde = document.getElementById('fechaDesdeEspera');
+                const elHasta = document.getElementById('fechaHastaEspera');
+                if (elDesde && elHasta) {
+                    if (!elDesde.value) {
+                        elDesde.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+                    }
+                    elHasta.value = elDesde.value;
+                    cargarVentasPendientes();
+                }
+            }
+
             async function cargarVentasPendientes() {
                 const tbody = document.getElementById('tablaVentasEnEspera');
                 tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando ventas en espera de lote...</td></tr>';
 
                 try {
-                    const { data, error } = await supabaseClient
-                        .from('ventas_kardex_pendientes')
-                        .select(`
-                            id,
-                            numero_ticket,
-                            fecha_venta,
-                            cantidad_solicitada,
-                            cantidad_regularizada,
-                            cantidad_pendiente,
-                            estado,
-                            item_id,
-                            items (codigo, descripcion),
-                            almacen_id,
-                            almacenes (nombre)
-                        `)
-                        .order('fecha_venta', { ascending: false });
+                    // Inicializar rango de fechas por defecto (del más antiguo al más reciente) si están vacíos
+                    await inicializarFechasEsperaSiVacio();
 
-                    if (error) throw error;
-                    listaVentasEnEspera = data || [];
+                    const fDesde = document.getElementById('fechaDesdeEspera')?.value || '';
+                    const fHasta = document.getElementById('fechaHastaEspera')?.value || '';
+
+                    // 1. Cargar relaciones de despiece activas para identificar items matrices y cortes vinculados
+                    try {
+                        const { data: relCortes } = await supabaseClient
+                            .from('items_despiece_cortes')
+                            .select('item_matriz_id, item_corte_id')
+                            .eq('activo', true);
+
+                        mapaCortesVentasEspera.clear();
+                        if (relCortes && relCortes.length > 0) {
+                            const matrizIds = [...new Set(relCortes.map(r => r.item_matriz_id).filter(Boolean))];
+                            let matrizMap = new Map();
+                            if (matrizIds.length > 0) {
+                                const { data: matrices } = await supabaseClient
+                                    .from('items')
+                                    .select('id, descripcion')
+                                    .in('id', matrizIds);
+                                if (matrices) {
+                                    matrices.forEach(m => matrizMap.set(m.id, m.descripcion));
+                                }
+                            }
+                            relCortes.forEach(r => {
+                                const descMatriz = matrizMap.get(r.item_matriz_id) || 'Matriz';
+                                mapaCortesVentasEspera.set(r.item_corte_id, descMatriz);
+                            });
+                        }
+                    } catch (eRel) {
+                        console.warn('Advertencia al cargar mapa de cortes en Kardex:', eRel);
+                    }
+
+                    // 2. Cargar ventas en espera por microconsultas/bloques continuos (supera la barrera de 1,000 filas de PostgREST)
+                    let todos = [];
+                    const CHUNK_SIZE = 1000;
+                    let offset = 0;
+                    let totalEsperado = null;
+
+                    while (true) {
+                        let query = supabaseClient
+                            .from('ventas_kardex_pendientes')
+                            .select(`
+                                id,
+                                numero_ticket,
+                                fecha_venta,
+                                cantidad_solicitada,
+                                cantidad_regularizada,
+                                cantidad_pendiente,
+                                estado,
+                                item_id,
+                                items (codigo, descripcion, es_matriz_despiece),
+                                almacen_id,
+                                almacenes (nombre)
+                            `, { count: 'exact' })
+                            .order('fecha_venta', { ascending: false });
+
+                        const empresaId = localStorage.getItem('empresa_id') || window.currentUser?.empresa_id;
+                        if (empresaId) {
+                            query = query.eq('empresa_id', empresaId);
+                        }
+
+                        const filtroEstado = document.getElementById('filtroEstadoEspera')?.value || '';
+                        if (filtroEstado) {
+                            query = query.eq('estado', filtroEstado);
+                        }
+
+                        if (fDesde) {
+                            query = query.gte('fecha_venta', fDesde + ' 00:00:00');
+                        }
+                        if (fHasta) {
+                            query = query.lte('fecha_venta', fHasta + ' 23:59:59');
+                        }
+
+                        query = query.range(offset, offset + CHUNK_SIZE - 1);
+
+                        const { data, error, count } = await query;
+                        if (error) throw error;
+
+                        if (totalEsperado === null && typeof count === 'number') {
+                            totalEsperado = count;
+                        }
+
+                        if (!data || data.length === 0) break;
+                        todos.push(...data);
+
+                        if (data.length < CHUNK_SIZE || (totalEsperado !== null && todos.length >= totalEsperado)) {
+                            break;
+                        }
+                        offset += CHUNK_SIZE;
+                    }
+
+                    listaVentasEnEspera = todos;
                     renderizarTablaVentasEnEspera();
                     actualizarContadorVentasEnEspera();
                 } catch (err) {
@@ -1169,11 +1371,21 @@
                     filtrados = filtrados.filter(v => v.estado === filtroEstado);
                 }
                 if (busq) {
+                    const normalizar = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const qNorm = normalizar(busq);
+                    const tokens = qNorm.split(/\s+/).filter(Boolean);
+
                     filtrados = filtrados.filter(v => {
-                        const tck = (v.numero_ticket || '').toLowerCase();
-                        const desc = (v.items?.descripcion || '').toLowerCase();
-                        const cod = (v.items?.codigo || '').toLowerCase();
-                        return tck.includes(busq) || desc.includes(busq) || cod.includes(busq);
+                        const desc = normalizar(v.items?.descripcion);
+                        const cod = normalizar(v.items?.codigo);
+                        const tck = normalizar(v.numero_ticket);
+                        const textoCompleto = `${desc} ${cod} ${tck}`;
+
+                        // 1. Coincidencia directa por frase/subcadena (ej: "llo ent" coincide con "poLLO ENTEro")
+                        if (textoCompleto.includes(qNorm)) return true;
+
+                        // 2. Coincidencia por palabras clave (todas las palabras buscadas presentes)
+                        return tokens.length > 0 && tokens.every(tok => textoCompleto.includes(tok));
                     });
                 }
 
@@ -1202,17 +1414,30 @@
                         badgeEstado = '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">ANULADO</span>';
                     }
 
-                    const fechaStr = v.fecha_venta ? new Date(v.fecha_venta).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }) : '-';
+                    const fechaStr = v.fecha_venta ? (parseFechaMovimiento(v.fecha_venta)?.toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }) || '-') : '-';
                     const cantSol = Number(v.cantidad_solicitada || 0).toFixed(3);
                     const cantReg = Number(v.cantidad_regularizada || 0).toFixed(3);
                     const cantPend = Number(v.cantidad_pendiente || (Number(v.cantidad_solicitada || 0) - Number(v.cantidad_regularizada || 0))).toFixed(3);
+
+                    const esMatriz = v.items?.es_matriz_despiece === true;
+                    const nombreMatriz = mapaCortesVentasEspera.get(v.item_id);
+
+                    let badgeFiliacion = '';
+                    if (esMatriz) {
+                        badgeFiliacion = `<span class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60 ml-1.5" title="Ítem Matriz de Despiece">🔗 Matriz</span>`;
+                    } else if (nombreMatriz) {
+                        badgeFiliacion = `<span class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300/60 dark:border-purple-700/60 ml-1.5" title="Corte derivado de matriz: ${nombreMatriz}">🧩 Derivado de: ${nombreMatriz}</span>`;
+                    }
 
                     return `
                         <tr class="border-b border-gray-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                             <td class="p-3 text-xs whitespace-nowrap">${fechaStr}</td>
                             <td class="p-3 text-xs font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">${v.numero_ticket || '-'}</td>
                             <td class="p-3 text-xs">
-                                <div class="font-bold text-slate-800 dark:text-slate-100">${v.items?.descripcion || 'Producto no especificado'}</div>
+                                <div class="flex items-center flex-wrap gap-1">
+                                    <span class="font-bold text-slate-800 dark:text-slate-100">${v.items?.descripcion || 'Producto no especificado'}</span>
+                                    ${badgeFiliacion}
+                                </div>
                                 <div class="text-[11px] text-slate-400 font-mono">${v.items?.codigo || '-'}</div>
                             </td>
                             <td class="p-3 text-xs text-slate-600 dark:text-slate-400">${v.almacenes?.nombre || 'Almacén Principal'}</td>
@@ -1232,7 +1457,7 @@
             document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('fechaActual').textContent = new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                 
-                await Promise.all([cargarTiposMovimiento(), cargarCategorias()]);
+                await Promise.all([cargarTiposMovimiento(), cargarFamiliasYCategorias()]);
                 
                 // Set default dates (current month)
                 const date = new Date();
@@ -1247,14 +1472,26 @@
                     document.getElementById('registrosPorPagina').value = localStorage.getItem('kardex_registrosPorPagina') || '10';
                     document.getElementById('busquedaProducto').value = localStorage.getItem('kardex_busquedaProducto') || '';
 
-                    // Restauración validada de categoría (Blindaje Multi-Tenant)
+                    // Restauración validada de Familia y Categoría (Blindaje Multi-Tenant)
+                    const savedFam = localStorage.getItem('kardex_filtroFamilia');
                     const savedCat = localStorage.getItem('kardex_filtroCategoria');
+                    const selectFam = document.getElementById('filtroFamilia');
                     const selectCat = document.getElementById('filtroCategoria');
-                    if (savedCat && selectCat && selectCat.querySelector(`option[value="${savedCat}"]`)) {
-                        selectCat.value = savedCat;
-                    } else if (selectCat) {
-                        selectCat.value = '';
-                        localStorage.removeItem('kardex_filtroCategoria');
+
+                    if (savedFam && selectFam && catalogoFamiliasGlobal.some(f => f.id === savedFam)) {
+                        selectFam.value = savedFam;
+                        actualizarOpcionesCategorias(savedFam, savedCat);
+                    } else if (savedCat) {
+                        const catObj = catalogoCategoriasGlobal.find(c => c.id === savedCat);
+                        if (catObj && catObj.familia_id && selectFam) {
+                            selectFam.value = catObj.familia_id;
+                            actualizarOpcionesCategorias(catObj.familia_id, savedCat);
+                        } else {
+                            actualizarOpcionesCategorias('', savedCat);
+                        }
+                    } else {
+                        if (selectFam) selectFam.value = '';
+                        if (selectCat) selectCat.value = '';
                     }
 
                     actualizarUiBotonFijar(true);
@@ -1350,6 +1587,7 @@
                     localStorage.removeItem('kardex_modoVista');
                     localStorage.removeItem('kardex_registrosPorPagina');
                     localStorage.removeItem('kardex_busquedaProducto');
+                    localStorage.removeItem('kardex_filtroFamilia');
                     localStorage.removeItem('kardex_filtroCategoria');
                     actualizarUiBotonFijar(false);
                 } else {
@@ -1367,6 +1605,8 @@
                 localStorage.setItem('kardex_modoVista', document.getElementById('modoVista').value);
                 localStorage.setItem('kardex_registrosPorPagina', document.getElementById('registrosPorPagina').value);
                 localStorage.setItem('kardex_busquedaProducto', document.getElementById('busquedaProducto').value);
+                const selFam = document.getElementById('filtroFamilia');
+                if (selFam) localStorage.setItem('kardex_filtroFamilia', selFam.value);
                 const selCat = document.getElementById('filtroCategoria');
                 if (selCat) localStorage.setItem('kardex_filtroCategoria', selCat.value);
             }
@@ -1482,29 +1722,98 @@
                 }
             }
 
-            async function cargarCategorias() {
+            async function cargarFamiliasYCategorias() {
                 try {
-                    const select = document.getElementById('filtroCategoria');
-                    if (!select) return;
+                    const [respFamilias, respCats] = await Promise.all([
+                        supabaseClient
+                            .from('familias')
+                            .select('id, nombre, activo')
+                            .order('nombre'),
+                        supabaseClient
+                            .from('categorias')
+                            .select('id, nombre, familia_id, activo')
+                            .eq('activo', true)
+                            .order('nombre')
+                    ]);
 
-                    const { data: categorias, error } = await supabaseClient
-                        .from('categorias')
-                        .select('id, nombre')
-                        .eq('activo', true)
-                        .order('nombre');
+                    catalogoFamiliasGlobal = (respFamilias.data || []).filter(f => f.activo !== false);
+                    catalogoCategoriasGlobal = respCats.data || [];
+                    
+                    mapaFamiliasGlobal = {};
+                    catalogoFamiliasGlobal.forEach(f => { mapaFamiliasGlobal[f.id] = f.nombre; });
+                    
+                    mapaCategoriasGlobal = {};
+                    catalogoCategoriasGlobal.forEach(c => { mapaCategoriasGlobal[c.id] = c.nombre; });
 
-                    if (!error && categorias) {
-                        select.innerHTML = '<option value="">Todas</option>';
-                        categorias.forEach(cat => {
-                            const opt = document.createElement('option');
-                            opt.value = cat.id;
-                            opt.textContent = cat.nombre;
-                            select.appendChild(opt);
-                        });
-                    }
-                } catch(e) {
-                    console.error("Error al cargar categorías:", e);
+                    poblarSelectoresFamiliaYCategoria();
+                } catch (err) {
+                    console.error("Error al cargar familias y categorías en Kardex:", err);
                 }
+            }
+
+            function poblarSelectoresFamiliaYCategoria(familiaIdFiltro = null, categoriaIdFiltro = null) {
+                const selectFam = document.getElementById('filtroFamilia');
+                const selectCat = document.getElementById('filtroCategoria');
+                if (!selectFam || !selectCat) return;
+
+                // 1. Poblar Familias
+                const valorPrevioFam = familiaIdFiltro !== null ? familiaIdFiltro : selectFam.value;
+                selectFam.innerHTML = '<option value="">Todas las Familias</option>';
+                catalogoFamiliasGlobal.forEach(fam => {
+                    const opt = document.createElement('option');
+                    opt.value = fam.id;
+                    opt.textContent = `📁 ${fam.nombre}`;
+                    selectFam.appendChild(opt);
+                });
+                if (valorPrevioFam && catalogoFamiliasGlobal.some(f => f.id === valorPrevioFam)) {
+                    selectFam.value = valorPrevioFam;
+                }
+
+                // 2. Poblar Categorías (filtradas por la familia seleccionada)
+                actualizarOpcionesCategorias(selectFam.value, categoriaIdFiltro !== null ? categoriaIdFiltro : selectCat.value);
+            }
+
+            function actualizarOpcionesCategorias(familiaIdSeleccionada, categoriaSeleccionadaPrev = null) {
+                const selectCat = document.getElementById('filtroCategoria');
+                if (!selectCat) return;
+
+                const valorPrevio = categoriaSeleccionadaPrev !== null ? categoriaSeleccionadaPrev : selectCat.value;
+                let categoriasDisponibles = catalogoCategoriasGlobal;
+
+                if (familiaIdSeleccionada) {
+                    categoriasDisponibles = catalogoCategoriasGlobal.filter(c => c.familia_id === familiaIdSeleccionada);
+                    const nombreFam = mapaFamiliasGlobal[familiaIdSeleccionada] || 'Familia';
+                    selectCat.innerHTML = `<option value="">Todas (${nombreFam})</option>`;
+                } else {
+                    selectCat.innerHTML = '<option value="">Todas las Categorías</option>';
+                }
+
+                categoriasDisponibles.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat.id;
+                    opt.textContent = cat.nombre;
+                    selectCat.appendChild(opt);
+                });
+
+                if (valorPrevio && categoriasDisponibles.some(c => c.id === valorPrevio)) {
+                    selectCat.value = valorPrevio;
+                } else {
+                    selectCat.value = '';
+                }
+            }
+
+            function manejarCambioFamilia() {
+                const familiaId = document.getElementById('filtroFamilia')?.value || '';
+                actualizarOpcionesCategorias(familiaId, '');
+                guardarConfiguracionFiltros();
+                currentPage = 1;
+                cargarKardex();
+            }
+
+            function manejarCambioCategoria() {
+                guardarConfiguracionFiltros();
+                currentPage = 1;
+                cargarKardex();
             }
 
             function normalizarTexto(texto) {
@@ -1517,7 +1826,13 @@
                 const fechaHasta = document.getElementById('fechaHasta').value;
                 const productoBusqueda = normalizarTexto(document.getElementById('busquedaProducto').value);
                 const tipoMovimiento = document.getElementById('tipoMovimiento').value;
+                const familiaId = document.getElementById('filtroFamilia')?.value || '';
                 const categoriaId = document.getElementById('filtroCategoria')?.value || '';
+
+                // IDs de categorías asociadas a la familia seleccionada (si no se seleccionó una categoría específica)
+                const catIdsDeFamilia = (familiaId && !categoriaId)
+                    ? (catalogoCategoriasGlobal || []).filter(c => c.familia_id === familiaId).map(c => c.id)
+                    : [];
 
                 let itemIds = [];
                 let docsEncontrados = [];
@@ -1565,6 +1880,12 @@
                         let itemsQueryBuilder = supabaseClient.from('items').select('id');
                         if (categoriaId) {
                             itemsQueryBuilder = itemsQueryBuilder.eq('categoria_id', categoriaId);
+                        } else if (familiaId) {
+                            if (catIdsDeFamilia.length > 0) {
+                                itemsQueryBuilder = itemsQueryBuilder.in('categoria_id', catIdsDeFamilia);
+                            } else {
+                                itemsQueryBuilder = itemsQueryBuilder.eq('categoria_id', '00000000-0000-0000-0000-000000000000');
+                            }
                         }
 
                         if (sonTodosCodigos) {
@@ -1618,6 +1939,12 @@
                                     let qItemsW = supabaseClient.from('items').select('id').ilike('busqueda_vector', `%${w}%`);
                                     if (categoriaId) {
                                         qItemsW = qItemsW.eq('categoria_id', categoriaId);
+                                    } else if (familiaId) {
+                                        if (catIdsDeFamilia.length > 0) {
+                                            qItemsW = qItemsW.in('categoria_id', catIdsDeFamilia);
+                                        } else {
+                                            qItemsW = qItemsW.eq('categoria_id', '00000000-0000-0000-0000-000000000000');
+                                        }
                                     }
                                     const { data: items } = await qItemsW.limit(50);
                                     if (items && items.length > 0) orTerms.push(`item_id.in.(${items.map(i=>i.id).join(',')})`);
@@ -1693,26 +2020,30 @@
                     }
                 }
 
-                // Ajuste manual UTC-5 para timestamp without time zone
-                // Inicio del día en Perú (00:00:00) equivale a las 05:00:00 UTC
-                const fechaGte = fechaDesde + ' 05:00:00';
-                
-                // Fin del día en Perú (23:59:59) equivale a las 04:59:59 UTC del día siguiente
-                const dateHastaObj = new Date(fechaHasta + 'T00:00:00');
-                dateHastaObj.setDate(dateHastaObj.getDate() + 1);
-                const yyyy = dateHastaObj.getFullYear();
-                const mm = String(dateHastaObj.getMonth() + 1).padStart(2, '0');
-                const dd = String(dateHastaObj.getDate()).padStart(2, '0');
-                const fechaLte = `${yyyy}-${mm}-${dd} 04:59:59`;
+                // Rango horario completo del día en zona horaria de Perú (America/Lima)
+                const fechaGte = fechaDesde + ' 00:00:00';
+                const fechaLte = fechaHasta + ' 23:59:59';
 
-                // Resolución homogénea de items por categoría
+                // Resolución homogénea de items por Familia y/o Categoría
                 let catItemIds = null;
                 if (categoriaId) {
                     const { data: itemsCat } = await supabaseClient
                         .from('items')
                         .select('id')
-                        .eq('categoria_id', categoriaId);
+                        .eq('categoria_id', categoriaId)
+                        .limit(10000);
                     catItemIds = (itemsCat || []).map(i => i.id);
+                } else if (familiaId) {
+                    if (catIdsDeFamilia.length > 0) {
+                        const { data: itemsFam } = await supabaseClient
+                            .from('items')
+                            .select('id')
+                            .in('categoria_id', catIdsDeFamilia)
+                            .limit(10000);
+                        catItemIds = (itemsFam || []).map(i => i.id);
+                    } else {
+                        catItemIds = [];
+                    }
                 }
 
                 let query;
@@ -2081,23 +2412,14 @@
                     const row = document.createElement('tr');
                     row.className = 'border-b border-gray-100 hover:bg-gray-50 transition-colors group';
 
-                    // Formato de fecha UTC-5
-                    let fechaStr = mov.fecha_movimiento;
-                    if (fechaStr && !fechaStr.includes('Z') && !fechaStr.includes('+') && !fechaStr.includes('-')) {
-                        fechaStr += 'Z';
-                    } else if (fechaStr && !fechaStr.includes('Z') && !fechaStr.includes('+') && fechaStr.includes('T')) {
-                        if (fechaStr.split('-').length === 3 && fechaStr.includes('T') && !fechaStr.slice(10).includes('-')) {
-                            fechaStr += 'Z';
-                        }
-                    }
-
-                    const dateObj = new Date(fechaStr);
-                    const fecha = dateObj.toLocaleString('es-PE', {
+                    // Formato de fecha nativo en America/Lima
+                    const dateObj = parseFechaMovimiento(mov.fecha_movimiento);
+                    const fecha = dateObj ? dateObj.toLocaleString('es-PE', {
                         timeZone: 'America/Lima',
                         day: '2-digit', month: '2-digit', year: 'numeric',
                         hour: '2-digit', minute: '2-digit', second: '2-digit',
                         hour12: true
-                    });
+                    }) : '';
 
                     // Formatter for currency
                     const formatMoney = (amount) => {
@@ -2371,24 +2693,14 @@
 
             function obtenerFechaLocal(isoStr) {
                 if (!isoStr) return '';
-                let s = isoStr;
-                if (!s.includes('Z') && !s.includes('+') && !s.includes('-')) s += 'Z';
-                else if (!s.includes('Z') && !s.includes('+') && s.includes('T')) {
-                    if (s.split('-').length === 3 && !s.slice(10).includes('-')) s += 'Z';
-                }
-                const d = new Date(s);
-                return d.toLocaleDateString('en-CA', { timeZone: 'America/Lima' }); // Formato YYYY-MM-DD
+                const d = parseFechaMovimiento(isoStr);
+                return d ? d.toLocaleDateString('en-CA', { timeZone: 'America/Lima' }) : ''; // Formato YYYY-MM-DD
             }
 
             function obtenerFechaHoraLocal(isoStr) {
                 if (!isoStr) return '';
-                let s = isoStr;
-                if (!s.includes('Z') && !s.includes('+') && !s.includes('-')) s += 'Z';
-                else if (!s.includes('Z') && !s.includes('+') && s.includes('T')) {
-                    if (s.split('-').length === 3 && !s.slice(10).includes('-')) s += 'Z';
-                }
-                const d = new Date(s);
-                return d.toLocaleString('es-PE', {
+                const d = parseFechaMovimiento(isoStr);
+                return d ? d.toLocaleString('es-PE', {
                     timeZone: 'America/Lima',
                     year: 'numeric',
                     month: '2-digit',
@@ -2397,7 +2709,7 @@
                     minute: '2-digit',
                     second: '2-digit',
                     hour12: true
-                });
+                }) : '';
             }
 
             function poblarFechasPorDestino(destino) {
@@ -2482,9 +2794,15 @@
                     const tipoMov = selectTipoMov.value;
                     let filtroTxt = selectTipoMov.options[selectTipoMov.selectedIndex]?.text || 'Todos';
 
+                    const selectFam = document.getElementById('filtroFamilia');
+                    const famNombre = selectFam && selectFam.value ? selectFam.options[selectFam.selectedIndex]?.text : '';
+                    if (famNombre && !famNombre.includes('Todas')) {
+                        filtroTxt += ` | Fam: ${famNombre.replace('📁 ', '')}`;
+                    }
+
                     const selectCat = document.getElementById('filtroCategoria');
                     const catNombre = selectCat && selectCat.value ? selectCat.options[selectCat.selectedIndex]?.text : '';
-                    if (catNombre && catNombre !== 'Todas') {
+                    if (catNombre && !catNombre.includes('Todas')) {
                         filtroTxt += ` | Cat: ${catNombre}`;
                     }
 
@@ -3546,11 +3864,11 @@
                     const username = mov.created_by ? mov.created_by : 'Sistema';
                     if (mov.tipo_movimiento === 'INGRESO') {
                         title.textContent = `Código del movimiento: ${mov.documento_referencia}`;
-                        subtitle.textContent = `Registrado el ${new Date(mov.fecha_movimiento).toLocaleString()} por ${username}`;
+                        subtitle.textContent = `Registrado el ${obtenerFechaHoraLocal(mov.fecha_movimiento)} por ${username}`;
                         await fetchDetallesIngreso(mov.documento_referencia, content);
                     } else if (mov.tipo_movimiento === 'EGRESO') {
                         title.textContent = `Código del movimiento: ${mov.codigo_venta || mov.documento_referencia || 'Sin Referencia'}`;
-                        subtitle.textContent = `Registrado el ${new Date(mov.fecha_movimiento).toLocaleString()} por ${username}`;
+                        subtitle.textContent = `Registrado el ${obtenerFechaHoraLocal(mov.fecha_movimiento)} por ${username}`;
                         await fetchDetallesEgreso(mov.documento_referencia, content);
                     } else {
                         content.innerHTML = '<p class="text-center text-gray-500">No hay detalles adicionales disponibles para este tipo de movimiento.</p>';
