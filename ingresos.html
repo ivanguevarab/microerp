@@ -2932,10 +2932,8 @@
                             switchAuto.checked = false; // reset por defecto
                         }
 
-                        // Agrupar en Lotes (particionados en microlotes de máximo 15 items para erradicar timeouts de PostgREST)
-                        const CHUNK_SIZE_EXCEL = 15;
+                        // Agrupar en Lotes unificados por proveedor y condición de pago
                         let lotesMap = {};
-                        let itemCounters = {};
 
                         validRows.forEach((r, idx) => {
                             let baseKey = `${r.proveedor.id}___${r.condicionPago}`;
@@ -2943,11 +2941,7 @@
                                 baseKey = `${baseKey}___Fila${idx}`;
                             }
 
-                            if (!itemCounters[baseKey]) itemCounters[baseKey] = 0;
-                            const chunkIdx = Math.floor(itemCounters[baseKey] / CHUNK_SIZE_EXCEL);
-                            itemCounters[baseKey]++;
-
-                            const key = isSingular ? baseKey : `${baseKey}___Chunk${chunkIdx}`;
+                            const key = baseKey;
 
                             if(!lotesMap[key]) {
                                 lotesMap[key] = {
@@ -3121,39 +3115,67 @@
                     const { data: numeroIngresoGenerado, error: errorNum } = await supabaseApp.rpc('generar_numero_ingreso');
                     if (errorNum) throw errorNum;
 
-                    const payload = {
-                        tipo_ingreso_id: tipoIngreso,
-                        proveedor_id: lote.proveedor.id,
-                        almacen_destino_id: almacen,
-                        fecha_ingreso: fechaDocumentoBase,
-                        numero_ingreso: numeroIngresoGenerado,
-                        estado: 'REGISTRADO',
-                        con_factura: (tipoDoc === 'FACTURA'),
-                        tipo_documento: tipoDoc,
-                        serie_factura: null,
-                        numero_factura: null,
-                        fecha_documento: tipoDoc === 'SIN_COMPROBANTE' ? null : fechaDocumentoBase,
-                        subtotal: subtotalGlobal,
-                        igv_credito_fiscal_total: igvGlobal,
-                        costo_adquisicion_total: totalItems,
-                        otros_egresos_total: 0,
-                        monto_segun_documentos: totalItems,
-                        forma_pago: formaPago,
-                        medio_pago: formaPago === 'CONTADO' ? medioPago : null,
-                        referencia_pago: null,
-                        pago_inicial: 0,
-                        saldo_credito: 0,
-                        egreso_real_pagado: totalItems,
-                        fecha_pago: formaPago === 'CONTADO' ? fechaDocumentoBase : null,
-                        fecha_vencimiento: null,
-                        es_inventario_inicial: true,
-                        created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema_Auto',
-                        detalles: loteDetalles,
-                        gastos: []
-                    };
+                    let loteIngresoId = null;
+                    const totalLoteItems = loteDetalles.length;
 
-                    const { data: resultRegistro, error: errorRegistro } = await supabaseApp.rpc('fn_registrar_ingreso', { p_payload: payload });
-                    if (errorRegistro) throw errorRegistro;
+                    for (let itemIdx = 0; itemIdx < totalLoteItems; itemIdx++) {
+                        const itemDetalle = loteDetalles[itemIdx];
+                        const itemSubtotal = itemDetalle.valor_compra_total;
+                        const itemIgv = itemDetalle.igv_credito_fiscal_producto;
+                        const itemTotal = itemDetalle.precio_compra_total;
+
+                        if (totalLoteItems > 1) {
+                            txtProgreso.innerText = `Procesando lote ${procesados} de ${total} (ítem ${itemIdx + 1} de ${totalLoteItems})...`;
+                        }
+
+                        const payload = {
+                            ingreso_id: loteIngresoId,
+                            tipo_ingreso_id: tipoIngreso,
+                            proveedor_id: lote.proveedor.id,
+                            almacen_destino_id: almacen,
+                            fecha_ingreso: fechaDocumentoBase,
+                            numero_ingreso: numeroIngresoGenerado,
+                            estado: 'REGISTRADO',
+                            con_factura: (tipoDoc === 'FACTURA'),
+                            tipo_documento: tipoDoc,
+                            serie_factura: null,
+                            numero_factura: null,
+                            fecha_documento: tipoDoc === 'SIN_COMPROBANTE' ? null : fechaDocumentoBase,
+                            subtotal: itemSubtotal,
+                            igv_credito_fiscal_total: itemIgv,
+                            costo_adquisicion_total: itemTotal,
+                            otros_egresos_total: 0,
+                            monto_segun_documentos: itemTotal,
+                            forma_pago: formaPago,
+                            medio_pago: formaPago === 'CONTADO' ? medioPago : null,
+                            referencia_pago: null,
+                            pago_inicial: 0,
+                            saldo_credito: 0,
+                            egreso_real_pagado: itemIdx === 0 ? totalItems : 0,
+                            fecha_pago: formaPago === 'CONTADO' ? fechaDocumentoBase : null,
+                            fecha_vencimiento: null,
+                            es_inventario_inicial: true,
+                            created_by: window.currentUserProfile?.nombre_completo || window.currentUser?.email || 'Sistema_Auto',
+                            detalles: [itemDetalle],
+                            gastos: []
+                        };
+
+                        const { data: rawResult, error: errorRegistro } = await supabaseApp.rpc('fn_registrar_ingreso', { p_payload: payload });
+                        if (errorRegistro) throw errorRegistro;
+
+                        const resultRegistro = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
+                        if (!resultRegistro || !resultRegistro.success) {
+                            throw new Error(resultRegistro ? resultRegistro.message : 'Error en guardado de item');
+                        }
+
+                        if (!loteIngresoId && resultRegistro.ingreso_id) {
+                            loteIngresoId = resultRegistro.ingreso_id;
+                        }
+
+                        if (totalLoteItems > 1) {
+                            await new Promise(resolve => setTimeout(resolve, 80));
+                        }
+                    }
 
                     lote.completado = true;
                     await new Promise(resolve => setTimeout(resolve, 150)); // Respiro al navegador
@@ -3722,17 +3744,18 @@
                     fecha_emision: gasto.fecha || null
                 })) : [];
 
-                // 2. Procesamiento Atómico por Microlotes (Máximo 15 items por petición para prevenir timeouts de PostgREST)
-                const CHUNK_SIZE = 15;
+                // 2. Procesamiento Atómico por Microlotes (Item-Batching: 1 ítem por petición para inmunidad total contra timeouts)
+                const CHUNK_SIZE = 1;
                 const totalChunks = Math.ceil(todosLosDetalles.length / CHUNK_SIZE);
                 let ingresoIdCreado = null;
                 let todasVentasRegularizadas = [];
 
                 for (let c = 0; c < totalChunks; c++) {
                     const chunkDetalles = todosLosDetalles.slice(c * CHUNK_SIZE, (c + 1) * CHUNK_SIZE);
+                    const descItem = detalleIngreso[c]?.descripcion || `Ítem ${c + 1}`;
                     
                     if (totalChunks > 1) {
-                        mostrarToast(`Guardando microlote ${c + 1} de ${totalChunks} (${(c * CHUNK_SIZE) + 1} al ${Math.min((c + 1) * CHUNK_SIZE, todosLosDetalles.length)} items)...`, 'info');
+                        mostrarToast(`Guardando ítem ${c + 1} de ${totalChunks} (${descItem})...`, 'info');
                     }
 
                     const chunkSubtotal = chunkDetalles.reduce((sum, i) => sum + i.valor_compra_total, 0);
